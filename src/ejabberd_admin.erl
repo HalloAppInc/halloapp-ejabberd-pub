@@ -76,7 +76,7 @@
     request_phone_logs/1,
     request_uid_logs/1,
     reload_modules/1,
-    friend_recos/1
+    friend_recos/2
 ]).
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
@@ -1027,7 +1027,7 @@ request_uid_logs(Uid) ->
             io:format("No account associated with uid: ~s~n", [Uid])
     end.
 
-friend_recos(Uid) ->
+friend_recos(Uid, NumCommunityRecos) ->
     ?INFO("Admin requesting friend recommendations for uid: ~s", [Uid]),
     case model_accounts:account_exists(Uid) of
         false -> io:format("There is no account associated with uid: ~s~n", [Uid]);
@@ -1048,7 +1048,7 @@ friend_recos(Uid) ->
             io:format("Last connection on ~s at ~s~n", [LastConnDate, LastConnTime]),
             io:format("Current Version: ~s Lang: ~s~n", [Account#account.client_version, Account#account.lang_id]),
 
-            {ok, RecommendationList} = mod_friend_recommendations:generate(Uid, Phone),
+            {ok, RecommendationList} = mod_friend_recommendations:generate(Uid, Phone, NumCommunityRecos),
             io:format("(~p recommendations):~n", [length(RecommendationList)]),
             [io:format("  ~s ~w ~s ~p ~s ~n", [CorF, CPhone, FUid, FNumFriends, FName]) ||
                 {CorF, CPhone, FUid, FName, FNumFriends} <- RecommendationList]

@@ -8,13 +8,14 @@
 -author('vipin').
 
 -export([
-    generate/2
+    generate/3
 ]).
 
 -include("ha_types.hrl").
 
--spec generate(Uid :: uid(), Phone :: binary()) -> [{string(), integer(), binary(), binary(), integer()}].
-generate(Uid, Phone) ->
+-spec generate(Uid :: uid(), Phone :: binary(), NumCommunityRecos :: non_neg_integer()) -> 
+        [{string(), integer(), binary(), binary(), integer()}].
+generate(Uid, Phone, NumCommunityRecos) ->
     %% Get list of users that have Phone in their list of contacts.
     {ok, ReverseUids} = model_contacts:get_contact_uids(Phone),
     ReversePhones = model_accounts:get_phones(ReverseUids),
@@ -23,7 +24,7 @@ generate(Uid, Phone) ->
     {ok, ContactPhones} = model_contacts:get_contacts(Uid),
 
     % Get Uid's community-based recommendation list (Currently just getting whole list)
-    CommunityUids = model_friends:get_friend_recommendations(Uid),
+    CommunityUids = lists:sublist(model_friends:get_friend_recommendations(Uid), NumCommunityRecos),
     CommunityPhones = model_accounts:get_phones(CommunityUids),
 
     %% Combined list of three represents potential list of friends.
