@@ -1049,7 +1049,7 @@ friend_recos(Uid) ->
             io:format("Current Version: ~s Lang: ~s~n", [Account#account.client_version, Account#account.lang_id]),
 
             {ok, RecommendationList} = mod_friend_recommendations:generate(Uid, Phone),
-            io:format("~p recommendations):~n", [length(RecommendationList)]),
+            io:format("(~p recommendations):~n", [length(RecommendationList)]),
             [io:format("  ~s ~w ~s ~p ~s ~n", [CorF, CPhone, FUid, FNumFriends, FName]) ||
                 {CorF, CPhone, FUid, FName, FNumFriends} <- RecommendationList]
     end,
