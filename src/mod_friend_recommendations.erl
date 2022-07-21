@@ -28,7 +28,7 @@ generate(Uid, Phone) ->
     ContactPhones3 = [Phone2 || Phone2 <- ContactPhones2, Phone2 =/= undefined],
     PhoneToUidMap = model_phone:get_uids(ContactPhones3),
     ContactUids = maps:values(PhoneToUidMap),
-    {ok, Friends} = model_friends:s(Uid),
+    {ok, Friends} = model_friends:get_friends(Uid),
     RealFriends = model_accounts:filter_nonexisting_uids(lists:delete(Uid, Friends)),
 
     %% Set of recommended friends.
