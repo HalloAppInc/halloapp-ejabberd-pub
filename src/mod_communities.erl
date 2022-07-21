@@ -7,6 +7,18 @@
 %%% Created : 16. Jun 2022 12:44 PM
 %%%-------------------------------------------------------------------
 
+%%%-------------------------------------------------------------------
+%% This module implements a community detection algorithm using label propagation following 
+%% Steve Gregory's 2010 paper (doi: https://doi.org/10.1088/1367-2630/12/10/103018) 
+%% The basic idea is to start with each node in its own community, and then iteratively assign it 
+%% the communities held by the majority of its neighbors (i.e. if 4 of node 1's friends are in 
+%% community 7 and 3 friends are in community 6, then node 1 will join community 7). This specific 
+%% version of the algorithm was chosen because it allows for nodes to be a part of multiple 
+%% communities, which often occurs in social networks. The specific number of communities a node is 
+%% able to be a part of is configurable using the DEFAULT_MAX_COMMUNITIES macro in community.hrl or 
+%% as the input to compute_communities/1.
+%%%-------------------------------------------------------------------
+
 -module(mod_communities).
 -author(luke).
 
@@ -37,8 +49,7 @@
     unschedule/0,
     analyze_communities/1,
     compute_communities/0,
-    compute_communities/1,
-    load_key/2
+    compute_communities/1
 ]).
 
 % parallel processing functions
@@ -150,16 +161,6 @@ community_fold_fun(CommunityId, _MemberList,
 %%====================================================================
 %% Community Detection API
 %%====================================================================
-%% This module implements a community detection algorithm using label propagation following 
-%% Steve Gregory's 2010 paper (doi: https://doi.org/10.1088/1367-2630/12/10/103018) 
-%% The basic idea is to start with each node in its own community, and then iteratively assign it 
-%% the communities held by the majority of its neighbors (i.e. if 4 of node 1's friends are in 
-%% community 7 and 3 friends are in community 6, then node 1 will join community 7). This specific 
-%% version of the algorithm was chosen because it allows for nodes to be a part of multiple 
-%% communities, which often occurs in social networks. The specific number of communities a node is 
-%% able to be a part of is configurable using the DEFAULT_MAX_COMMUNITIES macro in community.hrl or 
-%% as the input to compute_communities/1
-
 
 -spec get_option(Option :: atom(), Default :: term(), OptList :: [propagation_option()]) -> term().
 get_option(Option, Default, OptList) ->
@@ -235,6 +236,30 @@ setup_community_detection(NumWorkers, FreshStart) ->
     ok.
 
 
+% * Main loop of label propagation algorithm:
+% * Propagates new labels and then checks termination condition
+-spec identify_communities(PrevMin :: map(), MaxNumCommunities :: pos_integer(), BatchSize :: pos_integer(),
+        {IterNum :: non_neg_integer(), MaxIters :: non_neg_integer()}) -> non_neg_integer().
+identify_communities(PrevMin, _MaxNumCommunities, _BatchSize, {MaxIters, MaxIters}) ->
+    ?INFO("Community identification reached maximum iteration limit of ~p", [MaxIters]),
+    {PrevMin, MaxIters}; % return map that can be used to continue computation
+identify_communities(PrevMin, MaxNumCommunities, BatchSize, {IterNum, MaxIters}) ->
+    % Do an iteration of label propagation
+    ?INFO("Iteration ~p/~p", [IterNum + 1, MaxIters]),
+    {MinCommunityIdCounts, Continue} = single_step_label_propagation(PrevMin, MaxNumCommunities, BatchSize),
+
+    case Continue of 
+        true -> 
+                % If we should continue, apply the labels we just calculated and go again
+                apply_single_step_labels(),
+                identify_communities(MinCommunityIdCounts, MaxNumCommunities, BatchSize, 
+                    {IterNum + 1, MaxIters});
+        false -> 
+            ?INFO("Label Propagation Finished!!"),
+            {#{}, IterNum + 1} % count this iteration, return empty map to indicate success
+    end.
+
+
 % * Do a single round of calculating new labels
 -spec single_step_label_propagation(PrevMin :: map(), MaxNumCommunities :: pos_integer(), 
         BatchSize :: pos_integer()) -> {map(), boolean()}.
@@ -245,7 +270,7 @@ single_step_label_propagation(PrevMin, MaxNumCommunities, BatchSize) ->
     % calculate new labels for each node in parallel batches of size ?MATCH_CHUNK_SIZE
     foreach_uid_batch(batch_propagate, [MaxNumCommunities], BatchSize),
 
-    % check termination condition
+    % check termination condition -- essentially: are the sizes of communities meaningfully changing?
     {OldCommunityIdCounts, NewCommunityIdCounts} = get_community_membership_counts(),
     CombinedCommunityIds = maps:merge(OldCommunityIdCounts, NewCommunityIdCounts),
 
@@ -279,9 +304,12 @@ finish_community_detection(BatchSize, SmallClusterThreshold) ->
     Start = util:now_ms(),
     % Now post processing to clean up the community set and remove communities that are subsets of others
     
+    % First, combine any small disjoint clusters of users, as they aren't handled very well by the 
+    % label propagation algorithm
     foreach_uid_batch(batch_combine_small_clusters, [SmallClusterThreshold], BatchSize),
     
-    {DirtyCommunities, SubsetMap} = foreach_uid_acc(
+    % Now filter out any communities that are just subsets of other communities
+    {DirtyCommunities, SubsetMap} = fold_all_uids(
         fun (Uid, CurLabel, _NewLabel, Acc) -> 
             identify_community_subsets(Uid, CurLabel, Acc) 
         end, {#{}, #{}}),
@@ -290,7 +318,7 @@ finish_community_detection(BatchSize, SmallClusterThreshold) ->
              (_, _) -> true 
         end, SubsetMap)),
     
-    % final map of #{communities => #{members => belonging}} with no subsets
+    % final map of #{CommunityId => #{members => belonging}} with no subsets
     Communities = maps:without(CommunitySubsets, DirtyCommunities), 
     % only include proper communities in final Uid labels
     ok = foreach_uid(fun (Uid, CurLabel, _) -> 
@@ -361,45 +389,48 @@ load_keys(0, N, Node, _FreshStart) when N > 0 orelse Node == -1 ->
     ?INFO("Done loading keys from Node ~p!", [Node]),
     N;
 load_keys(Cursor, N, Node, FreshStart) ->
-    {NewCur, Uids} = model_accounts:scan(Node, Cursor, ?SCAN_BLOCK_SIZE),
+    {NewCur, BinKeys} = model_accounts:scan(Node, Cursor, ?SCAN_BLOCK_SIZE),
+    Uids = lists:map(
+        fun (BinKey) ->
+            extract_uid(BinKey)
+        end, BinKeys),
+    {ok, FriendMap} = model_friends:get_friends(Uids),
     case {Uids, Cursor} of 
         {[], 0} -> N;
-        _ -> lists:foreach(fun (Uid) -> load_key(Uid, FreshStart) end, Uids),
+        _ -> lists:foreach(
+                fun (Uid) -> 
+                    Friends = lists:delete(Uid, maps:get(Uid, FriendMap)),
+                    load_key(Uid, Friends, FreshStart) 
+                end, 
+                Uids),
             load_keys(NewCur, N+length(Uids), Node, FreshStart)
     end.
 
 % * Called on each Uid -- Used to load Uid data from Redis into ETS
--spec load_key(binary(), boolean())  -> boolean().
-load_key(BinKey, FreshStart) ->
-    IsValid = is_valid_account_key(BinKey),
-    Uid = case IsValid of
-        true -> extract_uid(BinKey);
-        false -> 
-            ?INFO("Error: invalid uid ~p", [BinKey]),
-            undefined
-    end,
+-spec load_key(binary(), [uid()], boolean())  -> boolean().
+load_key(_Uid, [], _FreshStart) -> 
+    false; %if no friends, don't add
+load_key(Uid, _Friends, FreshStart) ->
     StartingLabel = case {Uid, FreshStart} of 
         {undefined, _} -> {error, "undefined Uid"};
         {_, true} -> #{Uid => 1.0};
         {_, false} -> model_accounts:get_community_label(Uid)
     end,
     case StartingLabel of
-        {error, _Info} -> ?INFO("Warning: Not adding ~p. IsValid: ~p", [BinKey, IsValid]), false;
+        {error, _Info} -> ?INFO("Warning: Not adding ~p.", [Uid]), false;
         undefined -> 
-            ?INFO("Warning: undefined starting label for uid ~p, binary ~p", [Uid, BinKey]),
+            ?INFO("Warning: undefined starting label for uid ~p", [Uid]),
             ets:insert_new(?COMMUNITY_DATA_TABLE, {label_key(Uid), #{Uid => 1.0}, #{}}); %idempotent
         _ -> ets:insert_new(?COMMUNITY_DATA_TABLE, {label_key(Uid), StartingLabel, #{}}) %idempotent
     end.
 
--spec is_valid_account_key(binary()) -> boolean().
-is_valid_account_key(BinKey) ->
-    GoodPrefix = binary:longest_common_prefix([BinKey, ?ACCOUNT_KEY]) == byte_size(?ACCOUNT_KEY),
-    GoodLength = byte_size(BinKey) > byte_size(?ACCOUNT_KEY) + 3, % This 3 is the {} plus >= one more for the uid
-    GoodPrefix andalso GoodLength.
-
 extract_uid(BinKey) ->
-    [?ACCOUNT_KEY, Uid] = binary:split(BinKey, [<<"{">>, <<"}">>], [trim_all, global]),
-    Uid.
+    Result = re:run(BinKey, "^acc:{([0-9]+)}$", [global, {capture, all, binary}]),
+    case Result of
+        {match, [[_FullKey, Uid]]} ->
+            Uid;
+        _ -> <<"">>
+    end.
 
 -spec batch_set_labels(pid(), [list()]) -> ok | {error | any()}.
 batch_set_labels(ParentPid, MatchList) ->
@@ -417,28 +448,116 @@ batch_set_labels(ParentPid, MatchList) ->
 %% Label Propagation Functions
 %%====================================================================
 
-% * Main loop of label propagation algorithm:
-% * Propagates new labels and then checks termination condition
--spec identify_communities(PrevMin :: map(), MaxNumCommunities :: pos_integer(), BatchSize :: pos_integer(),
-        {IterNum :: non_neg_integer(), MaxIters :: non_neg_integer()}) -> non_neg_integer().
-identify_communities(PrevMin, _MaxNumCommunities, _BatchSize, {MaxIters, MaxIters}) ->
-    ?INFO("Community identification reached maximum iteration limit of ~p", [MaxIters]),
-    {PrevMin, MaxIters}; % return map that can be used to continue computation
-identify_communities(PrevMin, MaxNumCommunities, BatchSize, {IterNum, MaxIters}) ->
-    % Do an iteration of label propagation
-    ?INFO("Iteration ~p/~p", [IterNum + 1, MaxIters]),
-    {MinCommunityIdCounts, Continue} = single_step_label_propagation(PrevMin, MaxNumCommunities, BatchSize),
+% Calls propagate/3 for all uids in a batch (to limit redis calls)
+-spec batch_propagate(ParentPid :: pid(), MatchList :: list(), MaxNumCommunities :: pos_integer()) -> ok | {error, any()}.
+batch_propagate(ParentPid, MatchList, MaxNumCommunities) ->
+    Uids = lists:map(
+        fun ([Uid, _CurLabel, _NewLabel]) -> 
+            Uid 
+        end, 
+        MatchList),
+    {ok, Friends} = model_friends:get_friends(Uids),
+    % ?dbg("Got batch for ~p -> ~p", [Uids, Friends]),
 
-    case Continue of 
-        true -> 
-                % If we should continue, apply the labels we just calculated and go again
-                apply_single_step_labels(),
-                identify_communities(MinCommunityIdCounts, MaxNumCommunities, BatchSize, 
-                    {IterNum + 1, MaxIters});
-        false -> 
-            ?INFO("CommunityDetection Finished!!"),
-            {#{}, IterNum + 1} % count this iteration, return empty map to indicate success
+    % Propagate labels for all uids
+    lists:foreach(
+        fun (Uid) -> 
+            RealFriends = remove_deleted_and_self_friends(Uid, maps:get(Uid, Friends)), %if undefined return []
+            propagate(Uid, RealFriends, MaxNumCommunities) 
+        end, 
+        Uids),
+    ParentPid ! {done, self()},
+    ok.
+
+
+% * Called on each Uid -- Used to calculate next label for each node
+-spec propagate(uid(), FriendList :: [uid()], MaxNumCommunities :: pos_integer()) -> ok | {error, any()}.
+propagate(Uid, [], _MaxNumCommunities) -> 
+    % TODO (luke) this clause will be unecessary once we run the migration to clean up deleted friends
+    ?INFO("Not propagating for ~p because no friends", [Uid]),
+    ets:delete(?COMMUNITY_DATA_TABLE, label_key(Uid));
+propagate(Uid, FriendList, MaxNumCommunities) ->
+    % ?dbg("---------------------- Updating label for ~p--------------------------", [Uid]),
+    % ?dbg("Friends: ~p", [FriendList]),
+    FriendLabels = get_friend_labels(FriendList),
+
+    % combine labels of all friends by summing each communities belonging coeff
+    FriendLabelUnion = lists:foldl(
+        fun(FriendLabel, Acc) ->
+            util:map_merge_with(
+                fun(_CommunityId, BNew, BCur) -> 
+                    BNew + BCur 
+                end, 
+                FriendLabel, 
+                Acc)
+        end, #{}, FriendLabels),
+
+    NormDirtyLabel = normalize_label(FriendLabelUnion),
+
+    % remove all communities from label with belong_coeff < 1/MaxNumCommunities
+    %   Basically just trim to limit the number of communities
+    CleanThreshold = 1.0 / MaxNumCommunities,
+    CleanLabel = maps:filter(fun(_CommunityId, B) -> 
+                                B >= CleanThreshold 
+                            end, 
+                            NormDirtyLabel),
+
+    NewLabel = case maps:size(CleanLabel) > 0 of
+        true -> normalize_label(CleanLabel);
+        false -> #{strongest_community_id(NormDirtyLabel) => 1.0} % if all are < threshold, pick highest B
+    end,
+
+    case ets:update_element(?COMMUNITY_DATA_TABLE, label_key(Uid), {?NEW_LABEL_POS, NewLabel}) of
+        true -> ok;
+        false -> {error, "Element not found"}    
     end.
+
+% * Used to generate data for termination condition
+-spec get_community_membership_counts() -> {map(), map()}.
+get_community_membership_counts() ->
+    fold_all_uids(
+        fun(_Uid, CurLabel, NewLabel, Acc) -> 
+            get_community_membership_counts_acc(CurLabel, NewLabel, Acc) 
+        end, {#{}, #{}}).
+
+
+% * Called on each Uid's labels -- Used to accumulate data to find the membership count of 
+% * active communities
+-spec get_community_membership_counts_acc(community_label(), community_label(), {map(), map()}) -> 
+        {map(), map()}.
+get_community_membership_counts_acc(CurLabel, NewLabel, {OldAcc, NewAcc}) ->
+    OldCommunityIdCount = maps:map(fun(CommunityId, _BCur) -> 
+                                        maps:get(CommunityId, OldAcc, 0) + 1
+                                   end, 
+                                   CurLabel),
+
+    NewCommunityIdCount = maps:map(fun(CommunityId, _BCur) -> 
+                                        maps:get(CommunityId, NewAcc, 0) + 1
+                                   end, 
+                                   NewLabel),
+    OldAcc1 = maps:merge(OldAcc, OldCommunityIdCount),
+    NewAcc1 = maps:merge(NewAcc, NewCommunityIdCount),
+    {OldAcc1, NewAcc1}.
+
+
+% * Used to calculate termination condition
+-spec min_counts(map(), map()) -> map().
+min_counts(CommunityIdCount1, CommunityIdCount2) ->
+    Min = fun (_CommunityId, B1, B2) -> 
+              min(B1, B2) 
+          end,
+    util:map_intersect_with(Min, CommunityIdCount1, CommunityIdCount2).
+
+
+% * Ensures that each node's belonging coefficients sum to 1
+-spec normalize_label(community_label()) -> community_label().
+normalize_label(Label) ->
+    Sum = maps:fold(fun(_CommunityId, Value, Acc) -> 
+                        Acc + Value 
+                    end, 
+                    0, Label),
+    Div = fun(_CommunityId, B) -> B / Sum end,
+    maps:map(Div, Label).
 
 
 % * Called on each Uid -- Used to remove communities that are subsets of other communities
@@ -464,103 +583,6 @@ identify_community_subsets(Uid, CurLabel, {Communities, Subsets}) ->
                 end, 
                 {Communities, Subsets}, LabelList).
 
-
--spec batch_propagate(ParentPid :: pid(), MatchList :: list(), MaxNumCommunities :: pos_integer()) -> ok | {error, any()}.
-batch_propagate(ParentPid, MatchList, MaxNumCommunities) ->
-    Uids = lists:map(
-        fun ([Uid, _CurLabel, _NewLabel]) -> 
-            Uid 
-        end, 
-        MatchList),
-    {ok, Friends} = model_friends:get_friends(Uids),
-    % ?dbg("Got batch for ~p -> ~p", [Uids, Friends]),
-
-    lists:foreach(
-        fun (Uid) -> 
-            RealFriends = remove_deleted_and_self_friends(Uid, maps:get(Uid, Friends)), %if undefined return []
-            case RealFriends of
-                [] -> ets:delete(?COMMUNITY_DATA_TABLE, label_key(Uid)); % if they have no friends dont process them
-                _ -> propagate(Uid, RealFriends, MaxNumCommunities) 
-            end
-        end, 
-        Uids),
-    ParentPid ! {done, self()},
-    ok.
-
-
-% * Called on each Uid -- Used to calculate next label for each node
--spec propagate(uid(), FriendList :: [uid()], MaxNumCommunities :: pos_integer()) -> ok | {error, any()}.
-propagate(Uid, FriendList, MaxNumCommunities) ->
-    % ?dbg("---------------------- Updating label for ~p--------------------------", [Uid]),
-    % ?dbg("Friends: ~p", [FriendList]),
-    FriendLabels = get_friend_labels(FriendList),
-
-    % combine labels of all friends by summing each communities belonging coeff
-    FriendLabelUnion = lists:foldl(
-        fun(FriendLabel, Acc) ->
-            util:map_merge_with(fun(_CommunityId, BNew, BCur) -> BNew + BCur end, FriendLabel, Acc)
-        end, #{}, FriendLabels),
-
-    NormDirtyLabel = normalize_label(FriendLabelUnion),
-
-    % remove all communities from label with belong_coeff < 1/MaxNumCommunities
-    CleanThreshold = 1.0 / MaxNumCommunities,
-    CleanLabel = maps:filter(fun(_CommunityId, B) -> 
-                                B >= CleanThreshold 
-                            end, 
-                            NormDirtyLabel),
-
-    NewLabel = case maps:size(CleanLabel) > 0 of
-        true -> normalize_label(CleanLabel);
-        false -> #{strongest_community_id(NormDirtyLabel) => 1.0} % if all are < threshold, pick highest B
-    end,
-
-    case ets:update_element(?COMMUNITY_DATA_TABLE, label_key(Uid), {?NEW_LABEL_POS, NewLabel}) of
-        true -> ok;
-        false -> {error, "Element not found"}    
-    end.
-
-% * Used to generate data for termination condition
--spec get_community_membership_counts() -> {map(), map()}.
-get_community_membership_counts() ->
-    foreach_uid_acc(
-        fun(_Uid, CurLabel, NewLabel, Acc) -> 
-            get_community_membership_counts_acc(CurLabel, NewLabel, Acc) 
-        end, {#{}, #{}}).
-
-% * Called on each Uid's labels -- Used to accumulate data to find active communities
--spec get_community_membership_counts_acc(community_label(), community_label(), {map(), map()}) -> {map(), map()}.
-get_community_membership_counts_acc(CurLabel, NewLabel, {OldAcc, NewAcc}) ->
-    OldCommunityIdCount = maps:map(fun(CommunityId, _BCur) -> 
-                                        maps:get(CommunityId, OldAcc, 0) + 1
-                                   end, 
-                                   CurLabel),
-
-    NewCommunityIdCount = maps:map(fun(CommunityId, _BCur) -> 
-                                        maps:get(CommunityId, NewAcc, 0) + 1
-                                   end, 
-                                   NewLabel),
-    OldAcc1 = maps:merge(OldAcc, OldCommunityIdCount),
-    NewAcc1 = maps:merge(NewAcc, NewCommunityIdCount),
-    {OldAcc1, NewAcc1}.
-
-% * Used to calculate termination condition
--spec min_counts(map(), map()) -> map().
-min_counts(CommunityIdCount1, CommunityIdCount2) ->
-    Min = fun (_CommunityId, B1, B2) -> 
-              min(B1, B2) 
-          end,
-    util:map_intersect_with(Min, CommunityIdCount1, CommunityIdCount2).
-
-% * Ensures that each node's belonging coefficients sum to 1
--spec normalize_label(community_label()) -> community_label().
-normalize_label(Label) ->
-    Sum = maps:fold(fun(_CommunityId, Value, Acc) -> 
-                        Acc + Value 
-                    end, 
-                    0, Label),
-    Div = fun(_CommunityId, B) -> B / Sum end,
-    maps:map(Div, Label).
 
 % * Called on each Uid -- Trims Label to only include final communities, renormalizes, and then applies to ETS
 -spec finalize_label(uid(), community_label(), map()) -> community_label().
@@ -707,8 +729,8 @@ do_for({EntryList, Cont}, Func) ->
 
 % Calls Func on each key of the table. Must take (Uid, CurLabel, NewLabel, Accumulator) as input and
 % return an updated accumulator to be passed to the next iteration
--spec foreach_uid_acc(Func :: atom(), Acc :: term()) -> term() | {error, any()}.
-foreach_uid_acc(Func, AccInit) ->
+-spec fold_all_uids(Func :: atom(), Acc :: term()) -> term() | {error, any()}.
+fold_all_uids(Func, AccInit) ->
     ets:safe_fixtable(?COMMUNITY_DATA_TABLE, true),
     Matches = ets:match(?COMMUNITY_DATA_TABLE, {{labelinfo, '$1'}, '$2', '$3'}, ?MATCH_CHUNK_SIZE),
 
