@@ -23,7 +23,7 @@ generate(Uid, Phone) ->
     {ok, ContactPhones} = model_contacts:get_contacts(Uid),
 
     % Get Uid's community-based recommendation list (Currently just getting whole list)
-    {ok, CommunityUids} = model_friends:get_friend_recommendations(Uid),
+    CommunityUids = model_friends:get_friend_recommendations(Uid),
     CommunityPhones = model_accounts:get_phones(CommunityUids),
 
     %% Combined list of three represents potential list of friends.
