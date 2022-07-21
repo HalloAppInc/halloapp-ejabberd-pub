@@ -22,9 +22,17 @@ generate(Uid, Phone) ->
     %% Get Uid's list of contacts.
     {ok, ContactPhones} = model_contacts:get_contacts(Uid),
 
-    %% Combined list of two represents potential list of friends.
+    % Get Uid's community-based recommendation list (Currently just getting whole list)
+    {ok, CommunityUids} = model_friends:get_friend_recommendations(Uid),
+    CommunityPhones = model_accounts:get_phones(CommunityUids),
+
+    %% Combined list of three represents potential list of friends.
     ContactPhones2 =
-        sets:to_list(sets:union(sets:from_list(ContactPhones), sets:from_list(ReversePhones))),
+        sets:to_list(sets:union([
+            sets:from_list(ContactPhones), 
+            sets:from_list(ReversePhones), 
+            sets:from_list(CommunityPhones)
+        ])),
     ContactPhones3 = [Phone2 || Phone2 <- ContactPhones2, Phone2 =/= undefined],
     PhoneToUidMap = model_phone:get_uids(ContactPhones3),
     ContactUids = maps:values(PhoneToUidMap),
@@ -39,6 +47,7 @@ generate(Uid, Phone) ->
         fun(_K, V) ->
             sets:is_element(V, RecoUidsSet)
         end, PhoneToUidMap),
+    RecoPhones = maps:keys(PhoneToUidMap2), % we can use this to not have to check friendship
 
     UidToNameMap = model_accounts:get_names(maps:values(PhoneToUidMap2)),
     PhoneToNumFriendsMap = maps:fold(
@@ -51,13 +60,13 @@ generate(Uid, Phone) ->
     ContactList = [{
         case maps:get(CPhone, PhoneToUidMap2, undefined) of      % Friend or Contact
             undefined -> "U";
-            FUid ->
-                case lists:member(FUid, RealFriends) of
-                    true -> "F";
-                    false ->
-                        case lists:member(CPhone, ContactPhones) of
-                            true -> "C";
-                            false -> "R"
+            _ ->
+                case lists:member(CPhone, ContactPhones) of
+                    true -> "C";
+                    false -> 
+                        case lists:member(CPhone, ReversePhones) of
+                            true -> "R";
+                            false -> "Y" 
                         end
                 end
         end,
@@ -65,11 +74,10 @@ generate(Uid, Phone) ->
         maps:get(CPhone, PhoneToUidMap, ""),                    % Uid,
         maps:get(CPhone, PhoneToNameMap, ""),                   % Name
         maps:get(CPhone, PhoneToNumFriendsMap, 0)               % Num Friends
-    } || CPhone <- ContactPhones3],
+    } || CPhone <- RecoPhones],
     FriendsRecommendationList =
-        [{CorF, P, _U, _N, _NF} || {CorF, P, _U, _N, _NF} <- ContactList,
-            (CorF =:= "C" orelse CorF =:= "R")
-            andalso not util:is_test_number(util:to_binary(P))
+        [{_CorF, P, _U, _N, _NF} || {_CorF, P, _U, _N, _NF} <- ContactList,
+            not util:is_test_number(util:to_binary(P))
             andalso util:to_binary(P) =/= Phone], 
     {ok, FriendsRecommendationList}.
 
