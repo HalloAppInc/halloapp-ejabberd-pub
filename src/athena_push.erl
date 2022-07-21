@@ -45,7 +45,8 @@ get_queries() ->
         push_latencies_version(?ANDROID, QueryTimeMsBin, ?MIN_ANDROID_VERSION),
         push_latencies_version(?IOS, QueryTimeMsBin, ?MIN_IOS_VERSION),
         push_latencies_cc(?ANDROID, QueryTimeMsBin, ?MIN_ANDROID_VERSION),
-        push_latencies_cc(?IOS, QueryTimeMsBin, ?MIN_IOS_VERSION)
+        push_latencies_cc(?IOS, QueryTimeMsBin, ?MIN_IOS_VERSION),
+        push_latencies_platform(QueryTimeMsBin, ?MIN_ANDROID_VERSION)
     ].
 
 
@@ -139,10 +140,10 @@ push_success_rates_platform(TimestampMsBin, _OldestClientVersion) ->
 push_latencies_version(Platform, TimestampMsBin, _OldestClientVersion) ->
     QueryBin = <<"
         SELECT server_push_sent.client_version as version, 
-            ROUND((AVG(CAST(client_push_received.timestamp_ms AS BIGINT)) 
+            ROUND(GREATEST(1000,AVG(CAST(client_push_received.push_received.client_timestamp AS BIGINT)) 
                 - AVG(CAST(server_push_sent.timestamp_ms AS BIGINT)))/1000.0, 2) as latency, count(*) as count
         FROM server_push_sent
-        RIGHT JOIN client_push_received
+        INNER JOIN client_push_received
         ON server_push_sent.push_id=client_push_received.push_received.id
         WHERE server_push_sent.platform='", Platform/binary, "'
             AND client_push_received.push_received.id IS NOT NULL
@@ -158,10 +159,10 @@ push_latencies_version(Platform, TimestampMsBin, _OldestClientVersion) ->
 push_latencies_cc(Platform, TimestampMsBin, _OldestClientVersion) ->
     QueryBin = <<"
         SELECT server_push_sent.cc as cc,
-            ROUND((AVG(CAST(client_push_received.timestamp_ms AS BIGINT)) 
+            ROUND(GREATEST(1000,AVG(CAST(client_push_received.push_received.client_timestamp AS BIGINT)) 
                 - AVG(CAST(server_push_sent.timestamp_ms AS BIGINT)))/1000.0, 2) as latency, count(*) as count
             FROM server_push_sent
-            RIGHT JOIN client_push_received
+            INNER JOIN client_push_received
             ON server_push_sent.push_id=client_push_received.push_received.id
             WHERE server_push_sent.platform='", Platform/binary, "'
                 AND client_push_received.push_received.id IS NOT NULL
@@ -172,6 +173,24 @@ push_latencies_cc(Platform, TimestampMsBin, _OldestClientVersion) ->
         tags = #{"platform" => util:to_list(Platform)},
         result_fun = {?MODULE, record_by_cc},
         metrics = ["push_latency_by_cc"]
+    }.
+
+push_latencies_platform(TimestampMsBin, _OldestClientVersion) ->
+    QueryBin = <<"
+        SELECT server_push_sent.platform as platform,
+            ROUND(GREATEST(1000,AVG(CAST(client_push_received.push_received.client_timestamp AS BIGINT)) 
+                - AVG(CAST(server_push_sent.timestamp_ms AS BIGINT)))/1000.0, 2) as latency, count(*) as count
+            FROM server_push_sent
+            INNER JOIN client_push_received
+            ON server_push_sent.push_id=client_push_received.push_received.id
+            WHERE client_push_received.push_received.id IS NOT NULL
+                AND server_push_sent.timestamp_ms>='", TimestampMsBin/binary, "'
+            GROUP BY server_push_sent.platform">>,
+    #athena_query{
+        query_bin = QueryBin,
+        tags = #{},
+        result_fun = {?MODULE, record_by_platform},
+        metrics = ["push_latency_by_platform"]
     }.
 
 
