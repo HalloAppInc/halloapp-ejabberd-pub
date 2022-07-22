@@ -76,7 +76,8 @@
     request_phone_logs/1,
     request_uid_logs/1,
     reload_modules/1,
-    friend_recos/2
+    friend_recos/2,
+    invite_recos/2
 ]).
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
@@ -1052,6 +1053,49 @@ friend_recos(Uid, NumCommunityRecos) ->
             io:format("(~p recommendations):~n", [length(RecommendationList)]),
             [io:format("  ~s ~w ~s ~p ~s ~n", [CorF, CPhone, FUid, FNumFriends, FName]) ||
                 {CorF, CPhone, FUid, FName, FNumFriends} <- RecommendationList]
+    end,
+    ok.
+
+invite_recos(Uid1, Uid2) ->
+    ?INFO("Admin requesting invite recommendations for uid1: ~s, uid2: ~s", [Uid1, Uid2]),
+    AccountExists = model_accounts:account_exists(Uid1) andalso model_accounts:account_exists(Uid2),
+    case AccountExists of
+        false -> io:format("One of the uids don't have an account. uid1: ~s, uid2: ~s~n", [Uid1, Uid2]);
+        true ->
+            {ok, #account{phone = Phone1, name = Name1, signup_user_agent = UserAgent1,
+                creation_ts_ms = CreationTs1, last_activity_ts_ms = LastActivityTs1} = Account1} =
+                model_accounts:get_account(Uid1),
+            {ok, #account{phone = Phone2, name = Name2, signup_user_agent = UserAgent2,
+                creation_ts_ms = CreationTs2, last_activity_ts_ms = LastActivityTs2} = Account2} =
+                model_accounts:get_account(Uid2),
+            {CreationDate1, CreationTime1} = util:ms_to_datetime_string(CreationTs1),
+            {LastActiveDate1, LastActiveTime1} = util:ms_to_datetime_string(LastActivityTs1),
+            {CreationDate2, CreationTime2} = util:ms_to_datetime_string(CreationTs2),
+            {LastActiveDate2, LastActiveTime2} = util:ms_to_datetime_string(LastActivityTs2),
+            ?INFO("Uid1: ~s, Name: ~s, Phone: ~s~n", [Uid1, Name1, Phone1]),
+            ?INFO("Uid2: ~s, Name: ~s, Phone: ~s~n", [Uid2, Name2, Phone2]),
+            io:format("Uid1: ~s~nName: ~s~nPhone: ~s~n", [Uid1, Name1, Phone1]),
+            io:format("Account created on ~s at ~s ua: ~s~n",
+                [CreationDate1, CreationTime1, UserAgent1]),
+            io:format("Last activity on ~s at ~s~n",
+                [LastActiveDate1, LastActiveTime1]),
+            io:format("Current Version: ~s Lang: ~s~n", [Account1#account.client_version, Account1#account.lang_id]),
+
+            io:format("Uid2: ~s~nName: ~s~nPhone: ~s~n", [Uid2, Name2, Phone2]),
+            io:format("Account created on ~s at ~s ua: ~s~n",
+                [CreationDate2, CreationTime2, UserAgent2]),
+            io:format("Last activity on ~s at ~s~n",
+                [LastActiveDate2, LastActiveTime2]),
+            io:format("Current Version: ~s Lang: ~s~n", [Account2#account.client_version, Account2#account.lang_id]),
+
+            {ok, Contact1} = model_contacts:get_contacts(Uid1),
+            {ok, Contact2} = model_contacts:get_contacts(Uid2),
+            CommonContacts = sets:to_list(sets:intersection(sets:from_list(Contact1), sets:from_list(Contact2))),
+            CommonUidsMap = model_phone:get_uids(CommonContacts),
+            NewInvites = [Ph || Ph <- CommonContacts, maps:get(Ph, CommonUidsMap, undefined) =:= undefined],
+
+            io:format("(~p invite recommendations):~n", [length(NewInvites)]),
+            [io:format("  ~s~n", [NewInvite]) || NewInvite <- NewInvites]
     end,
     ok.
 
