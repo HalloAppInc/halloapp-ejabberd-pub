@@ -77,7 +77,7 @@
     request_uid_logs/1,
     reload_modules/1,
     friend_recos/2,
-    invite_recos/2
+    invite_recos/3
 ]).
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
@@ -1056,7 +1056,7 @@ friend_recos(Uid, NumCommunityRecos) ->
     end,
     ok.
 
-invite_recos(Uid1, Uid2) ->
+invite_recos(Uid1, Uid2, MaxInviteRecommendations) ->
     ?INFO("Admin requesting invite recommendations for uid1: ~s, uid2: ~s", [Uid1, Uid2]),
     AccountExists = model_accounts:account_exists(Uid1) andalso model_accounts:account_exists(Uid2),
     case AccountExists of
@@ -1087,15 +1087,20 @@ invite_recos(Uid1, Uid2) ->
             io:format("Last activity on ~s at ~s~n",
                 [LastActiveDate2, LastActiveTime2]),
             io:format("Current Version: ~s Lang: ~s~n", [Account2#account.client_version, Account2#account.lang_id]),
+            {ok, FriendsMap} = model_friends:get_friends([Uid1, Uid2]),
+            Friend1 = maps:get(Uid1, FriendsMap),
+            Friend2 = maps:get(Uid2, FriendsMap),
+            CommonFriends = sets:to_list(sets:intersection(sets:from_list(Friend1), sets:from_list(Friend2))),
 
             {ok, Contact1} = model_contacts:get_contacts(Uid1),
             {ok, Contact2} = model_contacts:get_contacts(Uid2),
             CommonContacts = sets:to_list(sets:intersection(sets:from_list(Contact1), sets:from_list(Contact2))),
             CommonUidsMap = model_phone:get_uids(CommonContacts),
-            NewInvites = [Ph || Ph <- CommonContacts, maps:get(Ph, CommonUidsMap, undefined) =:= undefined],
+            NewInvites = [Ph || Ph <- CommonContacts, maps:get(Ph, CommonUidsMap, undefined) =:= undefined andalso not util:is_test_number(Ph)],
 
-            io:format("(~p invite recommendations):~n", [length(NewInvites)]),
-            [io:format("  ~s~n", [NewInvite]) || NewInvite <- NewInvites]
+            io:format("(~p common friends, ~p invite recommendations):~n", [length(CommonFriends), length(NewInvites)]),
+            NewInvites2 = lists:sublist(NewInvites, MaxInviteRecommendations),
+            [io:format("  ~s~n", [NewInvite]) || NewInvite <- NewInvites2]
     end,
     ok.
 
