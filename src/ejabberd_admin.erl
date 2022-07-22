@@ -1056,51 +1056,65 @@ friend_recos(Uid, NumCommunityRecos) ->
     end,
     ok.
 
-invite_recos(Uid1, Uid2, MaxInviteRecommendations) ->
-    ?INFO("Admin requesting invite recommendations for uid1: ~s, uid2: ~s", [Uid1, Uid2]),
-    AccountExists = model_accounts:account_exists(Uid1) andalso model_accounts:account_exists(Uid2),
+invite_recos(Uid, Ouids, MaxInviteRecommendations) ->
+    ?INFO("Admin requesting invite recommendations for uid: ~s, Ouids: ~p", [Uid, Ouids]),
+    OuidExistence = lists:filter(
+        fun (Ouid) ->
+            model_accounts:account_exists(Ouid)
+        end, 
+        Ouids),
+    AccountExists = model_accounts:account_exists(Uid) andalso length(OuidExistence) =:= length(Ouids),
     case AccountExists of
-        false -> io:format("One of the uids don't have an account. uid1: ~s, uid2: ~s~n", [Uid1, Uid2]);
+        false -> io:format("One of the uids don't have an account. uid: ~s, Ouids: ~p~n", [Uid, Ouids]);
         true ->
-            {ok, #account{phone = Phone1, name = Name1, signup_user_agent = UserAgent1,
-                creation_ts_ms = CreationTs1, last_activity_ts_ms = LastActivityTs1} = Account1} =
-                model_accounts:get_account(Uid1),
-            {ok, #account{phone = Phone2, name = Name2, signup_user_agent = UserAgent2,
-                creation_ts_ms = CreationTs2, last_activity_ts_ms = LastActivityTs2} = Account2} =
-                model_accounts:get_account(Uid2),
-            {CreationDate1, CreationTime1} = util:ms_to_datetime_string(CreationTs1),
-            {LastActiveDate1, LastActiveTime1} = util:ms_to_datetime_string(LastActivityTs1),
-            {CreationDate2, CreationTime2} = util:ms_to_datetime_string(CreationTs2),
-            {LastActiveDate2, LastActiveTime2} = util:ms_to_datetime_string(LastActivityTs2),
-            ?INFO("Uid1: ~s, Name: ~s, Phone: ~s~n", [Uid1, Name1, Phone1]),
-            ?INFO("Uid2: ~s, Name: ~s, Phone: ~s~n", [Uid2, Name2, Phone2]),
-            io:format("Uid1: ~s~nName: ~s~nPhone: ~s~n", [Uid1, Name1, Phone1]),
-            io:format("Account created on ~s at ~s ua: ~s~n",
-                [CreationDate1, CreationTime1, UserAgent1]),
-            io:format("Last activity on ~s at ~s~n",
-                [LastActiveDate1, LastActiveTime1]),
-            io:format("Current Version: ~s Lang: ~s~n", [Account1#account.client_version, Account1#account.lang_id]),
+            lists:foreach(
+                fun (Idx, Uid1) ->
+                    {ok, #account{phone = Phone, name = Name, signup_user_agent = UserAgent,
+                        creation_ts_ms = CreationTs, last_activity_ts_ms = LastActivityTs} = Account} =
+                        model_accounts:get_account(Uid1),
+                    {CreationDate, CreationTime} = util:ms_to_datetime_string(CreationTs),
+                    {LastActiveDate, LastActiveTime} = util:ms_to_datetime_string(LastActivityTs),
+                    ?INFO("Uid~p: ~s, Name: ~s, Phone: ~s~n", [Idx, Uid1, Name, Phone]),
+                    io:format("Uid~p: ~s~nName: ~s~nPhone: ~s~n", [Idx, Uid1, Name, Phone]),
+                    io:format("Account created on ~s at ~s ua: ~s~n",
+                        [CreationDate, CreationTime, UserAgent]),
+                    io:format("Last activity on ~s at ~s~n",
+                        [LastActiveDate, LastActiveTime]),
+                    io:format("Current Version: ~s Lang: ~s~n", [Account#account.client_version, Account#account.lang_id])
+                end,
+                lists:enumerate([Uid | Ouids])),
 
-            io:format("Uid2: ~s~nName: ~s~nPhone: ~s~n", [Uid2, Name2, Phone2]),
-            io:format("Account created on ~s at ~s ua: ~s~n",
-                [CreationDate2, CreationTime2, UserAgent2]),
-            io:format("Last activity on ~s at ~s~n",
-                [LastActiveDate2, LastActiveTime2]),
-            io:format("Current Version: ~s Lang: ~s~n", [Account2#account.client_version, Account2#account.lang_id]),
-            {ok, FriendsMap} = model_friends:get_friends([Uid1, Uid2]),
-            Friend1 = maps:get(Uid1, FriendsMap),
-            Friend2 = maps:get(Uid2, FriendsMap),
-            CommonFriends = sets:to_list(sets:intersection(sets:from_list(Friend1), sets:from_list(Friend2))),
-
-            {ok, Contact1} = model_contacts:get_contacts(Uid1),
-            {ok, Contact2} = model_contacts:get_contacts(Uid2),
-            CommonContacts = sets:to_list(sets:intersection(sets:from_list(Contact1), sets:from_list(Contact2))),
+            {ok, [MainContacts | OuidContactList]} = model_contacts:get_contacts([Uid | Ouids]),
+            
+            CommonContactsMap = lists:foldl(
+                fun (Contact, CommonMap) ->
+                    KnownOuids = lists:foldl(
+                        fun ({Ouid, OuidContacts}, KnownAcc) ->
+                            case lists:member(Contact, OuidContacts) of
+                                true -> [Ouid | KnownAcc];
+                                false -> KnownAcc
+                            end
+                        end,
+                        [],
+                        lists:zip(Ouids, OuidContactList)),
+                    CommonMap#{Contact => KnownOuids}
+                end,
+                #{},
+                MainContacts),
+            CommonContacts = maps:keys(CommonContactsMap),
             CommonUidsMap = model_phone:get_uids(CommonContacts),
-            NewInvites = [Ph || Ph <- CommonContacts, maps:get(Ph, CommonUidsMap, undefined) =:= undefined andalso not util:is_test_number(Ph)],
+            NewInvites = [{Ph, maps:get(Ph, CommonContactsMap)} || Ph <- CommonContacts, 
+                    maps:get(Ph, CommonUidsMap, undefined) =:= undefined andalso 
+                    not util:is_test_number(Ph)],
+            NewInvitesSorted = lists:sort(
+                fun ({_Ph1, KnownList1}, {_Ph2, KnownList2}) ->
+                    length(KnownList1) =< length(KnownList2)
+                end, 
+                NewInvites),
 
-            io:format("(~p common friends, ~p invite recommendations):~n", [length(CommonFriends), length(NewInvites)]),
-            NewInvites2 = lists:sublist(NewInvites, MaxInviteRecommendations),
-            [io:format("  ~s~n", [NewInvite]) || NewInvite <- NewInvites2]
+            io:format("(~p invite recommendations):~n", [length(NewInvitesSorted)]),
+            NewInvites2 = lists:sublist(NewInvitesSorted, MaxInviteRecommendations),
+            [io:format("  ~p~n    ~p~n", [InvitePh, KnownUids]) || {InvitePh, KnownUids} <- NewInvites2]
     end,
     ok.
 

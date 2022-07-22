@@ -171,7 +171,14 @@ is_contact(Uid, Contact) ->
     binary_to_integer(Res) == 1.
 
 
--spec get_contacts(Uid :: uid()) -> {ok, [binary()]} | {error, any()}.
+-spec get_contacts(Uid :: uid()) -> {ok, [binary()]} | {ok, [[binary()]]} | {error, any()}.
+get_contacts(Uids) when is_list(Uids) ->
+    Commands = lists:map(
+        fun(Uid) ->
+            ["SMEMBERS", contacts_key(Uid)]
+        end, Uids),
+    Results = qmn(Commands),
+    {ok, lists:map(fun({ok, Result}) -> Result end, Results)};
 get_contacts(Uid) ->
     {ok, Res} = q(["SMEMBERS", contacts_key(Uid)]),
     {ok, Res}.
