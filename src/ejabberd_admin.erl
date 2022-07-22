@@ -1068,7 +1068,7 @@ invite_recos(Uid, Ouids, MaxInviteRecommendations) ->
         false -> io:format("One of the uids don't have an account. uid: ~s, Ouids: ~p~n", [Uid, Ouids]);
         true ->
             lists:foreach(
-                fun (Idx, Uid1) ->
+                fun ({Idx, Uid1}) ->
                     {ok, #account{phone = Phone, name = Name, signup_user_agent = UserAgent,
                         creation_ts_ms = CreationTs, last_activity_ts_ms = LastActivityTs} = Account} =
                         model_accounts:get_account(Uid1),
@@ -1082,7 +1082,7 @@ invite_recos(Uid, Ouids, MaxInviteRecommendations) ->
                         [LastActiveDate, LastActiveTime]),
                     io:format("Current Version: ~s Lang: ~s~n", [Account#account.client_version, Account#account.lang_id])
                 end,
-                lists:enumerate([Uid | Ouids])),
+                lists:zip(lists:seq(1, length(Ouids)+1), [Uid | Ouids])),
 
             {ok, [MainContacts | OuidContactList]} = model_contacts:get_contacts([Uid | Ouids]),
             
@@ -1106,14 +1106,19 @@ invite_recos(Uid, Ouids, MaxInviteRecommendations) ->
             NewInvites = [{Ph, maps:get(Ph, CommonContactsMap)} || Ph <- CommonContacts, 
                     maps:get(Ph, CommonUidsMap, undefined) =:= undefined andalso 
                     not util:is_test_number(Ph)],
-            NewInvitesSorted = lists:sort(
+            NewInvitesSorted = lists:reverse(lists:sort(
                 fun ({_Ph1, KnownList1}, {_Ph2, KnownList2}) ->
                     length(KnownList1) =< length(KnownList2)
                 end, 
-                NewInvites),
+                NewInvites)),
+            NewInvitesFiltered = lists:filter(
+                fun ({_Ph, KnownList}) ->
+                    length(KnownList) > 0
+                end,
+                NewInvitesSorted),
 
-            io:format("(~p invite recommendations):~n", [length(NewInvitesSorted)]),
-            NewInvites2 = lists:sublist(NewInvitesSorted, MaxInviteRecommendations),
+            io:format("(~p invite recommendations):~n", [length(NewInvitesFiltered)]),
+            NewInvites2 = lists:sublist(NewInvitesFiltered, MaxInviteRecommendations),
             [io:format("  ~p~n    ~p~n", [InvitePh, KnownUids]) || {InvitePh, KnownUids} <- NewInvites2]
     end,
     ok.
