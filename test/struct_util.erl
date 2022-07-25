@@ -320,3 +320,10 @@ create_pb_presence(Id, Type, Uid, ToUid, FromUid, LastSeen) ->
         from_uid = FromUid
     }.
 
+
+create_pb_web_client_info(Action, StaticKey) ->
+    #pb_web_client_info{
+        action = Action,
+        static_key = StaticKey
+    }.
+
