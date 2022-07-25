@@ -680,6 +680,14 @@ combine_small_clusters(Uid, Friends, ClusterSizeThreshold) ->
     % ?dbg("---Cleaning ~p", [Uid]),
     [StartUid | Unvisited] = Friends,
     {IsLargeCluster, ClusterUids} = is_not_isolated(StartUid, Unvisited, [Uid], ClusterSizeThreshold),
+    
+    % Specific debugging for Uids that I have noticed being handled improperly
+    case lists:member(Uid, [<<"1000000000668875888">>, <<"1000000000854260426">>, <<"1000000000883378785">>]) of
+        true -> 
+            [Leader1 | _SortedUids1] = lists:sort(ClusterUids),
+            ?INFO("Just checked Uid ~p, IsLargeCluster: ~p, ClusterUids: ~p, Leader: ~p", [Uid, IsLargeCluster, ClusterUids, Leader1]);
+        false -> ok
+    end,
     case IsLargeCluster of
         true -> ok;
         false ->
@@ -689,18 +697,19 @@ combine_small_clusters(Uid, Friends, ClusterSizeThreshold) ->
             ClusterUids
     end.
 
--spec is_not_isolated(Uid :: uid(), Unvisited :: [uid()], CurMembers :: [uid()], MinSize :: non_neg_integer()) -> [uid()].
+-spec is_not_isolated(Uid :: uid(), Unvisited :: [uid()], CurMembers :: [uid()], MinSize :: non_neg_integer()) -> {boolean(), [uid()]}.
 is_not_isolated(Uid, [], CurMembers, MinSize) when length(CurMembers) + 1 < MinSize ->  % add 1 to include currently being checked
     RetMembers = [Uid | CurMembers],
     % ?dbg("Found Disjoint community: ~p", [lists:sort(RetMembers)]),
     {false, RetMembers};
-is_not_isolated(_Uid, _Unvisited, CurMembers, MinSize) when length(CurMembers) + 1 >= MinSize -> {true, CurMembers};
+is_not_isolated(Uid, _Unvisited, CurMembers, MinSize) when length(CurMembers) + 1 >= MinSize -> {true, [Uid | CurMembers]};
 is_not_isolated(Uid, Unvisited, CurMembers, MinSize) ->
     % ?dbg("checking ~p, unvisited: ~p, Curmembers: ~p", [Uid, Unvisited, CurMembers]),
     {ok, DirtyFriends} = model_friends:get_friends(Uid),
     Friends = remove_deleted_and_self_friends(Uid, DirtyFriends),
-    NewFriends = lists:subtract(Friends, CurMembers),
-    NewUnvisited = lists:subtract(NewFriends, Unvisited) ++ Unvisited, % TODO (luke, erl24) add without duplicates; there must be a better way
+    NewFriends = sets:subtract(sets:from_list(Friends), sets:from_list(CurMembers)),
+    NewUnvisited = sets:to_list(sets:union(NewFriends, sets:from_list(Unvisited))),
+    
     [NextUid | NextUnvisited] = NewUnvisited,
     NewMembers = case lists:member(Uid, CurMembers) of
         true -> CurMembers;
