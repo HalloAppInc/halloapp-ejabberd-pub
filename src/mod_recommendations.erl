@@ -96,7 +96,7 @@ invite_recos(Uid, MaxInviteRecommendations) ->
     case model_accounts:account_exists(Uid) of
         false -> io:format("Uid ~s doesn't have an account.~n", [Uid]);
         true ->
-            mod_athena_state:run_query(invite_ouid_query(Uid, MaxInviteRecommendations))
+            mod_athena_stats:run_query(invite_ouid_query(Uid, MaxInviteRecommendations))
     end,
     ok.
 
@@ -160,6 +160,7 @@ process_invite_recos(Query) ->
         #{},
         ActualResultRows),
     Ouids = lists:sublist(maps:keys(OuidMap), MaxOuids),
+    ?INFO("Ouids: ~p", [Ouids]),
 
     % % print info about all uids
     % lists:foreach(
@@ -181,13 +182,13 @@ process_invite_recos(Query) ->
 
     InviteRecommendations = generate_invite_recos(Uid, Ouids),
 
-    io:format("(~p invite recommendations):~n", [length(InviteRecommendations)]),
+    ?INFO("(~p invite recommendations):", [length(InviteRecommendations)]),
     NewInvites2 = lists:sublist(InviteRecommendations, MaxInviteRecommendations),
     lists:foreach(
         fun({InvitePh, KnownUids}) ->
-            io:format("  ~s~n", [InvitePh]),
+            ?INFO("  ~s", [InvitePh]),
             NamesMap = model_accounts:get_names(KnownUids),
-            [io:format("    ~s, ~s~n", [maps:get(KnownUid, NamesMap, undefined), KnownUid]) ||
+            [?INFO("    ~s, ~s", [maps:get(KnownUid, NamesMap, undefined), KnownUid]) ||
                 KnownUid <- KnownUids]
         end, NewInvites2),
     ok.
