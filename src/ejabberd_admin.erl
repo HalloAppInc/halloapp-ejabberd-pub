@@ -76,8 +76,7 @@
     request_phone_logs/1,
     request_uid_logs/1,
     reload_modules/1,
-    friend_recos/2,
-    invite_recos/3
+    friend_recos/2
 ]).
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
@@ -1049,84 +1048,10 @@ friend_recos(Uid, NumCommunityRecos) ->
             io:format("Last connection on ~s at ~s~n", [LastConnDate, LastConnTime]),
             io:format("Current Version: ~s Lang: ~s~n", [Account#account.client_version, Account#account.lang_id]),
 
-            {ok, RecommendationList} = mod_friend_recommendations:generate(Uid, Phone, NumCommunityRecos),
+            {ok, RecommendationList} = mod_recommendations:generate_friend_recos(Uid, Phone, NumCommunityRecos),
             io:format("(~p recommendations):~n", [length(RecommendationList)]),
             [io:format("  ~s ~w ~s ~p ~s ~n", [CorF, CPhone, FUid, FNumFriends, FName]) ||
                 {CorF, CPhone, FUid, FName, FNumFriends} <- RecommendationList]
     end,
     ok.
-
-invite_recos(Uid, Ouids, MaxInviteRecommendations) ->
-    ?INFO("Admin requesting invite recommendations for uid: ~s, Ouids: ~p", [Uid, Ouids]),
-    OuidExistence = lists:filter(
-        fun (Ouid) ->
-            model_accounts:account_exists(Ouid)
-        end, 
-        Ouids),
-    AccountExists = model_accounts:account_exists(Uid) andalso length(OuidExistence) =:= length(Ouids),
-    case AccountExists of
-        false -> io:format("One of the uids don't have an account. uid: ~s, Ouids: ~p~n", [Uid, Ouids]);
-        true ->
-            lists:foreach(
-                fun ({Idx, Uid1}) ->
-                    {ok, #account{phone = Phone, name = Name, signup_user_agent = UserAgent,
-                        creation_ts_ms = CreationTs, last_activity_ts_ms = LastActivityTs} = Account} =
-                        model_accounts:get_account(Uid1),
-                    {CreationDate, CreationTime} = util:ms_to_datetime_string(CreationTs),
-                    {LastActiveDate, LastActiveTime} = util:ms_to_datetime_string(LastActivityTs),
-                    ?INFO("Uid~p: ~s, Name: ~s, Phone: ~s~n", [Idx, Uid1, Name, Phone]),
-                    io:format("Uid~p: ~s~nName: ~s~nPhone: ~s~n", [Idx, Uid1, Name, Phone]),
-                    io:format("Account created on ~s at ~s ua: ~s~n",
-                        [CreationDate, CreationTime, UserAgent]),
-                    io:format("Last activity on ~s at ~s~n",
-                        [LastActiveDate, LastActiveTime]),
-                    io:format("Current Version: ~s Lang: ~s~n", [Account#account.client_version, Account#account.lang_id])
-                end,
-                lists:zip(lists:seq(1, length(Ouids)+1), [Uid | Ouids])),
-
-            {ok, [MainContacts | OuidContactList]} = model_contacts:get_contacts([Uid | Ouids]),
-            
-            CommonContactsMap = lists:foldl(
-                fun (Contact, CommonMap) ->
-                    KnownOuids = lists:foldl(
-                        fun ({Ouid, OuidContacts}, KnownAcc) ->
-                            case lists:member(Contact, OuidContacts) of
-                                true -> [Ouid | KnownAcc];
-                                false -> KnownAcc
-                            end
-                        end,
-                        [],
-                        lists:zip(Ouids, OuidContactList)),
-                    CommonMap#{Contact => KnownOuids}
-                end,
-                #{},
-                MainContacts),
-            CommonContacts = maps:keys(CommonContactsMap),
-            CommonUidsMap = model_phone:get_uids(CommonContacts),
-            NewInvites = [{Ph, maps:get(Ph, CommonContactsMap)} || Ph <- CommonContacts, 
-                    maps:get(Ph, CommonUidsMap, undefined) =:= undefined andalso 
-                    not util:is_test_number(Ph)],
-            NewInvitesSorted = lists:reverse(lists:sort(
-                fun ({_Ph1, KnownList1}, {_Ph2, KnownList2}) ->
-                    length(KnownList1) =< length(KnownList2)
-                end, 
-                NewInvites)),
-            NewInvitesFiltered = lists:filter(
-                fun ({_Ph, KnownList}) ->
-                    length(KnownList) > 0
-                end,
-                NewInvitesSorted),
-
-            io:format("(~p invite recommendations):~n", [length(NewInvitesFiltered)]),
-            NewInvites2 = lists:sublist(NewInvitesFiltered, MaxInviteRecommendations),
-            lists:foreach(
-                fun({InvitePh, KnownUids}) ->
-                    io:format("  ~s~n", [InvitePh]),
-                    NamesMap = model_accounts:get_names(KnownUids),
-                    [io:format("    ~s, ~s~n", [maps:get(KnownUid, NamesMap, undefined), KnownUid]) ||
-                        KnownUid <- KnownUids]
-                end, NewInvites2)
-    end,
-    ok.
-
 
