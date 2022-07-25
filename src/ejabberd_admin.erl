@@ -1119,7 +1119,13 @@ invite_recos(Uid, Ouids, MaxInviteRecommendations) ->
 
             io:format("(~p invite recommendations):~n", [length(NewInvitesFiltered)]),
             NewInvites2 = lists:sublist(NewInvitesFiltered, MaxInviteRecommendations),
-            [io:format("  ~p~n    ~p~n", [InvitePh, KnownUids]) || {InvitePh, KnownUids} <- NewInvites2]
+            lists:foreach(
+                fun({InvitePh, KnownUids}) ->
+                    io:format("  ~s~n", [InvitePh]),
+                    NamesMap = model_accounts:get_names(KnownUids),
+                    [io:format("    ~s, ~s~n", [maps:get(KnownUid, NamesMap, undefined), KnownUid]) ||
+                        KnownUid <- KnownUids]
+                end, NewInvites2)
     end,
     ok.
 
