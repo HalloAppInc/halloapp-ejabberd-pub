@@ -220,7 +220,11 @@ uid_prop_override(Uid, krisp_noise_suppression) ->
             {ok, ContactUids} = model_contacts:get_contact_uids(Phone),
             case is_contact_in_reach_out_users(ContactUids, ReachOutUsers) of
                 true -> true;
-                false -> undef  %% Don't override the noise suppression prop
+                false ->
+                    case uid_prop_override(Uid, default_krisp_noise_suppression) of
+                        true -> true;
+                        false -> undef  %% Don't override the noise suppression prop
+                    end
             end
     end;
 uid_prop_override(Uid, is_psa_admin) ->
