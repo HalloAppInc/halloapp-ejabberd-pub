@@ -465,8 +465,8 @@ connect_to_apns(EndpointType) ->
     Options = #{
         protocols => [http2],
         tls_opts => [{cert, Cert}, {key, Key}],
-        retry => 100,                      %% gun will retry connecting 100 times before giving up!
-        retry_timeout => 5000,             %% Time between retries in milliseconds.
+        retry => 10,                        %% gun will retry connecting 100 times before giving up!
+        retry_timeout => 10000,             %% Time between retries in milliseconds.
         retry_fun => RetryFun
     },
     ?INFO("EndpointType: ~s, Gateway: ~s, Port: ~p", [EndpointType, ApnsGateway, ApnsPort]),
