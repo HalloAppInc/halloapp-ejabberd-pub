@@ -906,8 +906,8 @@ session_info(Uid) ->
                 fun
                     (#session{sid = {_Ts, Pid} = Sid, usr = {_U, _S, R}, mode = Mode, info = Info}) ->
                         Node = node(Pid),
-                        io:format("~p session on node: ~p, sid: ~p, resource: ~p, info: ~p~n",
-                            [Mode, Node, Sid, R, Info])
+                        io:format("~p session on node: ~p~n", [Mode, Node]), 
+                        io:format("  sid: ~p~n  resource: ~p~n  info: ~p~n", [Sid, R, Info])
                 end,
                 Sessions)
     end,
