@@ -687,6 +687,7 @@ message CallSdp {
         WebRtcSessionDescription webrtc_offer = 2;
         WebRtcSessionDescription webrtc_answer = 3;
     }
+    int64 timestamp_ms = 4;
 }
 
 message EndCall {

@@ -273,6 +273,7 @@ message Call {
   bool local_end_call = 10;       // true if the end call happened locally, or false if the end call was received remotely
   NetworkType network_type = 11;  // wifi or cellular
   bool is_krisp_active = 12;
+  uint64 ice_time_taken_ms = 13;  // time taken for ice connection state to be connected in ms.
 
   string webrtc_stats = 20;       // json serialized version of the result of peer_connection.get_stats at the end of
                                   // the call

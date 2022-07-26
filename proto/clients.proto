@@ -85,6 +85,7 @@ message ChatContainer {
     ContactCard contact_card = 4;
     VoiceNote voice_note = 5;
     Files files = 6;
+    Reaction reaction = 7;
   }
 }
 
@@ -172,6 +173,10 @@ message Files {
 message File {
   EncryptedResource data = 1;
   string filename = 2;
+}
+
+message Reaction {
+    string emoji = 1;
 }
 
 message AlbumMedia {
