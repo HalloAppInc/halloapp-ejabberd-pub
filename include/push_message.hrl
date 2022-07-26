@@ -36,7 +36,8 @@
     voip_dev_conn :: pid(),
     voip_dev_mon :: reference(),
     noise_static_key :: binary(),
-    noise_certificate :: binary()
+    noise_certificate :: binary(),
+    pending_map :: #{}
 }).
 
 -type worker_push_state() :: #worker_push_state{}.

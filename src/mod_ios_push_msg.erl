@@ -4,6 +4,9 @@
 %%% Copyright (C) 2022 HalloApp inc.
 %%%
 %%% Supplement to mod_ios_push. Helps send a push notification
+%%% We maintain a state for the process that contains all the necessary information
+%%% about pendingMessages that haven't received their status about the notification,
+%%% host of the process and the socket for the connection to APNS.
 %%%----------------------------------------------------------------------
 
 -module(mod_ios_push_msg).
@@ -49,24 +52,24 @@
 
 %% API
 -export([
+    push_message/1,
     push_message/2,
-    push_message/3,
-    send_post_request_to_apns/9,
+    send_post_request_to_apns/8,
     crash/0    %% to test
 
 ]).
 
 
--spec push_message(PushMessageItem :: push_message_item(), ParentPid :: pid()) -> ok.
-push_message(PushMessageItem, ParentPid) ->
-    gen_server:cast(?PROC(), {push_message_item, PushMessageItem, ParentPid}),
+-spec push_message(PushMessageItem :: push_message_item()) -> ok.
+push_message(PushMessageItem) ->
+    gen_server:cast(?PROC(), {push_message_item, PushMessageItem}),
     ok.
 
 
 -spec push_message(PushMessageItem :: push_message_item(),
-    PushMetadata:: push_metadata(), ParentPid :: pid()) -> ok.
-push_message(PushMessageItem, PushMetadata, ParentPid) ->
-    gen_server:cast(?PROC(), {push_message_item, PushMessageItem, PushMetadata, ParentPid}),
+    PushMetadata:: push_metadata()) -> ok.
+push_message(PushMessageItem, PushMetadata) ->
+    gen_server:cast(?PROC(), {push_message_item, PushMessageItem, PushMetadata}),
     ok.
 
 
@@ -119,7 +122,8 @@ init([Host|_]) ->
             voip_dev_conn = VoipDevPid,
             voip_dev_mon = VoipDevMon,
             noise_static_key = NoiseStaticKey,
-            noise_certificate = NoiseCertificate}}.
+            noise_certificate = NoiseCertificate,
+            pending_map = #{}}}.
 
 
 terminate(_Reason, #worker_push_state{host = _Host, conn = Pid, mon = Mon, dev_conn = DevPid,
@@ -144,16 +148,16 @@ handle_call(Request, _From, State) ->
 handle_cast({ping, Id, Ts, From}, State) ->
     util_monitor:send_ack(self(), From, {ack, Id, Ts, self()}),
     {noreply, State};
-handle_cast({push_message_item, PushMessageItem, ParentPid}, State) ->
-    NewState = push_message_item(PushMessageItem, State, ParentPid),
+handle_cast({push_message_item, PushMessageItem}, State) ->
+    NewState = push_message_item(PushMessageItem, State),
     {noreply, NewState};
-handle_cast({push_message_item, PushMessageItem, PushMetadata, ParentPid}, State) ->
-    NewState = push_message_item(PushMessageItem, PushMetadata, State, ParentPid),
+handle_cast({push_message_item, PushMessageItem, PushMetadata}, State) ->
+    NewState = push_message_item(PushMessageItem, PushMetadata, State),
     {noreply, NewState};
 handle_cast({send_post_request_to_apns, Uid, ApnsId, ContentId, PayloadBin,
-            PushType, EndpointType, PushMessageItem, ParentPid} = _Request, State) ->
+            PushType, EndpointType, PushMessageItem} = _Request, State) ->
     {_Result, NewState} = send_post_request_to_apns(Uid, ApnsId, ContentId, PayloadBin,
-            PushType, EndpointType, PushMessageItem, State, ParentPid),
+            PushType, EndpointType, PushMessageItem, State),
     {noreply, NewState};
 handle_cast(crash, _State) ->
     error(test_crash);
@@ -190,6 +194,17 @@ handle_info({'DOWN', _Mon, process, Pid, Reason}, State) ->
     ?ERROR("down message from gun pid: ~p, reason: ~p", [Pid, Reason]),
     {noreply, State};
 
+handle_info({gun_response, ConnPid, StreamRef, _, StatusCode, Headers}, State) ->
+    ?DEBUG("gun_response: conn_pid: ~p, streamref: ~p, status: ~p, headers: ~p",
+            [ConnPid, StreamRef, StatusCode, Headers]),
+    ApnsId = proplists:get_value(?APNS_ID, Headers, undefined),
+    handle_pushed_message(StatusCode, ApnsId, State),
+    NewState = handle_apns_response(StatusCode, ApnsId, State),
+    {noreply, NewState};
+
+handle_info({gun_data, ConnPid, StreamRef, _, Response}, State) ->
+    ?INFO("gun_data: conn_pid: ~p, streamref: ~p, data: ~p", [ConnPid, StreamRef, Response]),
+    {noreply, State};
 
 handle_info(Request, State) ->
     ?DEBUG("unknown request: ~p", [Request]),
@@ -203,18 +218,18 @@ handle_info(Request, State) ->
 
 
 -spec push_message_item(PushMessageItem :: push_message_item(),
-        State :: worker_push_state(), ParentPid :: pid()) -> worker_push_state().
-push_message_item(PushMessageItem, State, ParentPid) ->
+        State :: worker_push_state()) -> worker_push_state().
+push_message_item(PushMessageItem, State) ->
     PushMetadata = push_util:parse_metadata(PushMessageItem#push_message_item.message),
     NewPushMessageItem = PushMessageItem#push_message_item{
             push_type = PushMetadata#push_metadata.push_type,
             content_type = PushMetadata#push_metadata.content_type},
-    push_message_item(NewPushMessageItem, PushMetadata, State, ParentPid).
+    push_message_item(NewPushMessageItem, PushMetadata, State).
 
 
 -spec push_message_item(PushMessageItem :: push_message_item(), PushMetadata :: push_metadata(),
-        State :: worker_push_state(), ParentPid :: pid()) -> worker_push_state().
-push_message_item(PushMessageItem, PushMetadata, State, ParentPid) ->
+        State :: worker_push_state()) -> worker_push_state().
+push_message_item(PushMessageItem, PushMetadata, #worker_push_state{pending_map = PendingMap} = State) ->
     Message = PushMessageItem#push_message_item.message,
     Os = PushMessageItem#push_message_item.push_info#push_info.os,
     ContentId = PushMetadata#push_metadata.content_id,
@@ -232,8 +247,10 @@ push_message_item(PushMessageItem, PushMetadata, State, ParentPid) ->
     PayloadBin = get_payload(PushMessageItem, PushMetadata, PushType, State),
     ?INFO("Uid: ~s, MsgId: ~s, ApnsId: ~s, ContentId: ~s, ContentType: ~s",
         [Uid, Id, ApnsId, ContentId, ContentType]),
+    NewPendingMap = PendingMap#{ApnsId => PushMessageItem},
+    NewState = State#worker_push_state{pending_map = NewPendingMap},
     {_Result, FinalState} = send_post_request_to_apns(Uid, ApnsId, ContentId, PayloadBin,
-            PushType, EndpointType, PushMessageItem, State, ParentPid),
+            PushType, EndpointType, PushMessageItem, NewState),
     FinalState.
 
 
@@ -346,9 +363,9 @@ encrypt_message_bin(Uid, MsgBin, #worker_push_state{noise_static_key = S, noise_
 
 -spec send_post_request_to_apns(Uid :: binary(), ApnsId :: binary(), ContentId :: binary(), PayloadBin :: binary(),
         PushType :: alertType(), EndpointType :: endpoint_type(), PushMessageItem :: push_message_item(),
-        State :: worker_push_state(), ParentPid :: pid()) -> {ok, worker_push_state()} |
+        State :: worker_push_state()) -> {ok, worker_push_state()} |
         {ignored, worker_push_state()} | {{error, any()}, worker_push_state()}.
-send_post_request_to_apns(Uid, ApnsId, ContentId, PayloadBin, PushType, EndpointType, PushMessageItem, State, ParentPid) ->
+send_post_request_to_apns(Uid, ApnsId, ContentId, PayloadBin, PushType, EndpointType, PushMessageItem, State) ->
     MsgId = PushMessageItem#push_message_item.id,
     Priority = get_priority(EndpointType, PushType),
     DevicePath = get_device_path(EndpointType, PushMessageItem#push_message_item.push_info),
@@ -369,7 +386,7 @@ send_post_request_to_apns(Uid, ApnsId, ContentId, PayloadBin, PushType, Endpoint
         {Pid, NewState} ->
             ?DEBUG("Post Request Pid: ~p, DevicePath: ~p, HeadersList: ~p, PayloadBin: ~p",
                 [Pid, DevicePath, HeadersList, PayloadBin]),
-            _StreamRef = gun:post(Pid, DevicePath, HeadersList, PayloadBin, #{reply_to => ParentPid}),
+            _StreamRef = gun:post(Pid, DevicePath, HeadersList, PayloadBin),
             {ok, NewState}
     end.
 
@@ -508,3 +525,104 @@ retry_function(Retries, Opts) ->
         retries => Retries - 1,
         timeout => Timeout * ?GOLDEN_RATIO
     }.
+
+-spec handle_pushed_message(StatusCode :: integer(), ApnsId :: binary() | undefined, State :: push_state()) -> push_state().
+% Status code 429, >= 500 triggers a retry, do not handle times yet
+handle_pushed_message(StatusCode, _ApnsId, _State) when StatusCode =:= 429; StatusCode >= 500 ->
+    ok;
+handle_pushed_message(StatusCode, ApnsId, #worker_push_state{pending_map = PendingMap} = _State) when StatusCode >= 400 ->
+    case maps:get(ApnsId, PendingMap, undefined) of
+        undefined ->
+            ok;
+        PushMessageItem ->
+            mod_ios_push:pushed_message(PushMessageItem, failure)
+    end;
+handle_pushed_message(_StatusCode, ApnsId, #worker_push_state{pending_map = PendingMap} = _State) ->
+    case maps:get(ApnsId, PendingMap, undefined) of
+        undefined ->
+            ok;
+        PushMessageItem ->
+            mod_ios_push:pushed_message(PushMessageItem, success)
+    end.
+
+
+-spec handle_apns_response(StatusCode :: integer(), ApnsId :: binary() | undefined,
+        State :: push_state()) -> push_state().
+handle_apns_response(_, undefined, State) ->
+    %% This should never happen, since apns always responds with the apns-id.
+    ?ERROR("unexpected response from apns!!", []),
+    State;
+handle_apns_response(200, ApnsId, #worker_push_state{pending_map = PendingMap} = State) ->
+    stat:count("HA/push", ?APNS, 1, [{"result", "success"}]),
+    FinalPendingMap = case maps:take(ApnsId, PendingMap) of
+        error ->
+            ?ERROR("Message not found in our map: apns-id: ~p", [ApnsId]),
+            PendingMap;
+        {PushMessageItem, NewPendingMap} ->
+            Id = PushMessageItem#push_message_item.id,
+            Uid = PushMessageItem#push_message_item.uid,
+            Version = PushMessageItem#push_message_item.push_info#push_info.client_version,
+            PushType = PushMessageItem#push_message_item.push_type,
+            ContentType = PushMessageItem#push_message_item.content_type,
+            ?INFO("Uid: ~s, apns push successful: msg_id: ~s", [Uid, Id]),
+            %% TODO: We should capture this info in the push info itself.
+            {ok, Phone} = model_accounts:get_phone(Uid),
+            CC = mod_libphonenumber:get_cc(Phone),
+            mod_wakeup:monitor_push(Uid, PushMessageItem#push_message_item.message),
+            ha_events:log_event(<<"server.push_sent">>, #{uid => Uid, push_id => Id,
+                    platform => ios, client_version => Version, push_type => PushType,
+                    content_type => ContentType, cc => CC}),
+            NewPendingMap
+    end,
+    State#worker_push_state{pending_map = FinalPendingMap};
+
+handle_apns_response(StatusCode, ApnsId, #worker_push_state{pending_map = PendingMap} = State)
+        when StatusCode =:= 410 ->
+    stat:count("HA/push", ?APNS, 1, [{"result", "apns_error"}]),
+    FinalPendingMap = case maps:take(ApnsId, PendingMap) of
+        error ->
+            ?ERROR("Message not found in our map: apns-id: ~p", [ApnsId]),
+            PendingMap;
+        {PushMessageItem, NewPendingMap} ->
+            Id = PushMessageItem#push_message_item.id,
+            Uid = PushMessageItem#push_message_item.uid,
+            ?INFO("Uid: ~s, apns push error code: ~p, msg_id: ~s, invalid_device_token", [Uid, StatusCode, Id]),
+            NewPendingMap
+    end,
+    State#worker_push_state{pending_map = FinalPendingMap};
+
+handle_apns_response(StatusCode, ApnsId, #worker_push_state{pending_map = PendingMap} = State)
+        when StatusCode =:= 429; StatusCode >= 500 ->
+    stat:count("HA/push", ?APNS, 1, [{"result", "apns_error"}]),
+    FinalPendingMap = case maps:take(ApnsId, PendingMap) of
+        error ->
+            ?ERROR("Message not found in our map: apns-id: ~p", [ApnsId]),
+            PendingMap;
+        {PushMessageItem, NewPendingMap} ->
+            Id = PushMessageItem#push_message_item.id,
+            Uid = PushMessageItem#push_message_item.uid,
+            ?WARNING("Uid: ~s, apns push error code: ~p, msg_id: ~s, will retry", [Uid, StatusCode, Id]),
+            mod_ios_push:retry_message_item(PushMessageItem),
+            NewPendingMap
+    end,
+    State#worker_push_state{pending_map = FinalPendingMap};
+
+handle_apns_response(StatusCode, ApnsId, #worker_push_state{pending_map = PendingMap} = State)
+        when StatusCode >= 400; StatusCode < 500 ->
+    stat:count("HA/push", ?APNS, 1, [{"result", "failure"}]),
+    FinalPendingMap = case maps:take(ApnsId, PendingMap) of
+        error ->
+            ?ERROR("Message not found in our map: apns-id: ~p", [ApnsId]),
+            PendingMap;
+        {PushMessageItem, NewPendingMap} ->
+            Uid = PushMessageItem#push_message_item.uid,
+            Msg = PushMessageItem#push_message_item.message,
+            ?ERROR("Uid: ~s, apns push error:code: ~p, msg: ~p, needs to be fixed!", [Uid, StatusCode, Msg]),
+            NewPendingMap
+    end,
+    State#worker_push_state{pending_map = FinalPendingMap};
+
+handle_apns_response(StatusCode, ApnsId, State) ->
+    ?ERROR("Invalid status code : ~p, from apns, apns-id: ~p", [StatusCode, ApnsId]),
+    State.
+
