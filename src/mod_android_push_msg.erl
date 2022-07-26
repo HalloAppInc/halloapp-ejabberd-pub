@@ -25,30 +25,10 @@
 -define(FCM_URL_SUFFIX, <<"/messages:send">>).
 -define(SCOPE_URL, <<"https://www.googleapis.com/auth/firebase.messaging">>).
 
--export([
-    push_message_item/1,
-    refresh_token/0,
-    crash/0
-]).
-
 %% gen_mod API
 -export([start/2, stop/1, reload/3, depends/2, mod_options/1]).
 %% gen_server API
 -export([init/1, terminate/2, handle_call/3, handle_cast/2, handle_info/2]).
-
-
--spec push_message_item(PushMessageItem :: push_message_item()) -> ok.
-push_message_item(PushMessageItem) ->
-    gen_server:cast(?PROC(), {push_message_item, PushMessageItem}),
-    ok.
-
-refresh_token() ->
-    gen_server:cast(?PROC(), {refresh_token}),
-    ok.
-
--spec crash() -> ok.
-crash() ->
-    gen_server:cast(?PROC(), crash).
 
 
 %%====================================================================
@@ -123,6 +103,10 @@ handle_info({http, {RequestId, _Response} = ReplyInfo}, #{pending_map := Pending
     end,
     State1 = State#{pending_map => FinalPendingMap},
     {noreply, State1};
+
+handle_info({refresh_token}, State) ->
+    NewState = reload_access_token(State),
+    {noreply, NewState};
 
 handle_info(Request, State) ->
     ?DEBUG("unknown request: ~p", [Request]),
@@ -288,7 +272,7 @@ handle_fcm_response({_RequestId, Response}, PushMessageItem, #{host := ServerHos
             stat:count("HA/push", ?FCM, 1, [{"result", "fcm_error"}]),
             ?INFO("Push failed, Uid: ~s, Token: ~p, expired auth token, Response: ~p",
                     [Uid, binary:part(Token, 0, 10), ResponseBody]),
-            refresh_token(),
+            erlang:send(self(), refresh_token),
             mod_android_push:retry_message_item(PushMessageItem);
 
         {{_, 404, _}, _, ResponseBody} ->
