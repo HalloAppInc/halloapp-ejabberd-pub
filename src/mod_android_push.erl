@@ -28,7 +28,9 @@
 %% API
 -export([
     push/2,
-    crash/0    %% test
+    crash/0,    %% test
+    retry_message_item/1,
+    pushed_message/2
 ]).
 
 
@@ -75,6 +77,16 @@ crash() ->
     gen_server:cast(?PROC(), crash).
 
 
+-spec retry_message_item(PushMessageItem :: push_message_item()) -> ok.
+retry_message_item(PushMessageItem) ->
+    gen_server:cast(?PROC(), {retry_message_item, PushMessageItem}).
+
+
+-spec pushed_message(PushMessageItem :: push_message_item(), Status :: success | failure) -> ok.
+pushed_message(PushMessageItem, Status) ->
+    gen_server:cast(?PROC(), {pushed_message, PushMessageItem, Status}).
+
+
 %%====================================================================
 %% gen_server callbacks
 %%====================================================================
@@ -82,7 +94,6 @@ crash() ->
 init([Host|_]) ->
     _ = get_fcm_apikey(),
     {ok, #push_state{
-            pendingMap = #{},
             host = Host }}.
 
 
@@ -104,9 +115,17 @@ handle_cast({ping, Id, Ts, From}, State) ->
     {noreply, State};
 handle_cast({push_message, Message, PushInfo} = _Request, State) ->
     ?DEBUG("push_message: ~p", [Message]),
-    State1 = push_message(Message, PushInfo, State),
-    {noreply, State1};
-
+    push_message(Message, PushInfo),
+    {noreply, State};
+handle_cast({pushed_message, PushMessageItem, Status}, State) ->
+    ?INFO("Worker pool sent push id: ~p status: ~p", [PushMessageItem#push_message_item.id, Status]),
+    TimeTakenMs = util:now_ms() - PushMessageItem#push_message_item.timestamp_ms,
+    NewPushTimes = push_util:process_push_times(State#push_state.push_times_ms, TimeTakenMs, android),
+    {noreply, State#push_state{push_times_ms = NewPushTimes}};
+handle_cast({retry_message_item, PushMessageItem}, State) ->
+    RetryTime = PushMessageItem#push_message_item.retry_ms,
+    erlang:send_after(RetryTime, self(), {retry, PushMessageItem}),
+    {noreply, State};
 handle_cast(crash, _State) ->
     error(test_crash);
 
@@ -134,28 +153,9 @@ handle_info({retry, PushMessageItem}, State) ->
             ?INFO("Uid: ~s, retry push_message_item: ~s", [Uid, Id]),
             NewRetryMs = round(PushMessageItem#push_message_item.retry_ms * ?GOLDEN_RATIO),
             NewPushMessageItem = PushMessageItem#push_message_item{retry_ms = NewRetryMs},
-            wpool:cast(?ANDROID_POOL, {push_message_item, NewPushMessageItem, self()})
+            wpool:cast(?ANDROID_POOL, {push_message_item, NewPushMessageItem})
     end,
     {noreply, State};
-
-handle_info({http, {RequestId, _Response} = ReplyInfo}, #push_state{pendingMap = PendingMap} = State) ->
-    FinalPendingMap = case maps:take(RequestId, PendingMap) of
-        error ->
-            ?ERROR("Request not found in our map: RequestId: ~p", [RequestId]),
-            NewPushTimes = State#push_state.push_times_ms,
-            PendingMap;
-        {PushMessageItem, NewPendingMap} ->
-            TimeTakenMs = util:now_ms() - PushMessageItem#push_message_item.timestamp_ms,
-            NewPushTimes = push_util:process_push_times(State#push_state.push_times_ms, TimeTakenMs, android),
-            handle_fcm_response(ReplyInfo, PushMessageItem, State),
-            NewPendingMap
-    end,
-    State1 = State#push_state{pendingMap = FinalPendingMap, push_times_ms = NewPushTimes},
-    {noreply, State1};
-
-handle_info({add_to_pending_map, RequestId, PushMessageItem}, #push_state{pendingMap = PendingMap} = State) ->
-    NewPendingMap = PendingMap#{RequestId => PushMessageItem},
-    {noreply, State#push_state{pendingMap = NewPendingMap}};
 
 handle_info(Request, State) ->
     ?DEBUG("Unknown request: ~p, ~p", [Request, State]),
@@ -166,8 +166,8 @@ handle_info(Request, State) ->
 %% internal module functions
 %%====================================================================
 
--spec push_message(Message :: pb_msg(), PushInfo :: push_info(), State :: push_state()) -> push_state().
-push_message(Message, PushInfo, State) ->
+-spec push_message(Message :: pb_msg(), PushInfo :: push_info()) -> ok.
+push_message(Message, PushInfo) ->
     MsgId = pb:get_id(Message),
     Uid = pb:get_to(Message),
     try
@@ -179,114 +179,12 @@ push_message(Message, PushInfo, State) ->
                 timestamp_ms = TimestampMs,
                 retry_ms = ?RETRY_INTERVAL_MILLISEC,
                 push_info = PushInfo},
-        wpool:cast(?ANDROID_POOL, {push_message_item, PushMessageItem, self()}),
-        State
+        wpool:cast(?ANDROID_POOL, {push_message_item, PushMessageItem})
     catch
         Class: Reason: Stacktrace ->
             ?ERROR("Failed to push MsgId: ~s ToUid: ~s crash:~s",
-                [MsgId, Uid, lager:pr_stacktrace(Stacktrace, {Class, Reason})]),
-            State
+                [MsgId, Uid, lager:pr_stacktrace(Stacktrace, {Class, Reason})])
     end.
-
-
--spec retry_message_item(PushMessageItem :: push_message_item()) -> reference().
-retry_message_item(PushMessageItem) ->
-    RetryTime = PushMessageItem#push_message_item.retry_ms,
-    setup_timer({retry, PushMessageItem}, RetryTime).
-
-
--spec setup_timer(Msg :: any(), Timeout :: integer()) -> reference().
-setup_timer(Msg, Timeout) ->
-    NewTimer = erlang:send_after(Timeout, self(), Msg),
-    NewTimer.
-
-
--spec handle_fcm_response({RequestId :: reference(), Response :: term()},
-        PushMessageItem ::push_message_item(), State :: push_state()) -> ok.
-handle_fcm_response({_RequestId, Response}, PushMessageItem, #push_state{host = ServerHost} = _State) ->
-    Id = PushMessageItem#push_message_item.id,
-    Uid = PushMessageItem#push_message_item.uid,
-    Version = PushMessageItem#push_message_item.push_info#push_info.client_version,
-    ContentType = PushMessageItem#push_message_item.content_type,
-    Token = PushMessageItem#push_message_item.push_info#push_info.token,
-    case Response of
-        {{_, StatusCode5xx, _}, _, ResponseBody}
-                when StatusCode5xx >= 500 andalso StatusCode5xx < 600 ->
-            stat:count("HA/push", ?FCM, 1, [{"result", "fcm_error"}]),
-            ?ERROR("Push failed, Uid: ~s, Token: ~p, recoverable FCM error: ~p",
-                    [Uid, binary:part(Token, 0, 10), ResponseBody]),
-            retry_message_item(PushMessageItem);
-
-        {{_, 200, _}, _, ResponseBody} ->
-            case parse_response(ResponseBody) of
-                {ok, FcmId} ->
-                    stat:count("HA/push", ?FCM, 1, [{"result", "success"}]),
-                    ?INFO("Uid:~s push successful for msg-id: ~s, FcmId: ~p", [Uid, Id, FcmId]),
-                    %% TODO: We should capture this info in the push info itself.
-                    {ok, Phone} = model_accounts:get_phone(Uid),
-                    CC = mod_libphonenumber:get_cc(Phone),
-                    mod_wakeup:monitor_push(Uid, PushMessageItem#push_message_item.message),
-                    ha_events:log_event(<<"server.push_sent">>, #{uid => Uid, push_id => FcmId,
-                            platform => android, client_version => Version, push_type => silent,
-                            content_type => ContentType, cc => CC});
-                {error, Reason, FcmId} ->
-                    stat:count("HA/push", ?FCM, 1, [{"result", "failure"}]),
-                    case Reason =:= not_registered orelse Reason =:= invalid_registration of
-                        true ->
-                            ?INFO("Push failed: User Error, Uid:~s, token: ~p, reason: ~p, FcmId: ~p",
-                                [Uid, binary:part(Token, 0, 10), Reason, FcmId]);
-                        false ->
-                            ?ERROR("Push failed: Server Error, Uid:~s, token: ~p, reason: ~p, FcmId: ~p",
-                                [Uid, binary:part(Token, 0, 10), Reason, FcmId])
-                    end,
-                    remove_push_token(Uid, ServerHost)
-            end;
-
-        {{_, 401, _}, _, ResponseBody} ->
-            stat:count("HA/push", ?FCM, 1, [{"result", "fcm_error"}]),
-            ?INFO("Push failed, Uid: ~s, Token: ~p, expired auth token, Response: ~p",
-                    [Uid, binary:part(Token, 0, 10), ResponseBody]),
-            wpool:broadcast(?ANDROID_POOL, {refresh_token}),
-            retry_message_item(PushMessageItem);
-
-        {{_, 404, _}, _, ResponseBody} ->
-            stat:count("HA/push", ?FCM, 1, [{"result", "failure"}]),
-            ?INFO("Push failed, Uid:~s, token: ~p, unregistered FCM error: ~p",
-                    [Uid, binary:part(Token, 0, 10), ResponseBody]),
-            remove_push_token(Uid, ServerHost);
-
-        {{_, _, _}, _, ResponseBody} ->
-            stat:count("HA/push", ?FCM, 1, [{"result", "failure"}]),
-            ?ERROR("Push failed, Uid:~s, token: ~p, non-recoverable FCM error: ~p",
-                    [Uid, binary:part(Token, 0, 10), ResponseBody]),
-            remove_push_token(Uid, ServerHost);
-
-        {error, Reason} ->
-            ?INFO("Push failed, Uid:~s, token: ~p, reason: ~p",
-                    [Uid, binary:part(Token, 0, 10), Reason]),
-            retry_message_item(PushMessageItem)
-    end.
-
-
-%% Parses response of the request to check if everything worked successfully.
--spec parse_response(binary()) -> {ok, string()} | {error, any(), string()}.
-parse_response(ResponseBody) ->
-    {JsonData} = jiffy:decode(ResponseBody),
-    Name = proplists:get_value(<<"name">>, JsonData, undefined),
-    case Name of
-        undefined ->
-            ?INFO("FCM error: response body: ~p", [ResponseBody]),
-            {error, other, <<"undefined">>};
-        _ ->
-            [FcmId | _] = lists:reverse(re:split(Name, "/")),
-            ?DEBUG("Fcm push: message_id: ~p", [FcmId]),
-            {ok, FcmId}
-    end.
-
-
--spec remove_push_token(Uid :: binary(), Server :: binary()) -> ok.
-remove_push_token(Uid, Server) ->
-    mod_push_tokens:remove_push_token(Uid, Server).
 
 
 %%====================================================================

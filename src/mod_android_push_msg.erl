@@ -26,7 +26,7 @@
 -define(SCOPE_URL, <<"https://www.googleapis.com/auth/firebase.messaging">>).
 
 -export([
-    push_message_item/2,
+    push_message_item/1,
     refresh_token/0,
     crash/0
 ]).
@@ -37,9 +37,9 @@
 -export([init/1, terminate/2, handle_call/3, handle_cast/2, handle_info/2]).
 
 
--spec push_message_item(PushMessageItem :: push_message_item(), ParentPid :: pid()) -> ok.
-push_message_item(PushMessageItem, ParentPid) ->
-    gen_server:cast(?PROC(), {push_message_item, PushMessageItem, ParentPid}),
+-spec push_message_item(PushMessageItem :: push_message_item()) -> ok.
+push_message_item(PushMessageItem) ->
+    gen_server:cast(?PROC(), {push_message_item, PushMessageItem}),
     ok.
 
 refresh_token() ->
@@ -78,10 +78,10 @@ mod_options(_Host) ->
 %% gen_server callbacks
 %%====================================================================
 
-init([_Host|_]) ->
+init([Host|_]) ->
     ServiceKeyFilePath = filename:join(misc:data_dir(), ?GOOGLE_SERVICE_KEY_FILE),
     State = reload_access_token(#{service_key_file => ServiceKeyFilePath}),
-    {ok, State}.
+    {ok, State#{host => Host, pending_map => #{}}}.
 
 
 terminate(_Reason, #{}) ->
@@ -97,8 +97,8 @@ handle_cast({ping, Id, Ts, From}, State) ->
     util_monitor:send_ack(self(), From, {ack, Id, Ts, self()}),
     {noreply, State};
 
-handle_cast({push_message_item, PushMessageItem, ParentPid}, State) ->
-    NewState = push_message_item(PushMessageItem, State, ParentPid),
+handle_cast({push_message_item, PushMessageItem}, State) ->
+    NewState = push_message_item(PushMessageItem, State),
     {noreply, NewState};
 
 handle_cast({refresh_token}, State) ->
@@ -111,6 +111,18 @@ handle_cast(Request, State) ->
     ?DEBUG("unknown request: ~p", [Request]),
     {noreply, State}.
 
+
+handle_info({http, {RequestId, _Response} = ReplyInfo}, #{pending_map := PendingMap} = State) ->
+    FinalPendingMap = case maps:take(RequestId, PendingMap) of
+        error ->
+            ?ERROR("Request not found in our map: RequestId: ~p", [RequestId]),
+            PendingMap;
+        {PushMessageItem, NewPendingMap} ->
+            handle_fcm_response(ReplyInfo, PushMessageItem, State),
+            NewPendingMap
+    end,
+    State1 = State#{pending_map => FinalPendingMap},
+    {noreply, State1};
 
 handle_info(Request, State) ->
     ?DEBUG("unknown request: ~p", [Request]),
@@ -139,8 +151,9 @@ reload_access_token(#{service_key_file := ServiceKeyFilePath} = State) ->
     }.
 
 
--spec push_message_item(PushMessageItem :: push_message_item(), State :: map(), ParentPid :: pid()) -> map().
-push_message_item(PushMessageItem, #{fcm_url := FcmUrl, auth_token := AuthToken} = State, ParentPid) ->
+-spec push_message_item(PushMessageItem :: push_message_item(), State :: map()) -> map().
+push_message_item(PushMessageItem, #{fcm_url := FcmUrl,
+        auth_token := AuthToken, pending_map := PendingMap} = State) ->
     PushMetadata = push_util:parse_metadata(PushMessageItem#push_message_item.message),
     Id = PushMessageItem#push_message_item.id,
     Uid = PushMessageItem#push_message_item.uid,
@@ -169,7 +182,7 @@ push_message_item(PushMessageItem, #{fcm_url := FcmUrl, auth_token := AuthToken}
             {timeout, ?HTTP_TIMEOUT_MILLISEC},
             {connect_timeout, ?HTTP_CONNECT_TIMEOUT_MILLISEC}
     ],
-    Options = [{sync, false}, {receiver, ParentPid}],
+    Options = [{sync, false}, {receiver, self()}],
     Request = {FcmUrl, [{"Authorization", AuthToken}], "application/json; UTF-8", jiffy:encode(PushBody)},
 
     %% Send the request.
@@ -177,12 +190,12 @@ push_message_item(PushMessageItem, #{fcm_url := FcmUrl, auth_token := AuthToken}
         {ok, RequestId} ->
             ?INFO("Uid: ~s, MsgId: ~s, ContentId: ~s, ContentType: ~s, RequestId: ~p",
                 [Uid, Id, ContentId, ContentType, RequestId]),
-            erlang:send(ParentPid, {add_to_pending_map, RequestId, PushMessageItem}),
-            State;
+            NewPendingMap = PendingMap#{RequestId => PushMessageItem},
+            State#{pending_map => NewPendingMap};
         {error, Reason} ->
             ?ERROR("Push failed, Uid:~s, token: ~p, reason: ~p",
                     [Uid, binary:part(Token, 0, 10), Reason]),
-            retry_message_item(PushMessageItem, ParentPid),
+            mod_android_push:retry_message_item(PushMessageItem),
             State
     end.
 
@@ -222,21 +235,100 @@ extract_payload_maps(PushMessageItem, PushMetadata) ->
     {NotificationMap, DataMap}.
 
 
--spec retry_message_item(PushMessageItem :: push_message_item(), ParentPid :: pid()) -> reference().
-retry_message_item(PushMessageItem, ParentPid) ->
-    RetryTime = PushMessageItem#push_message_item.retry_ms,
-    setup_timer({retry, PushMessageItem}, ParentPid, RetryTime).
-
-
--spec setup_timer(Msg :: any(), ParentPid :: pid(), Timeout :: integer()) -> reference().
-setup_timer(Msg, ParentPid, Timeout) ->
-    NewTimer = erlang:send_after(Timeout, ParentPid, Msg),
-    NewTimer.
-
-
 -spec cancel_token_timer(State :: map()) -> ok.
 cancel_token_timer(#{token_tref := TimerRef}) ->
     erlang:cancel_timer(TimerRef);
 cancel_token_timer(_) ->
     ok.
+
+
+-spec handle_fcm_response({RequestId :: reference(), Response :: term()},
+        PushMessageItem :: push_message_item(), State :: #{}) -> ok.
+handle_fcm_response({_RequestId, Response}, PushMessageItem, #{host := ServerHost} = _State) ->
+    Id = PushMessageItem#push_message_item.id,
+    Uid = PushMessageItem#push_message_item.uid,
+    Version = PushMessageItem#push_message_item.push_info#push_info.client_version,
+    ContentType = PushMessageItem#push_message_item.content_type,
+    Token = PushMessageItem#push_message_item.push_info#push_info.token,
+    case Response of
+        {{_, StatusCode5xx, _}, _, ResponseBody}
+                when StatusCode5xx >= 500 andalso StatusCode5xx < 600 ->
+            stat:count("HA/push", ?FCM, 1, [{"result", "fcm_error"}]),
+            ?ERROR("Push failed, Uid: ~s, Token: ~p, recoverable FCM error: ~p",
+                    [Uid, binary:part(Token, 0, 10), ResponseBody]),
+            mod_android_push:retry_message_item(PushMessageItem);
+
+        {{_, 200, _}, _, ResponseBody} ->
+            case parse_response(ResponseBody) of
+                {ok, FcmId} ->
+                    stat:count("HA/push", ?FCM, 1, [{"result", "success"}]),
+                    ?INFO("Uid:~s push successful for msg-id: ~s, FcmId: ~p", [Uid, Id, FcmId]),
+                    %% TODO: We should capture this info in the push info itself.
+                    {ok, Phone} = model_accounts:get_phone(Uid),
+                    CC = mod_libphonenumber:get_cc(Phone),
+                    mod_wakeup:monitor_push(Uid, PushMessageItem#push_message_item.message),
+                    mod_android_push:pushed_message(PushMessageItem, success),
+                    ha_events:log_event(<<"server.push_sent">>, #{uid => Uid, push_id => FcmId,
+                            platform => android, client_version => Version, push_type => silent,
+                            content_type => ContentType, cc => CC});
+                {error, Reason, FcmId} ->
+                    stat:count("HA/push", ?FCM, 1, [{"result", "failure"}]),
+                    case Reason =:= not_registered orelse Reason =:= invalid_registration of
+                        true ->
+                            ?INFO("Push failed: User Error, Uid:~s, token: ~p, reason: ~p, FcmId: ~p",
+                                [Uid, binary:part(Token, 0, 10), Reason, FcmId]);
+                        false ->
+                            ?ERROR("Push failed: Server Error, Uid:~s, token: ~p, reason: ~p, FcmId: ~p",
+                                [Uid, binary:part(Token, 0, 10), Reason, FcmId])
+                    end,
+                    remove_push_token(Uid, ServerHost),
+                    mod_android_push:pushed_message(PushMessageItem, failure)
+            end;
+        {{_, 401, _}, _, ResponseBody} ->
+            stat:count("HA/push", ?FCM, 1, [{"result", "fcm_error"}]),
+            ?INFO("Push failed, Uid: ~s, Token: ~p, expired auth token, Response: ~p",
+                    [Uid, binary:part(Token, 0, 10), ResponseBody]),
+            refresh_token(),
+            mod_android_push:retry_message_item(PushMessageItem);
+
+        {{_, 404, _}, _, ResponseBody} ->
+            stat:count("HA/push", ?FCM, 1, [{"result", "failure"}]),
+            ?INFO("Push failed, Uid:~s, token: ~p, unregistered FCM error: ~p",
+                    [Uid, binary:part(Token, 0, 10), ResponseBody]),
+            remove_push_token(Uid, ServerHost),
+            mod_android_push:pushed_message(PushMessageItem, failure);
+
+        {{_, _, _}, _, ResponseBody} ->
+            stat:count("HA/push", ?FCM, 1, [{"result", "failure"}]),
+            ?ERROR("Push failed, Uid:~s, token: ~p, non-recoverable FCM error: ~p",
+                    [Uid, binary:part(Token, 0, 10), ResponseBody]),
+            remove_push_token(Uid, ServerHost),
+            mod_android_push:pushed_message(PushMessageItem, failure);
+
+        {error, Reason} ->
+            ?INFO("Push failed, Uid:~s, token: ~p, reason: ~p",
+                    [Uid, binary:part(Token, 0, 10), Reason]),
+            mod_android_push:retry_message_item(PushMessageItem)
+    end.
+
+
+%% Parses response of the request to check if everything worked successfully.
+-spec parse_response(binary()) -> {ok, string()} | {error, any(), string()}.
+parse_response(ResponseBody) ->
+    {JsonData} = jiffy:decode(ResponseBody),
+    Name = proplists:get_value(<<"name">>, JsonData, undefined),
+    case Name of
+        undefined ->
+            ?INFO("FCM error: response body: ~p", [ResponseBody]),
+            {error, other, <<"undefined">>};
+        _ ->
+            [FcmId | _] = lists:reverse(re:split(Name, "/")),
+            ?DEBUG("Fcm push: message_id: ~p", [FcmId]),
+            {ok, FcmId}
+    end.
+
+
+-spec remove_push_token(Uid :: binary(), Server :: binary()) -> ok.
+remove_push_token(Uid, Server) ->
+    mod_push_tokens:remove_push_token(Uid, Server).
 
