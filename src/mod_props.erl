@@ -133,7 +133,8 @@ get_props(Uid, ClientVersion) ->
         is_psa_admin => false, %% is client allowed to post PSA Moment
         group_expiry => false, %% whether group expiry option is turned on for clients.
         default_krisp_noise_suppression => false,  %% Should client use noise suppression by default
-        enable_sentry_perf_tracking => false %% Enable Sentry perf tracking on iOS clients
+        enable_sentry_perf_tracking => false, %% Enable Sentry perf tracking on iOS clients
+        enable_groups_grid => false %% enables the new group grid experience on iOS clients
     },
     PropMap2 = get_uid_based_props(PropMap1, Uid),
     ClientType = util_ua:get_client_type(ClientVersion),
@@ -163,7 +164,8 @@ get_uid_based_props(PropMap, Uid) ->
             PropMap12 = maps:update(default_krisp_noise_suppression, true, PropMap11),
             PropMap13 = maps:update(enable_sentry_perf_tracking, true, PropMap12),
             PropMap14 = maps:update(group_expiry, true, PropMap13),
-            PropMap14
+            PropMap15 = maps:update(enable_groups_grid, true, PropMap14),
+            PropMap15
     end,
     apply_uid_prop_overrides(Uid, ResPropMap).
 
