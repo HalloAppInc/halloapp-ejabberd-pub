@@ -332,6 +332,7 @@ normalize_error_test() ->
 
 
 normalized_number_test() ->
+    setup(),
     ?assertEqual(undefined, mod_libphonenumber:normalized_number(<<"+91 415 412 1848">>, <<"US">>)),
     ?assertEqual(undefined, mod_libphonenumber:normalized_number(<<"123456">>, <<"US">>)),
     ?assertEqual(<<"12015550123">>, mod_libphonenumber:normalized_number(<<"2015550123">>, <<"US">>)),
