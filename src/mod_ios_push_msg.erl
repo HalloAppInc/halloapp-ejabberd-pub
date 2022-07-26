@@ -50,29 +50,6 @@
 %% gen_server API
 -export([init/1, terminate/2, handle_call/3, handle_cast/2, handle_info/2]).
 
-%% API
--export([
-    push_message/1,
-    push_message/2,
-    send_post_request_to_apns/8,
-    crash/0    %% to test
-
-]).
-
-
--spec push_message(PushMessageItem :: push_message_item()) -> ok.
-push_message(PushMessageItem) ->
-    gen_server:cast(?PROC(), {push_message_item, PushMessageItem}),
-    ok.
-
-
--spec push_message(PushMessageItem :: push_message_item(),
-    PushMetadata:: push_metadata()) -> ok.
-push_message(PushMessageItem, PushMetadata) ->
-    gen_server:cast(?PROC(), {push_message_item, PushMessageItem, PushMetadata}),
-    ok.
-
-
 %%====================================================================
 %% gen_mod API.
 %%====================================================================
@@ -96,9 +73,6 @@ reload(_Host, _NewOpts, _OldOpts) ->
 mod_options(_Host) ->
     [].
 
--spec crash() -> ok.
-crash() ->
-    gen_server:cast(?PROC(), crash).
 
 %%====================================================================
 %% gen_server callbacks

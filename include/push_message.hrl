@@ -44,7 +44,6 @@
 
 -record(push_state, {
     host :: binary(),
-    pendingMap :: #{},
     push_times_ms = [] :: list()
 }).
 
