@@ -66,7 +66,7 @@ mod_communities_small_cluster_test() ->
     ?assertEqual(1, NumComs),
 
     % Now test V shape of friends (UID1 <-> UUID2 <-> UID3)
-    model_friends:add_friend(?UID3, ?UID1),
+    model_friends:add_friend(?UID3, ?UID2),
     {NumIters1, Coms1} = mod_communities:compute_communities(Options),
     NumComs1 = maps:size(Coms1),
     ?assert(NumIters1 < 10),
@@ -74,7 +74,7 @@ mod_communities_small_cluster_test() ->
 
 
     % now for full triangle test
-    model_friends:add_friend(?UID3, ?UID2),
+    model_friends:add_friend(?UID3, ?UID1),
     {NumIters2, Coms2} = mod_communities:compute_communities(Options),
     NumComs2 = maps:size(Coms2),
     ?assert(NumIters2 < 10),

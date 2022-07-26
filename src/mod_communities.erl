@@ -698,11 +698,9 @@ combine_small_clusters(Uid, Friends, ClusterSizeThreshold) ->
     end.
 
 -spec is_not_isolated(Uid :: uid(), Unvisited :: [uid()], CurMembers :: [uid()], MinSize :: non_neg_integer()) -> {boolean(), [uid()]}.
-is_not_isolated(Uid, [], CurMembers, MinSize) when length(CurMembers) + 1 < MinSize ->  % add 1 to include currently being checked
-    RetMembers = [Uid | CurMembers],
-    % ?dbg("Found Disjoint community: ~p", [lists:sort(RetMembers)]),
-    {false, RetMembers};
-is_not_isolated(Uid, _Unvisited, CurMembers, MinSize) when length(CurMembers) + 1 >= MinSize -> {true, [Uid | CurMembers]};
+is_not_isolated(Uid, _Unvisited, CurMembers, MinSize) when length(CurMembers) + 1 >= MinSize -> 
+    {true, [Uid | CurMembers]};
+
 is_not_isolated(Uid, Unvisited, CurMembers, MinSize) ->
     % ?dbg("checking ~p, unvisited: ~p, Curmembers: ~p", [Uid, Unvisited, CurMembers]),
     {ok, DirtyFriends} = model_friends:get_friends(Uid),
@@ -710,12 +708,19 @@ is_not_isolated(Uid, Unvisited, CurMembers, MinSize) ->
     NewFriends = sets:subtract(sets:from_list(Friends), sets:from_list(CurMembers)),
     NewUnvisited = sets:to_list(sets:union(NewFriends, sets:from_list(Unvisited))),
     
-    [NextUid | NextUnvisited] = NewUnvisited,
-    NewMembers = case lists:member(Uid, CurMembers) of
-        true -> CurMembers;
-        false -> [Uid | CurMembers]
-    end,
-    is_not_isolated(NextUid, NextUnvisited, NewMembers, MinSize).
+    case NewUnvisited of
+        [] -> % if there are no more uids to visit, then we have our final cluster to check
+            RetMembers = [Uid | CurMembers],
+            % ?dbg("Found Disjoint community: ~p", [lists:sort(RetMembers)]),
+            {length(RetMembers) >= MinSize, RetMembers};
+        _ -> 
+            [NextUid | NextUnvisited] = NewUnvisited,
+            NewMembers = case lists:member(Uid, CurMembers) of
+                true -> CurMembers;
+                false -> [Uid | CurMembers]
+            end,
+            is_not_isolated(NextUid, NextUnvisited, NewMembers, MinSize)
+    end.
 
     
 % Calls Func on each key of the table. Func must have form -spec fun (Uid, CurLabel, NewLabel) -> ok
