@@ -277,5 +277,6 @@ get_athena_modules() ->
         athena_group_encryption,
         athena_home_encryption,
         athena_push,
-        athena_media
+        athena_media,
+        athena_call
     ].
