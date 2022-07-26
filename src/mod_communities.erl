@@ -224,13 +224,10 @@ setup_community_detection(NumWorkers, FreshStart) ->
     ets:new(?COMMUNITY_DATA_TABLE, [named_table, public, {write_concurrency, true}, {read_concurrency, true}]),
 
     % first, dump information from Redis into ets
-    % TODO (luke) This can be parallelized for each Node -- insertion into ets is thread-safe
     Nodes = model_accounts:get_node_list(),
     lists:foreach(fun (Node) -> 
                         load_keys(0, 0, Node, FreshStart)
                   end, Nodes),
-
-    
 
     ?INFO("CommunityDetection Initialization took ~p ms", [util:now_ms() - Start]),
     ok.
@@ -317,6 +314,8 @@ finish_community_detection(BatchSize, SmallClusterThreshold) ->
         fun  (_, #{}) -> false; %filter out empty maps to get only meaningful subsets
              (_, _) -> true 
         end, SubsetMap)),
+
+    ?INFO("After combining, ~p/~p communities are subsets", [length(CommunitySubsets), maps:size(DirtyCommunities)]),
     
     % final map of #{CommunityId => #{members => belonging}} with no subsets
     Communities = maps:without(CommunitySubsets, DirtyCommunities), 
@@ -333,7 +332,8 @@ finish_community_detection(BatchSize, SmallClusterThreshold) ->
     Communities.
 
 
--spec generate_friend_recommendations(Communities :: map(), pos_integer()) -> ok.
+-spec generate_friend_recommendations(Communities :: map(), non_neg_integer()) -> ok.
+generate_friend_recommendations(_Communities, 0) -> ok;
 generate_friend_recommendations(Communities, MaxNumRecs) ->
     Start = util:now_ms(),
     CommunityIdList = maps:keys(Communities),
@@ -374,6 +374,7 @@ generate_friend_recommendations(Communities, MaxNumRecs) ->
 
 -spec cleanup_community_detection() -> ok.
 cleanup_community_detection() ->
+    ?INFO("Starting CommunityDetectionCleanup"),
     ets:delete(?COMMUNITY_DATA_TABLE),
     wpool:stop_sup_pool(?COMMUNITY_WORKER_POOL),
     ?INFO("CommunityDetection cleanup successful"),
@@ -399,7 +400,7 @@ load_keys(Cursor, N, Node, FreshStart) ->
         {[], 0} -> N;
         _ -> lists:foreach(
                 fun (Uid) -> 
-                    Friends = lists:delete(Uid, maps:get(Uid, FriendMap)),
+                    Friends = remove_self_friend(Uid, maps:get(Uid, FriendMap)),
                     load_key(Uid, Friends, FreshStart) 
                 end, 
                 Uids),
@@ -417,9 +418,9 @@ load_key(Uid, _Friends, FreshStart) ->
         {_, false} -> model_accounts:get_community_label(Uid)
     end,
     case StartingLabel of
-        {error, _Info} -> ?INFO("Warning: Not adding ~p.", [Uid]), false;
+        {error, Info} -> ?INFO("Warning: Not adding ~p; Info: ~p", [Uid, Info]), false;
         undefined -> 
-            ?INFO("Warning: undefined starting label for uid ~p", [Uid]),
+            ?INFO("Warning: undefined starting label for uid ~p; giving self-label", [Uid]),
             ets:insert_new(?COMMUNITY_DATA_TABLE, {label_key(Uid), #{Uid => 1.0}, #{}}); %idempotent
         _ -> ets:insert_new(?COMMUNITY_DATA_TABLE, {label_key(Uid), StartingLabel, #{}}) %idempotent
     end.
@@ -462,7 +463,7 @@ batch_propagate(ParentPid, MatchList, MaxNumCommunities) ->
     % Propagate labels for all uids
     lists:foreach(
         fun (Uid) -> 
-            RealFriends = remove_deleted_and_self_friends(Uid, maps:get(Uid, Friends)), %if undefined return []
+            RealFriends = remove_self_friend(Uid, maps:get(Uid, Friends)), %if undefined return []
             propagate(Uid, RealFriends, MaxNumCommunities) 
         end, 
         Uids),
@@ -473,8 +474,7 @@ batch_propagate(ParentPid, MatchList, MaxNumCommunities) ->
 % * Called on each Uid -- Used to calculate next label for each node
 -spec propagate(uid(), FriendList :: [uid()], MaxNumCommunities :: pos_integer()) -> ok | {error, any()}.
 propagate(Uid, [], _MaxNumCommunities) -> 
-    % TODO (luke) this clause will be unecessary once we run the migration to clean up deleted friends
-    ?INFO("Not propagating for ~p because no friends", [Uid]),
+    ?INFO("WARNING: Uid ~p has no real/non-self friends -- this shouldn't happen", [Uid]),
     ets:delete(?COMMUNITY_DATA_TABLE, label_key(Uid));
 propagate(Uid, FriendList, MaxNumCommunities) ->
     % ?dbg("---------------------- Updating label for ~p--------------------------", [Uid]),
@@ -619,23 +619,13 @@ strongest_community_id(Label) ->
                                     {undefined, 0}, Label),
     CommunityId.
 
--spec remove_unknown_uids([uid()]) -> [uid()].
-remove_unknown_uids(Uids) ->
-    lists:filter(
-        fun (Uid) ->
-            ets:member(?COMMUNITY_DATA_TABLE, label_key(Uid))
-        end,
-        Uids).
-
--spec remove_deleted_and_self_friends(Uid :: uid(), Friends :: [uid()]) -> [uid()].
-remove_deleted_and_self_friends(Uid, Friends) ->
-    NoSelfFriends = lists:filter( 
+-spec remove_self_friend(Uid :: uid(), Friends :: [uid()]) -> [uid()].
+remove_self_friend(Uid, Friends) ->
+    lists:filter( 
         fun (Buid) -> 
             Buid =/= Uid
         end, 
-        Friends),
-    %removes all uids that aren't present in the ets table (which means an acc:* key doesnt exist for them)
-    remove_unknown_uids(NoSelfFriends). 
+        Friends).
     
 
 -spec get_friend_labels([uid()]) -> [community_label()].
@@ -664,7 +654,7 @@ batch_combine_small_clusters(ParentPid, MatchList, ClusterSizeThreshold) ->
     % ?dbg("Got batch for ~p -> ~p", [MatchList, Friends]),
     NumCombined = lists:foldl(
         fun (Uid, Acc) -> 
-            MyFriends = remove_deleted_and_self_friends(Uid, maps:get(Uid, DirtyFriends)),
+            MyFriends = remove_self_friend(Uid, maps:get(Uid, DirtyFriends)),
             case combine_small_clusters(Uid, MyFriends, ClusterSizeThreshold) of
                 ok -> Acc;
                 _ -> Acc + 1
@@ -681,13 +671,6 @@ combine_small_clusters(Uid, Friends, ClusterSizeThreshold) ->
     [StartUid | Unvisited] = Friends,
     {IsLargeCluster, ClusterUids} = is_not_isolated(StartUid, Unvisited, [Uid], ClusterSizeThreshold),
     
-    % Specific debugging for Uids that I have noticed being handled improperly
-    case lists:member(Uid, [<<"1000000000668875888">>, <<"1000000000854260426">>, <<"1000000000883378785">>]) of
-        true -> 
-            [Leader1 | _SortedUids1] = lists:sort(ClusterUids),
-            ?INFO("Just checked Uid ~p, IsLargeCluster: ~p, ClusterUids: ~p, Leader: ~p", [Uid, IsLargeCluster, ClusterUids, Leader1]);
-        false -> ok
-    end,
     case IsLargeCluster of
         true -> ok;
         false ->
@@ -704,7 +687,7 @@ is_not_isolated(Uid, _Unvisited, CurMembers, MinSize) when length(CurMembers) + 
 is_not_isolated(Uid, Unvisited, CurMembers, MinSize) ->
     % ?dbg("checking ~p, unvisited: ~p, Curmembers: ~p", [Uid, Unvisited, CurMembers]),
     {ok, DirtyFriends} = model_friends:get_friends(Uid),
-    Friends = remove_deleted_and_self_friends(Uid, DirtyFriends),
+    Friends = remove_self_friend(Uid, DirtyFriends),
     NewFriends = sets:subtract(sets:from_list(Friends), sets:from_list(CurMembers)),
     NewUnvisited = sets:to_list(sets:union(NewFriends, sets:from_list(Unvisited))),
     
@@ -818,7 +801,7 @@ find_community_friend_recommendations(CommunityUids) ->
     % members of the community to calculate connection strength
     {FriendConnectionMap, CleanFriendsMap} = maps:fold(
         fun (Uid, FriendsList, {AccConnectionMap, AccFriendMap}) ->
-            CleanFriendsList = remove_deleted_and_self_friends(Uid, FriendsList),
+            CleanFriendsList = remove_self_friend(Uid, FriendsList),
             ConnectionMap = util:map_from_keys(CleanFriendsList, undefined),
             {AccConnectionMap#{Uid => ConnectionMap}, AccFriendMap#{Uid => CleanFriendsList}}
             
