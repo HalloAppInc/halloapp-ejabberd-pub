@@ -96,12 +96,13 @@ handle_info({http, {RequestId, _Response} = ReplyInfo}, #{pending_map := Pending
     FinalPendingMap = case maps:take(RequestId, PendingMap) of
         error ->
             ?ERROR("Request not found in our map: RequestId: ~p", [RequestId]),
+            NewState = State,
             PendingMap;
         {PushMessageItem, NewPendingMap} ->
-            handle_fcm_response(ReplyInfo, PushMessageItem, State),
+            NewState = handle_fcm_response(ReplyInfo, PushMessageItem, State),
             NewPendingMap
     end,
-    State1 = State#{pending_map => FinalPendingMap},
+    State1 = NewState#{pending_map => FinalPendingMap},
     {noreply, State1};
 
 handle_info({refresh_token}, State) ->
@@ -228,7 +229,7 @@ cancel_token_timer(_) ->
 
 -spec handle_fcm_response({RequestId :: reference(), Response :: term()},
         PushMessageItem :: push_message_item(), State :: #{}) -> ok.
-handle_fcm_response({_RequestId, Response}, PushMessageItem, #{host := ServerHost} = _State) ->
+handle_fcm_response({_RequestId, Response}, PushMessageItem, #{host := ServerHost} = State) ->
     Id = PushMessageItem#push_message_item.id,
     Uid = PushMessageItem#push_message_item.uid,
     Version = PushMessageItem#push_message_item.push_info#push_info.client_version,
@@ -240,8 +241,8 @@ handle_fcm_response({_RequestId, Response}, PushMessageItem, #{host := ServerHos
             stat:count("HA/push", ?FCM, 1, [{"result", "fcm_error"}]),
             ?ERROR("Push failed, Uid: ~s, Token: ~p, recoverable FCM error: ~p",
                     [Uid, binary:part(Token, 0, 10), ResponseBody]),
-            mod_android_push:retry_message_item(PushMessageItem);
-
+            mod_android_push:retry_message_item(PushMessageItem),
+            State;
         {{_, 200, _}, _, ResponseBody} ->
             case parse_response(ResponseBody) of
                 {ok, FcmId} ->
@@ -267,32 +268,35 @@ handle_fcm_response({_RequestId, Response}, PushMessageItem, #{host := ServerHos
                     end,
                     remove_push_token(Uid, ServerHost),
                     mod_android_push:pushed_message(PushMessageItem, failure)
-            end;
+            end,
+            State;
         {{_, 401, _}, _, ResponseBody} ->
             stat:count("HA/push", ?FCM, 1, [{"result", "fcm_error"}]),
-            ?INFO("Push failed, Uid: ~s, Token: ~p, expired auth token, Response: ~p",
+            ?ERROR("Push failed, Uid: ~s, Token: ~p, expired auth token, Response: ~p",
                     [Uid, binary:part(Token, 0, 10), ResponseBody]),
             erlang:send(self(), refresh_token),
-            mod_android_push:retry_message_item(PushMessageItem);
-
+            mod_android_push:retry_message_item(PushMessageItem),
+            NewState = reload_access_token(State),
+            NewState;
         {{_, 404, _}, _, ResponseBody} ->
             stat:count("HA/push", ?FCM, 1, [{"result", "failure"}]),
             ?INFO("Push failed, Uid:~s, token: ~p, unregistered FCM error: ~p",
                     [Uid, binary:part(Token, 0, 10), ResponseBody]),
             remove_push_token(Uid, ServerHost),
-            mod_android_push:pushed_message(PushMessageItem, failure);
-
+            mod_android_push:pushed_message(PushMessageItem, failure),
+            State;
         {{_, _, _}, _, ResponseBody} ->
             stat:count("HA/push", ?FCM, 1, [{"result", "failure"}]),
             ?ERROR("Push failed, Uid:~s, token: ~p, non-recoverable FCM error: ~p",
                     [Uid, binary:part(Token, 0, 10), ResponseBody]),
             remove_push_token(Uid, ServerHost),
-            mod_android_push:pushed_message(PushMessageItem, failure);
-
+            mod_android_push:pushed_message(PushMessageItem, failure),
+            State;
         {error, Reason} ->
             ?INFO("Push failed, Uid:~s, token: ~p, reason: ~p",
                     [Uid, binary:part(Token, 0, 10), Reason]),
-            mod_android_push:retry_message_item(PushMessageItem)
+            mod_android_push:retry_message_item(PushMessageItem),
+            State
     end.
 
 
