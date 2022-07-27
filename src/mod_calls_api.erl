@@ -93,16 +93,19 @@ process_get_call_servers(IQ, Uid, PeerUid, CallId, CallType) ->
 process_start_call(IQ, Uid, PeerUid, CallId, CallType, Offer, RerequestCount, Caps) ->
     ?INFO("Uid: ~s PeerUid: ~s CallId: ~s ~s RerequestCount: ~p Caps: ~p",
         [Uid, PeerUid, CallId, CallType, RerequestCount, Caps]),
-
-    {ok, {StunServers, TurnServers}} = mod_calls:start_call(
-        CallId, Uid, PeerUid, CallType, Offer, RerequestCount, Caps),
-
-    StartCallResult = #pb_start_call_result{
-        result = ok,
-        stun_servers = StunServers,
-        turn_servers = TurnServers
-    },
-
-    pb:make_iq_result(IQ, StartCallResult).
+    case model_privacy:is_blocked(Uid, PeerUid) of
+        true ->
+            ?INFO("Uid: ~s PeerUid: ~s CallId: ~s blocked", [Uid, PeerUid, CallId]),
+            pb:make_error(IQ, util:err(user_blocked));
+        false ->
+            {ok, {StunServers, TurnServers}} = mod_calls:start_call(
+                CallId, Uid, PeerUid, CallType, Offer, RerequestCount, Caps),
+            StartCallResult = #pb_start_call_result{
+                result = ok,
+                stun_servers = StunServers,
+                turn_servers = TurnServers
+            },
+            pb:make_iq_result(IQ, StartCallResult)
+    end.
 
 
