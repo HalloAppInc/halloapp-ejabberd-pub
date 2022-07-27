@@ -105,21 +105,21 @@ invite_recos(Uid, MaxInviteRecommendations) ->
 invite_ouid_query(Uid, MaxInviteRecommendations) ->
     UidInt = binary_to_integer(Uid),
     QueryFormat = "
-    SELECT 
-        uid, 
-        ouid, 
-        event_type, 
-        count(*) as cnt 
-    FROM
-        server_friend_event 
-    WHERE (
-        uid = '~p' OR 
-        ouid = '~p')
-    GROUP BY 
-        uid, 
-        ouid, 
-        event_type;
-    ",
+    SELECT uid, ouid, event_type, cnt from (
+      SELECT 
+          uid, 
+          ouid, 
+          event_type, 
+          count(*) as cnt 
+      FROM
+          server_friend_event 
+      WHERE 
+          (uid = '~p' or ouid = '~p')
+      GROUP BY 
+          uid, 
+          ouid, 
+          event_type
+    ) where cnt > 1;",
     Query = io_lib:format(QueryFormat, [UidInt, UidInt]),
     #athena_query{
         query_bin = list_to_binary(Query),
@@ -188,8 +188,11 @@ process_invite_recos(Query) ->
         fun({InvitePh, KnownUids}) ->
             ?INFO("  ~s", [InvitePh]),
             NamesMap = model_accounts:get_names(KnownUids),
-            [?INFO("    ~s, ~s", [maps:get(KnownUid, NamesMap, undefined), KnownUid]) ||
-                KnownUid <- KnownUids]
+            PhonesList = model_accounts:get_phones(KnownUids),
+            PhoneUidList = lists:zip(PhonesList, KnownUids),
+            [?INFO("    ~s, ~s, ~s",
+                [maps:get(KnownUid, NamesMap, undefined), Phone, KnownUid]) ||
+                {Phone, KnownUid} <- PhoneUidList]
         end, NewInvites2),
     ok.
 
@@ -234,7 +237,8 @@ generate_invite_recos(Uid, Ouids) ->
 
 -spec update_ouid_map(Ouid :: uid(), Cnt :: pos_integer(), Map :: map()) -> map().
 update_ouid_map(Ouid, Cnt, Map) ->
-    case dev_users:is_dev_uid(Ouid) of
+    {ok, FriendsList} = model_friends:get_friends(Ouid), 
+    case dev_users:is_dev_uid(Ouid) orelse length(FriendsList) >= 15 of
         true -> 
             Map;
         false ->
