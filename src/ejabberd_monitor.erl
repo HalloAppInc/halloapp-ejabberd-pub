@@ -37,7 +37,8 @@
     get_state_history/1,
     try_remonitor/1,
     get_registered_name/0,
-    get_registered_name/1
+    get_registered_name/1,
+    monitor_atoms/0
 ]).
 
 %%====================================================================
@@ -129,14 +130,16 @@ get_supervisors() ->
 init([]) ->
     ?INFO("Start: ~p", [?MONITOR_GEN_SERVER]),
     {ok, TRef} = timer:apply_interval(?PING_INTERVAL_MS, ?MODULE, ping_procs, []),
+    {ok, TRef2} = timer:apply_interval(?ATOM_CHECK_INTERVAL_MS, ?MODULE, monitor_atoms, []),
     ets:new(?MONITOR_TABLE, [named_table, public]),
     ejabberd_hooks:add(node_up, ?MODULE, node_up, 10),
-    {ok, #state{monitors = #{}, active_pings = #{}, gen_servers = [], tref = TRef}}.
+    {ok, #state{monitors = #{}, active_pings = #{}, gen_servers = [], tref = TRef, atom_tref = TRef2}}.
 
 
-terminate(_Reason, #state{tref = TRef} = _State) ->
+terminate(_Reason, #state{tref = TRef, atom_tref = AtomTRef} = _State) ->
     ?INFO("Terminate: ~p", [?MONITOR_GEN_SERVER]),
     timer:cancel(TRef),
+    timer:cancel(AtomTRef),
     ets:delete(?MONITOR_TABLE),
     ejabberd_hooks:delete(node_up, ?MODULE, node_up, 10),
     ok.
@@ -283,6 +286,27 @@ monitor_other_monitors() ->
         none -> []
     end,
     lists:foreach(fun monitor/1, MonitorList),
+    ok.
+
+
+monitor_atoms() ->
+    AtomCount = erlang:system_info(atom_count),
+    PercentUsed = util:to_float(io_lib:format("~.2f", [AtomCount / ?ATOM_LIMIT * 100])),
+    case PercentUsed of
+        Percent when Percent < 45 ->
+            ?INFO("Atom count: ~p, roughly ~p% of the max limit", [AtomCount, PercentUsed]);
+        Percent when Percent < 65 ->
+            ?WARNING("Atom count: ~p, roughly ~p% of the max limit", [AtomCount, PercentUsed]);
+        Percent when Percent < 85 ->
+            ?ERROR("Atom count: ~p, roughly ~p% of the max limit", [AtomCount, PercentUsed]);
+        _ ->
+            Host = util:get_machine_name(),
+            BinPercent = util:to_binary(PercentUsed),
+            Msg = <<Host/binary, " has used ", BinPercent/binary, " of the atom limit">>,
+            alerts:send_alert(<<Host/binary, " is approaching atom limit">>, Host, <<"critical">>, Msg)
+    end,
+    stat:gauge(?NS, "atom_count_num", AtomCount),
+    stat:gauge(?NS, "atom_count_percent", PercentUsed),
     ok.
 
 

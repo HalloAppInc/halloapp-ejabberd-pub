@@ -33,6 +33,7 @@
     active_pings :: maps:map(),
     gen_servers :: [atom()],
     tref :: timer:tref(),
+    atom_tref :: timer:tref(),
     global_monitoring :: boolean()
 }).
 
@@ -75,6 +76,9 @@
 
 % length (in chars) of the id attached to each ping
 -define(ID_LENGTH, 16).
+
+-define(ATOM_CHECK_INTERVAL_MS, 1 * ?HOURS_MS).
+-define(ATOM_LIMIT, 1048576).
 
 -endif.
 
