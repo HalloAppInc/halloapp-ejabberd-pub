@@ -240,7 +240,7 @@ process_push_times(PushTimes, Time, Platform) ->
     end,
     Avg = lists:sum(NewPushTimes)/length(NewPushTimes),
     FormattedAvg = io_lib:format("~.1f",[Avg]),
-    ?INFO("Average time over ~p ~p push notification: ~p ms. ", [length(NewPushTimes), Platform, FormattedAvg]),
+    ?INFO("Average time over ~p ~p push notification: ~p ms. NewPushTimes: ~p ", [length(NewPushTimes), Platform, FormattedAvg, NewPushTimes]),
     stat:gauge("HA/push", "push_time_ms", util:to_float(FormattedAvg), [{platform, Platform}]),
     NewPushTimes.
 
