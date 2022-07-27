@@ -79,3 +79,20 @@ block_ip_address_test() ->
     ?assertEqual(false, model_ip_addresses:is_ip_blocked(?IP2)),
     ok.
 
+
+ip_attempt_test() ->
+    setup(),
+
+    Now = util:now(),
+    ?assertEqual(0, model_ip_addresses:get_ip_code_attempts(?IP1, Now)),
+    ?assertEqual(1, model_ip_addresses:add_ip_code_attempt(?IP1, Now)),
+    ?assertEqual(2, model_ip_addresses:add_ip_code_attempt(?IP1, Now)),
+    ?assertEqual(2, model_ip_addresses:get_ip_code_attempts(?IP1, Now)),
+    ?assertEqual(0, model_ip_addresses:get_ip_code_attempts(?IP2, Now)),
+
+    % check expiration time
+    {ok, TTLBin} = model_phone:q(["TTL", model_ip_addresses:ip_attempt_key(?IP1, Now)]),
+    TTL = util_redis:decode_int(TTLBin),
+    ?assertEqual(true, TTL > 0),
+    ok.
+

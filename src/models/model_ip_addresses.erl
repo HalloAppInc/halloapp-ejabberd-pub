@@ -11,6 +11,7 @@
 -include("logger.hrl").
 -include("ha_types.hrl").
 -include("redis_keys.hrl").
+-include("time.hrl").
 -include_lib("stdlib/include/assert.hrl").
 
 
@@ -23,7 +24,10 @@
     add_blocked_ip_address/2,
     remove_blocked_ip_address/1,
     record_blocked_ip_address/2,
-    clear_blocked_ip_address/1
+    clear_blocked_ip_address/1,
+    add_ip_code_attempt/2,
+    get_ip_code_attempts/2,
+    ip_attempt_key/2
 ]).
 -compile([{nowarn_unused_function, [
     {q, 1},
@@ -112,8 +116,34 @@ clear_blocked_ip_address(IPAddress) ->
     ok.
 
 
+-spec add_ip_code_attempt(IP :: binary(), Timestamp :: integer()) -> integer().
+add_ip_code_attempt(IP, Timestamp) ->
+    Key = ip_attempt_key(IP, Timestamp),
+    {ok, [Res, _]} = multi_exec([
+        ["INCR", Key],
+        ["EXPIRE", Key, ?TTL_IP_ADDRESS]
+    ]),
+    util_redis:decode_int(Res).
+
+-spec get_ip_code_attempts(IP :: binary(), Timestamp :: integer()) -> maybe(integer()).
+get_ip_code_attempts(IP, Timestamp) ->
+    Key = ip_attempt_key(IP, Timestamp),
+    {ok, Res} = q(["GET", Key]),
+    case Res of
+        undefined -> 0;
+        Res -> util:to_integer(Res)
+    end.
+
+
 q(Command) -> ecredis:q(ecredis_phone, Command).
 qp(Commands) -> ecredis:qp(ecredis_phone, Commands).
+
+
+multi_exec(Commands) ->
+    WrappedCommands = lists:append([[["MULTI"]], Commands, [["EXEC"]]]),
+    Results = qp(WrappedCommands),
+    [ExecResult | _Rest] = lists:reverse(Results),
+    ExecResult.
 
 
 -spec ip_key(IPBin :: binary()) -> binary().
@@ -127,4 +157,10 @@ block_ip_key(IPAddress) ->
     IPBin = util:to_binary(IPAddress),
     <<?BLOCK_IP_KEY/binary, "{", IPBin/binary, "}">>.
 
+
+-spec ip_attempt_key(Ip :: binary(), Timestamp :: integer() ) -> binary().
+ip_attempt_key(Ip, Timestamp) ->
+    IPBin = util:to_binary(Ip),
+    Day = util:to_binary(util:to_integer(Timestamp / ?DAYS)),
+    <<?IP_ATTEMPT_KEY/binary, "{", IPBin/binary, "}:", Day/binary>>.
 

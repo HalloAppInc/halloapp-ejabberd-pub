@@ -23,6 +23,7 @@
 -define(PHONE10, <<"12065550010">>).
 -define(PHONE11, <<"12065550011">>).
 -define(PHONE12, <<"12065550012">>).
+-define(PHONE13, <<"12065550013">>).
 -define(NAME10, <<"Elon Musk10">>).
 -define(NAME11, <<"Elon Musk11">>).
 -define(NAME12, <<"Elon Spammer12">>).
@@ -48,7 +49,8 @@ group() ->
         registration_request_otp_noise_invalid_phone_fail_test,
         registration_request_otp_noise_bad_request_fail_test,
         registration_verify_otp_fail_noise_test,
-        registration_too_many_attempts_register_test
+        registration_too_many_phone_attempts_register_test,
+        registration_too_many_ip_attempts_register_test
     ]}.
 
 request_sms_test(_Conf) ->
@@ -451,7 +453,10 @@ verify_otp_fail_noise_test(_Conf) ->
 %% TODO(murali@): use IK handshake as well - extend ha_client to perform IK handshake.
 
 %% TODO(nikola): this test can fail sometimes if running right at midnight UTC...
-too_many_attempts_register_test(_Conf) ->
+too_many_phone_attempts_register_test(_Conf) ->
+    meck:new(mod_halloapp_http_api, [passthrough]),
+    % prevent ip check
+    meck:expect(mod_halloapp_http_api, check_attempts_by_ip, fun(_) -> ok end),
     registration_client:request_sms(?PHONE12, #{}),
     SMSErr = #{
             <<"result">> => <<"fail">>,
@@ -467,4 +472,28 @@ too_many_attempts_register_test(_Conf) ->
     % trying the right code should fail
     {error, {400, SMSErr}} = registration_client:register(?PHONE12, <<"111111">>, ?NAME12),
     ?assertEqual({ok, undefined}, model_phone:get_uid(?PHONE12)),
+    ?assert(meck:validate(mod_halloapp_http_api)),
+    meck:unload(mod_halloapp_http_api),
+    ok.
+
+
+too_many_ip_attempts_register_test(_Conf) ->
+    registration_client:request_sms(?PHONE13, #{}),
+    SMSErr = #{
+            <<"result">> => <<"fail">>,
+            <<"error">> => <<"wrong_sms_code">>
+    },
+    % Trigger the ip block (max attempts is 30), but not the phone block (max attempts is 20 per phone)
+    lists:map(
+        fun(Code) ->
+            {error, {400, SMSErr}} = registration_client:register(?PHONE12, util:to_binary(Code), ?NAME11)
+        end, lists:seq(111112, 111130)),
+    lists:map(
+        fun(Code) ->
+            {error, {400, SMSErr}} = registration_client:register(?PHONE13, util:to_binary(Code), ?NAME11)
+        end, lists:seq(111112, 111130)),
+
+    % trying the right code should fail
+    {error, {400, SMSErr}} = registration_client:register(?PHONE13, <<"111111">>, ?NAME11),
+    ?assertEqual({ok, undefined}, model_phone:get_uid(?PHONE13)),
     ok.

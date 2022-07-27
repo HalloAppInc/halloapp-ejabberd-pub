@@ -17,7 +17,8 @@
     check_name/1,
     check_sms_code/4,
     create_hashcash_challenge/2,
-    check_hashcash_solution/2
+    check_hashcash_solution/2,
+    check_attempts_by_ip/1
 ]).
 -endif.
 
@@ -40,6 +41,7 @@
 %% allow 10 attempts to guess the code per day, 20 for test numbers
 -define(MAX_SMS_CODE_ATTEMPTS, 10).
 -define(DEV_MAX_SMS_CODE_ATTEMPTS, 20).
+-define(MAX_IP_SMS_CODE_ATTEMPTS, 30).
 %% Allow Google to register using the following OTP. The following OTP will be given to Google
 %% along with submission of new version of the App.
 -define(SPECIAL_OTP_FOR_GOOGLE, <<"466453">>).
@@ -777,7 +779,7 @@ log_otp_request(RawPhone, Method, UserAgent, ClientIP, Protocol) ->
 %% Throws error if the code is wrong
 -spec check_sms_code(phone(), binary(), atom(), binary()) -> ok.
 check_sms_code(Phone, ClientIP, Protocol, Code) ->
-    check_excessive_sms_code_attempts(Phone),
+    check_excessive_sms_code_attempts(Phone, ClientIP),
     IsGoogleAndValid = util_sms:is_google_request(Phone, ClientIP, Protocol) andalso
         Code =:= ?SPECIAL_OTP_FOR_GOOGLE,
     case IsGoogleAndValid of
@@ -796,8 +798,15 @@ check_sms_code(Phone, ClientIP, Protocol, Code) ->
     end.
 
 % Throws error if too many attempts
--spec check_excessive_sms_code_attempts(Phone :: binary()) -> ok | no_return().
-check_excessive_sms_code_attempts(Phone) ->
+-spec check_excessive_sms_code_attempts(Phone :: binary(), ClientIP :: binary()) -> ok | no_return().
+check_excessive_sms_code_attempts(Phone, IP) ->
+    check_attempts_by_phone(Phone),
+    check_attempts_by_ip(IP),
+    ok.
+
+
+-spec check_attempts_by_phone(Phone :: binary()) -> ok | no_return().
+check_attempts_by_phone(Phone) ->
     NumAttempts = model_phone:add_phone_code_attempt(Phone, util:now()),
     ?INFO("Phone: ~s has made ~p attempts to guess the sms code", [Phone, NumAttempts]),
     MaxSMSAttempts = case util:is_test_number(Phone) of
@@ -811,6 +820,19 @@ check_excessive_sms_code_attempts(Phone) ->
         false ->
             ok
     end.
+
+-spec check_attempts_by_ip(IP :: binary()) -> ok | no_return().
+check_attempts_by_ip(IP) ->
+    NumAttempts = model_ip_addresses:add_ip_code_attempt(IP, util:now()),
+    ?INFO("IP: ~s has made ~p attempts to guess the sms code", [IP, NumAttempts]),
+    case NumAttempts > ?MAX_IP_SMS_CODE_ATTEMPTS of
+        true ->
+            ?ERROR("Too many sms code attempts Ip: ~p NumAttempts: ~p", [IP, NumAttempts]),
+            error(too_many_sms_code_checks);
+        false ->
+            ok
+    end.
+
 
 -spec maybe_join_group(Uid :: uid(), Link :: binary()) -> ok | atom().
 maybe_join_group(_Uid, undefined) ->

@@ -149,6 +149,7 @@
 
 -define(IP_KEY, <<"ip:">>).
 -define(BLOCK_IP_KEY, <<"bip:">>).
+-define(IP_ATTEMPT_KEY, <<"ipa:">>).
 
 % old deleted/deprecated keys
 %%-define(INVITED_BY_KEY_OLD, <<"inb:">>).
