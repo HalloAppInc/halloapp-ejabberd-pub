@@ -33,7 +33,6 @@ can_send_sms(CC) ->
     case CC of
         <<"CN">> -> false;     %% China
         <<"SA">> -> false;     %% Saudi Arabia
-        <<"US">> -> false;     %% USA
         <<"VN">> -> false;     %% Vietnam
         _ -> true
     end.
@@ -159,9 +158,10 @@ get_auth_token() ->
     Code :: string(),
     Body :: uri_string:uri_string().
 compose_body(Phone, Template, Code) ->
+    SenderId = get_sender_id(Phone),
     uri_string:compose_query([
         {"phone_number", Phone},
-        {"sender_id", ?HALLOAPP_SENDER_ID},
+        {"sender_id", SenderId},
         {"verify_code", Code},
         {"template", Template}
     ], [{encoding, unicode}]).
@@ -170,4 +170,10 @@ compose_body(Phone, Template, Code) ->
 -spec send_feedback(Phone :: phone(), AllVerifyInfo :: list()) -> ok.
 send_feedback(_Phone, _AllVerifyInfo) ->
     ok. 
+
+get_sender_id(Phone) ->
+   case mod_libphonenumber:get_cc(Phone) of
+        <<"US">> -> ?TFN;
+        _ -> ?HALLOAPP_SENDER_ID
+    end.
 
