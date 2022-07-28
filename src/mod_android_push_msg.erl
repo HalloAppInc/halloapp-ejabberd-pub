@@ -93,17 +93,15 @@ handle_cast(Request, State) ->
 
 
 handle_info({http, {RequestId, _Response} = ReplyInfo}, #{pending_map := PendingMap} = State) ->
-    FinalPendingMap = case maps:take(RequestId, PendingMap) of
+    State2 = case maps:take(RequestId, PendingMap) of
         error ->
             ?ERROR("Request not found in our map: RequestId: ~p", [RequestId]),
-            NewState = State,
-            PendingMap;
+            State#{pending_map => PendingMap};
         {PushMessageItem, NewPendingMap} ->
-            NewState = handle_fcm_response(ReplyInfo, PushMessageItem, State),
-            NewPendingMap
+            State1 = handle_fcm_response(ReplyInfo, PushMessageItem, State),
+            State1#{pending_map => NewPendingMap}
     end,
-    State1 = NewState#{pending_map => FinalPendingMap},
-    {noreply, State1};
+    {noreply, State2};
 
 handle_info({refresh_token}, State) ->
     NewState = reload_access_token(State),
@@ -228,7 +226,7 @@ cancel_token_timer(_) ->
 
 
 -spec handle_fcm_response({RequestId :: reference(), Response :: term()},
-        PushMessageItem :: push_message_item(), State :: #{}) -> ok.
+        PushMessageItem :: push_message_item(), State :: #{}) -> State :: #{}.
 handle_fcm_response({_RequestId, Response}, PushMessageItem, #{host := ServerHost} = State) ->
     Id = PushMessageItem#push_message_item.id,
     Uid = PushMessageItem#push_message_item.uid,
