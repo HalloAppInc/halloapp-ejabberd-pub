@@ -210,54 +210,63 @@ apply_uid_prop_overrides(Uid, PropMap) ->
 -spec uid_prop_override(Uid :: uid(), Prop :: atom()) -> undef | term().
 uid_prop_override(<<"1000000000490675850">>, use_cleartext_group_feed) -> false;  %% Murali (groupe2e)
 uid_prop_override(<<"1000000000212763494">>, use_cleartext_group_feed) -> false;  %% Murali (groupe2e)
-uid_prop_override(<<"1000000000244386007">>, krisp_noise_suppression) -> true;  %% Babken@krisp (krisp)
-uid_prop_override(<<"1000000000391903431">>, krisp_noise_suppression) -> true;  %% Tigran@krisp (krisp)
-uid_prop_override(<<"1000000000608373702">>, krisp_noise_suppression) -> true;  %% Grigor@krisp (krisp)
 uid_prop_override(Uid, krisp_noise_suppression) ->
-    ReachOutUsers = reach_out_users(),
-    case gb_sets:is_element(Uid, ReachOutUsers) of
-        true -> true;
-        false ->
-            {ok, Phone} = model_accounts:get_phone(Uid),
-            {ok, ContactUids} = model_contacts:get_contact_uids(Phone),
-            case is_contact_in_reach_out_users(ContactUids, ReachOutUsers) of
-                true -> true;
-                false ->
-                    case uid_prop_override(Uid, default_krisp_noise_suppression) of
-                        true -> true;
-                        false -> undef  %% Don't override the noise suppression prop
-                    end
-            end
-    end;
+    is_krisp_on(Uid);
 uid_prop_override(Uid, is_psa_admin) ->
     dev_users:is_psa_admin(Uid);
-%% List of users that have turned on Krisp noise suppression. The list was fetched from logs.
-uid_prop_override(<<"1000000000986912824">>, default_krisp_noise_suppression) -> true;
-uid_prop_override(<<"1000000000595131504">>, default_krisp_noise_suppression) -> true;
-uid_prop_override(<<"1000000000185937915">>, default_krisp_noise_suppression) -> true;
-uid_prop_override(<<"1000000000679891282">>, default_krisp_noise_suppression) -> true;
-uid_prop_override(<<"1000000000523926349">>, default_krisp_noise_suppression) -> true;
-uid_prop_override(<<"1000000000305288240">>, default_krisp_noise_suppression) -> true;
-uid_prop_override(<<"1000000000318973506">>, default_krisp_noise_suppression) -> true;
-uid_prop_override(<<"1000000000893731049">>, default_krisp_noise_suppression) -> true;
-uid_prop_override(<<"1000000000470767888">>, default_krisp_noise_suppression) -> true;
-uid_prop_override(<<"1000000000394730720">>, default_krisp_noise_suppression) -> true;
 uid_prop_override(Uid, default_krisp_noise_suppression) ->
-    crc16_redis:crc16(util:to_list(Uid)) rem 2 =:= 0;
+    is_krisp_on(Uid);
 uid_prop_override(_Uid, _Prop) ->
     undef.
 
-is_contact_in_reach_out_users([Uid|T], ReachOutUsers) ->
-    case gb_sets:is_element(Uid, ReachOutUsers) of
+is_krisp_on(Uid) ->
+    case is_krisp_on_uid(Uid) of
         true -> true;
-        false -> is_contact_in_reach_out_users(T, ReachOutUsers)
+        false -> is_krisp_on_for_contact(Uid)
+    end.
+
+is_krisp_on_uid(Uid) ->
+    case gb_sets:is_element(Uid, reach_out_users()) of
+        true -> true;
+        false -> is_uid_in_half_set(Uid)
+    end.
+
+is_uid_in_half_set(Uid) ->
+    crc16_redis:crc16(util:to_list(Uid)) rem 2 =:= 0.
+
+is_krisp_on_for_contact(Uid) ->
+    {ok, Phone} = model_accounts:get_phone(Uid),
+    {ok, ContactUids} = model_contacts:get_contact_uids(Phone),
+    case is_krisp_on_for_contact_list(ContactUids) of
+        true -> true;
+        false -> undef  %% Don't override the noise suppression prop
+    end.
+
+is_krisp_on_for_contact_list([Uid|T]) ->
+    case is_krisp_on(Uid) of
+        true -> true;
+        false -> is_krisp_on_for_contact_list(T)
     end;
-is_contact_in_reach_out_users([], _) -> false.
+is_krisp_on_for_contact_list([]) -> false.
+
 
 %% English speaking android users that have received calls from >= 2 unique users
 %% total call time >= 30 seconds.
 reach_out_users() ->
     gb_sets:from_list([
+        <<"1000000000986912824">>,
+        <<"1000000000595131504">>,
+        <<"1000000000185937915">>,
+        <<"1000000000679891282">>,
+        <<"1000000000523926349">>,
+        <<"1000000000305288240">>,
+        <<"1000000000318973506">>,
+        <<"1000000000893731049">>,
+        <<"1000000000470767888">>,
+        <<"1000000000394730720">>,   %% Above users were picked from the logs.
+        <<"1000000000244386007">>,   %% Babken
+        <<"1000000000391903431">>,   %% Tigran
+        <<"1000000000608373702">>,   %% Grigor
         <<"1000000000470441450">>,
         <<"1000000000319812640">>,
         <<"1000000000501355953">>,
