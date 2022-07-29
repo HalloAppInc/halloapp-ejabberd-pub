@@ -243,7 +243,7 @@ is_krisp_on_for_contact(Uid) ->
     end.
 
 is_krisp_on_for_contact_list([Uid|T]) ->
-    case is_krisp_on(Uid) of
+    case is_krisp_on_uid(Uid) of
         true -> true;
         false -> is_krisp_on_for_contact_list(T)
     end;
