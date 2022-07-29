@@ -47,7 +47,8 @@
 -include("ejabberd_sm.hrl").
 
 -define(PING_ACTIVE_INTERVAL, 30 * ?SECONDS_MS).
--define(PING_PASSIVE_INTERVAL, 15 * ?SECONDS_MS).
+%% Temporarily increase ping timeout.
+-define(PING_PASSIVE_INTERVAL, 120 * ?SECONDS_MS).
 -define(ACK_TIMEOUT, 5 * ?SECONDS_MS).
 
 %% API
