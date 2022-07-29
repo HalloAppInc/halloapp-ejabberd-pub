@@ -242,7 +242,7 @@ feed_item_published(Uid, PostOwnerUid, ItemId, ItemType, ItemTag, FeedAudienceTy
         comment ->
             ?INFO("comment ~s from Uid: ~s CC: ~s IsDev: ~p",[ItemId, Uid, CC, IsDev]),
             ha_events:log_user_event(Uid, comment_published),
-            ha_events:log_friend_event(PostOwnerUid, Uid, comment_published),
+            ha_events:log_friend_event(PostOwnerUid, Uid, ItemId, comment_published),
             report_media_counters(comment, MediaCounters),
             stat:count("HA/feed", "comment"),
             report_audience_size("feed", "comment", CC, FeedAudienceSize),
@@ -287,7 +287,7 @@ group_feed_item_published(Gid, Uid, PostOwnerUid, ItemId, ItemType, AudienceSize
         comment ->
             ?INFO("comment ~s from Uid: ~s CC: ~s IsDev: ~p",[ItemId, Uid, CC, IsDev]),
             ha_events:log_user_event(Uid, group_comment_published),
-            ha_events:log_friend_event(PostOwnerUid, Uid, group_comment_published),
+            ha_events:log_friend_event(PostOwnerUid, Uid, ItemId, group_comment_published),
             report_media_counters(group_comment, MediaCounters),
             stat:count("HA/group_feed", "comment"),
             report_audience_size("group_feed", "comment", CC, AudienceSize),
@@ -419,7 +419,7 @@ count_packet(Namespace, Action, #pb_msg{from_uid = FromUid, to_uid = ToUid, payl
                         "receive" ->
                             %% ToUid's im was seen by FromUid
                             ha_events:log_user_event(ToUid, im_receive_seen),
-                            ha_events:log_friend_event(ToUid, FromUid, im_receive_seen)
+                            ha_events:log_friend_event(ToUid, FromUid, ContentId, im_receive_seen)
                     end;
                 _ ->
                     stat:count("HA/feed_receipts", Action ++ "_seen"),
@@ -448,7 +448,7 @@ count_packet(Namespace, Action, #pb_msg{from_uid = FromUid, to_uid = ToUid, payl
                         "receive" ->
                             %% ToUid's post was seen by FromUid
                             ha_events:log_user_event(ToUid, post_receive_seen),
-                            ha_events:log_friend_event(ToUid, FromUid, post_receive_seen),
+                            ha_events:log_friend_event(ToUid, FromUid, ContentId, post_receive_seen),
                             case PostTag =:= secret_post of
                                 true -> ha_events:log_user_event(ToUid, secret_post_receive_seen);
                                 false -> ok

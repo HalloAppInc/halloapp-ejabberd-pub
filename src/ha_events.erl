@@ -37,7 +37,7 @@
     log_event/2,
     log_event/5,
     log_user_event/2,
-    log_friend_event/3,
+    log_friend_event/4,
     write_log/3,
     trigger_upload_aws/0,
     client_log_dir/0,
@@ -302,14 +302,15 @@ log_event(FullNamespace, EventDataMap) ->
     ok.
 
 
--spec log_friend_event(Uid :: uid(), OUid :: uid(), EventType :: user_event_type()) -> ok.
-log_friend_event(Uid, OUid, _EventType) when Uid =:= OUid ->
+-spec log_friend_event(Uid :: uid(), OUid :: uid(), ItemId :: binary(), EventType :: user_event_type()) -> ok.
+log_friend_event(Uid, OUid, _ItemId, _EventType) when Uid =:= OUid ->
     ok;
-log_friend_event(Uid, OUid, EventType) ->
+log_friend_event(Uid, OUid, ItemId, EventType) ->
     try
         Event = #{
             uid => Uid,
             ouid => OUid,
+            item_id => ItemId,
             event_type => EventType,
             ts => util:now()
         },
