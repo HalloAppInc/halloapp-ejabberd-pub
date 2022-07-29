@@ -16,7 +16,7 @@
     %% callback for behavior function.
     get_queries/0,
     %% result processing functions.
-    record_by_cc/1
+    record_global/1
 ]).
 
 %%====================================================================
@@ -24,14 +24,12 @@
 %%====================================================================
 
 get_queries() ->
-    %athena queries are ran hourly - to avoid double counting, only query the last hour of results.
-    QueryTimeMs = util:now_ms() - ?HOURS_MS,
+    QueryTimeMs = util:now_ms() - ?DAYS_MS,
     QueryTimeMsBin = util:to_binary(QueryTimeMs),
     [
-        unique_call_answered_count_by_cc(?ANDROID,QueryTimeMsBin),
-        unique_call_answered_count_by_cc(?IOS, QueryTimeMsBin),
-        unique_call_connected_count_by_cc(?ANDROID,QueryTimeMsBin),
-        unique_call_connected_count_by_cc(?IOS, QueryTimeMsBin)
+        unique_call_answered_count(QueryTimeMsBin),
+        unique_call_connected_count(QueryTimeMsBin),
+        unique_call_has_duration_count(QueryTimeMsBin)
     ].
 
 
@@ -39,59 +37,67 @@ get_queries() ->
 %% call queries
 %%====================================================================
 
-unique_call_connected_count_by_cc(Platform, TimestampMsBin) ->
+unique_call_connected_count(TimestampMsBin) ->
     QueryBin = <<"
-        SELECT fullcall.cc as cc, 
-               SUM(CASE WHEN fullcall.bothsides THEN 1 ELSE 0 END) as connected, 
-               COUNT(*) AS count 
+        SELECT
+            SUM(CASE WHEN all_calls.bothsides THEN 1 ELSE 0 END) as connected, 
+            COUNT(*) AS count 
         FROM 
             (SELECT 
-                client_call.cc as cc, 
-                (mirror.call IS NULL OR mirror.call.connected) AND client_call.call.connected as bothsides 
-            FROM client_call LEFT JOIN
-                (client_call AS mirror)
-            ON mirror.uid != client_call.uid AND client_call.call.call_id = mirror.call.call_id
-            WHERE client_call.timestamp_ms >='", TimestampMsBin/binary,"'
-            AND client_call.platform='", Platform/binary,"'
-            ) AS fullcall
-        GROUP BY fullcall.cc">>,
+                COUNT(*) = SUM(CASE WHEN client_call.call.connected THEN 1 ELSE 0 END) as bothsides
+            FROM client_call
+                WHERE client_call.timestamp_ms >='", TimestampMsBin/binary,"'
+            GROUP BY client_call.call.call_id
+            ) AS all_calls">>,
     #athena_query{
         query_bin = QueryBin,
-        tags = #{"platform" => util:to_list(Platform)},
-        result_fun = {?MODULE, record_by_cc},
-        metrics = ["unique_call_connected_by_cc"]
+        tags = #{},
+        result_fun = {?MODULE, record_global},
+        metrics = ["unique_call_connected"]
     }.
 
 
-unique_call_answered_count_by_cc(Platform, TimestampMsBin) ->
+unique_call_answered_count(TimestampMsBin) ->
     QueryBin = <<"
-        SELECT fullcall.cc as cc, 
-               SUM(CASE WHEN fullcall.bothsides THEN 1 ELSE 0 END) as answered, 
-               COUNT(*) AS count 
+        SELECT
+            SUM(CASE WHEN all_calls.bothsides THEN 1 ELSE 0 END) as answered, 
+            COUNT(*) AS count 
         FROM 
             (SELECT 
-                client_call.cc as cc, 
-                (mirror.call IS NULL OR mirror.call.answered) AND client_call.call.answered as bothsides 
-            FROM client_call LEFT JOIN
-                (client_call AS mirror)
-            ON mirror.uid != client_call.uid AND client_call.call.call_id = mirror.call.call_id
-            WHERE client_call.timestamp_ms >='", TimestampMsBin/binary,"'
-            AND client_call.platform='", Platform/binary,"'
-            ) AS fullcall
-        GROUP BY fullcall.cc">>,
+                COUNT(*) = SUM(CASE WHEN client_call.call.answered THEN 1 ELSE 0 END) as bothsides
+            FROM client_call
+                WHERE client_call.timestamp_ms >='", TimestampMsBin/binary,"'
+            GROUP BY client_call.call.call_id
+            ) AS all_calls">>,
     #athena_query{
         query_bin = QueryBin,
-        tags = #{"platform" => util:to_list(Platform)},
-        result_fun = {?MODULE, record_by_cc},
-        metrics = ["unique_call_answered_by_cc"]
+        tags = #{},
+        result_fun = {?MODULE, record_global},
+        metrics = ["unique_call_answered"]
     }.
 
--spec record_by_cc(Query :: athena_query()) -> ok.
-record_by_cc(Query) ->
-    record_by("cc", Query).
+unique_call_has_duration_count(TimestampMsBin) ->
+    QueryBin = <<"
+        SELECT
+            SUM(CASE WHEN all_calls.bothsides THEN 1 ELSE 0 END) as has_duration, 
+            COUNT(*) AS count 
+        FROM 
+            (SELECT 
+                COUNT(*) = SUM(CASE WHEN client_call.call.duration_ms != '0' THEN 1 ELSE 0 END) as bothsides
+            FROM client_call
+                WHERE client_call.timestamp_ms >='", TimestampMsBin/binary,"'
+            GROUP BY client_call.call.call_id
+            ) AS all_calls">>,
+    #athena_query{
+        query_bin = QueryBin,
+        tags = #{},
+        result_fun = {?MODULE, record_global},
+        metrics = ["unique_call_has_duration"]
+    }.
 
--spec record_by(Variable :: string(), Query :: athena_query()) -> ok.
-record_by(Variable, Query) ->
+
+-spec record_global(Query :: athena_query()) -> ok.
+record_global(Query) ->
     Result = Query#athena_query.result,
     ResultRows = maps:get(<<"ResultRows">>, maps:get(<<"ResultSet">>, Result)),
     [_HeaderRow | ActualResultRows] = ResultRows,
@@ -99,12 +105,10 @@ record_by(Variable, Query) ->
     [Metric1] = Query#athena_query.metrics,
     lists:foreach(
         fun(ResultRow) ->
-            [VarValue, CountStr, TotalStr] = maps:get(<<"Data">>, ResultRow),
+            [CountStr, TotalStr] = maps:get(<<"Data">>, ResultRow),
             {Count, <<>>} = string:to_float(CountStr),
-            stat:count("HA/call", Metric1, Count,
-                    [{Variable, util:to_list(VarValue)} | TagsAndValues]),
+            stat:count("HA/call", Metric1, Count, TagsAndValues),
             TotalCount = util:to_integer(TotalStr),
-            stat:count("HA/call", Metric1 ++ "_count", TotalCount,
-                    [{Variable, util:to_list(VarValue)} | TagsAndValues])
+            stat:count("HA/call", Metric1 ++ "_count", TotalCount, TagsAndValues)
         end, ActualResultRows),
     ok.
