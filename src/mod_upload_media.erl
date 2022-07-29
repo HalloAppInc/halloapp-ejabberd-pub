@@ -47,7 +47,7 @@ start(Host, Opts) ->
     ok.
 
 stop(Host) ->
-    ?INFO("stop ~w ~p", [?MODULE]),
+    ?INFO("stop ~w", [?MODULE]),
     gen_iq_handler:remove_iq_handler(ejabberd_local, Host, pb_upload_media),
     s3_signed_url_generator:close(),
     upload_server_url_generator:close(),
