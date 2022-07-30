@@ -232,7 +232,7 @@ is_krisp_on_uid(Uid) ->
     end.
 
 is_uid_in_half_set(Uid) ->
-    crc16_redis:crc16(util:to_list(Uid)) rem 2 =:= 0.
+    crc16_redis:crc16(util:to_list(Uid)) rem 3 =:= 0.
 
 is_krisp_on_for_contact(Uid) ->
     {ok, Phone} = model_accounts:get_phone(Uid),
