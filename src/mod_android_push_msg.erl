@@ -81,7 +81,7 @@ handle_cast({push_message_item, PushMessageItem}, State) ->
     NewState = push_message_item(PushMessageItem, State),
     {noreply, NewState};
 
-handle_cast({refresh_token}, State) ->
+handle_cast(refresh_token, State) ->
     NewState = reload_access_token(State),
     {noreply, NewState};
 
@@ -103,7 +103,7 @@ handle_info({http, {RequestId, _Response} = ReplyInfo}, #{pending_map := Pending
     end,
     {noreply, State2};
 
-handle_info({refresh_token}, State) ->
+handle_info(refresh_token, State) ->
     NewState = reload_access_token(State),
     {noreply, NewState};
 
