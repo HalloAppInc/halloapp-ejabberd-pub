@@ -87,7 +87,7 @@ process_local_iq(#pb_iq{from_uid = Uid, type = get,
         payload = #pb_upload_media{size = Size, type = Type}} = IQ) ->
     ?INFO("Uid: ~p, Type: ~p, Size: ~p", [Uid, Type, Size]),
     case Size of 
-        LargeSize when LargeSize >= ?GIGABYTE -> 
+        LargeSize when LargeSize >= 2.5 * ?GIGABYTE -> 
             pb:make_error(IQ, util:err(size_too_large));
         _ ->
             DirectUpload = (Type =:= default andalso Size =:= 0) orelse (Type =:= direct),
