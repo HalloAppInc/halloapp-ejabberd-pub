@@ -34,6 +34,7 @@
     gen_servers :: [atom()],
     tref :: timer:tref(),
     atom_tref :: timer:tref(),
+    c2s_tref :: timer:tref(),
     global_monitoring :: boolean()
 }).
 
@@ -79,6 +80,8 @@
 
 -define(ATOM_CHECK_INTERVAL_MS, 1 * ?HOURS_MS).
 -define(ATOM_LIMIT, 1048576).
+
+-define(C2S_SIZE_CHECK_INTERVAL_MS, 1 * ?HOURS_MS).
 
 -endif.
 

@@ -38,7 +38,8 @@
     try_remonitor/1,
     get_registered_name/0,
     get_registered_name/1,
-    monitor_atoms/0
+    monitor_atoms/0,
+    monitor_c2s_heap_size/0
 ]).
 
 %%====================================================================
@@ -131,15 +132,18 @@ init([]) ->
     ?INFO("Start: ~p", [?MONITOR_GEN_SERVER]),
     {ok, TRef} = timer:apply_interval(?PING_INTERVAL_MS, ?MODULE, ping_procs, []),
     {ok, TRef2} = timer:apply_interval(?ATOM_CHECK_INTERVAL_MS, ?MODULE, monitor_atoms, []),
+    {ok, TRef3} = timer:apply_interval(?C2S_SIZE_CHECK_INTERVAL_MS, ?MODULE, monitor_c2s_heap_size, []),
     ets:new(?MONITOR_TABLE, [named_table, public]),
     ejabberd_hooks:add(node_up, ?MODULE, node_up, 10),
-    {ok, #state{monitors = #{}, active_pings = #{}, gen_servers = [], tref = TRef, atom_tref = TRef2}}.
+    {ok, #state{monitors = #{}, active_pings = #{}, gen_servers = [],
+        tref = TRef, atom_tref = TRef2, c2s_tref = TRef3}}.
 
 
-terminate(_Reason, #state{tref = TRef, atom_tref = AtomTRef} = _State) ->
+terminate(_Reason, #state{tref = TRef, atom_tref = AtomTRef, c2s_tref = C2STref} = _State) ->
     ?INFO("Terminate: ~p", [?MONITOR_GEN_SERVER]),
     timer:cancel(TRef),
     timer:cancel(AtomTRef),
+    timer:cancel(C2STref),
     ets:delete(?MONITOR_TABLE),
     ejabberd_hooks:delete(node_up, ?MODULE, node_up, 10),
     ok.
@@ -307,6 +311,28 @@ monitor_atoms() ->
     end,
     stat:gauge(?NS, "atom_count_num", AtomCount),
     stat:gauge(?NS, "atom_count_percent", PercentUsed),
+    ok.
+
+
+monitor_c2s_heap_size() ->
+    Children = supervisor:which_children(halloapp_c2s_sup),
+    Pids = [Pid || {_, Pid, _, _} <- Children],
+    % Get at most 10 c2s processes
+    SamplePids = lists:sublist(Pids, 10),
+
+    case SamplePids of
+        [] -> ok;
+        _ ->
+            HeapSizes = lists:foldl(
+                fun(Pid, Acc) ->
+                    {_, Size} = erlang:process_info(Pid, total_heap_size),
+                    ?INFO("Heap size of pid ~p process: ~p", [Pid, Size]),
+                    [Size] ++ Acc
+                end, [], SamplePids),
+            Avg = lists:sum(HeapSizes)/length(HeapSizes),
+            FormattedAvg = util:to_float(io_lib:format("~.1f",[Avg])),
+            ?INFO("Average c2s heap size of ~p pids: ~p", [length(HeapSizes), FormattedAvg])
+    end,
     ok.
 
 
