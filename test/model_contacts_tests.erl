@@ -62,6 +62,21 @@ add_contacts_test() ->
     {ok, []} = model_contacts:get_contact_uids(?CONTACT3).
 
 
+get_contacts_test() ->
+    setup(),
+    ok = model_contacts:add_contacts(?UID, [?CONTACT1, ?CONTACT2]),
+    ok = model_contacts:add_contacts(?UID2, [?CONTACT3, ?CONTACT2]),
+
+    {ok, UidContacts} = model_contacts:get_contacts(?UID),
+    ?assertEqual(sets:from_list([?CONTACT1, ?CONTACT2]), sets:from_list(UidContacts)),
+
+    {ok, [Uid2Contacts, UidContacts1]} = model_contacts:get_contacts([?UID2, ?UID]),
+    ?assertEqual(sets:from_list([?CONTACT1, ?CONTACT2]), sets:from_list(UidContacts1)),
+    ?assertEqual(sets:from_list([?CONTACT3, ?CONTACT2]), sets:from_list(Uid2Contacts)),
+
+    ok.
+
+
 remove_contact_test() ->
     setup(),
     ok = model_contacts:add_contact(?UID, ?CONTACT1),
