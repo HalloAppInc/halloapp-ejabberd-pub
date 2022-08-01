@@ -26,6 +26,8 @@
 %% Resumable upload server port.
 -define(UPLOAD_PORT, 1080).
 
+-define(GIGABYTE, 1000000000).
+
 %% gen_mod callbacks.
 -export([start/2, stop/1, reload/3, mod_options/1, depends/2]).
 
@@ -84,19 +86,24 @@ process_local_iq(
 process_local_iq(#pb_iq{from_uid = Uid, type = get,
         payload = #pb_upload_media{size = Size, type = Type}} = IQ) ->
     ?INFO("Uid: ~p, Type: ~p, Size: ~p", [Uid, Type, Size]),
-    DirectUpload = (Type =:= default andalso Size =:= 0) orelse (Type =:= direct),
-    case DirectUpload of
-        true ->
-            stat:count("HA/media", "direct_upload"),
-            {GetUrl, PutUrl} = generate_s3_urls(),
-            MediaUrl = #pb_media_url{get = GetUrl, put = PutUrl},
-            pb:make_iq_result(IQ, #pb_upload_media{url = MediaUrl});
+    case Size of 
+        LargeSize when LargeSize >= ?GIGABYTE -> 
+            pb:make_error(IQ, util:err(size_too_large));
         _ ->
-            %% Do not return IQ result in this case. IQ result will be sent once
-            %% the resumable urls are ready.
-            %% TODO(murali@): Add CT tests for this.
-            generate_resumable_urls(Size, IQ),
-            ignore
+            DirectUpload = (Type =:= default andalso Size =:= 0) orelse (Type =:= direct),
+            case DirectUpload of
+                true ->
+                    stat:count("HA/media", "direct_upload"),
+                    {GetUrl, PutUrl} = generate_s3_urls(),
+                    MediaUrl = #pb_media_url{get = GetUrl, put = PutUrl},
+                    pb:make_iq_result(IQ, #pb_upload_media{url = MediaUrl});
+                _ ->
+                    %% Do not return IQ result in this case. IQ result will be sent once
+                    %% the resumable urls are ready.
+                    %% TODO(murali@): Add CT tests for this.
+                    generate_resumable_urls(Size, IQ),
+                    ignore
+            end
     end.
 
 
