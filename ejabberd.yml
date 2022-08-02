@@ -195,6 +195,7 @@ modules:
   mod_android_push: {}
   mod_android_push_msg: {}
   mod_wakeup: {}
+  mod_push_monitor: {}
   mod_ack_halloapp: {}
   mod_trace: {}
   mod_libphonenumber: {}

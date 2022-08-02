@@ -84,6 +84,7 @@ retry_message_item(PushMessageItem) ->
 
 -spec pushed_message(PushMessageItem :: push_message_item(), Status :: success | failure) -> ok.
 pushed_message(PushMessageItem, Status) ->
+    mod_push_monitor:log_push_status(Status, android),
     gen_server:cast(?PROC(), {pushed_message, PushMessageItem, Status}).
 
 
@@ -148,6 +149,7 @@ handle_info({retry, PushMessageItem}, State) ->
     %% Stop retrying after 10 minutes!
     case CurTimestampMs - MsgTimestampMs < ?MESSAGE_MAX_RETRY_TIME_MILLISEC of
         false ->
+            pushed_message(PushMessageItem, failure),
             ?INFO("Uid: ~s push failed, no more retries msg_id: ~s", [Uid, Id]);
         true ->
             ?INFO("Uid: ~s, retry push_message_item: ~s", [Uid, Id]),

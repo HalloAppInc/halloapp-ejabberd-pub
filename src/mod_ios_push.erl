@@ -95,6 +95,7 @@ crash() ->
 
 -spec pushed_message(PushMessageItem :: push_message_item(), Status :: success | failure) -> ok.
 pushed_message(PushMessageItem, Status) ->
+    mod_push_monitor:log_push_status(Status, ios),
     gen_server:cast(?PROC(), {pushed_message, PushMessageItem, Status}).
 
 
@@ -174,6 +175,7 @@ handle_info({retry, PushMessageItem}, State) ->
     NewState = case CurTimestampMs - MsgTimestampMs < ?MESSAGE_MAX_RETRY_TIME_MILLISEC of
         false ->
             ?INFO("Uid: ~s push failed, no more retries msg_id: ~s", [Uid, Id]),
+            pushed_message(PushMessageItem, failure),
             State;
         true ->
             ?INFO("Uid: ~s, retry push_message_item: ~p", [Uid, Id]),
