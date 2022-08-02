@@ -106,7 +106,7 @@ record_global(Query) ->
     lists:foreach(
         fun(ResultRow) ->
             [CountStr, TotalStr] = maps:get(<<"Data">>, ResultRow),
-            {Count, <<>>} = string:to_float(CountStr),
+            Count = util:to_integer(CountStr),
             stat:count("HA/call", Metric1, Count, TagsAndValues),
             TotalCount = util:to_integer(TotalStr),
             stat:count("HA/call", Metric1 ++ "_count", TotalCount, TagsAndValues)
