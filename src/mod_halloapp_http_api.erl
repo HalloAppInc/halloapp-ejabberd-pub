@@ -67,65 +67,35 @@
 process([<<"registration">>, <<"request_sms">>],
         #request{method = 'POST', data = Data, ip = {IP, _Port}, headers = Headers}) ->
     ?INFO("Invalid old request_sms request, Data: ~p, Headers: ~p", [Data, Headers]),
-    process_otp_request(Data, IP, Headers);
+    process_otp_request_dummy(Data, IP, Headers);
 
 process([<<"registration">>, <<"request_hashcash">>],
         #request{method = 'POST', data = Data, ip = {IP, _Port}, headers = Headers}) ->
     stat:count("HA/registration", "request_hashcash", 1, [{protocol, "https"}]),
+    %this one isn't dummied out, but it doesn't do anything
     process_hashcash_request(Data, IP, Headers);
 
 process([<<"registration">>, <<"request_otp">>],
         #request{method = 'POST', data = Data, ip = {IP, _Port}, headers = Headers}) ->
     stat:count("HA/registration", "request_otp_request", 1, [{protocol, "https"}]),
-    process_otp_request(Data, IP, Headers);
+    process_otp_request_dummy(Data, IP, Headers);
 
-%% Newer version of `register` API. Uses spub instead of password.
 process([<<"registration">>, <<"register2">>],
-        #request{method = 'POST', data = Data, ip = {IP, _Port}, headers = Headers}) ->
-    try
-        ClientIP = util_http:get_ip(IP, Headers),
-        UserAgent = util_http:get_user_agent(Headers),
-        ?INFO("spub registration request: r:~p ip:~s ua:~s", [Data, ClientIP, UserAgent]),
-        Payload = jiffy:decode(Data, [return_maps]),
-        RawPhone = maps:get(<<"phone">>, Payload),
-        Code = maps:get(<<"code">>, Payload),
-        Name = maps:get(<<"name">>, Payload),
-        SEdPubB64 = maps:get(<<"s_ed_pub">>, Payload),
-        SignedPhraseB64 = maps:get(<<"signed_phrase">>, Payload),
-        GroupInviteToken = maps:get(<<"group_invite_token">>, Payload, undefined),
-        IdentityKeyB64 = maps:get(<<"identity_key">>, Payload),
-        SignedKeyB64 = maps:get(<<"signed_key">>, Payload),
-        OneTimeKeysB64 = maps:get(<<"one_time_keys">>, Payload),
-        RawData = Payload#{headers => Headers, ip => IP},
-        stat:count("HA/registration", "verify_otp_request", 1, [{protocol, "https"}]),
-
-        RequestData = #{
-            raw_phone => RawPhone, name => Name, ua => UserAgent, code => Code,
-            ip => ClientIP, group_invite_token => GroupInviteToken, s_ed_pub => SEdPubB64,
-            signed_phrase => SignedPhraseB64, id_key => IdentityKeyB64, sd_key => SignedKeyB64,
-            otp_keys => OneTimeKeysB64, push_payload => Payload, raw_data => RawData, protocol => https
-        },
-        case process_register_request(RequestData) of
-            {ok, Result} ->
-                stat:count("HA/registration", "verify_otp_success", 1, [{protocol, "https"}]),
-                {200, ?HEADER(?CT_JSON), jiffy:encode(Result)};
-            {error, internal_server_error} ->
-                util_http:return_500();
-            {error, bad_user_agent} ->
-                util_http:return_400();
-            {error, Reason} ->
-                util_http:return_400(Reason)
-        end
-    catch
-        error: {badkey, MissingField} when is_binary(MissingField)->
-            BadKeyError = util:to_atom(<<"missing_", MissingField/binary>>),
-            log_register_error(BadKeyError),
-            util_http:return_400(BadKeyError);
-        error : Reason2 : Stacktrace  ->
-            log_register_error(server_error),
-            ?ERROR("register error: ~p, ~p", [Reason2, Stacktrace]),
-            util_http:return_500()
-    end;
+        #request{method = 'POST', data = Data, ip = {_IP, _Port}, headers = Headers}) ->
+    %now dummied out - always returns fake success
+    UserAgent = util_http:get_user_agent(Headers),
+    stat:count("HA/registration", "verify_otp_request", 1, [{protocol, "https"}]),
+    Payload = jiffy:decode(Data, [return_maps]),
+    RawPhone = maps:get(<<"phone">>, Payload),
+    Phone = normalize_by_version(RawPhone, UserAgent),
+    Name = maps:get(<<"name">>, Payload),
+    Result = #{
+            uid => util_uid:generate_uid(),
+            phone => Phone,
+            name => Name,
+            result => ok
+    },
+    {200, ?HEADER(?CT_JSON), jiffy:encode(Result)};
 
 %% Return the group name based on group_invite_token
 process([<<"registration">>, <<"get_group_info">>],
@@ -186,66 +156,27 @@ process_hashcash_request(Data, IP, Headers) ->
             util_http:return_500()
     end.
 
- -spec process_otp_request(Data :: string(), IP :: string(), Headers :: list()) -> http_response().
-process_otp_request(Data, IP, Headers) ->
-    try
-        ?DEBUG("Data:~p", [Data]),
-        UserAgent = util_http:get_user_agent(Headers),
-        ClientIP = util_http:get_ip(IP, Headers),
-        Payload = jiffy:decode(Data, [return_maps]),
-        RawPhone = maps:get(<<"phone">>, Payload),
-        MethodBin = maps:get(<<"method">>, Payload, <<"sms">>),
-        LangId = maps:get(<<"lang_id">>, Payload, <<"en-US">>),
-        GroupInviteToken = maps:get(<<"group_invite_token">>, Payload, undefined),
-        HashcashSolution = maps:get(<<"hashcash_solution">>, Payload, <<>>),
-        HashcashSolutionTimeTakenMs = maps:get(<<"hashcash_solution_time_taken_ms">>, Payload, -1),
-        CampaignId = maps:get(<<"campaign_id">>, Payload, <<"undefined">>),
-        PhoneCC = mod_libphonenumber:get_region_id(RawPhone),
-        IPCC = mod_geodb:lookup(ClientIP),
-        ?INFO("raw_phone:~p, ua:~p ip:~s method: ~s, langId: ~p, Phone CC: ~p IP CC: ~p "
-            "Hashcash solution: ~p time taken: ~pms payload:~p ",
-            [RawPhone, UserAgent, ClientIP, MethodBin, LangId, PhoneCC, IPCC, HashcashSolution,
-            HashcashSolutionTimeTakenMs, Payload]),
-        RawData = Payload#{headers => Headers, ip => IP},
-        RequestData = #{raw_phone => RawPhone, lang_id => LangId, ua => UserAgent, method => MethodBin,
-            ip => ClientIP, group_invite_token => GroupInviteToken, raw_data => RawData,
-            hashcash_solution => HashcashSolution, hashcash_solution_time_taken_ms => HashcashSolutionTimeTakenMs,
-            campaign_id => CampaignId,
-            protocol => https
-        },
-        case process_otp_request(RequestData) of
-            {ok, Phone, RetryAfterSecs} ->
-                stat:count("HA/registration", "request_otp_success", 1, [{protocol, "https"}]),
-                {200, ?HEADER(?CT_JSON),
-                    jiffy:encode({[
-                        {phone, Phone},
-                        {retry_after_secs, RetryAfterSecs},
-                        {result, ok}
-                    ]})};
-            {error, retried_too_soon, Phone, RetryAfterSecs} ->
-                return_retried_too_soon(Phone, RetryAfterSecs, MethodBin);
-            {error, dropped, Phone, RetryAfterSecs} ->
-                return_dropped(Phone, RetryAfterSecs, MethodBin);
-            {error, internal_server_error} ->
-                util_http:return_500();
-            {error, ip_blocked} ->
-                util_http:return_400();
-            {error, bad_user_agent} ->
-                util_http:return_400();
-            {error, Reason} ->
-                util_http:return_400(Reason)
-        end
-    catch
-        error: {badkey, MissingField} when is_binary(MissingField)->
-            BadKeyError = util:to_atom(<<"missing_", MissingField/binary>>),
-            log_register_error(BadKeyError),
-            util_http:return_400(BadKeyError);
-        error : Reason2 : Stacktrace  ->
-            log_register_error(server_error),
-            ?ERROR("register error: ~p, ~p", [Reason2, Stacktrace]),
-            util_http:return_500()
-    end.
-
+-spec process_otp_request_dummy(Data :: string(), IP :: string(), Headers :: list()) -> http_response().
+process_otp_request_dummy(Data, IP, Headers) ->
+    % Fake version of previous functionality - always returns 200 OK.
+    % Hopefully, will help to confuse spammers.
+    ?DEBUG("Data:~p", [Data]),
+    UserAgent = util_http:get_user_agent(Headers),
+    ClientIP = util_http:get_ip(IP, Headers),
+    Payload = jiffy:decode(Data, [return_maps]),
+    RawPhone = maps:get(<<"phone">>, Payload),
+    MethodBin = maps:get(<<"method">>, Payload, <<"sms">>),
+    LangId = maps:get(<<"lang_id">>, Payload, <<"en-US">>),
+    HashcashSolution = maps:get(<<"hashcash_solution">>, Payload, <<>>),
+    HashcashSolutionTimeTakenMs = maps:get(<<"hashcash_solution_time_taken_ms">>, Payload, -1),
+    PhoneCC = mod_libphonenumber:get_region_id(RawPhone),
+    IPCC = mod_geodb:lookup(ClientIP),
+    ?INFO("raw_phone:~p, ua:~p ip:~s method: ~s, langId: ~p, Phone CC: ~p IP CC: ~p "
+        "Hashcash solution: ~p time taken: ~pms payload:~p ",
+        [RawPhone, UserAgent, ClientIP, MethodBin, LangId, PhoneCC, IPCC, HashcashSolution,
+        HashcashSolutionTimeTakenMs, Payload]),
+    Phone = normalize_by_version(RawPhone, UserAgent),
+    return_dropped(Phone, 30, MethodBin).
 
 -spec process_hashcash_request(RequestData :: #{}) -> {ok, binary()}.
 process_hashcash_request(#{cc := CC, ip := ClientIP}) ->
@@ -483,19 +414,6 @@ log_register_error(ErrorType) ->
     stat:count("HA/account", "register_errors", 1,
         [{error, ErrorType}]),
     ok.
-
-
--spec return_retried_too_soon(Phone :: phone(), RetrySecs :: integer(), Method :: binary()) -> http_response().
-return_retried_too_soon(Phone, RetrySecs, Method) ->
-    CC = mod_libphonenumber:get_cc(Phone),
-    stat:count("HA/account", "request_otp_errors", 1, [{error, retried_too_soon}, {cc, CC}, {method, Method}]),
-    {400, ?HEADER(?CT_JSON),
-        jiffy:encode({[
-            {phone, Phone},
-            {retry_after_secs, RetrySecs},
-            {error, retried_too_soon},
-            {result, fail}
-        ]})}.
 
 -spec return_dropped(Phone :: phone(), RetrySecs :: integer(), Method :: binary()) -> http_response().
 return_dropped(Phone, RetrySecs, Method) ->

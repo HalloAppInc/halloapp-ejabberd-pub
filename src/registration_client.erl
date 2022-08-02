@@ -12,6 +12,8 @@
 
 -include("ha_types.hrl").
 -include("packets.hrl").
+-include_lib("stdlib/include/assert.hrl").
+-include("sms.hrl").
 
 -define(DEFAULT_UA, "HalloApp/Android1.180").
 -define(DEFAULT_HOST, "localhost").
@@ -22,19 +24,9 @@
 -define(ONE_TIME_KEY, <<"VGhpcyBpcyBvbmUgdGltZSBrZXkgZm9yIHRlc3RzIHRoYXQgaXMgbG9uZwo=">>).
 -define(ONE_TIME_KEYS, [?ONE_TIME_KEY, ?ONE_TIME_KEY, ?ONE_TIME_KEY, ?ONE_TIME_KEY, ?ONE_TIME_KEY,
         ?ONE_TIME_KEY, ?ONE_TIME_KEY, ?ONE_TIME_KEY, ?ONE_TIME_KEY, ?ONE_TIME_KEY]).
-
-%% API
--export([
-    request_sms/1,
-    request_sms/2,
-    register/3,
-    register/4,
-    compose_otp_noise_request/2,
-    compose_verify_otp_noise_request/3
-]).
-
-%% Noise related definitions.
 -define(CURVE_KEY_TYPE, dh25519).
+
+
 -record(kp,
 {
     type :: atom(),
@@ -43,100 +35,78 @@
 }).
 
 
+%% API
+-export([
+    compose_otp_noise_request/2,
+    compose_verify_otp_noise_request/3,
+    request_sms/2,
+    register/4
+]).
+
+
 setup() ->
-    application:ensure_started(inets).
+    application:ensure_started(halloapp_register).
 
-
--spec request_sms(Phone :: phone()) -> {ok, map()} | {error, term()}.
-request_sms(Phone) ->
-    request_sms(Phone, #{}).
-
-
--spec request_sms(Phone :: phone(), Options :: map()) -> {ok, map()} | {error, term()}.
+-spec request_sms(Phone :: phone(), Options :: map()) -> {ok, pb_register_response()}.
 request_sms(Phone, Options) ->
     setup(),
-    HashcashChallenge = mod_halloapp_http_api:create_hashcash_challenge(<<>>, <<>>),
-    HashcashSolution = util_hashcash:solve_challenge(HashcashChallenge),
-    Body = jiffy:encode(#{<<"phone">> => Phone, <<"hashcash_solution">> => HashcashSolution}),
-    UA = maps:get(user_agent, Options, ?DEFAULT_UA),
-    Headers = [{"user-agent", UA}],
-    Host = maps:get(host, Options, ?DEFAULT_HOST),
-    Port = maps:get(port, Options, ?DEFAULT_PORT),
-    Protocol = get_http_protocol(),
-    Request = {Protocol ++ Host ++ ":" ++ Port ++"/api/registration/request_otp", Headers, "application/json", Body},
-    {ok, Response} = httpc:request(post, Request, [{timeout, 30000}], []),
-    case Response of
-        {{_, 200, _}, _ResHeaders, ResponseBody} ->
-            ResData = jiffy:decode(ResponseBody, [return_maps]),
-            {ok, ResData};
-        {{_, HTTPCode, _}, _ResHeaders, ResponseBody} ->
-            ResData = jiffy:decode(ResponseBody, [return_maps]),
-            {error, {HTTPCode, ResData}}
-    end.
+    {ok, RegisterRequestPkt} = compose_otp_noise_request(Phone, Options),
 
--spec register(Phone :: phone(), Code :: binary(), Name :: binary())
-            -> {ok, Uid :: uid(), Password :: binary(), Response :: map()} | {error, term()}.
-register(Phone, Code, Name) ->
-    register(Phone, Code, Name, #{}).
-
--spec register(Phone :: phone(), Code :: binary(), Name :: binary(), Options :: map())
-            -> {ok, Uid :: uid(), Password :: binary(), Response :: map()} | {error, term()}.
-register(Phone, Code, Name, Options) ->
-    setup(),
-    %% TODO: tests should generate these keys.
+    %% Generate NoiseKeys.
     KeyPair = ha_enoise:generate_signature_keypair(),
-    {SEdSecret, SEdPub} = {maps:get(secret, KeyPair), maps:get(public, KeyPair)},
-
     %% Convert these signing keys to curve keys.
     {CurveSecret, CurvePub} = {enacl:crypto_sign_ed25519_secret_to_curve25519(maps:get(secret, KeyPair)),
      enacl:crypto_sign_ed25519_public_to_curve25519(maps:get(public, KeyPair))},
-    %% TODO: move this code to have an api for these keys.
+
     ClientKeyPair = #kp{type = ?CURVE_KEY_TYPE, sec = CurveSecret, pub = CurvePub},
 
+    %% Connect and requestOtp
+    ConnectOptions = #{host => "localhost", port => 5208, state => register},
+    {ok, _Client, ActualResponse} = ha_client:connect_and_send(RegisterRequestPkt, ClientKeyPair, ConnectOptions),
+
+    {ok, ActualResponse#pb_register_response.response}.
+
+-spec register(Phone :: phone(), Code :: binary(), Name :: binary(), Options :: map()) -> {ok, pb_register_response}.
+register(Phone, Code, Name, Options) ->
+    setup(),
+    %% Compose RequestOtp
+    {ok, RegisterRequestPkt} = compose_otp_noise_request(Phone, #{}),
+
+    %% Generate NoiseKeys.
+    KeyPair = ha_enoise:generate_signature_keypair(),
+    {SEdSecret, SEdPub} = {maps:get(secret, KeyPair), maps:get(public, KeyPair)},
+    %% Convert these signing keys to curve keys.
+    {CurveSecret, CurvePub} = {enacl:crypto_sign_ed25519_secret_to_curve25519(maps:get(secret, KeyPair)),
+     enacl:crypto_sign_ed25519_public_to_curve25519(maps:get(public, KeyPair))},
+
+    ClientKeyPair = #kp{type = ?CURVE_KEY_TYPE, sec = CurveSecret, pub = CurvePub},
     SignedMessage = enacl:sign("HALLO", SEdSecret),
-    SEdPubEncoded = base64:encode(SEdPub),
-    SignedMessageEncoded = base64:encode(SignedMessage),
-    Body = jiffy:encode(#{
-        <<"phone">> => Phone,
-        <<"code">> => Code,
-        <<"name">> => Name,
-        <<"s_ed_pub">> => SEdPubEncoded,
-        <<"signed_phrase">> => SignedMessageEncoded,
-        % TODO: add support for whisper keys - autogenerate keys here.
-        <<"identity_key">> => ?IDENTITY_KEY,
-        <<"signed_key">> => ?SIGNED_KEY,
-        <<"one_time_keys">> => ?ONE_TIME_KEYS
-    }),
 
-    UA = maps:get(user_agent, Options, ?DEFAULT_UA),
-    Headers = [{"user-agent", UA}],
-    Host = maps:get(host, Options, ?DEFAULT_HOST),
-    Port = maps:get(port, Options, ?DEFAULT_PORT),
-    Protocol = get_http_protocol(),
-    Request = {Protocol ++ Host ++ ":" ++ Port ++ "/api/registration/register2", Headers, "application/json", Body},
-    {ok, Response} = httpc:request(post, Request, [{timeout, 30000}], []),
-    case Response of
-        {{_, 200, _}, _ResHeaders, ResponseBody} ->
-            ResData = jiffy:decode(ResponseBody, [return_maps]),
-            #{
-                <<"uid">> := Uid,
-                <<"phone">> := Phone,
-                <<"result">> := <<"ok">>
-            } = ResData,
-            {ok, Uid, ClientKeyPair, ResData};
-        {{_, HTTPCode, _}, _ResHeaders, ResponseBody} ->
-            ResData = jiffy:decode(ResponseBody, [return_maps]),
-            {error, {HTTPCode, ResData}}
-    end.
+    %% Connect and requestOtp
+    ConnectOptions = #{host => "localhost", port => 5208, state => register},
+    {ok, Client, ActualResponse} = ha_client:connect_and_send(RegisterRequestPkt, ClientKeyPair, ConnectOptions),
 
+    %% Check result.
+    ExpectedResponse = #pb_register_response{
+        response = #pb_otp_response{
+            phone = Phone,
+            result = success,
+            reason = unknown_reason,
+            retry_after_secs = 30
+    }},
+    ?assertEqual(ExpectedResponse, ActualResponse),
 
-get_http_protocol() ->
-    HalloEnv = config:get_hallo_env(),
-    case HalloEnv =:= test orelse HalloEnv =:= github of
-        true -> "http://";
-        false -> "https://"
-    end.
+    VerifyOtpOptions = #{name => Name, static_key => SEdPub, signed_phrase => SignedMessage},
+    VerifyOtpOptions1 = maps:merge(Options, VerifyOtpOptions),
+    {ok, VerifyOtpRequestPkt} = compose_verify_otp_noise_request(Phone, Code, VerifyOtpOptions1),
 
+    %% Send verify_otp request on the same connection.
+    ok = ha_client:send(Client, enif_protobuf:encode(VerifyOtpRequestPkt)),
+    ActualResponse2 = ha_client:recv(Client),
+
+    %% Return result
+    Response2 = ActualResponse2#pb_register_response.response,
+    {ok, Response2}.
 
 -spec compose_otp_noise_request(Phone :: phone(), Options :: map()) -> {ok, pb_register_request()}.
 compose_otp_noise_request(Phone, Options) ->
@@ -145,7 +115,7 @@ compose_otp_noise_request(Phone, Options) ->
     HashcashSolution = util_hashcash:solve_challenge(HashcashChallenge),
     OtpRequestPkt = #pb_otp_request {
         phone = Phone,
-        hashcash_solution = HashcashSolution,
+        hashcash_solution = maps:get(hashcash, Options, HashcashSolution),
         method = maps:get(method, Options, sms),
         lang_id = maps:get(lang_id, Options, <<"en-US">>),
         user_agent = maps:get(user_agent, Options, ?DEFAULT_UA)

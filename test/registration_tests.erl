@@ -54,12 +54,12 @@ group() ->
     ]}.
 
 request_sms_test(_Conf) ->
-    {ok, Resp} = registration_client:request_sms(?PHONE10),
+    {ok, Resp} = registration_client:request_sms(?PHONE10, #{}),
     ct:pal("~p", [Resp]),
-    #{
-        <<"phone">> := ?PHONE10,
-        <<"retry_after_secs">> := 30,
-        <<"result">> := <<"ok">>
+    #pb_otp_response{
+        phone = ?PHONE10,
+        retry_after_secs = 30,
+        result = success
     } = Resp,
     ok.
 
@@ -73,70 +73,77 @@ request_sms_fail_test(_Conf) ->
 %%    } = Resp,
 
     % use some random non-test number, get bad_request
-    {error, {400, Resp2}} = registration_client:request_sms(<<"12066580001">>, #{user_agent => "BadUserAgent/1.0"}),
+    {ok, Resp2} = registration_client:request_sms(<<"12066580001">>, #{user_agent => "BadUserAgent/1.0"}),
     ct:pal("~p", [Resp2]),
-    #{
-        <<"result">> := <<"fail">>,
-        <<"error">> := <<"bad_request">>
+    #pb_otp_response{
+        result = failure,
+        reason = bad_request
     } = Resp2,
     ok,
 
     % use some random short number, get invalid_length
-    {error, {400, Resp3}} = registration_client:request_sms(<<"123">>, #{user_agent => "HalloApp/iOS1.21.93"}),
+    {ok, Resp3} = registration_client:request_sms(<<"123">>, #{user_agent => "HalloApp/iOS1.21.93"}),
     ct:pal("~p", [Resp3]),
-    #{
-        <<"result">> := <<"fail">>,
-        <<"error">> := <<"invalid_length">>
+    #pb_otp_response{
+        result = failure,
+        reason = invalid_length
     } = Resp3,
     ok,
 
     % use some random fixed line number, get line_type_fixed
-    {error, {400, Resp4}} = registration_client:request_sms(<<"376712345">>, #{user_agent => "HalloApp/iOS1.2.93"}),
+    {ok, Resp4} = registration_client:request_sms(<<"376712345">>, #{user_agent => "HalloApp/iOS1.2.93"}),
     ct:pal("~p", [Resp4]),
-    #{
-        <<"result">> := <<"fail">>,
-        <<"error">> := <<"invalid_phone_number">>
+    #pb_otp_response{
+        result = failure,
+        reason = invalid_phone_number
     } = Resp4,
+
+    {ok, Resp5} = registration_client:request_sms(?PHONE10, #{hashcash => <<"not a solution!">>}),
+    ct:pal("~p", [Resp5]),
+    #pb_otp_response{
+        result = failure,
+        reason = wrong_hashcash_solution
+    } = Resp5,
     ok.
 
 
 register_fail_test(_Conf) ->
     % try passing the wrong code
-    {error, {400, Data1}} = registration_client:register(?PHONE10, <<"111112">>, ?NAME10),
+    {ok, Data1} = registration_client:register(?PHONE10, <<"111112">>, ?NAME10, #{}),
     ct:pal("~p", [Data1]),
-    #{
-        <<"result">> := <<"fail">>,
-        <<"error">> := <<"wrong_sms_code">>
+    #pb_verify_otp_response{
+        result = failure,
+        reason = wrong_sms_code
     } = Data1,
 
     % Passing bad user agent results in bad_request
-    {error, {400, Data2}} = registration_client:register(?PHONE10, <<"111111">>, ?NAME10,
+    {ok, Data2} = registration_client:register(?PHONE10, <<"111111">>, ?NAME10,
         #{user_agent => "BadUserAgent/1.0"}),
     ct:pal("~p", [Data2]),
-    #{
-        <<"result">> := <<"fail">>,
-        <<"error">> := <<"bad_request">>
+    #pb_verify_otp_response{
+        result = failure,
+        reason = bad_request
     } = Data2,
 
     % Passing invalid name.
-    {error, {400, Data3}} = registration_client:register(?PHONE10, <<"111111">>, <<>>),
+    {ok, Data3} = registration_client:register(?PHONE10, <<"111111">>, <<>>, #{}),
     ct:pal("~p", [Data3]),
-    #{
-        <<"result">> := <<"fail">>,
-        <<"error">> := <<"invalid_name">>
+    #pb_verify_otp_response{
+        result = failure,
+        reason = invalid_name
     } = Data3,
     ok.
 
 
 register_test(_Conf) ->
-    registration_client:request_sms(?PHONE10, #{}),
-    {ok, Uid, _ClientKeyPair, Data} = registration_client:register(?PHONE10, <<"111111">>, ?NAME10),
+    {ok, Data} = registration_client:register(?PHONE10, <<"111111">>, ?NAME10, #{}),
     ct:pal("~p", [Data]),
-    #{
-        <<"name">> := ?NAME10,
-        <<"phone">> := ?PHONE10,
-        <<"result">> := <<"ok">>
+    #pb_verify_otp_response{    
+        name = ?NAME10,
+        phone = ?PHONE10,
+        result = success
     } = Data,
+    Uid = Data#pb_verify_otp_response.uid,
     ?assertEqual(true, model_accounts:account_exists(Uid)),
     ?assertEqual({ok, ?NAME10}, model_accounts:get_name(Uid)),
     ok.
@@ -458,19 +465,19 @@ too_many_phone_attempts_register_test(_Conf) ->
     % prevent ip check
     meck:expect(mod_halloapp_http_api, check_attempts_by_ip, fun(_) -> ok end),
     registration_client:request_sms(?PHONE12, #{}),
-    SMSErr = #{
-            <<"result">> => <<"fail">>,
-            <<"error">> => <<"wrong_sms_code">>
+    SMSErr = #pb_verify_otp_response{
+        result = failure,
+        reason = wrong_sms_code
     },
     % try to guess the code bunch of times to get blocked
     lists:map(
         fun(Code) ->
-            {error, {400, SMSErr}} = registration_client:register(?PHONE12, util:to_binary(Code), ?NAME12)
+            {ok, SMSErr} = registration_client:register(?PHONE12, util:to_binary(Code), ?NAME12, #{})
         end,
         lists:seq(111112, 111132)),
 
     % trying the right code should fail
-    {error, {400, SMSErr}} = registration_client:register(?PHONE12, <<"111111">>, ?NAME12),
+    {ok, SMSErr} = registration_client:register(?PHONE12, <<"111111">>, ?NAME12, #{}),
     ?assertEqual({ok, undefined}, model_phone:get_uid(?PHONE12)),
     ?assert(meck:validate(mod_halloapp_http_api)),
     meck:unload(mod_halloapp_http_api),
@@ -479,21 +486,21 @@ too_many_phone_attempts_register_test(_Conf) ->
 
 too_many_ip_attempts_register_test(_Conf) ->
     registration_client:request_sms(?PHONE13, #{}),
-    SMSErr = #{
-            <<"result">> => <<"fail">>,
-            <<"error">> => <<"wrong_sms_code">>
+    SMSErr = #pb_verify_otp_response{
+        result = failure,
+        reason = wrong_sms_code
     },
     % Trigger the ip block (max attempts is 30), but not the phone block (max attempts is 20 per phone)
     lists:map(
         fun(Code) ->
-            {error, {400, SMSErr}} = registration_client:register(?PHONE12, util:to_binary(Code), ?NAME11)
+            {ok, SMSErr} = registration_client:register(?PHONE12, util:to_binary(Code), ?NAME11, #{})
         end, lists:seq(111112, 111130)),
     lists:map(
         fun(Code) ->
-            {error, {400, SMSErr}} = registration_client:register(?PHONE13, util:to_binary(Code), ?NAME11)
+            {ok, SMSErr} = registration_client:register(?PHONE13, util:to_binary(Code), ?NAME11, #{})
         end, lists:seq(111112, 111130)),
 
     % trying the right code should fail
-    {error, {400, SMSErr}} = registration_client:register(?PHONE13, <<"111111">>, ?NAME11),
+    {ok, SMSErr} = registration_client:register(?PHONE13, <<"111111">>, ?NAME11, #{}),
     ?assertEqual({ok, undefined}, model_phone:get_uid(?PHONE13)),
     ok.
