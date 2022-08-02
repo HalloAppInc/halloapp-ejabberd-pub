@@ -194,21 +194,27 @@ mod_communities_disjoint_to_joined_test() ->
 mod_communities_scale_test() ->
     setup(),
     Options = [{fresh_start, true}],
-    NumNodes = 100,
+    NumNodes = 100, % must be >= 100 and a multiple of 50
     NumCommunities = 5,
     CommunitySize = NumNodes div NumCommunities,
-    MinNumFriends = 3,
+    % scale the number of initial connections to size of intended community
+    % Each node should initially connect to less than half (4/10) of the intended community -- therefore
+    %   we should see multiple found communities per larger connected community, as the whole thing
+    %   won't be reachable through mutual friends
+    MinNumFriends = case CommunitySize div 5 of 
+        0 -> 1;
+        Pos -> Pos
+    end,
     
     % Make all of the nodes
     ?FOR({0, NumNodes}, fun (NodeN) -> gen_test_acc(NodeN) end),
 
     % Only Link some nodes to each other in each community
     ?FOR({0, NumNodes}, fun (NodeN) -> make_friends(NodeN, MinNumFriends, CommunitySize) end),
-
     {NumIters, Communities} = mod_communities:compute_communities(Options),
     NumComs = maps:size(Communities),
     ?assert(NumIters < 10),
-    ?assertEqual(NumCommunities, NumComs),
+    ?assertEqual(NumCommunities * 2, NumComs), 
 
     % now fully link up communities 
     ?FOR({0, NumCommunities}, fun(CommunityNum) -> link_community(CommunityNum, CommunitySize) end),

@@ -130,6 +130,23 @@ analyze_communities(CommunitiesMap) ->
             maps:keys(Members) 
         end, 
         CommunitiesMap),
+    SizesList = lists:sort(maps:fold(
+        fun (_CommunityId, Members, AccList) ->
+            [length(Members) | AccList]
+        end,
+        [],
+        Communities)),
+    MiddleIdx = length(SizesList) div 2,
+    MedianSize = case length(SizesList) rem 2 of
+        0 -> (lists:nth(MiddleIdx, SizesList) + lists:nth(MiddleIdx + 1, SizesList)) div 2;
+        _ -> lists:nth(MiddleIdx + 1, SizesList)
+    end,
+    AvgSize = lists:foldl(
+        fun (CommunitySize, SizeAcc) ->
+            SizeAcc + CommunitySize
+        end,
+        0,
+        SizesList) div length(SizesList),
     %% Acc has format #{singleton => {NumSingleton, SingletonList}, 
     %%                  five_to_ten => {NumSizeFiveToTen, SizeFiveToTenList}, 
     %%                  more_than_ten => {NumSizeLargerThan10, SizeLargerThan10List}}
@@ -138,7 +155,7 @@ analyze_communities(CommunitiesMap) ->
         fun community_fold_fun/3, 
         AccInit, 
         Communities),
-    Res.
+    Res#{median => MedianSize, average => AvgSize}.
 
 
 community_fold_fun(CommunityId, [_SingleMember], 
@@ -492,6 +509,38 @@ batch_set_labels(ParentPid, MatchList) ->
     ParentPid ! {done, self()},
     ok.
 
+-spec get_all_friends(FriendList :: [uid()]) -> #{uid() => atom()}.
+get_all_friends(FriendList) ->
+    % in this case don't care about deleted or self friends because only checking existence of 
+    % specific uid
+    {ok, FoFMap} = model_friends:get_friends(FriendList),
+    % TODO (luke, erl24) Just use from_keys on a combined FriendofFriend list
+    maps:fold(
+        fun (Buid, BuidFriends, AccMap) ->
+            BuidFriendMap = lists:foldl(
+                fun (Buid2, AccMap2) ->
+                    maps:update_with(
+                        Buid2, 
+                        fun (N) ->
+                            N + 1
+                        end, 
+                        1, 
+                        AccMap2)
+                end,
+                #{},
+                BuidFriends),
+            AddBuid = maps:update_with(
+                Buid, 
+                fun (N) ->
+                    N + 1
+                end, 
+                1, 
+                AccMap),
+            maps:merge(BuidFriendMap, AddBuid) 
+        end,
+        #{},
+        FoFMap).
+
 
 %%====================================================================
 %% Label Propagation Functions
@@ -528,7 +577,7 @@ propagate(Uid, FriendList, MaxNumCommunities) ->
     % ?dbg("Updating label for ~p", [Uid]),
     % ?dbg("  Friends: ~p", [FriendList]),
     FriendLabels = get_friend_labels(FriendList),
-
+    
     % combine labels of all friends by summing each communities belonging coeff
     FriendLabelUnion = lists:foldl(
         fun(FriendLabel, Acc) ->
@@ -540,8 +589,10 @@ propagate(Uid, FriendList, MaxNumCommunities) ->
                 Acc)
         end, #{}, FriendLabels),
 
-    NormDirtyLabel = normalize_label(FriendLabelUnion),
-    % ?dbg("  NormDirtyLabel: ~p", [NormDirtyLabel]),
+    CloseKnitLabel = remove_distant_community_ids(FriendList, FriendLabelUnion),
+
+    NormDirtyLabel = normalize_label(CloseKnitLabel),
+
     % remove all communities from label with belong_coeff < 1/MaxNumCommunities
     %   Basically just trim to limit the number of communities
     CleanThreshold = 1.0 / MaxNumCommunities,
@@ -706,6 +757,21 @@ get_friend_labels(Uids) ->
                     end
               end, 
               Uids).
+
+
+% Filters out all community ids that are not friends of the given friend list
+% Used to limit community sharing to ensure that a uid can only join a community if the id of that 
+%   community shares a mutual friend -- in future could edit to require more mutual friends
+-spec remove_distant_community_ids([uid()], community_label()) -> map().
+remove_distant_community_ids(FriendsList, LabelMap) ->
+    FriendsOfFriendsMap = get_all_friends(FriendsList),
+    maps:filter(
+        fun (CommunityId, _B) -> 
+            maps:get(CommunityId, FriendsOfFriendsMap, -1) > 0
+        end,
+        LabelMap).
+
+
 
 -spec batch_combine_small_clusters(ParentPid :: pid(), MatchList :: list(), ClusterSizeThreshold :: pos_integer()) -> ok | {error, any()}.
 batch_combine_small_clusters(ParentPid, MatchList, ClusterSizeThreshold) ->
