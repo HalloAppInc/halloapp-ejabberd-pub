@@ -22,6 +22,7 @@
 ]).
 
 -include("logger.hrl").
+-include_lib("eunit/include/eunit.hrl").
 
 -define(ALERTS_MANAGER_URL, "http://m1.ha:9093/api/v1/alerts").
 
@@ -75,6 +76,8 @@ send_alert(Alertname, Service, Severity, Message) ->
     Options = [],
     ?DEBUG("alerts_url : ~p", [URL]),
     case config:get_hallo_env() of
+        test -> ?debugFmt("~s alert: service = ~s, severity = ~s, message = ~s",
+            [Alertname, Service, Severity, Message]);
         localhost -> ?CRITICAL("~s alert: service = ~s, severity = ~s, message = ~s",
             [Alertname, Service, Severity, Message]);
         _ ->
