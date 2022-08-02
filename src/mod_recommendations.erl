@@ -11,12 +11,17 @@
 -include("ha_types.hrl").
 -include("athena_query.hrl").
 -include("account.hrl").
+-include("groups.hrl").
+
+% -define(SCAN_SIZE, 2500).
 
 -export([
     generate_friend_recos/3,
     invite_recos/2,
     process_invite_recos/1,
-    generate_invite_recos/2
+    generate_invite_recos/2,
+    % all_shared_group_membership/0,
+    shared_group_membership/1
 ]).
 
 
@@ -245,4 +250,115 @@ update_ouid_map(Ouid, Cnt, Map) ->
             NewCnt = Cnt + maps:get(Ouid, Map, 0),
             maps:put(Ouid, NewCnt, Map)
     end.
+
+
+% -spec all_shared_group_membership() -> ok.
+% all_shared_group_membership() ->
+%     Nodes = model_accounts:get_node_list(),
+%     lists:foreach(fun (Node) -> 
+%                         do_all_shared_group_membership(0, Node, false)
+%                   end, Nodes),
+%     ?INFO("Done with identifying shared group membership"),
+%     ok.
+
+% -spec do_all_shared_group_membership(non_neg_integer(), node(), boolean()) -> integer().
+% do_all_shared_group_membership(0, _Node, true) ->
+%     ok;
+% do_all_shared_group_membership(Cursor, Node, _NotFirstScan) ->
+%     NumFriendsThreshold = 10,
+%     GroupsThreshold = 2,
+    
+%     {NewCur, BinKeys} = model_accounts:scan(Node, Cursor, ?SCAN_SIZE),
+%     Uids = lists:map(
+%         fun (BinKey) ->
+%             extract_uid(BinKey)
+%         end, BinKeys),
+%     {ok, FriendMap} = model_friends:get_friends(Uids),
+%     case {Uids, Cursor} of 
+%         {[], 0} -> ok;
+%         _ -> lists:foreach(
+%                 fun (Uid) -> 
+%                     Friends = maps:get(Uid, FriendMap, []),
+%                     case length(Friends) >= NumFriendsThreshold of
+%                         true -> 
+%                             Groups = model_groups:get_groups(Uid),
+%                             case length(Groups) >= GroupsThreshold of
+%                                 true -> shared_group_membership(Uid, Groups, Friends);
+%                                 false -> ok
+%                             end;
+%                         false -> ok
+%                     end 
+%                 end, 
+%                 Uids),
+%             do_all_shared_group_membership(NewCur, Node, true)
+%     end.
+
+
+-spec shared_group_membership(Uid :: uid()) -> ok.
+shared_group_membership(Uid) ->
+    Groups = model_groups:get_groups(Uid),
+    {ok, Friends} = model_friends:get_friends(Uid),
+    shared_group_membership(Uid, Groups, Friends).
+
+shared_group_membership(Uid, Groups, Friends) ->
+    % map of Uids -> [shared groups with uid]
+    SharedMembership = lists:foldl(
+        fun (GroupId, MembershipAcc) ->
+            Members = model_groups:get_member_uids(GroupId),
+            lists:foldl(
+                fun (MemberUid, Acc) ->
+                    CurMembership = maps:get(MemberUid, Acc, []),
+                    maps:put(MemberUid, [GroupId | CurMembership], Acc)
+                end,
+                MembershipAcc,
+                Members)
+        end,
+        #{},
+        Groups),
+    
+    ONameMap = model_accounts:get_names(maps:keys(SharedMembership)),
+    InfoList = maps:fold(
+        fun (Ouid, _OName, Acc) when Ouid =:= Uid -> 
+                Acc;
+            (Ouid, OName, Acc) ->
+                NumCommonGroups = length(maps:get(Ouid, SharedMembership)),
+                case NumCommonGroups > 1 of
+                    true -> [{OName, Ouid, NumCommonGroups} | Acc];
+                    false -> Acc
+                end
+        end,
+        [],
+        ONameMap),
+
+    SortedInfo = lists:keysort(3, InfoList),
+
+    print_shared_group_info(Uid, Friends, SortedInfo),
+
+    ok.
+
+print_shared_group_info(Uid, _Friends, []) ->
+    {ok, Name} = model_accounts:get_name(Uid),
+    ?INFO("~p (~p) has no common group membership", [Uid, Name]);
+print_shared_group_info(Uid, Friends, InfoList) ->
+    {ok, Name} = model_accounts:get_name(Uid),
+    ?INFO("~p (~p):", [Uid, Name]),
+
+    FriendSet = sets:from_list(Friends),
+    lists:foreach(
+        fun ({OName, Ouid, NumCommonGroups}) ->
+            case sets:is_element(Ouid, FriendSet) of 
+                true -> ?INFO("  F ~p (~p) is in ~p common groups", [Ouid, OName, NumCommonGroups]);
+                false -> ?INFO("  N ~p (~p) is in ~p common groups", [Ouid, OName, NumCommonGroups])
+            end
+        end,
+        InfoList).
+
+
+% extract_uid(BinKey) ->
+%     Result = re:run(BinKey, "^acc:{([0-9]+)}$", [global, {capture, all, binary}]),
+%     case Result of
+%         {match, [[_FullKey, Uid]]} ->
+%             Uid;
+%         _ -> <<"">>
+%     end.
 
