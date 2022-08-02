@@ -263,7 +263,7 @@ identify_communities(PrevMin, MaxNumCommunities, BatchSize, {IterNum, MaxIters})
 -spec single_step_label_propagation(PrevMin :: map(), MaxNumCommunities :: pos_integer(), 
         BatchSize :: pos_integer()) -> {map(), boolean()}.
 single_step_label_propagation(PrevMin, MaxNumCommunities, BatchSize) ->
-    ?INFO("Starting Label Propagation iteration over ~p uids", [ets:info(?COMMUNITY_DATA_TABLE, size)]),
+    % ?INFO("Starting Label Propagation iteration over ~p uids", [ets:info(?COMMUNITY_DATA_TABLE, size)]),
     Start = util:now_ms(),
     % ?dbg("----------", []),
     % calculate new labels for each node in parallel batches of size ?MATCH_CHUNK_SIZE
@@ -336,7 +336,7 @@ finish_community_detection(BatchSize, SmallClusterThreshold) ->
             % are all of this community's supersets also subsets?
             IsJustDuplicate = not lists:any(
                 fun (SuperSetCommunityId) ->
-                    not sets:is_element(SubsetCommunityId, maps:get(SuperSetCommunityId, CommunitySubsetMap, #{}))
+                    not sets:is_element(SubsetCommunityId, maps:get(SuperSetCommunityId, CommunitySubsetMap, sets:new()))
                 end,
                 sets:to_list(SuperSetCommunities)),
             
@@ -653,7 +653,9 @@ finalize_label(Uid, CurLabel, Communities) ->
                                 CurLabel),
     FinalLabel = case maps:size(PrunedLabel) > 0 of
             true -> normalize_label(PrunedLabel);
-            false -> #{Uid => 1.0}
+            false -> 
+                ?INFO("  ~p was only part of subsets so giving self label! Curlabel: ~p ", [Uid, CurLabel]),
+                #{Uid => 1.0}
         end,
     case ets:update_element(?COMMUNITY_DATA_TABLE, label_key(Uid), {?NEW_LABEL_POS, FinalLabel}) of
         true -> apply_new_label(Uid, FinalLabel), 
@@ -812,14 +814,14 @@ do_for_acc({EntryList, Cont}, Func, Acc) ->
 -spec foreach_uid_batch(Func :: atom(), Args :: list(), 
         BatchSize :: pos_integer()) -> ok | {error, any()}.
 foreach_uid_batch(Func, Args, BatchSize) ->
-    Start = util:now_ms(),
+    % Start = util:now_ms(),
     ets:safe_fixtable(?COMMUNITY_DATA_TABLE, true),
     Matches = ets:match(?COMMUNITY_DATA_TABLE, {{labelinfo, '$1'}, '$2', '$3'}, BatchSize),
 
     do_for_batch(Matches, Func, Args, 0),
     ets:safe_fixtable(?COMMUNITY_DATA_TABLE, false),
 
-    ?INFO("Batch propagation took ~p ms", [util:now_ms() - Start]),
+    % ?INFO("Batch propagation took ~p ms", [util:now_ms() - Start]),
     ok.
 
 do_for_batch('$end_of_table', _Func, _Args, 0) ->  
@@ -828,21 +830,21 @@ do_for_batch('$end_of_table', _Func, _Args, 0) ->
 do_for_batch('$end_of_table', Func, Args, NumChildren) -> 
     % ?INFO("STATS: ~p", [wpool:stats(?COMMUNITY_WORKER_POOL)]), 
     receive
-        {done, WorkerPid} -> 
-            case (NumChildren - 1) rem 10 of % log every 10th to avoid too many logs
-                0 -> ?INFO("Worker ~p finished! ~p remaining", [WorkerPid, NumChildren - 1]);
-                _ -> ok
-            end,
+        {done, _WorkerPid} -> 
+            % case (NumChildren - 1) rem 10 of % log every 10th to avoid too many logs
+            %     0 -> ?INFO("Worker ~p finished! ~p remaining", [WorkerPid, NumChildren - 1]);
+            %     _ -> ok
+            % end,
             do_for_batch('$end_of_table', Func, Args, NumChildren - 1)
     end,
     ok; 
 
 do_for_batch({EntryList, Cont}, Func, Args, NumChildren) -> 
     wpool:cast(?COMMUNITY_WORKER_POOL, {?MODULE, Func, [self(), EntryList] ++ Args}, ?COMMUNITY_POOL_STRATEGY),
-    case NumChildren rem 10 of % log every 10th to avoid too many logs
-        0 -> ?INFO("Spawned worker #~p to work on batch of size ~p", [NumChildren + 1, length(EntryList)]);
-        _ -> ok
-    end,
+    % case NumChildren rem 10 of % log every 10th to avoid too many logs
+    %     0 -> ?INFO("Spawned worker #~p to work on batch of size ~p", [NumChildren + 1, length(EntryList)]);
+    %     _ -> ok
+    % end,
     do_for_batch(ets:match(Cont), Func, Args, NumChildren + 1).
 
 
