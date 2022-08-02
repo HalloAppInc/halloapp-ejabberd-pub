@@ -239,10 +239,12 @@ setup_community_detection(NumWorkers, FreshStart) ->
         {IterNum :: non_neg_integer(), MaxIters :: non_neg_integer()}) -> non_neg_integer().
 identify_communities(PrevMin, _MaxNumCommunities, _BatchSize, {MaxIters, MaxIters}) ->
     ?INFO("Community identification reached maximum iteration limit of ~p", [MaxIters]),
+    % ?dbg("Community identification reached maximum iteration limit of ~p", [MaxIters]),
     {PrevMin, MaxIters}; % return map that can be used to continue computation
 identify_communities(PrevMin, MaxNumCommunities, BatchSize, {IterNum, MaxIters}) ->
     % Do an iteration of label propagation
     ?INFO("Iteration ~p/~p", [IterNum + 1, MaxIters]),
+    % ?dbg("_________Iteration ~p/~p __________", [IterNum + 1, MaxIters]),
     {MinCommunityIdCounts, Continue} = single_step_label_propagation(PrevMin, MaxNumCommunities, BatchSize),
 
     case Continue of 
@@ -277,6 +279,7 @@ single_step_label_propagation(PrevMin, MaxNumCommunities, BatchSize) ->
         true -> NewCommunityIdCounts;
         false -> min_counts(PrevMin, NewCommunityIdCounts)
     end,
+    % ?dbg("ComboCids: ~p~nNewComIds ~p", [CombinedCommunityIds, NewCommunityIdCounts]),
     Continue = MinCommunityIdCounts =/= PrevMin,
     % ?dbg("Continue? ~p -- Min ~p , PrevMin ~p", [Continue, MinCommunityIdCounts, PrevMin]),
     ?INFO("CommunityDetection single iteration found ~p new communities in ~p ms", 
@@ -310,15 +313,60 @@ finish_community_detection(BatchSize, SmallClusterThreshold) ->
         fun (Uid, CurLabel, _NewLabel, Acc) -> 
             identify_community_subsets(Uid, CurLabel, Acc) 
         end, {#{}, #{}}),
-    CommunitySubsets = maps:keys(maps:filter(
-        fun  (_, #{}) -> false; %filter out empty maps to get only meaningful subsets
-             (_, _) -> true 
-        end, SubsetMap)),
+    
+    CommunitySubsetMap = maps:filter(
+        fun  (_, CommunityIds) -> 
+            not sets:is_empty(CommunityIds)
+        end, SubsetMap),
+    SubsetCommunities = maps:keys(CommunitySubsetMap),
+    
+    % The above subset detection approach counts duplicate communities as subsets of each other, so 
+    % if we naively remove all subsets we'll eliminate duplicate communities. So, we need to filter 
+    % out a single copy of any duplicate communities that are not subsets of anything else (i.e. all
+    % of their supersets are just duplicates). 
+    UniqueDuplicateCommunities = maps:fold(
+        fun (SubsetCommunityId, SuperSetCommunities, UniqueCommunityList) ->
+            % is this community a subset of one we have already locked in?
+            AlreadyFound = lists:any(
+                fun (UniqueCommunityId) ->
+                    sets:is_element(UniqueCommunityId, SuperSetCommunities) 
+                end,
+                UniqueCommunityList),
 
-    ?INFO("After combining, ~p/~p communities are subsets", [length(CommunitySubsets), maps:size(DirtyCommunities)]),
+            % are all of this community's supersets also subsets?
+            IsJustDuplicate = not lists:any(
+                fun (SuperSetCommunityId) ->
+                    not sets:is_element(SubsetCommunityId, maps:get(SuperSetCommunityId, CommunitySubsetMap, #{}))
+                end,
+                sets:to_list(SuperSetCommunities)),
+            
+            case {AlreadyFound, IsJustDuplicate} of
+                {true, _} -> UniqueCommunityList;
+                {false, false} -> UniqueCommunityList;
+                {false, true} -> [SubsetCommunityId | UniqueCommunityList]
+            end
+        end,
+        [],
+        CommunitySubsetMap),
+
+    CleanSubsetCommunities = lists:subtract(SubsetCommunities, UniqueDuplicateCommunities),
+    % ?dbg("DirtyCommunities: ~p~n SubsetIds ~p", [DirtyCommunities, SubsetCommunities]),
+    ?INFO("After combining, ~p/~p communities are true subsets", [length(CleanSubsetCommunities), maps:size(DirtyCommunities)]),
     
     % final map of #{CommunityId => #{members => belonging}} with no subsets
-    Communities = maps:without(CommunitySubsets, DirtyCommunities), 
+    % If all are subsets, then just take random
+    Communities = case length(CleanSubsetCommunities) =:= maps:size(DirtyCommunities) of
+        true when length(CleanSubsetCommunities) > 1 -> 
+            % ?dbg("before guess", []),
+            [_ | TailSubsets] = CleanSubsetCommunities,
+            % ?dbg("after guess", []),
+            maps:without(TailSubsets, DirtyCommunities);
+        true -> 
+            DirtyCommunities;
+        false ->
+            maps:without(CleanSubsetCommunities, DirtyCommunities)
+    end,
+
     % only include proper communities in final Uid labels
     ok = foreach_uid(fun (Uid, CurLabel, _) -> 
             finalize_label(Uid, CurLabel, Communities) 
@@ -477,8 +525,8 @@ propagate(Uid, [], _MaxNumCommunities) ->
     ?INFO("WARNING: Uid ~p has no real/non-self friends -- this shouldn't happen", [Uid]),
     ets:delete(?COMMUNITY_DATA_TABLE, label_key(Uid));
 propagate(Uid, FriendList, MaxNumCommunities) ->
-    % ?dbg("---------------------- Updating label for ~p--------------------------", [Uid]),
-    % ?dbg("Friends: ~p", [FriendList]),
+    % ?dbg("Updating label for ~p", [Uid]),
+    % ?dbg("  Friends: ~p", [FriendList]),
     FriendLabels = get_friend_labels(FriendList),
 
     % combine labels of all friends by summing each communities belonging coeff
@@ -493,7 +541,7 @@ propagate(Uid, FriendList, MaxNumCommunities) ->
         end, #{}, FriendLabels),
 
     NormDirtyLabel = normalize_label(FriendLabelUnion),
-
+    % ?dbg("  NormDirtyLabel: ~p", [NormDirtyLabel]),
     % remove all communities from label with belong_coeff < 1/MaxNumCommunities
     %   Basically just trim to limit the number of communities
     CleanThreshold = 1.0 / MaxNumCommunities,
@@ -501,15 +549,19 @@ propagate(Uid, FriendList, MaxNumCommunities) ->
                                 B >= CleanThreshold 
                             end, 
                             NormDirtyLabel),
-
+    % ?dbg("  Threshold: ~p~n  CleanLabel: ~p", [CleanThreshold, CleanLabel]),
     NewLabel = case maps:size(CleanLabel) > 0 of
         true -> normalize_label(CleanLabel);
         false -> #{strongest_community_id(NormDirtyLabel) => 1.0} % if all are < threshold, pick highest B
     end,
 
     case ets:update_element(?COMMUNITY_DATA_TABLE, label_key(Uid), {?NEW_LABEL_POS, NewLabel}) of
-        true -> ok;
-        false -> {error, "Element not found"}    
+        true -> 
+            % ?dbg("set ~p's new label to ~p", [Uid, NewLabel]),
+            ok;
+        false -> 
+            % ?dbg("ERROR: couldn't set ~p's label to ~p", [Uid, NewLabel]),
+            {error, "Element not found"}    
     end.
 
 % * Used to generate data for termination condition
@@ -543,10 +595,14 @@ get_community_membership_counts_acc(CurLabel, NewLabel, {OldAcc, NewAcc}) ->
 % * Used to calculate termination condition
 -spec min_counts(map(), map()) -> map().
 min_counts(CommunityIdCount1, CommunityIdCount2) ->
-    Min = fun (_CommunityId, B1, B2) -> 
-              min(B1, B2) 
-          end,
-    util:map_intersect_with(Min, CommunityIdCount1, CommunityIdCount2).
+    case maps:size(CommunityIdCount1) =:= 0 of
+        true -> CommunityIdCount2;
+        false ->
+            Min = fun (_CommunityId, B1, B2) -> 
+                    min(B1, B2) 
+                end,
+            util:map_intersect_with(Min, CommunityIdCount1, CommunityIdCount2)
+    end.
 
 
 % * Ensures that each node's belonging coefficients sum to 1
@@ -570,14 +626,18 @@ identify_community_subsets(Uid, CurLabel, {Communities, Subsets}) ->
                         true -> 
                                 CommunityMembers = maps:get(CommunityId, CommunityMap),
                                 CommunitySubsets = maps:get(CommunityId, CommunitySubsetsMap),
+                                UidCommunitiesSet = sets:del_element(
+                                    CommunityId, 
+                                    sets:from_list(maps:keys(CurLabel))),
                                 {   
                                     CommunityMap#{CommunityId := CommunityMembers#{Uid => B}}, 
-                                    CommunitySubsetsMap#{CommunityId := util:map_intersect(CommunitySubsets, CurLabel)} 
+                                    CommunitySubsetsMap#{CommunityId := sets:intersection(
+                                        CommunitySubsets, UidCommunitiesSet)}
                                 };
                         false ->
                                 {
                                     CommunityMap#{CommunityId => #{Uid => B}}, 
-                                    CommunitySubsetsMap#{CommunityId => CurLabel}
+                                    CommunitySubsetsMap#{CommunityId => sets:from_list(maps:keys(CurLabel))}
                                 }
                     end
                 end, 
@@ -591,7 +651,10 @@ finalize_label(Uid, CurLabel, Communities) ->
                                     maps:is_key(CommunityId, Communities) 
                                 end, 
                                 CurLabel),
-    FinalLabel = normalize_label(PrunedLabel),
+    FinalLabel = case maps:size(PrunedLabel) > 0 of
+            true -> normalize_label(PrunedLabel);
+            false -> #{Uid => 1.0}
+        end,
     case ets:update_element(?COMMUNITY_DATA_TABLE, label_key(Uid), {?NEW_LABEL_POS, FinalLabel}) of
         true -> apply_new_label(Uid, FinalLabel), 
                 FinalLabel;

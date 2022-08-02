@@ -50,12 +50,58 @@ mod_communities_singleton_test() ->
     ?assertEqual(undefined, model_accounts:get_community_label(?UID1)), %singletons should be ignored
     ok.
 
+
+mod_communities_subset_test() ->
+    setup(),
+    MaxCommunitiesPerNode = 20,
+    BatchSize = 10,
+    SmallClusterThreshold = 1,
+    make_8_accounts(),
+
+    % Diamond with single diagonal line
+    model_friends:add_friend(?UID1, ?UID2),
+    model_friends:add_friend(?UID3, ?UID2),
+    model_friends:add_friend(?UID4, ?UID2),
+    model_friends:add_friend(?UID3, ?UID4),
+    model_friends:add_friend(?UID1, ?UID4),
+
+    % Diamond with single diagonal line
+    model_friends:add_friend(?UID5, ?UID6),
+    model_friends:add_friend(?UID7, ?UID6),
+    model_friends:add_friend(?UID7, ?UID5),
+    model_friends:add_friend(?UID7, ?UID8),
+    model_friends:add_friend(?UID8, ?UID6),
+
+    % If subsets are not cleaned up, running 3 iterations will result in 4 idential communities for 
+    % each diamond because the algorithm will normally terminate before this happens, we run it manually.
+    mod_communities:setup_community_detection(4, true),
+    % We run the label propagation 3 times, intentionally disregarding the output and inputting an empty
+    % map to get it to continue iterating
+    mod_communities:single_step_label_propagation(#{}, MaxCommunitiesPerNode, BatchSize),
+    mod_communities:apply_single_step_labels(),
+    mod_communities:single_step_label_propagation(#{}, MaxCommunitiesPerNode, BatchSize),
+    mod_communities:apply_single_step_labels(),
+    mod_communities:single_step_label_propagation(#{}, MaxCommunitiesPerNode, BatchSize),
+    mod_communities:apply_single_step_labels(),
+    % now post-process and cleanup -- the subset detection needs to recognize that there are two groups
+    % of identical communities and clean them up
+    Communities = mod_communities:finish_community_detection(BatchSize, SmallClusterThreshold),
+    mod_communities:cleanup_community_detection(),
+
+    % ?debugFmt("Communities: ~p", [Communities]),
+    
+    ?assertEqual(2, maps:size(Communities)), % one community for each diamond
+    [FirstCid, SecondCid] = maps:keys(Communities),
+    ?assertEqual(4, maps:size(maps:get(FirstCid, Communities, #{}))),
+    ?assertEqual(4, maps:size(maps:get(SecondCid, Communities, #{}))),
+
+
+    ok.
+
 mod_communities_small_cluster_test() ->
     setup(),
     Options = [{max_communities_per_node, 2}, {fresh_start, true}, {small_cluster_threshold, 4}],
-    ok = model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?UA),
-    ok = model_accounts:create_account(?UID2, ?PHONE2, ?NAME2, ?UA),
-    ok = model_accounts:create_account(?UID3, ?PHONE3, ?NAME3, ?UA),
+    make_8_accounts(),
 
     % first test two friends 
     model_friends:add_friend(?UID1, ?UID2),
@@ -87,14 +133,7 @@ mod_communities_disjoint_to_joined_test() ->
     setup(),
     Options = [{max_communities_per_node, 2}, {fresh_start, true}],
 
-    ok = model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?UA),
-    ok = model_accounts:create_account(?UID2, ?PHONE2, ?NAME2, ?UA),
-    ok = model_accounts:create_account(?UID3, ?PHONE3, ?NAME3, ?UA),
-    ok = model_accounts:create_account(?UID4, ?PHONE4, ?NAME4, ?UA),
-    ok = model_accounts:create_account(?UID5, ?PHONE5, ?NAME5, ?UA),
-    ok = model_accounts:create_account(?UID6, ?PHONE6, ?NAME6, ?UA),
-    ok = model_accounts:create_account(?UID7, ?PHONE7, ?NAME7, ?UA),
-    ok = model_accounts:create_account(?UID8, ?PHONE8, ?NAME8, ?UA),
+    make_8_accounts(),
 
 
     % Community 1 (Diamond with vertical line)
@@ -221,11 +260,7 @@ mod_communities_analysis_test() ->
 friend_recommendation_test() ->
     setup(),
     Options = [{max_communities_per_node, 2}, {fresh_start, true}],
-    ok = model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?UA),
-    ok = model_accounts:create_account(?UID2, ?PHONE2, ?NAME2, ?UA),
-    ok = model_accounts:create_account(?UID3, ?PHONE3, ?NAME3, ?UA),
-    ok = model_accounts:create_account(?UID4, ?PHONE4, ?NAME4, ?UA),
-    ok = model_accounts:create_account(?UID5, ?PHONE5, ?NAME5, ?UA),
+    make_8_accounts(),
 
 
     model_friends:add_friend(?UID1, ?UID2),
@@ -252,6 +287,19 @@ friend_recommendation_test() ->
 %%===========================================================================
 %% Internal Functions
 %%===========================================================================
+
+
+make_8_accounts() ->
+    ok = model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?UA),
+    ok = model_accounts:create_account(?UID2, ?PHONE2, ?NAME2, ?UA),
+    ok = model_accounts:create_account(?UID3, ?PHONE3, ?NAME3, ?UA),
+    ok = model_accounts:create_account(?UID4, ?PHONE4, ?NAME4, ?UA),
+    ok = model_accounts:create_account(?UID5, ?PHONE5, ?NAME5, ?UA),
+    ok = model_accounts:create_account(?UID6, ?PHONE6, ?NAME6, ?UA),
+    ok = model_accounts:create_account(?UID7, ?PHONE7, ?NAME7, ?UA),
+    ok = model_accounts:create_account(?UID8, ?PHONE8, ?NAME8, ?UA),
+    ok.
+
 
 -spec gen_test_acc(pos_integer()) -> uid().
 gen_test_acc(N) -> 
