@@ -89,6 +89,10 @@ handle_cast(run_athena_queries, State) ->
     Queries = get_athena_queries(),
     State2 = run_queries_internal(Queries, State),
     {noreply, State2};
+handle_cast(run_hourly_athena_queries, State) ->
+    Queries = get_hourly_athena_queries(),
+    State2 = run_queries_internal(Queries, State),
+    {noreply, State2};
 handle_cast({fetch_query_results, ExecutionId}, State) ->
     {noreply, fetch_query_results_internal(ExecutionId, State)};
 handle_cast({delete_query, Id}, #{queries := Queries} = State) ->
@@ -118,6 +122,7 @@ run_athena_queries() ->
             end;
         _ -> ok
     end,
+    gen_server:cast(?PROC(), run_hourly_athena_queries),
     ok.
 
 run_query(Query) ->
@@ -264,10 +269,18 @@ pretty_print_internal([]) ->
 
 get_athena_queries() ->
     Modules = get_athena_modules(),
-    Queries = lists:foldl(
-        fun(Module, Acc) ->
-            [erlang:apply(Module, get_queries, []) | Acc]
-        end, [], Modules),
+    Queries = lists:map(
+        fun(Module) ->
+            erlang:apply(Module, get_queries, [])
+        end, Modules),
+    lists:flatten(Queries).
+
+get_hourly_athena_queries() ->
+    Modules = get_hourly_athena_modules(),
+    Queries = lists:map(
+        fun(Module) ->
+            erlang:apply(Module, get_hourly_queries, [])
+        end, Modules),
     lists:flatten(Queries).
 
 
@@ -278,5 +291,10 @@ get_athena_modules() ->
         athena_home_encryption,
         athena_push,
         athena_media,
+        athena_call
+    ].
+
+get_hourly_athena_modules() ->
+    [
         athena_call
     ].

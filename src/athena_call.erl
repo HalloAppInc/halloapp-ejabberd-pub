@@ -15,29 +15,45 @@
 -export([
     %% callback for behavior function.
     get_queries/0,
+    get_hourly_queries/0,
     %% result processing functions.
     record_global/1
 ]).
+
+-define(HOURLY, "_hourly").
 
 %%====================================================================
 %% mod_athena_stats callback
 %%====================================================================
 
 get_queries() ->
-    QueryTimeMs = util:now_ms() - ?DAYS_MS,
-    QueryTimeMsBin = util:to_binary(QueryTimeMs),
+    MinQueryTimeMs = util:now_ms() - ?DAYS_MS,
+    MinQueryTimeMsBin = util:to_binary(MinQueryTimeMs),
+    MaxQueryTimeMs = util:now_ms(),
+    MaxQueryTimeMsBin = util:to_binary(MaxQueryTimeMs),
     [
-        unique_call_answered_count(QueryTimeMsBin),
-        unique_call_connected_count(QueryTimeMsBin),
-        unique_call_has_duration_count(QueryTimeMsBin)
+        unique_call_answered_count(MinQueryTimeMsBin, MaxQueryTimeMsBin, ""),
+        unique_call_connected_count(MinQueryTimeMsBin, MaxQueryTimeMsBin, ""),
+        unique_call_has_duration_count(MinQueryTimeMsBin, MaxQueryTimeMsBin, "")
     ].
 
+get_hourly_queries() ->
+    % Query the past hour a day ago.
+    MinQueryTimeMs = util:now_ms() - ?DAYS_MS - ?HOURS_MS,
+    MinQueryTimeMsBin = util:to_binary(MinQueryTimeMs),
+    MaxQueryTimeMs = util:now_ms() - ?DAYS_MS,
+    MaxQueryTimeMsBin = util:to_binary(MaxQueryTimeMs),
+    [
+        unique_call_answered_count(MinQueryTimeMsBin, MaxQueryTimeMsBin, ?HOURLY),
+        unique_call_connected_count(MinQueryTimeMsBin, MaxQueryTimeMsBin, ?HOURLY),
+        unique_call_has_duration_count(MinQueryTimeMsBin, MaxQueryTimeMsBin, ?HOURLY)
+    ].
 
 %%====================================================================
 %% call queries
 %%====================================================================
 
-unique_call_connected_count(TimestampMsBin) ->
+unique_call_connected_count(MinTimestampMsBin, MaxTimestampMsBin, Suffix) ->
     QueryBin = <<"
         SELECT
             SUM(CASE WHEN all_calls.bothsides THEN 1 ELSE 0 END) as connected, 
@@ -46,18 +62,19 @@ unique_call_connected_count(TimestampMsBin) ->
             (SELECT 
                 COUNT(*) = SUM(CASE WHEN client_call.call.connected THEN 1 ELSE 0 END) as bothsides
             FROM client_call
-                WHERE client_call.timestamp_ms >='", TimestampMsBin/binary,"'
+                WHERE client_call.timestamp_ms >='", MinTimestampMsBin/binary,"'
+                AND   client_call.timestamp_ms <='", MaxTimestampMsBin/binary,"'
             GROUP BY client_call.call.call_id
             ) AS all_calls">>,
     #athena_query{
         query_bin = QueryBin,
         tags = #{},
         result_fun = {?MODULE, record_global},
-        metrics = ["unique_call_connected"]
+        metrics = ["unique_call_connected" ++ Suffix]
     }.
 
 
-unique_call_answered_count(TimestampMsBin) ->
+unique_call_answered_count(MinTimestampMsBin, MaxTimestampMsBin, Suffix) ->
     QueryBin = <<"
         SELECT
             SUM(CASE WHEN all_calls.bothsides THEN 1 ELSE 0 END) as answered, 
@@ -66,17 +83,18 @@ unique_call_answered_count(TimestampMsBin) ->
             (SELECT 
                 COUNT(*) = SUM(CASE WHEN client_call.call.answered THEN 1 ELSE 0 END) as bothsides
             FROM client_call
-                WHERE client_call.timestamp_ms >='", TimestampMsBin/binary,"'
+                WHERE client_call.timestamp_ms >='", MinTimestampMsBin/binary,"'
+                AND   client_call.timestamp_ms <='", MaxTimestampMsBin/binary,"'
             GROUP BY client_call.call.call_id
             ) AS all_calls">>,
     #athena_query{
         query_bin = QueryBin,
         tags = #{},
         result_fun = {?MODULE, record_global},
-        metrics = ["unique_call_answered"]
+        metrics = ["unique_call_answered" ++ Suffix]
     }.
 
-unique_call_has_duration_count(TimestampMsBin) ->
+unique_call_has_duration_count(MinTimestampMsBin, MaxTimestampMsBin, Suffix) ->
     QueryBin = <<"
         SELECT
             SUM(CASE WHEN all_calls.bothsides THEN 1 ELSE 0 END) as has_duration, 
@@ -85,14 +103,15 @@ unique_call_has_duration_count(TimestampMsBin) ->
             (SELECT 
                 COUNT(*) = SUM(CASE WHEN client_call.call.duration_ms != '0' THEN 1 ELSE 0 END) as bothsides
             FROM client_call
-                WHERE client_call.timestamp_ms >='", TimestampMsBin/binary,"'
+                WHERE client_call.timestamp_ms >='", MinTimestampMsBin/binary,"'
+                AND   client_call.timestamp_ms <='", MaxTimestampMsBin/binary,"'
             GROUP BY client_call.call.call_id
             ) AS all_calls">>,
     #athena_query{
         query_bin = QueryBin,
         tags = #{},
         result_fun = {?MODULE, record_global},
-        metrics = ["unique_call_has_duration"]
+        metrics = ["unique_call_has_duration" ++ Suffix]
     }.
 
 
