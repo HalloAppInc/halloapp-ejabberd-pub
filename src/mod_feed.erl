@@ -81,6 +81,13 @@ user_send_packet({#pb_msg{id = MsgId, to_uid = ToUid, from_uid = FromUid,
     Packet1 = set_sender_info(Packet),
     {Packet1, State};
 
+user_send_packet({#pb_msg{id = MsgId, to_uid = ToUid, from_uid = FromUid,
+        payload = #pb_content_missing{}} = Packet, _State} = Acc) ->
+    PayloadType = util:get_payload_type(Packet),
+    ContentId = pb:get_content_id(Packet),
+    ?INFO("Uid: ~s sending ~p message to ~s MsgId: ~s ContentId: ~p", [FromUid, PayloadType, ToUid, MsgId, ContentId]),
+    Acc;
+
 user_send_packet({_Packet, _State} = Acc) ->
     Acc.
 

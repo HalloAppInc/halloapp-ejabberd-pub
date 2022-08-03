@@ -138,6 +138,7 @@ get_content_id(#pb_msg{id = Id, payload = #pb_group_feed_items{}}) -> Id;
 get_content_id(#pb_msg{id = Id, payload = #pb_feed_items{}}) -> Id;
 get_content_id(#pb_msg{id = Id, payload = #pb_request_logs{}}) -> Id;
 get_content_id(#pb_msg{id = Id, payload = #pb_wake_up{}}) -> Id;
+get_content_id(#pb_msg{payload = #pb_content_missing{content_id = Id}}) -> Id;
 get_content_id(#pb_msg{payload = #pb_incoming_call{call_id = CallId}}) -> CallId;
 get_content_id(#pb_msg{payload = #pb_call_ringing{call_id = CallId}}) -> CallId;
 get_content_id(#pb_msg{payload = #pb_pre_answer_call{call_id = CallId}}) -> CallId;

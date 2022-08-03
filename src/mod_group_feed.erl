@@ -78,6 +78,12 @@ user_send_packet({#pb_msg{id = MsgId, to_uid = ToUid, from_uid = FromUid, rerequ
     ?INFO("Uid: ~s sending ~p message to ~s MsgId: ~s, Id: ~p, Gid: ~p, RerequestType: ~p, ContentType: ~p, RerequestCount: ~p",
         [FromUid, PayloadType, ToUid, MsgId, Id, Gid, RerequestType, ContentType, RerequestCount]),
     Acc;
+user_send_packet({#pb_msg{id = MsgId, to_uid = ToUid, from_uid = FromUid,
+        payload = #pb_content_missing{}} = Packet, _State} = Acc) ->
+    PayloadType = util:get_payload_type(Packet),
+    ContentId = pb:get_content_id(Packet),
+    ?INFO("Uid: ~s sending ~p message to ~s MsgId: ~s ContentId: ~p", [FromUid, PayloadType, ToUid, MsgId, ContentId]),
+    Acc;
 user_send_packet({_Packet, _State} = Acc) ->
     Acc.
 
