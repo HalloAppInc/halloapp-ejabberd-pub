@@ -82,9 +82,24 @@
 -define(AWS_RETRY_WINDOW, 15 * ?SECONDS_MS).
 -define(MAX_WAIT_RETRIES, 500). %% 2 hours, 5 minutes
 -define(NUM_BACKUPS_WARNING_THRESHOLD, 47).
+
+-define(MEGABYTE, 1048576).
+-define(GIGABYTE, 1073741824).
 %% redis-sessions is the smallest. it is just a bit more than 8KB.
 %% intent of the following macro is to capture deletion of almost all data.
--define(MIN_BACKUP_SIZE_WARNING_THRESHOLD, 8 * 1024). %% 8KB
+%% Current thresholds are set to ~80% of normal value
+-define(MIN_BACKUP_SIZE_WARNING_THRESHOLD_MAP, #{
+    "redis-sessions" => 5 * 1024, % normal size ~18MB
+    "redis-contacts" => 7 * ?GIGABYTE, % normal size ~9GB
+    "redis-accounts" => 320 * ?MEGABYTE, % normal size ~400MB
+    "redis-whisper" => 820 * ?MEGABYTE, % normal size ~1GB
+    "redis-auth" => 40 * ?MEGABYTE, % normal size ~50MB
+    "redisfeed" => 55 * ?MEGABYTE, % normal size ~70MB
+    "redis-groups" => 140 * ?MEGABYTE, % normal size ~175MB
+    "redismessages" => 140 * ?MEGABYTE, % normal size ~175MB
+    "redis-phone" => 180 * ?MEGABYTE % normal size ~225MB
+    }).
+-define(DEFAULT_MIN_BACKUP_SIZE_WARNING_THRESHOLD, 10 * 1024). %% 10KB
 
 %%%=============================================================================
 %%% END MACROS
@@ -250,22 +265,10 @@ health_check_redis_backups(RedisId) ->
         end,
         maps:map(
             fun(BackupName, Size) ->
-                IsSessions = binary:match(util:to_binary(BackupName), <<"session">>) =/= nomatch,
-                case {IsSessions, Size < ?MIN_BACKUP_SIZE_WARNING_THRESHOLD} of
-                    {true, _} -> ok;
-                    {false, true} ->
-                        ?ERROR("[~p] Backup ~p is only ~p bytes, need to have ~p bytes",
-                                [RedisId, BackupName, Size, ?MIN_BACKUP_SIZE_WARNING_THRESHOLD]),
-                        Msg2 = <<RedisIdBin/binary, "'s backup ",
-                            (util:to_binary(BackupName))/binary,
-                            " is only ", (util:to_binary(Size))/binary,
-                            " bytes. Need to have atleast ",
-                            (util:to_binary(?MIN_BACKUP_SIZE_WARNING_THRESHOLD))/binary, " bytes">>,
-                        alerts:send_alert(<<"Backup very small">>, RedisIdBin, <<"critical">>, Msg2);
-                    {false, false} ->
-                        ok
-                end
-            end, BackupSizeMap)
+                SizeThreshold = get_threshold(RedisId),
+                check_backup_threshold(RedisId, BackupName, Size, SizeThreshold)
+            end, 
+            BackupSizeMap)
     catch
         error:Reason:Stacktrace ->
             ?ERROR("[~p] Health Check Failed. Reason: ~p, Stacktrace: ~p", [RedisId,
@@ -564,6 +567,27 @@ humanize_time(Time) ->
     Minutes = Time3 div ?MINUTES,
     Seconds = Time3 rem ?MINUTES,
     {Days, Hours, Minutes, Seconds}.
+
+
+-spec get_threshold(BackupName :: string()) -> non_neg_integer().
+get_threshold(BackupName) ->
+    maps:get(BackupName, ?MIN_BACKUP_SIZE_WARNING_THRESHOLD_MAP, ?DEFAULT_MIN_BACKUP_SIZE_WARNING_THRESHOLD).
+
+-spec check_backup_threshold(RedisId :: string(), BackupName :: string(), Size :: non_neg_integer(),
+        SizeThreshold :: non_neg_integer()) -> ok.
+check_backup_threshold(_RedisId, _BackupName, Size, SizeThreshold) when Size > SizeThreshold ->
+    ok;
+check_backup_threshold(RedisId, BackupName, Size, SizeThreshold) ->
+    ?ERROR("[~p] Backup ~p is only ~p bytes, need to have ~p bytes",
+            [RedisId, BackupName, Size, SizeThreshold]),
+    RedisIdBin = util:to_binary(RedisId),
+    Msg2 = <<RedisIdBin/binary, "'s backup ",
+        (util:to_binary(BackupName))/binary,
+        " is only ", (util:to_binary(Size))/binary,
+        " bytes. Need to have atleast ",
+        (util:to_binary(SizeThreshold))/binary, " bytes">>,
+    alerts:send_alert(<<"Backup very small">>, RedisIdBin, <<"critical">>, Msg2),
+    ok.
 
 %%%=============================================================================
 %%% END INTERNAL FUNCITONS
