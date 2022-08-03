@@ -57,11 +57,6 @@ message Phone {
   string number = 2;
 }
 
-message Contact {
-  string name = 1;
-  repeated Phone phones = 2;
-}
-
 message SignedPreKey {
   int32 id = 1;
   bytes public_key = 2;
@@ -86,6 +81,7 @@ message ChatContainer {
     VoiceNote voice_note = 5;
     Files files = 6;
     Reaction reaction = 7;
+    Location location = 8;
   }
 }
 
@@ -143,7 +139,29 @@ message Text {
 
 message ContactCard {
   repeated Contact contacts = 1;
-  Text text = 2;
+}
+
+message Contact {
+  string name = 1;
+  bytes photo = 2;
+  repeated ContactPhone numbers = 3;
+  repeated ContactEmail emails = 4;
+  repeated ContactAddress addresses = 5;
+}
+
+message ContactAddress {
+  string label = 1;
+  string address = 2;
+}
+
+message ContactEmail {
+  string label = 1;
+  string address = 2;
+}
+
+message ContactPhone {
+  string label = 1;
+  string number = 2;
 }
 
 message Image {
@@ -177,6 +195,17 @@ message File {
 
 message Reaction {
     string emoji = 1;
+}
+
+message Location {
+  double latitude = 1;
+  double longitude = 2;
+  string name = 3;
+  Address address = 4;
+}
+
+message Address {
+  repeated string formatted_address_lines = 1;
 }
 
 message AlbumMedia {
