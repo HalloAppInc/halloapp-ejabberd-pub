@@ -321,34 +321,35 @@ shared_group_membership(Uid, Groups, Friends) ->
         fun (Ouid, _OName, Acc) when Ouid =:= Uid -> 
                 Acc;
             (Ouid, OName, Acc) ->
-                NumCommonGroups = length(maps:get(Ouid, SharedMembership)),
-                case NumCommonGroups > 1 of
-                    true -> [{OName, Ouid, NumCommonGroups} | Acc];
+                CommonGroups = maps:get(Ouid, SharedMembership),
+                NumCommonGroups = length(CommonGroups),
+                case NumCommonGroups > 1 andalso not dev_users:is_dev_uid(Ouid) of
+                    true -> [{OName, Ouid, NumCommonGroups, CommonGroups} | Acc];
                     false -> Acc
                 end
         end,
         [],
         ONameMap),
+    SortedInfo = lists:reverse(lists:keysort(3, InfoList)),
 
-    SortedInfo = lists:keysort(3, InfoList),
-
-    print_shared_group_info(Uid, Friends, SortedInfo),
-
+    print_shared_group_info(Uid, length(Groups), Friends, SortedInfo),
     ok.
 
-print_shared_group_info(Uid, _Friends, []) ->
+
+print_shared_group_info(Uid, NumGroups, _Friends, []) ->
     {ok, Name} = model_accounts:get_name(Uid),
-    ?INFO("~p (~p) has no common group membership", [Uid, Name]);
-print_shared_group_info(Uid, Friends, InfoList) ->
+    ?INFO("~p (~p) has no common group membership out of ~p groups", [Uid, Name, NumGroups]);
+
+print_shared_group_info(Uid, NumGroups, Friends, InfoList) ->
     {ok, Name} = model_accounts:get_name(Uid),
-    ?INFO("~p (~p):", [Uid, Name]),
+    ?INFO("~p (~p) is a member of ~p groups:", [Uid, Name, NumGroups]),
 
     FriendSet = sets:from_list(Friends),
     lists:foreach(
-        fun ({OName, Ouid, NumCommonGroups}) ->
+        fun ({OName, Ouid, NumCommonGroups, CommonGroups}) ->
             case sets:is_element(Ouid, FriendSet) of 
-                true -> ?INFO("  F ~p (~p) is in ~p common groups", [Ouid, OName, NumCommonGroups]);
-                false -> ?INFO("  N ~p (~p) is in ~p common groups", [Ouid, OName, NumCommonGroups])
+                true -> ?INFO("  F ~p (~p) is in ~p common groups: ~p", [Ouid, OName, NumCommonGroups, CommonGroups]);
+                false -> ?INFO("  N ~p (~p) is in ~p common groups: ~p", [Ouid, OName, NumCommonGroups, CommonGroups])
             end
         end,
         InfoList).
