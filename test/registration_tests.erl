@@ -24,6 +24,7 @@
 -define(PHONE11, <<"12065550011">>).
 -define(PHONE12, <<"12065550012">>).
 -define(PHONE13, <<"12065550013">>).
+-define(PHONE14, <<"12065550014">>).
 -define(NAME10, <<"Elon Musk10">>).
 -define(NAME11, <<"Elon Musk11">>).
 -define(NAME12, <<"Elon Spammer12">>).
@@ -50,7 +51,8 @@ group() ->
         registration_request_otp_noise_bad_request_fail_test,
         registration_verify_otp_fail_noise_test,
         registration_too_many_phone_attempts_register_test,
-        registration_too_many_ip_attempts_register_test
+        registration_too_many_ip_attempts_register_test,
+        registration_too_many_static_key_attempts_register_test
     ]}.
 
 request_sms_test(_Conf) ->
@@ -464,6 +466,7 @@ too_many_phone_attempts_register_test(_Conf) ->
     meck:new(mod_halloapp_http_api, [passthrough]),
     % prevent ip check
     meck:expect(mod_halloapp_http_api, check_attempts_by_ip, fun(_) -> ok end),
+    meck:expect(mod_halloapp_http_api, check_attempts_by_static_key, fun(_) -> ok end),
     registration_client:request_sms(?PHONE12, #{}),
     SMSErr = #pb_verify_otp_response{
         result = failure,
@@ -485,6 +488,8 @@ too_many_phone_attempts_register_test(_Conf) ->
 
 
 too_many_ip_attempts_register_test(_Conf) ->
+    meck:new(mod_halloapp_http_api, [passthrough]),
+    meck:expect(mod_halloapp_http_api, check_attempts_by_static_key, fun(_) -> ok end),
     registration_client:request_sms(?PHONE13, #{}),
     SMSErr = #pb_verify_otp_response{
         result = failure,
@@ -503,4 +508,28 @@ too_many_ip_attempts_register_test(_Conf) ->
     % trying the right code should fail
     {ok, SMSErr} = registration_client:register(?PHONE13, <<"111111">>, ?NAME11, #{}),
     ?assertEqual({ok, undefined}, model_phone:get_uid(?PHONE13)),
+    ?assert(meck:validate(mod_halloapp_http_api)),
+    meck:unload(mod_halloapp_http_api),
+    ok.
+
+
+too_many_static_key_attempts_register_test(_Conf) ->
+    meck:new(mod_halloapp_http_api, [passthrough]),
+    meck:expect(mod_halloapp_http_api, check_attempts_by_ip, fun(_) -> ok end),
+    registration_client:request_sms(?PHONE14, #{}),
+    SMSErr = #pb_verify_otp_response{
+        result = failure,
+        reason = wrong_sms_code
+    },
+    % Trigger the static key block (max attempts is 15), but not the phone block (max attempts is 20)
+    lists:map(
+        fun(Code) ->
+            {ok, SMSErr} = registration_client:register(?PHONE14, util:to_binary(Code), ?NAME11, #{})
+        end, lists:seq(111112, 111130)),
+
+    % trying the right code should fail
+    {ok, SMSErr} = registration_client:register(?PHONE14, <<"111111">>, ?NAME11, #{}),
+    ?assertEqual({ok, undefined}, model_phone:get_uid(?PHONE14)),
+    ?assert(meck:validate(mod_halloapp_http_api)),
+    meck:unload(mod_halloapp_http_api),
     ok.

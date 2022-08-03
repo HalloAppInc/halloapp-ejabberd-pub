@@ -104,7 +104,7 @@
 %% old deleted/deprecated key
 % -define(PASSWORD_KEY, <<"pas:">>).
 -define(SPUB_KEY, <<"spb:">>).
-
+-define(STATIC_KEY_ATTEMPT_KEY, <<"ska:">>).
 
 %% RedisContacts
 -define(CONTACTS_KEY, <<"con:">>).

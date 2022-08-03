@@ -13,13 +13,15 @@
 -include("password.hrl").
 -include("redis_keys.hrl").
 -include("ha_types.hrl").
+-include("time.hrl").
 
 -ifdef(TEST).
--export([spub_key/1]).
+-export([spub_key/1, static_key_attempt_key/2]).
 -endif.
 
 -define(LOCKED, <<"locked:">>).
 -define(LOCKED_SIZE, byte_size(?LOCKED)).
+-define(TTL_STATIC_KEY_ATTEMPT, 86400).
 
 %% API
 -export([
@@ -32,7 +34,9 @@
     authenticate_static_key/2,
     delete_static_key/2,
     get_static_keys/1,
-    get_static_key_uid/1
+    get_static_key_uid/1,
+    add_static_key_code_attempt/2,
+    get_static_key_code_attempts/2
 ]).
 
 %%====================================================================
@@ -131,6 +135,25 @@ get_static_key_uid(StaticKey) ->
     q(["HGET", RevStaticKey, ?FIELD_STATIC_KEY_UID]).
 
 
+-spec add_static_key_code_attempt(StaticKey :: binary(), Timestamp :: integer()) -> integer().
+add_static_key_code_attempt(StaticKey, Timestamp) ->
+    Key = static_key_attempt_key(StaticKey, Timestamp),
+    {ok, [Res, _]} = multi_exec([
+        ["INCR", Key],
+        ["EXPIRE", Key, ?TTL_STATIC_KEY_ATTEMPT]
+    ]),
+    util_redis:decode_int(Res).
+
+-spec get_static_key_code_attempts(StaticKey :: binary(), Timestamp :: integer()) -> maybe(integer()).
+get_static_key_code_attempts(StaticKey, Timestamp) ->
+    Key = static_key_attempt_key(StaticKey, Timestamp),
+    {ok, Res} = q(["GET", Key]),
+    case Res of
+        undefined -> 0;
+        Res -> util:to_integer(Res)
+    end.
+
+
 q(Command) -> ecredis:q(ecredis_auth, Command).
 qp(Commands) -> ecredis:qp(ecredis_auth, Commands).
 qmn(Commands) -> util_redis:run_qmn(ecredis_auth, Commands).
@@ -153,4 +176,10 @@ static_key_key(Uid) ->
 reverse_static_key_key(StaticKey) ->
     <<?REVERSE_STATIC_KEY_KEY/binary, <<"{">>/binary, StaticKey/binary, <<"}">>/binary>>.
 
+
+-spec static_key_attempt_key(StaticKey :: binary(), Timestamp :: integer() ) -> binary().
+static_key_attempt_key(StaticKey, Timestamp) ->
+    KeyBin = util:to_binary(StaticKey),
+    Day = util:to_binary(util:to_integer(Timestamp / ?DAYS)),
+    <<?STATIC_KEY_ATTEMPT_KEY/binary, "{", KeyBin/binary, "}:", Day/binary>>.
 

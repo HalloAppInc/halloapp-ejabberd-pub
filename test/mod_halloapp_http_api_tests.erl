@@ -36,6 +36,7 @@
 -define(CC1, <<"IN">>).
 -define(BAD_HASHCASH_SOLUTION, <<"BadSolution">>).
 -define(HASHCASH_TIME_TAKEN_MS, 100).
+-define(STATIC_KEY, <<"static_key">>).
 
 %%%----------------------------------------------------------------------
 %%% Internal function tests
@@ -61,10 +62,10 @@ request_and_check_sms_code_test() ->
     setup(),
     meck_init(ejabberd_router, is_my_host, fun(_) -> true end),
     meck_init(twilio_verify, send_feedback, fun(_,_) -> ok end),
-    ?assertError(wrong_sms_code, mod_halloapp_http_api:check_sms_code(?TEST_PHONE, ?IP1, noise, ?SMS_CODE)),
+    ?assertError(wrong_sms_code, mod_halloapp_http_api:check_sms_code(?TEST_PHONE, ?IP1, noise, ?SMS_CODE, ?STATIC_KEY)),
     {ok, _} = mod_sms:request_sms(?TEST_PHONE, ?UA),
-    ?assertError(wrong_sms_code, mod_halloapp_http_api:check_sms_code(?TEST_PHONE, ?IP1, noise, ?BAD_SMS_CODE)),
-    ?assertEqual(ok, mod_halloapp_http_api:check_sms_code(?TEST_PHONE, ?IP1, noise, ?SMS_CODE)),
+    ?assertError(wrong_sms_code, mod_halloapp_http_api:check_sms_code(?TEST_PHONE, ?IP1, noise, ?BAD_SMS_CODE, ?STATIC_KEY)),
+    ?assertEqual(ok, mod_halloapp_http_api:check_sms_code(?TEST_PHONE, ?IP1, noise, ?SMS_CODE, ?STATIC_KEY)),
     meck_finish(twilio_verify),
     meck_finish(ejabberd_router).
 
@@ -142,6 +143,7 @@ setup() ->
 clear() ->
     tutil:cleardb(redis_accounts),
     tutil:cleardb(redis_whisper),
+    tutil:cleardb(redis_auth),
     ok.
 
 

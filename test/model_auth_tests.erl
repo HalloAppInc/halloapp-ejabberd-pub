@@ -84,3 +84,20 @@ webclient_info_test() ->
     {ok, undefined} = model_auth:get_static_key_uid(?STATIC_KEY2),
     ok.
 
+
+static_key_attempt_test() ->
+    setup(),
+
+    Now = util:now(),
+    ?assertEqual(0, model_auth:get_static_key_code_attempts(?STATIC_KEY1, Now)),
+    ?assertEqual(1, model_auth:add_static_key_code_attempt(?STATIC_KEY1, Now)),
+    ?assertEqual(2, model_auth:add_static_key_code_attempt(?STATIC_KEY1, Now)),
+    ?assertEqual(2, model_auth:get_static_key_code_attempts(?STATIC_KEY1, Now)),
+    ?assertEqual(0, model_auth:get_static_key_code_attempts(?STATIC_KEY2, Now)),
+
+    % check expiration time
+    {ok, TTLBin} = model_phone:q(["TTL", model_auth:static_key_attempt_key(?STATIC_KEY1, Now)]),
+    TTL = util_redis:decode_int(TTLBin),
+    ?assertEqual(true, TTL > 0),
+    ok.
+
