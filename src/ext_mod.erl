@@ -564,7 +564,7 @@ compile_result(Results) ->
 compile_options() ->
     [verbose, report_errors, report_warnings]
     ++ [{i, filename:join(app_dir(App), "include")}
-        || App <- [fast_xml, xmpp, p1_utils, ejabberd]]
+        || App <- [p1_utils, ejabberd]]
     ++ [{i, filename:join(mod_dir(Mod), "include")}
         || Mod <- installed()].
 

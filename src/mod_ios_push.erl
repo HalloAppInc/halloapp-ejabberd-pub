@@ -15,7 +15,6 @@
 
 -include("logger.hrl").
 -include("packets.hrl").
--include("server.hrl").
 -include("push_message.hrl").
 -include("feed.hrl").
 -include("proc.hrl").
@@ -72,7 +71,7 @@ mod_options(_Host) ->
 %% API
 %%====================================================================
 
--spec push(Message :: pb_msg(), PushInfo :: push_info()) -> ok.
+-spec push(Message :: message(), PushInfo :: push_info()) -> ok.
 push(Message, #push_info{os = Os, voip_token = VoipToken} = PushInfo)
         when Os =:= <<"ios">>; Os =:= <<"ios_dev">>; VoipToken =/= undefined ->
     gen_server:cast(?PROC(), {push_message, Message, PushInfo});
@@ -197,7 +196,7 @@ handle_info(Request, State) ->
 %%====================================================================
 
 %% TODO(murali@): Figure out a way to better use the message-id.
--spec push_message(Message :: pb_msg(), PushInfo :: push_info()) -> ok.
+-spec push_message(Message :: message(), PushInfo :: push_info()) -> ok.
 push_message(Message, PushInfo) ->
     MsgId = pb:get_id(Message),
     Uid = pb:get_to(Message),

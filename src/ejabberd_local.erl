@@ -44,7 +44,7 @@
 
 -include("logger.hrl").
 -include_lib("stdlib/include/ms_transform.hrl").
--include("xmpp.hrl").
+-include("stanza.hrl").
 -include("packets.hrl").
 -include("ejabberd_stacktrace.hrl").
 -include("translate.hrl").

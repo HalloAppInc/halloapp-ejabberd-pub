@@ -29,8 +29,6 @@
 
 %% API
 -export([
-    add_delay_info/3, add_delay_info/4,
-    unwrap_carbon/1, unwrap_mucsub_message/1, is_standalone_chat_state/1,
     tolower/1, term_to_base64/1, base64_to_term/1, ip_to_list/1,
     hex_to_bin/1, hex_to_base64/1, url_encode/1, expand_keyword/3,
     atom_to_binary/1, binary_to_atom/1, tuple_to_binary/1,
@@ -41,7 +39,7 @@
     xml_dir/0, data_dir/0, dtl_dir/0, share_post_dir/0, read_css/1, read_img/1, read_js/1,
     read_lua/1, try_url/1,
     intersection/2, format_val/1, cancel_timer/1, unique_timestamp/0,
-    is_mucsub_message/1, best_match/2, pmap/2, peach/2, format_exception/4,
+    best_match/2, pmap/2, peach/2, format_exception/4,
     parse_ip_mask/1, match_ip_mask/3, format_hosts_list/1, format_cycle/1,
     delete_dir/1]).
 
@@ -52,7 +50,7 @@
     {encode_base64, 1}]).
 
 -include("logger.hrl").
--include("xmpp.hrl").
+-include("jid.hrl").
 -include_lib("kernel/include/file.hrl").
 
 -type distance_cache() :: #{{string(), string()} => non_neg_integer()}.
@@ -60,95 +58,6 @@
 %%%===================================================================
 %%% API
 %%%===================================================================
--spec add_delay_info(stanza(), jid(), erlang:timestamp()) -> stanza().
-add_delay_info(Stz, From, Time) ->
-    add_delay_info(Stz, From, Time, <<"">>).
-
--spec add_delay_info(stanza(), jid(), erlang:timestamp(), binary()) -> stanza().
-add_delay_info(Stz, From, Time, Desc) ->
-    Delays = xmpp:get_subtags(Stz, #delay{stamp = {0,0,0}}),
-    Matching = lists:any(
-        fun(#delay{from = OldFrom}) when is_record(OldFrom, jid) ->
-                jid:tolower(From) == jid:tolower(OldFrom);
-            (_) ->
-                false
-        end, Delays),
-    case Matching of
-        true ->
-            Stz;
-        _ ->
-            NewDelay = #delay{stamp = Time, from = From, desc = Desc},
-            xmpp:append_subtags(Stz, [NewDelay])
-    end.
-
--spec unwrap_carbon(stanza()) -> xmpp_element().
-unwrap_carbon(#message{} = Msg) ->
-    try
-    case xmpp:get_subtag(Msg, #carbons_sent{forwarded = #forwarded{}}) of
-        #carbons_sent{forwarded = #forwarded{sub_els = [El]}} ->
-            xmpp:decode(El, ?NS_CLIENT, [ignore_els]);
-        _ ->
-            case xmpp:get_subtag(Msg, #carbons_received{forwarded = #forwarded{}}) of
-                #carbons_received{forwarded = #forwarded{sub_els = [El]}} ->
-                    xmpp:decode(El, ?NS_CLIENT, [ignore_els]);
-                _ ->
-                    Msg
-            end
-    end
-    catch _:{xmpp_codec, _} ->
-        Msg
-    end;
-unwrap_carbon(Stanza) -> Stanza.
-
--spec unwrap_mucsub_message(xmpp_element()) -> message() | false.
-unwrap_mucsub_message(#message{} = OuterMsg) ->
-    case xmpp:get_subtag(OuterMsg, #ps_event{}) of
-        #ps_event{
-            items = #ps_items{
-            node = Node,
-            items = [
-                #ps_item{
-                sub_els = [#message{} = InnerMsg]} | _]}}
-            when Node == ?NS_MUCSUB_NODES_MESSAGES;
-                 Node == ?NS_MUCSUB_NODES_SUBJECT ->
-            InnerMsg;
-        _ ->
-            false
-    end;
-unwrap_mucsub_message(_Packet) ->
-    false.
-
--spec is_mucsub_message(xmpp_element()) -> boolean().
-is_mucsub_message(#message{} = OuterMsg) ->
-    case xmpp:get_subtag(OuterMsg, #ps_event{}) of
-    #ps_event{
-        items = #ps_items{
-        node = Node}}
-        when Node == ?NS_MUCSUB_NODES_MESSAGES;
-         Node == ?NS_MUCSUB_NODES_SUBJECT;
-         Node == ?NS_MUCSUB_NODES_AFFILIATIONS;
-         Node == ?NS_MUCSUB_NODES_CONFIG;
-         Node == ?NS_MUCSUB_NODES_PARTICIPANTS;
-         Node == ?NS_MUCSUB_NODES_PRESENCE;
-         Node == ?NS_MUCSUB_NODES_SUBSCRIBERS ->
-        true;
-    _ ->
-        false
-    end;
-is_mucsub_message(_Packet) ->
-    false.
-
--spec is_standalone_chat_state(stanza()) -> boolean().
-is_standalone_chat_state(Stanza) ->
-    case unwrap_carbon(Stanza) of
-        #message{body = [], subject = [], sub_els = Els} ->
-            IgnoreNS = [?NS_CHATSTATES, ?NS_DELAY, ?NS_EVENT],
-            Stripped = [El || El <- Els,
-                      not lists:member(xmpp:get_ns(El), IgnoreNS)],
-            Stripped == [];
-        _ ->
-            false
-    end.
 
 -spec tolower(binary()) -> binary().
 tolower(B) ->

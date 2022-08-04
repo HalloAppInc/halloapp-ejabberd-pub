@@ -8,7 +8,6 @@
 
 -include_lib("eunit/include/eunit.hrl").
 -include("packets.hrl").
--include("xmpp.hrl").
 
 %% Export all functions for unit tests
 -compile([nowarn_export_all, export_all]).
@@ -29,7 +28,6 @@ create_pb_post(Id, PublisherUid, PublisherName, Payload, Audience, Timestamp) ->
         audience = Audience,
         timestamp = Timestamp
     }.
-
 
 
 create_pb_comment(Id, PostId, ParentCommentId, PublisherUid, PublisherName, Payload, Timestamp) ->
@@ -136,18 +134,6 @@ create_pb_member(Action, Uid, Type, Name, AvatarId, Result, Reason) ->
         avatar_id = AvatarId,
         result = Result,
         reason = Reason
-    }.
-
-
-create_group_st(Action, Gid, Name, AvatarId, SenderUid, SenderName, Members) ->
-    #group_st{
-        action = Action,
-        gid = Gid,
-        name = Name,
-        avatar = AvatarId,
-        sender = SenderUid,
-        sender_name = SenderName,
-        members = Members
     }.
 
 
@@ -326,4 +312,3 @@ create_pb_web_client_info(Action, StaticKey) ->
         action = Action,
         static_key = StaticKey
     }.
-

@@ -78,7 +78,7 @@ remove_user(UserId, Server) ->
     remove_push_token(UserId, Server).
 
 
--spec process_local_iq(IQ :: pb_iq()) -> pb_iq().
+-spec process_local_iq(IQ :: iq()) -> iq().
 process_local_iq(#pb_iq{from_uid = Uid, type = set,
         payload = #pb_push_register{lang_id = LangId,
         push_token = #pb_push_token{token_type = TokenTypeAtom, token = Token}}} = IQ) ->

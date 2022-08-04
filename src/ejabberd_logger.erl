@@ -205,7 +205,7 @@ do_start(Level) ->
     end,
     application:set_env(lager, handlers, NewHandlers),
     application:set_env(lager, extra_sinks, [
-        {xmpp_trace_lager_event, [
+        {trace_lager_event, [
             {handlers, [
                 {lager_file_backend, [
                     {file, MsgTraceLog},
@@ -304,10 +304,6 @@ set(LogLevel) when is_integer(LogLevel) ->
                 (_) ->
                     ok
                 end, get_lager_handlers())
-    end,
-    case LogLevel of
-        5 -> xmpp:set_config([{debug, true}]);
-        _ -> xmpp:set_config([{debug, false}])
     end.
 
 get_lager_loglevel() ->

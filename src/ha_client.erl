@@ -303,11 +303,11 @@ connect_and_send(Pkt, Keypair, Options) ->
     end.
 
 
--spec send_iq(Client :: pid(), Type :: atom(), Payload :: term()) -> pb_iq().
+-spec send_iq(Client :: pid(), Type :: atom(), Payload :: term()) -> iq().
 send_iq(Client, Type, Payload) ->
     send_iq(Client, next_id(Client), Type, Payload).
 
--spec send_iq(Client :: pid(), Id :: any(), Type :: atom(), Payload :: term()) -> pb_iq().
+-spec send_iq(Client :: pid(), Id :: any(), Type :: atom(), Payload :: term()) -> iq().
 send_iq(Client, Id, Type, Payload) ->
     Packet = #pb_packet{
         stanza = #pb_iq{

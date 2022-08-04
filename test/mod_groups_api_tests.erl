@@ -6,7 +6,6 @@
 -module(mod_groups_api_tests).
 -author("nikola").
 
--include("xmpp.hrl").
 -include("groups.hrl").
 -include("feed.hrl").
 -include("packets.hrl").

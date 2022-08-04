@@ -6,8 +6,9 @@
 -module(mod_receipts_tests).
 -author("nikola").
 
--include("xmpp.hrl").
+-include("packets.hrl").
 -include("offline_message.hrl").
+-define(TYPE2, <<"chat">>).
 
 -include_lib("eunit/include/eunit.hrl").
 
@@ -22,10 +23,28 @@
 -define(TS2, <<"16000000000">>).
 -define(SERVER, <<"s.halloapp.net">>).
 
+-define(TYPE1, <<"chat">>).
+-define(MESSAGE1, <<"msg_1">>). % arbitrary example binary blob
+-define(THREAD_ID, <<"thread">>).
+
+-define(OFFLINE_MESSAGE1, 
+    #offline_message{
+        msg_id = ?ID1, 
+        to_uid = ?UID1, 
+        from_uid = ?UID2, 
+        content_type = ?TYPE1, 
+        retry_count = 1, 
+        message = ?MESSAGE1, 
+        order_id = 1, 
+        protobuf = false, 
+        thread_id = ?THREAD_ID, 
+        sent = false}).
+
+-define(ACK1, #pb_ack{id = ?ID2, from_uid=?UID1}).
+
 
 setup() ->
     tutil:setup(),
-    xmpp:start(undefined, undefined),
     stringprep:start(),
     ejabberd_hooks:start_link(),
     ha_redis:start(),
@@ -34,68 +53,6 @@ setup() ->
 
 clear() ->
     tutil:cleardb(redis_messages).
-
-
-make_ack(Id, FromUid, Ts) ->
-    #ack{
-        id = Id,
-        from = jid:make(FromUid, ?SERVER),
-        to = jid:make(?SERVER),
-        timestamp = Ts
-    }.
-
-
-make_msg(Id, FromUid, ToUid, SubEl) ->
-    #message{
-        id = Id,
-        from = jid:make(FromUid, ?SERVER),
-        to = jid:make(ToUid, ?SERVER),
-        sub_els = [SubEl]
-    }.
-
-
-make_group_msg(Id, FromUid, ToUid, Gid, Ts) ->
-    SubEl = #group_chat{
-        gid = Gid,
-        timestamp = Ts,
-        sender = FromUid,
-        xmlns = <<"halloapp:groups">>},
-    make_msg(Id, FromUid, ToUid, SubEl).
-
-
-make_chat_msg(Id, FromUid, ToUid, Ts) ->
-    SubEl = #chat{
-        xmlns = <<"halloapp:chat:messages">>,
-        timestamp = Ts
-    },
-    make_msg(Id, FromUid, ToUid, SubEl).
-
-
-make_offline_msg(Msg) ->
-    ContentType = util:get_payload_type(Msg),
-    FromUid = Msg#message.from#jid.user,
-    ToUid = Msg#message.to#jid.user,
-    MsgBin = fxml:element_to_binary(xmpp:encode(Msg)),
-    #offline_message{
-        msg_id = Msg#message.id,
-        from_uid = FromUid,
-        to_uid = ToUid,
-        content_type = ContentType,
-        message = MsgBin
-    }.
-
-
-make_receipt(Id, FromUid, ToUid, ThreadId, Ts) ->
-    #message{
-        from = jid:make(FromUid, ?SERVER),
-        to = jid:make(ToUid, ?SERVER),
-        sub_els = [#receipt_response{
-            id = Id,
-            thread_id = ThreadId,
-            timestamp = Ts
-        }]
-    }.
-
 
 mod_receipts_load_test() ->
     setup(),
@@ -110,47 +67,22 @@ mod_receipts_load_test() ->
 send_1on1_delivery_receipt_test() ->
     setup(),
     % msg from UID2 to UID1
-    OfflineMsg = make_offline_msg(make_chat_msg(?ID1, ?UID2, ?UID1, ?TS1)),
+    OfflineMsg = ?OFFLINE_MESSAGE1,
     % UID1 acks the message
-    Ack = make_ack(?ID1, ?UID1, ?TS2),
+    Ack = ?ACK1,
 
     meck:new(ejabberd_router),
     meck:expect(ejabberd_router, route,
         fun(Packet) ->
-            [#receipt_response{timestamp = Ts}] = Packet#message.sub_els,
-            ExpectedReceipt = make_receipt(?ID1, ?UID1, ?UID2, <<>>, Ts),
-            ?assertEqual(ExpectedReceipt#message.to, Packet#message.to),
-            ?assertEqual(ExpectedReceipt#message.from, Packet#message.from),
-            ?assertEqual(ExpectedReceipt#message.sub_els, Packet#message.sub_els),
+            ?assertEqual(Packet#pb_msg.to_uid, ?UID2),
+            ?assertEqual(Packet#pb_msg.from_uid, ?UID1),
+            ?assertEqual(Packet#pb_msg.payload#pb_delivery_receipt.thread_id, ?THREAD_ID),
+            ?assertEqual(Packet#pb_msg.payload#pb_delivery_receipt.id, ?ID2),
             ok
         end),
 
     mod_receipts:user_ack_packet(Ack, OfflineMsg),
+    ?assertEqual(1, meck:num_calls(ejabberd_router, route, '_')),
     meck:validate(ejabberd_router),
     meck:unload(ejabberd_router),
     ok.
-
-
-send_group_delivery_receipt_test() ->
-    setup(),
-    % group msg from UID2 to UID1
-    OfflineMsg = make_offline_msg(make_group_msg(?ID1, ?UID2, ?UID1, ?GID1, ?TS1)),
-    % UID1 acks the group message
-    Ack = make_ack(?ID1, ?UID1, ?TS2),
-
-    meck:new(ejabberd_router),
-    meck:expect(ejabberd_router, route,
-        fun(Packet) ->
-            [#receipt_response{timestamp = Ts}] = Packet#message.sub_els,
-            ExpectedReceipt = make_receipt(?ID1, ?UID1, ?UID2, ?GID1, Ts),
-            ?assertEqual(ExpectedReceipt#message.to, Packet#message.to),
-            ?assertEqual(ExpectedReceipt#message.from, Packet#message.from),
-            ?assertEqual(ExpectedReceipt#message.sub_els, Packet#message.sub_els),
-            ok
-        end),
-
-    mod_receipts:user_ack_packet(Ack, OfflineMsg),
-    meck:validate(ejabberd_router),
-    meck:unload(ejabberd_router),
-    ok.
-

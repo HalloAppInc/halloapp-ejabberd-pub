@@ -71,7 +71,7 @@ iterate(Name) ->
 init(#{redis_host := RedisHost, redis_port := RedisPort, interval := Interval,
         dry_run := DryRun, scan_count := ScanCount, params := Params} = Job) ->
     ?INFO("Migration started: pid: ~p, Job: ~p", [self(), Job]),
-    {ok, C} = eredis:start_link(RedisHost, RedisPort),
+    {ok, C} = ecredis:start_link(RedisHost, RedisPort),
     ?INFO("connection ok: ~p", [C]),
 
     TRef = erlang:send_after(Interval, self(), {'$gen_cast', {iterate}}),
@@ -109,7 +109,7 @@ handle_cast({iterate}, State) ->
     Interval = maps:get(interval, State),
     C = maps:get(c, State),
     Count = maps:get(scan_count, State),
-    {ok, [NextCursor, Items]} = eredis:q(C, ["SCAN", Cursor, "COUNT", Count]),
+    {ok, [NextCursor, Items]} = ecredis:q(C, ["SCAN", Cursor, "COUNT", Count]),
     ?DEBUG("NextCursor: ~p, items: ~p", [NextCursor, length(Items)]),
     {Result, NewState1} = iterate_keys(
         fun (Key, S) -> erlang:apply(Mod, Func, [Key, S]) end,

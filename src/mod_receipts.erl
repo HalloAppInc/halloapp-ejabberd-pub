@@ -47,7 +47,7 @@ reload(_Host, _NewOpts, _OldOpts) ->
 
 
 %% Hook triggered when user sent the server an ack stanza for this particular message.
--spec user_ack_packet(Ack :: pb_ack(), OfflineMessage :: offline_message()) -> ok.
+-spec user_ack_packet(Ack :: ack(), OfflineMessage :: offline_message()) -> ok.
 user_ack_packet(#pb_ack{id = Id, from_uid = FromUid},
         #offline_message{content_type = ContentType, from_uid = MsgFromId, thread_id = ThreadId})
         when ContentType =:= <<"chat">>; ContentType =:= <<"group_chat">>;
@@ -90,7 +90,7 @@ log_delivered(_) -> ok.
 
 
 % Try to extract the gid from the binary message
--spec get_thread_id(Message :: pb_msg()) -> maybe(binary()).
+-spec get_thread_id(Message :: message()) -> maybe(binary()).
 get_thread_id(#pb_msg{payload = Payload}) ->
     case Payload of
         #pb_group_chat{gid = Gid} -> Gid;

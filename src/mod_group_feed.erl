@@ -181,7 +181,7 @@ group_member_added(Gid, Uid, AddedByUid) ->
 %% Internal functions
 %%====================================================================
 
--spec set_group_and_sender_info(Message :: pb_msg()) -> pb_msg().
+-spec set_group_and_sender_info(Message :: message()) -> message().
 set_group_and_sender_info(#pb_msg{id = MsgId, from_uid = FromUid,
         payload = #pb_group_feed_item{} = GroupFeedItem} = Message) ->
     Gid = GroupFeedItem#pb_group_feed_item.gid,

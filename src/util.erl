@@ -9,7 +9,7 @@
 -module(util).
 -author('murali').
 -include("logger.hrl").
--include("xmpp.hrl").
+-include("stanza.hrl").
 -include("packets.hrl").
 -include("ha_types.hrl").
 
@@ -495,7 +495,7 @@ get_payload_type(_) -> undefined.
 %% Currently, we only set/get timestamps for different message stanzas:
 %% chat/group_chat/silent_chat/seen/delivery/playedreceipt stanzas.
 
--spec set_timestamp(pb_msg(), binary()) -> stanza().
+-spec set_timestamp(message(), binary()) -> stanza().
 set_timestamp(#pb_msg{payload = #pb_group_chat{} = GroupChat} = Msg, T) ->
     Msg#pb_msg{payload = GroupChat#pb_group_chat{timestamp = T}};
 
@@ -637,7 +637,7 @@ get_detailed_media_type(MediaCounters) ->
     end.
 
 
--spec is_voip_incoming_message(Message :: pb_msg()) -> boolean().
+-spec is_voip_incoming_message(Message :: message()) -> boolean().
 is_voip_incoming_message(#pb_msg{} = Message) ->
     case get_payload_type(Message) of
         pb_incoming_call -> true;

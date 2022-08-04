@@ -224,7 +224,7 @@ fsm_limit_opts(Opts) ->
 	    end
     end.
 
--spec codec_options() -> [xmpp:decode_option()].
+-spec codec_options() -> [atom()].
 codec_options() ->
     case get_option(validate_stream) of
 	true -> [];
@@ -554,8 +554,7 @@ load_file(File) ->
 			    {ok, ModOpts} ->
 				ets:insert(T, ModOpts),
 				set_option(host, hd(Hosts)),
-				commit(),
-				set_fqdn();
+				commit();
 			    Err ->
 				abort(Err)
 			end;
@@ -722,10 +721,6 @@ compute_default(F, Host) when is_function(F, 1) ->
 compute_default(Val, _) ->
     Val.
 
--spec set_fqdn() -> ok.
-set_fqdn() ->
-    FQDNs = get_option(fqdn),
-    xmpp:set_config([{fqdn, FQDNs}]).
 
 -spec set_shared_key() -> ok.
 set_shared_key() ->

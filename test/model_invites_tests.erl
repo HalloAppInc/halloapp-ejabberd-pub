@@ -7,7 +7,6 @@
 -author("nikola").
 
 -include("invites.hrl").
--include("xmpp.hrl").
 -include("packets.hrl").
 -include_lib("eunit/include/eunit.hrl").
 

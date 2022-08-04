@@ -77,7 +77,7 @@ offline_message_version_filter(deny, _, _, _) -> deny.
 
 
 -spec push_version_filter(Acc :: allow | deny, Uid :: binary(), PushInfo :: push_info(),
-        Message :: pb_msg()) -> allow | deny.
+        Message :: message()) -> allow | deny.
 push_version_filter(allow, Uid, PushInfo, #pb_msg{id = MsgId} = Message) ->
     ClientVersion = PushInfo#push_info.client_version,
     Platform = util_ua:get_client_type(ClientVersion),
@@ -153,10 +153,6 @@ check_version_rules(_, undefined, _) ->
     ?INFO("should-not-happen, invalid client_version"),
     false;
 
-%% We were sending this a while back and this was blocking offline queue - since clients would not ack it.
-%% TODO(murali@): check with teams if they are acking it and only then enable this.
-check_version_rules(_, _ClientVersion, error_st) ->
-    false;
 
 %% Dont send group_feed messages and pushes to ios clients < 0.3.65
 check_version_rules(ios, ClientVersion, group_feed_st) ->

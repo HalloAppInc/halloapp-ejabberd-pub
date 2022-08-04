@@ -99,7 +99,7 @@ presence_unsubscribe_all(Uid) ->
 
 
 -spec presence_subs_hook(User :: binary(), Server :: binary(),
-        Presence :: pb_presence()) -> {ok, any()} | {error, any()}.
+        Presence :: presence()) -> {ok, any()} | {error, any()}.
 presence_subs_hook(User, Server, #pb_presence{uid = Uid, to_uid = ToUid, type = Type}) ->
     FinalToUid = case {Uid, ToUid} of
         {_, <<>>} ->

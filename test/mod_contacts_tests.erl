@@ -7,7 +7,6 @@
 -module(mod_contacts_tests).
 -author('murali').
 
--include("xmpp.hrl").
 -include("packets.hrl").
 -include("logger.hrl").
 -include("contacts.hrl").

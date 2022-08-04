@@ -7,7 +7,6 @@
 -module(mod_libphonenumber_tests).
 -author('murali').
 
--include("xmpp.hrl").
 -include("feed.hrl").
 
 -include_lib("eunit/include/eunit.hrl").

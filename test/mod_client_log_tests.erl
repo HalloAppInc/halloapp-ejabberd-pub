@@ -6,7 +6,6 @@
 -module(mod_client_log_tests).
 -author("nikola").
 
--include("xmpp.hrl").
 -include("packets.hrl").
 -include("time.hrl").
 

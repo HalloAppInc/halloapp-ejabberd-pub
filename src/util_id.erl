@@ -8,7 +8,6 @@
 -module(util_id).
 -author('murali').
 -include("logger.hrl").
--include("xmpp.hrl").
 -include("packets.hrl").
 -include("ha_types.hrl").
 

@@ -42,7 +42,6 @@
 -include_lib("stdlib/include/ms_transform.hrl").
 -include("ejabberd_commands.hrl").
 -include("logger.hrl").
--include("xmpp.hrl").
 -include("translate.hrl").
 
 -define(CLEAN_INTERVAL, timer:minutes(10)).
@@ -85,7 +84,7 @@ c2s_auth_result(#{ip := {Addr, _}} = State, true, _User) ->
     ets:delete(failed_auth, Addr),
     State.
 
--spec c2s_stream_started(ejabberd_c2s:state(), stream_start())
+-spec c2s_stream_started(ejabberd_c2s:state(), term())
       -> ejabberd_c2s:state() | {stop, ejabberd_c2s:state()}.
 c2s_stream_started(#{ip := {Addr, _}} = State, _) ->
     case ets:lookup(failed_auth, Addr) of
@@ -222,8 +221,9 @@ log_and_disconnect(#{ip := {Addr, _}, lang := Lang} = State, Attempts, UnbanTS) 
     Args = [Attempts, IP, UnbanDate],
     ?WARNING("Connection attempt from blacklisted IP ~ts: ~ts",
 		 [IP, io_lib:fwrite(Format, Args)]),
-    Err = xmpp:serr_policy_violation({Format, Args}, Lang),
-    {stop, ejabberd_c2s:send(State, Err)}.
+    % Todo: send a error message back using halloapp_c2s???
+    {stop, State}.
+
 
 -spec is_whitelisted(binary(), inet:ip_address()) -> boolean().
 is_whitelisted(Host, Addr) ->

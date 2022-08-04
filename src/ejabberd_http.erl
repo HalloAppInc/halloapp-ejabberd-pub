@@ -42,7 +42,6 @@
 -export([init/3]).
 
 -include("logger.hrl").
--include("xmpp.hrl").
 -include("ejabberd_http.hrl").
 -include_lib("kernel/include/file.hrl").
 
@@ -341,7 +340,7 @@ get_transfer_protocol(RE, SockMod, HostPort) ->
 %% matches the requested URL path, and pass control to it.  If none is
 %% found, answer with HTTP 404.
 
-process([], _) -> ejabberd_web:error(not_found);
+process([], _) -> make_text_output(#state{}, 400, [], <<"Malformed Host header">>);
 process(Handlers, Request) ->
     {HandlerPathPrefix, HandlerModule, HandlerOpts, HandlersLeft} =
         case Handlers of
@@ -453,7 +452,7 @@ process_request(#state{request_method = Method,
     end,
     case extract_path_query(State) of
         {State2, false} ->
-            {State2, make_bad_request(State)};
+            {State2, make_text_output(State, 400, CustomHeaders, <<"Bad Path">>)};
         {State2, {LPath, LQuery, Data}} ->
             PeerName = case SockPeer of
                 none ->
@@ -491,10 +490,6 @@ process_request(#state{request_method = Method,
             RequestHandlers1 = ejabberd_hooks:run_fold(
                 http_request_handlers, RequestHandlers, [Host, Request]),
             Res = case process(RequestHandlers1, Request) of
-                El when is_record(El, xmlel) ->
-                    make_xhtml_output(State, 200, CustomHeaders, El);
-                {Status, Headers, El} when is_record(El, xmlel) ->
-                    make_xhtml_output(State, Status, Headers ++ CustomHeaders, El);
                 Output when is_binary(Output) or is_list(Output) ->
                     make_text_output(State, 200, CustomHeaders, Output);
                 {Status, Headers, Output} when is_binary(Output) or is_list(Output) ->
@@ -510,13 +505,6 @@ process_request(#state{request_method = Method,
             {State2#state{trail = <<>>}, Res}
     end.
 
-make_bad_request(State) ->
-    make_xhtml_output(State, 400, State#state.custom_headers,
-        ejabberd_web:make_xhtml([
-            #xmlel{name = <<"h1">>,
-            attrs = [],
-            children = [
-                {xmlcdata, <<"400 Bad Request">>}]}])).
 
 analyze_ip_xff(IP, []) -> IP;
 analyze_ip_xff({IPLast, Port}, XFF) ->
@@ -638,18 +626,6 @@ make_headers(State, Status, Reason, Headers, Data) ->
         <<"\r\n">>],
     [SL, H, <<"\r\n">>].
 
-make_xhtml_output(State, Status, Headers, XHTML) ->
-    Data = case State#state.request_method of
-        'HEAD' -> <<"">>;
-        _ ->
-            DocType = case lists:member(html, Headers) of
-                true -> ?HTML_DOCTYPE;
-                false -> ?XHTML_DOCTYPE
-            end,
-            iolist_to_binary([DocType, fxml:element_to_binary(XHTML)])
-    end,
-    EncodedHdrs = make_headers(State, Status, <<"">>, Headers, Data),
-    [EncodedHdrs, Data].
 
 make_text_output(State, Status, Headers, Text) ->
     make_text_output(State, Status, <<"">>, Headers, Text).

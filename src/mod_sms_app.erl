@@ -19,7 +19,7 @@
 -include("ha_types.hrl").
 -include("sms.hrl").
 -include("push_message.hrl").
--include("server.hrl").
+-include("packets.hrl").
 -include("proc.hrl").
 -include("ejabberd_sm.hrl").
 -define(MAX_RETRY_COUNT, 3).

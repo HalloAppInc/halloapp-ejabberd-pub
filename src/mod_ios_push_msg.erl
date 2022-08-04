@@ -16,7 +16,6 @@
 
 -include("logger.hrl").
 -include("packets.hrl").
--include("server.hrl").
 -include("push_message.hrl").
 -include("feed.hrl").
 -include("proc.hrl").
@@ -295,7 +294,7 @@ encrypt_message(#push_message_item{uid = Uid, message = Message}, PushState) ->
     end.
 
 
--spec transform_and_encrypt_message(Uid :: uid(), Msg :: pb_msg(), PushState :: worker_push_state()) -> binary().
+-spec transform_and_encrypt_message(Uid :: uid(), Msg :: message(), PushState :: worker_push_state()) -> binary().
 transform_and_encrypt_message(Uid, #pb_msg{payload = #pb_incoming_call{} = IncomingCall} = Message, PushState) ->
     IncomingCallPush = #pb_incoming_call_push{
         call_id = IncomingCall#pb_incoming_call.call_id,

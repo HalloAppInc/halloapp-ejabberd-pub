@@ -7,7 +7,6 @@
 -module(mod_feed_tests).
 -author('murali').
 
--include("xmpp.hrl").
 -include("feed.hrl").
 -include("packets.hrl").
 
@@ -208,15 +207,6 @@ get_share_iq(Uid, FriendUid, PostIds) ->
         payload = FeedStanza
     }.
 
-
-get_share_error_result(Uid, FriendUid) ->
-    SharePostSt = create_share_post_st(FriendUid, [], failed, invalid_friend_uid),
-    FeedStanza = create_feed_stanza(share, undefined, [SharePostSt], []),
-    #pb_iq{
-        type = result,
-        to_uid = Uid,
-        payload = FeedStanza
-    }.
 
 
 get_share_iq_result(Uid, FriendUid) ->

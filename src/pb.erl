@@ -9,8 +9,8 @@
 -module(pb).
 -author('murali').
 -include("logger.hrl").
--include("xmpp.hrl").
--include("server.hrl").
+-include("stanza.hrl").
+-include("packets.hrl").
 -include("ha_types.hrl").
 
 -export([
@@ -149,17 +149,17 @@ get_content_id(#pb_msg{id = Id, payload = #pb_marketing_alert{}}) -> Id;
 get_content_id(#pb_msg{id = Id}) -> Id.
 
 
--spec make_iq_result(Iq :: pb_iq()) -> pb_iq().
+-spec make_iq_result(Iq :: iq()) -> iq().
 make_iq_result(#pb_iq{} = Iq) ->
     make_iq_result(Iq, undefined).
 
 
--spec make_iq_result(Iq :: pb_iq(), Payload :: any()) -> pb_iq().
+-spec make_iq_result(Iq :: iq(), Payload :: any()) -> iq().
 make_iq_result(#pb_iq{to_uid = ToUid, from_uid = FromUid} = Iq, Payload) ->
     Iq#pb_iq{type = result, to_uid = FromUid, from_uid = ToUid, payload = Payload}.
 
 
--spec make_error(Pkt :: pb_iq() | pb_msg(), Payload :: any()) -> pb_iq() | pb_msg().
+-spec make_error(Pkt :: iq() | message(), Payload :: any()) -> iq() | message().
 make_error(#pb_iq{to_uid = ToUid, from_uid = FromUid} = Iq, Error) ->
     Iq#pb_iq{type = error, to_uid = FromUid, from_uid = ToUid, payload = Error};
 make_error(#pb_msg{to_uid = ToUid, from_uid = FromUid} = Msg, Error) ->

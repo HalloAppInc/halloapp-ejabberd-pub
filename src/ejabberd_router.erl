@@ -63,7 +63,7 @@
 
 -include("logger.hrl").
 -include("ejabberd_router.hrl").
--include("xmpp.hrl").
+-include("stanza.hrl").
 -include("packets.hrl").
 -include("ejabberd_stacktrace.hrl").
 -include("ha_types.hrl").

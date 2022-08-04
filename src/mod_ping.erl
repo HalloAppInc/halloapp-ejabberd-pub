@@ -40,7 +40,8 @@
 
 -include("logger.hrl").
 -include("packets.hrl").
--include("xmpp.hrl").
+-include("stanza.hrl").
+-include("jid.hrl").
 -include("time.hrl").
 -include("ha_types.hrl").
 -include("proc.hrl").
@@ -151,11 +152,6 @@ handle_cast(Msg, State) ->
     {noreply, State}.
 
 
-handle_info({iq_reply, #pb_iq{type = error, payload = #error_st{reason = user_session_not_found}},
-        SessionInfo}, State) ->
-    NewState = del_timer(SessionInfo, State),
-    {noreply, NewState};
-
 handle_info({iq_reply, #pb_iq{}, SessionInfo}, State) ->
     ?INFO("receive_ping, Uid: ~s, SessionInfo: ~p", [SessionInfo#session_info.uid, SessionInfo]),
     {noreply, State};
@@ -192,7 +188,7 @@ code_change(_OldVsn, State, _Extra) -> {ok, State}.
 %%====================================================================
 %% Hook callbacks
 %%====================================================================
--spec iq_ping(pb_iq()) -> pb_iq().
+-spec iq_ping(iq()) -> iq().
 iq_ping(#pb_iq{type = get, payload = #pb_ping{}} = IQ) ->
     pb:make_iq_result(IQ);
 iq_ping(#pb_iq{} = IQ) ->

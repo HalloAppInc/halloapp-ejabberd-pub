@@ -57,7 +57,7 @@ user_send_packet({Packet, State}) ->
 
 
 %% Sends an ack packet. Runs on c2s process.
--spec send_ack(State :: state(), Packet :: pb_msg()) -> state().
+-spec send_ack(State :: state(), Packet :: message()) -> state().
 send_ack(State, #pb_msg{id = MsgId, from_uid = Uid} = Packet)
         when MsgId =:= undefined orelse MsgId =:= <<>> ->
     PayloadType = util:get_payload_type(Packet),

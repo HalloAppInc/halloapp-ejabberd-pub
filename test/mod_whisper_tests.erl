@@ -6,7 +6,6 @@
 -module(mod_whisper_tests).
 -author("nikola").
 
--include("xmpp.hrl").
 -include("whisper.hrl").
 -include("packets.hrl").
 -include("account_test_data.hrl").

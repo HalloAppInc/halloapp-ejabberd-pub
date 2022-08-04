@@ -6,7 +6,7 @@
   {modules, []},
   {registered, []},
   {applications, [kernel, stdlib, sasl, ssl]},
-  {included_applications, [os_mon, lager, gun, mnesia, inets, crypto, ssl, p1_utils, fast_yaml, fast_tls, pkix, xmpp, cache_tab, eimp, raven_erlang, erlcron, prometheus, erlcloud, locus, cowboy, worker_pool]},
+  {included_applications, [os_mon, lager, gun, mnesia, inets, crypto, ssl, p1_utils, fast_yaml, fast_tls, pkix, raven_erlang, erlcron, prometheus, erlcloud, locus, cowboy, worker_pool, stringprep]},
   {env, [{enabled_backends, [@enabled_backends@]}]},
   {mod, {ejabberd_app, []}}]}.
 

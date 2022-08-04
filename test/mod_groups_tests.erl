@@ -7,9 +7,8 @@
 -author("nikola").
 
 -include("groups.hrl").
--include("packets.hrl").
--include("xmpp.hrl").
 -include("groups_test_data.hrl").
+-include("packets.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
 
@@ -429,7 +428,7 @@ send_retract_message_test() ->
     {ok, Group, _Res} = mod_groups:create_group(?UID1, ?GROUP_NAME1,
         #pb_expiry_info{expiry_type = never, expiry_timestamp = -1}, [?UID2, ?UID3]),
     Gid = Group#group.gid,
-    GroupChatRetractSt = #groupchat_retract_st{id = <<"id1">>, gid = Gid},
+    GroupChatRetractSt = #pb_group_chat_retract{id = <<"id1">>, gid = Gid},
     {ok, _Ts} = mod_groups:send_retract_message(?MSG_ID1, Gid, ?UID1, GroupChatRetractSt),
     ok.
 

@@ -13,7 +13,7 @@
 -record(push_message_item, {
     id :: binary(),
     uid :: binary(),
-    message :: pb_msg(),
+    message :: message(),
     timestamp_ms :: integer(),
     retry_ms :: integer(),
     push_info :: push_info(),

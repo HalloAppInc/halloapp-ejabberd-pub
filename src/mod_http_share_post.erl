@@ -12,7 +12,7 @@
 -include("ejabberd_http.hrl").
 -include("util_http.hrl").
 -include("clients.hrl").
--include("server.hrl").
+-include("packets.hrl").
 -include("share_post.hrl").
 -include("time.hrl").
 -include("account.hrl").

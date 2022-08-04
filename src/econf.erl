@@ -187,8 +187,6 @@ format_error({missing_module_dep, Mod, DepMod}) ->
     format("module ~ts depends on module ~ts, "
 	   "which is not found in the config",
 	   [Mod, DepMod]);
-format_error(eimp_error) ->
-    format("ejabberd is built without image converter support", []);
 format_error(Reason) ->
     yconf:format_error(Reason).
 
@@ -406,7 +404,7 @@ lang() ->
     and_then(
       binary(),
       fun(Lang) ->
-	      try xmpp_lang:check(Lang)
+	      try true %xmpp_lang:check(Lang) (I took a look at the C source code - this always returned true!)
 	      catch _:_ -> fail({bad_lang, Lang})
 	      end
       end).

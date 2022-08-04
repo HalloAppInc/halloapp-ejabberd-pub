@@ -7,7 +7,6 @@
 -module(mod_names_tests).
 -author('murali').
 
--include("xmpp.hrl").
 -include("packets.hrl").
 -include("feed.hrl").
 

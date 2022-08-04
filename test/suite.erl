@@ -28,6 +28,11 @@
 
 -include("suite.hrl").
 -include_lib("kernel/include/file.hrl").
+-include("packets.hrl").
+-include("xmlel.hrl").
+-define(NS_CLIENT, <<"jabber:client">>).
+-define(NS_SERVER, <<"jabber:server">>).
+-define(NS_COMPONENT, <<"jabber:component:accept">>).
 
 %%%===================================================================
 %%% API
@@ -108,8 +113,6 @@ init_config(Config) ->
      {persistent_room, true},
      {anonymous, false},
      {type, client},
-     {xmlns, ?NS_CLIENT},
-     {ns_stream, ?NS_STREAM},
      {stream_version, {1, 0}},
      {stream_id, <<"">>},
      {stream_from, <<"">>},
@@ -217,32 +220,6 @@ process_config_tpl(Content, [{Name, DefaultValue} | Rest]) ->
 				Val, [global]),
     process_config_tpl(NewContent, Rest).
 
-stream_header(Config) ->
-    To = case ?config(server, Config) of
-	     <<"">> -> undefined;
-	     Server -> jid:make(Server)
-	 end,
-    From = case ?config(stream_from, Config) of
-	       <<"">> -> undefined;
-	       Frm -> jid:make(Frm)
-	   end,
-    #stream_start{to = To,
-		  from = From,
-		  lang = ?config(lang, Config),
-		  version = ?config(stream_version, Config),
-          client_version = <<"HalloApp/iOS0.2.61">>,
-		  xmlns = ?config(xmlns, Config),
-		  db_xmlns = ?config(db_xmlns, Config),
-		  stream_xmlns = ?config(ns_stream, Config)}.
-
-connect(Config) ->
-    NewConfig = init_stream(Config),
-    case ?config(type, NewConfig) of
-	client -> process_stream_features(NewConfig);
-	server -> process_stream_features(NewConfig);
-	component -> NewConfig
-    end.
-
 tcp_connect(Config) ->
     case ?config(receiver, Config) of
 	undefined ->
@@ -262,43 +239,6 @@ tcp_connect(Config) ->
 	    Config
     end.
 
-init_stream(Config) ->
-    Version = ?config(stream_version, Config),
-    NewConfig = tcp_connect(Config),
-    send(NewConfig, stream_header(NewConfig)),
-    XMLNS = case ?config(type, Config) of
-		client -> ?NS_CLIENT;
-		component -> ?NS_COMPONENT;
-		server -> ?NS_SERVER
-	    end,
-    receive
-	#stream_start{id = ID, xmlns = XMLNS, version = Version} ->
-	    set_opt(stream_id, ID, NewConfig)
-    end.
-
-process_stream_features(Config) ->
-    receive
-	#stream_features{sub_els = Fs} ->
-	    Mechs = lists:flatmap(
-		      fun(#sasl_mechanisms{list = Ms}) ->
-			      Ms;
-			 (_) ->
-			      []
-		      end, Fs),
-	    lists:foldl(
-	      fun(#feature_register{}, Acc) ->
-		      set_opt(register, true, Acc);
-		 (#starttls{}, Acc) ->
-		      set_opt(starttls, true, Acc);
-		 (#legacy_auth_feature{}, Acc) ->
-		      set_opt(legacy_auth, true, Acc);
-		 (#compression{methods = Ms}, Acc) ->
-		      set_opt(compression, Ms, Acc);
-		 (_, Acc) ->
-		      Acc
-	      end, set_opt(mechs, Mechs, Config), Fs)
-    end.
-
 disconnect(Config) ->
     ct:comment("Disconnecting"),
     try
@@ -315,208 +255,6 @@ disconnect(Config) ->
 close_socket(Config) ->
     ok = recv_call(Config, close),
     Config.
-
-starttls(Config) ->
-    starttls(Config, false).
-
-starttls(Config, ShouldFail) ->
-    send(Config, #starttls{}),
-    receive
-	#starttls_proceed{} when ShouldFail ->
-	    ct:fail(starttls_should_have_failed);
-	#starttls_failure{} when ShouldFail ->
-	    Config;
-	#starttls_failure{} ->
-	    ct:fail(starttls_failed);
-	#starttls_proceed{} ->
-	    ok = recv_call(Config, {starttls, ?config(certfile, Config)}),
-	    Config
-    end.
-
-zlib(Config) ->
-    send(Config, #compress{methods = [<<"zlib">>]}),
-    receive #compressed{} -> ok end,
-    ok = recv_call(Config, compress),
-    process_stream_features(init_stream(Config)).
-
-auth(Config) ->
-    auth(Config, false).
-
-auth(Config, ShouldFail) ->
-    Type = ?config(type, Config),
-    IsAnonymous = ?config(anonymous, Config),
-    Mechs = ?config(mechs, Config),
-    HaveMD5 = lists:member(<<"DIGEST-MD5">>, Mechs),
-    HavePLAIN = lists:member(<<"PLAIN">>, Mechs),
-    HaveExternal = lists:member(<<"EXTERNAL">>, Mechs),
-    HaveAnonymous = lists:member(<<"ANONYMOUS">>, Mechs),
-    if HaveAnonymous and IsAnonymous ->
-	    auth_SASL(<<"ANONYMOUS">>, Config, ShouldFail);
-       HavePLAIN ->
-            auth_SASL(<<"PLAIN">>, Config, ShouldFail);
-       HaveMD5 ->
-            auth_SASL(<<"DIGEST-MD5">>, Config, ShouldFail);
-       HaveExternal ->
-	    auth_SASL(<<"EXTERNAL">>, Config, ShouldFail);
-       Type == client ->
-	    auth_legacy(Config, false, ShouldFail);
-       Type == component ->
-	    auth_component(Config, ShouldFail);
-       true ->
-	    ct:fail(no_known_sasl_mechanism_available)
-    end.
-
-bind(Config) ->
-    U = ?config(user, Config),
-    S = ?config(server, Config),
-    R = ?config(resource, Config),
-    case ?config(type, Config) of
-	client ->
-	    #iq{type = result, sub_els = [#bind{jid = JID}]} =
-		send_recv(
-		  Config, #iq{type = set, sub_els = [#bind{resource = R}]}),
-	    case ?config(anonymous, Config) of
-		false ->
-		    {U, S, R} = jid:tolower(JID),
-		    Config;
-		true ->
-		    {User, S, Resource} = jid:tolower(JID),
-		    set_opt(user, User, set_opt(resource, Resource, Config))
-	    end;
-	component ->
-	    Config
-    end.
-
-open_session(Config) ->
-    open_session(Config, false).
-
-open_session(Config, Force) ->
-    if Force ->
-	    #iq{type = result, sub_els = []} =
-		send_recv(Config, #iq{type = set, sub_els = [#xmpp_session{}]});
-       true ->
-	    ok
-    end,
-    Config.
-
-auth_legacy(Config, IsDigest) ->
-    auth_legacy(Config, IsDigest, false).
-
-auth_legacy(Config, IsDigest, ShouldFail) ->
-    ServerJID = server_jid(Config),
-    U = ?config(user, Config),
-    R = ?config(resource, Config),
-    P = ?config(password, Config),
-    #iq{type = result,
-	from = ServerJID,
-	sub_els = [#legacy_auth{username = <<"">>,
-				password = <<"">>,
-				resource = <<"">>} = Auth]} =
-	send_recv(Config,
-		  #iq{to = ServerJID, type = get,
-		      sub_els = [#legacy_auth{}]}),
-    Res = case Auth#legacy_auth.digest of
-	      <<"">> when IsDigest ->
-		  StreamID = ?config(stream_id, Config),
-		  D = p1_sha:sha(<<StreamID/binary, P/binary>>),
-		  send_recv(Config, #iq{to = ServerJID, type = set,
-					sub_els = [#legacy_auth{username = U,
-								resource = R,
-								digest = D}]});
-	      _ when not IsDigest ->
-		  send_recv(Config, #iq{to = ServerJID, type = set,
-					sub_els = [#legacy_auth{username = U,
-								resource = R,
-								password = P}]})
-	  end,
-    case Res of
-	#iq{from = ServerJID, type = result, sub_els = []} ->
-	    if ShouldFail ->
-		    ct:fail(legacy_auth_should_have_failed);
-	       true ->
-		    Config
-	    end;
-	#iq{from = ServerJID, type = error} ->
-	    if ShouldFail ->
-		    Config;
-	       true ->
-		    ct:fail(legacy_auth_failed)
-	    end
-    end.
-
-auth_component(Config, ShouldFail) ->
-    StreamID = ?config(stream_id, Config),
-    Password = ?config(password, Config),
-    Digest = p1_sha:sha(<<StreamID/binary, Password/binary>>),
-    send(Config, #handshake{data = Digest}),
-    receive
-	#handshake{} when ShouldFail ->
-	    ct:fail(component_auth_should_have_failed);
-	#handshake{} ->
-	    Config;
-	#stream_error{reason = 'not-authorized'} when ShouldFail ->
-	    Config;
-	#stream_error{reason = 'not-authorized'} ->
-	    ct:fail(component_auth_failed)
-    end.
-
-auth_SASL(Mech, Config) ->
-    auth_SASL(Mech, Config, false).
-
-auth_SASL(Mech, Config, ShouldFail) ->
-    Creds = {?config(user, Config),
-	     ?config(server, Config),
-	     ?config(password, Config)},
-    auth_SASL(Mech, Config, ShouldFail, Creds).
-
-auth_SASL(Mech, Config, ShouldFail, Creds) ->
-    {Response, SASL} = sasl_new(Mech, Creds),
-    send(Config, #sasl_auth{mechanism = Mech, text = Response}),
-    wait_auth_SASL_result(set_opt(sasl, SASL, Config), ShouldFail).
-
-wait_auth_SASL_result(Config, ShouldFail) ->
-    receive
-	#sasl_success{} when ShouldFail ->
-	    ct:fail(sasl_auth_should_have_failed);
-        #sasl_success{} ->
-	    ok = recv_call(Config, reset_stream),
-            send(Config, stream_header(Config)),
-	    Type = ?config(type, Config),
-	    NS = if Type == client -> ?NS_CLIENT;
-		    Type == server -> ?NS_SERVER
-		 end,
-	    Config2 = receive #stream_start{id = ID, xmlns = NS, version = {1,0}} ->
-		set_opt(stream_id, ID, Config)
-	    end,
-            receive #stream_features{sub_els = Fs} ->
-		    if Type == client ->
-			    #xmpp_session{optional = true} =
-				lists:keyfind(xmpp_session, 1, Fs);
-		       true ->
-			    ok
-		    end,
-		    lists:foldl(
-		      fun(#feature_sm{}, ConfigAcc) ->
-			      set_opt(sm, true, ConfigAcc);
-			 (#feature_csi{}, ConfigAcc) ->
-			      set_opt(csi, true, ConfigAcc);
-			 (#rosterver_feature{}, ConfigAcc) ->
-			      set_opt(rosterver, true, ConfigAcc);
-			 (#compression{methods = Ms}, ConfigAcc) ->
-			      set_opt(compression, Ms, ConfigAcc);
-			 (_, ConfigAcc) ->
-			      ConfigAcc
-		      end, Config2, Fs)
-	    end;
-        #sasl_challenge{text = ClientIn} ->
-            {Response, SASL} = (?config(sasl, Config))(ClientIn),
-            send(Config, #sasl_response{text = Response}),
-            wait_auth_SASL_result(set_opt(sasl, SASL, Config), ShouldFail);
-	#sasl_failure{} when ShouldFail ->
-	    Config;
-        #sasl_failure{} ->
-            ct:fail(sasl_auth_failed)
-    end.
 
 re_register(Config) ->
     User = ?config(user, Config),
@@ -537,15 +275,6 @@ recv(_Config) ->
 	Event ->
 	    Event
     end.
-
-recv_iq(_Config) ->
-    receive #iq{} = IQ -> IQ end.
-
-recv_presence(_Config) ->
-    receive #presence{} = Pres -> Pres end.
-
-recv_message(_Config) ->
-    receive #message{} = Msg -> Msg end.
 
 decode_stream_element(NS, El) ->
     decode(El, NS, []).
@@ -571,39 +300,6 @@ decode(El, NS, Opts) ->
 send_text(Config, Text) ->
     recv_call(Config, {send_text, Text}).
 
-send(State, Pkt) ->
-    {NewID, NewPkt} = case Pkt of
-                          #message{id = I} ->
-                              ID = id(I),
-                              {ID, Pkt#message{id = ID}};
-                          #presence{id = I} ->
-                              ID = id(I),
-                              {ID, Pkt#presence{id = ID}};
-                          #iq{id = I} ->
-                              ID = id(I),
-                              {ID, Pkt#iq{id = ID}};
-                          _ ->
-                              {undefined, Pkt}
-                      end,
-    El = xmpp:encode(NewPkt),
-    ct:pal("SENT:~n~s~n~s",
-	   [format_element(El), xmpp:pp(NewPkt)]),
-    Data = case NewPkt of
-	       #stream_start{} -> fxml:element_to_header(El);
-	       _ -> fxml:element_to_binary(El)
-	   end,
-    ok = send_text(State, Data),
-    NewID.
-
-send_recv(State, #message{} = Msg) ->
-    ID = send(State, Msg),
-    receive #message{id = ID} = Result -> Result end;
-send_recv(State, #presence{} = Pres) ->
-    ID = send(State, Pres),
-    receive #presence{id = ID} = Result -> Result end;
-send_recv(State, #iq{} = IQ) ->
-    ID = send(State, IQ),
-    receive #iq{id = ID} = Result -> Result end.
 
 sasl_new(<<"PLAIN">>, {User, Server, Password}) ->
     {<<User/binary, $@, Server/binary, 0, User/binary, 0, Password/binary>>,
@@ -742,22 +438,6 @@ id(<<>>) ->
 id(ID) ->
     ID.
 
-get_features(Config) ->
-    get_features(Config, server_jid(Config)).
-
-get_features(Config, To) ->
-    ct:comment("Getting features of ~s", [jid:encode(To)]),
-    #iq{type = result, sub_els = [#disco_info{features = Features}]} =
-        send_recv(Config, #iq{type = get, sub_els = [#disco_info{}], to = To}),
-    Features.
-
-is_feature_advertised(Config, Feature) ->
-    is_feature_advertised(Config, Feature, server_jid(Config)).
-
-is_feature_advertised(Config, Feature, To) ->
-    Features = get_features(Config, To),
-    lists:member(Feature, Features).
-
 set_opt(Opt, Val, Config) ->
     [{Opt, Val}|lists:keydelete(Opt, 1, Config)].
 
@@ -779,14 +459,6 @@ wait_for_slave(Config) ->
 	    suite:match_failure(Other, peer_ready)
     end.
 
-make_iq_result(#iq{from = From} = IQ) ->
-    IQ#iq{type = result, to = From, from = undefined, sub_els = []}.
-
-self_presence(Config, Type) ->
-    MyJID = my_jid(Config),
-    ct:comment("Sending self-presence"),
-    #presence{type = Type, from = MyJID} =
-	send_recv(Config, #presence{type = Type}).
 
 set_roster(Config, Subscription, Groups) ->
     PeerJID = ?config(peer, Config),

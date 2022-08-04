@@ -8,7 +8,6 @@
 -author('murali').
 
 -include_lib("eunit/include/eunit.hrl").
--include("xmpp.hrl").
 -include("parser_test_data.hrl").
 
 

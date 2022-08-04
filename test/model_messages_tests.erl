@@ -6,8 +6,9 @@
 -module(model_messages_tests).
 -author('murali').
 
--include("xmpp.hrl").
+-include("jid.hrl").
 -include("offline_message.hrl").
+-include("packets.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
 -define(UID1, <<"1000000000376503286">>).
@@ -22,25 +23,23 @@
 -define(TYPE2, <<"chat">>).
 -define(MID3, <<"dae46a45-95f2">>).
 -define(TYPE3, <<"contact_list">>).
--define(MESSAGE1, term_to_binary(#message{id = ?MID1, to = #jid{user = ?UID1, server = ?SERVER}})).
+-define(MESSAGE1, <<"msg_1">>). % arbitrary example binary blob
 -define(OFFLINE_MESSAGE1, #offline_message{msg_id = ?MID1, to_uid = ?UID1, from_uid = undefined,
         content_type = ?TYPE1, retry_count = 1, message = ?MESSAGE1, order_id = 1, protobuf = false,
         thread_id = ?GROUP1, sent = false}).
--define(MESSAGE2, term_to_binary(#message{id = ?MID2, to = #jid{user = ?UID1, server = ?SERVER},
-        from = #jid{user = ?UID2, server = ?SERVER}})).
+-define(MESSAGE2, <<"msg_2">>).
 -define(OFFLINE_MESSAGE2, #offline_message{msg_id = ?MID2, to_uid = ?UID1, from_uid = ?UID2,
         content_type = ?TYPE2, retry_count = 1, message = ?MESSAGE2, order_id = 2, protobuf = false,
         sent = false}).
--define(MESSAGE3, term_to_binary(#message{id = ?MID3, to = #jid{user = ?UID2, server = ?SERVER}})).
+-define(MESSAGE3, <<"msg_3">>).
 -define(OFFLINE_MESSAGE3, #offline_message{msg_id = ?MID3, to_uid = ?UID2, from_uid = undefined,
         content_type = ?TYPE3, retry_count = 1, message = ?MESSAGE3, order_id = 1, protobuf = false,
         sent = false}).
--define(MESSAGE4, term_to_binary(#message{id = ?MID2, to = #jid{user = ?UID1, server = ?SERVER},
-        from = #jid{user = ?UID2, server = ?SERVER}})).
+-define(MESSAGE4, <<"msg_4">>).
 -define(OFFLINE_MESSAGE4, #offline_message{msg_id = ?MID2, to_uid = ?UID1, from_uid = ?UID2,
         content_type = ?TYPE2, retry_count = 1, message = ?MESSAGE4, order_id = 3, protobuf = false,
         sent = false}).
--define(MESSAGE5, term_to_binary(#message{id = ?MID1, to = #jid{user = ?UID1, server = ?SERVER}})).
+-define(MESSAGE5, <<"msg_5">>).
 -define(OFFLINE_MESSAGE5, #offline_message{msg_id = ?MID1, to_uid = ?UID1, from_uid = undefined,
         content_type = ?TYPE1, retry_count = 1, message = ?MESSAGE5, order_id = 4, protobuf = false,
         thread_id = ?GROUP1, sent = false}).

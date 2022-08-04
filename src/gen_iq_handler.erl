@@ -71,7 +71,7 @@ remove_iq_handler(Component, Host, NS) ->
     ets:delete(Component, {Host, NS}),
     ok.
 
--spec handle(state(), pb_iq()) -> state().
+-spec handle(state(), iq()) -> state().
 handle(State, #pb_iq{to_uid = ToUid} = IQ) ->
     Component = case ToUid of
         <<"">> -> ejabberd_local;
@@ -79,7 +79,7 @@ handle(State, #pb_iq{to_uid = ToUid} = IQ) ->
     end,
     handle(State, Component, IQ).
 
--spec handle(state(), component(), pb_iq()) -> state().
+-spec handle(state(), component(), iq()) -> state().
 %% TODO(murali@): cleanup and have a simpler module after the transition.
 handle(State, _, #pb_iq{type = T, payload = undefined} = Packet)
         when T == get; T == set ->
@@ -106,7 +106,7 @@ handle(State, _, #pb_iq{type = T}) when T == result; T == error ->
     State.
 
 
--spec process_iq(binary(), atom(), atom(), integer(), pb_iq(), state()) -> {pb_iq(), state()}.
+-spec process_iq(binary(), atom(), atom(), integer(), iq(), state()) -> {iq(), state()}.
 process_iq(_Host, Module, Function, NumArgs, IQ, State) ->
     try process_iq(Module, Function, NumArgs, IQ, State)
     catch ?EX_RULE(Class, Reason, St) ->
@@ -117,7 +117,7 @@ process_iq(_Host, Module, Function, NumArgs, IQ, State) ->
         {pb:make_error(IQ, util:err(internal_error)), State}
     end.
 
--spec process_iq(module(), atom(), integer(), pb_iq(), state()) -> {ignore | pb_iq(), state()}.
+-spec process_iq(module(), atom(), integer(), iq(), state()) -> {ignore | iq(), state()}.
 process_iq(Module, Function, NumArgs, IQ, State) when is_record(IQ, pb_iq) ->
     case NumArgs of
         1 -> {Module:Function(IQ), State};

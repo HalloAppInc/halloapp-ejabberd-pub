@@ -61,7 +61,7 @@ mod_options(_Host) ->
 
 
 % client_log
--spec process_local_iq(pb_iq(), halloapp_c2s:state()) -> pb_iq().
+-spec process_local_iq(iq(), halloapp_c2s:state()) -> iq().
 process_local_iq(#pb_iq{type = set, from_uid = Uid, payload = #pb_client_log{events = EventsDirty} = ClientLogsStDirty} = IQDirty,
         #{client_version := ClientVersion} = _State) ->
     try

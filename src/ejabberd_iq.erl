@@ -34,7 +34,6 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
     terminate/2, code_change/3]).
 
--include("xmpp.hrl").
 -include("logger.hrl").
 -include("packets.hrl").
 -include("ejabberd_stacktrace.hrl").
@@ -167,7 +166,7 @@ noreply(#state{expire = Expire} = State) ->
             {noreply, State, Timeout}
     end.
 
--spec callback(atom() | pid(), pb_iq() | timeout, term()) -> any().
+-spec callback(atom() | pid(), iq() | timeout, term()) -> any().
 callback(undefined, IQRes, Fun) ->
     try Fun(IQRes)
     catch ?EX_RULE(Class, Reason, St) ->

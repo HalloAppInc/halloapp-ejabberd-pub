@@ -7,7 +7,6 @@
 -module(mod_user_privacy_tests).
 -author('murali').
 
--include("xmpp.hrl").
 -include("packets.hrl").
 -include_lib("eunit/include/eunit.hrl").
 

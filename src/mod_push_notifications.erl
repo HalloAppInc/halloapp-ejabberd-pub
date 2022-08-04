@@ -56,7 +56,7 @@ mod_options(_Host) ->
 %% hooks.
 %%====================================================================
 
--spec push_message_hook(pb_msg()) -> pb_msg().
+-spec push_message_hook(message()) -> message().
 push_message_hook(#pb_msg{} = Message) ->
     ?DEBUG("~p", [Message]),
     push_message(Message),
@@ -64,14 +64,14 @@ push_message_hook(#pb_msg{} = Message) ->
 
 
 % TODO: add stat:count here to count invalid_token failures.
--spec push_message(Message :: pb_msg()) -> ok.
+-spec push_message(Message :: message()) -> ok.
 push_message(#pb_msg{id = _MsgId, to_uid = User} = Message) ->
     PushInfo = mod_push_tokens:get_push_info(User),
     ClientType = util_ua:get_client_type(PushInfo#push_info.client_version),
     push_message(Message, PushInfo, ClientType).
 
 
--spec push_message(Message :: pb_msg(), PushInfo :: push_info(), Os :: client_type()) -> ok.
+-spec push_message(Message :: message(), PushInfo :: push_info(), Os :: client_type()) -> ok.
 push_message(#pb_msg{payload = #pb_invitee_notice{}}, _, undefined) -> ok;
 push_message(#pb_msg{id = MsgId, to_uid = User} = _Message, PushInfo, undefined) ->
     ?ERROR("Uid: ~s, MsgId: ~p ignore push: invalid client type, push_info: ~p",
@@ -101,7 +101,7 @@ push_message(#pb_msg{id = MsgId, to_uid = User} = Message, PushInfo, ios) ->
     end.
 
 
--spec push_message_internal(Message :: pb_msg(), PushInfo :: push_info()) -> ok.
+-spec push_message_internal(Message :: message(), PushInfo :: push_info()) -> ok.
 push_message_internal(#pb_msg{id = MsgId, to_uid = User} = Message, PushInfo) ->
     Server = util:get_host(),
     log_invalid_langId(PushInfo),
@@ -116,7 +116,7 @@ push_message_internal(#pb_msg{id = MsgId, to_uid = User} = Message, PushInfo) ->
     end.
 
 
--spec push_message(Message :: pb_msg(), PushInfo :: push_info()) -> ok.
+-spec push_message(Message :: message(), PushInfo :: push_info()) -> ok.
 push_message(Message, #push_info{os = <<"android">>} = PushInfo) ->
     mod_android_push:push(Message, PushInfo);
 push_message(Message, #push_info{os = Os} = PushInfo)

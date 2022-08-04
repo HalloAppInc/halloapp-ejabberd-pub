@@ -203,7 +203,7 @@ user_send_packet({#pb_msg{id = MsgId, to_uid = ToUid, from_uid = FromUid,
 user_send_packet(Acc) -> Acc.
 
 
--spec push_message_always_hook(Packet :: pb_msg()) -> ok.
+-spec push_message_always_hook(Packet :: message()) -> ok.
 push_message_always_hook(#pb_msg{to_uid = Uid} = Packet) ->
     %% Handle special case of voip messages for ios clients.
     case util:is_voip_incoming_message(Packet) of
@@ -227,12 +227,12 @@ push_message_always_hook(#pb_msg{to_uid = Uid} = Packet) ->
 push_message_always_hook(_) -> ok.
 
 
--spec set_presence_hook(Uid :: binary(), Server :: binary(), Resource :: binary(), pb_presence()) -> ok.
+-spec set_presence_hook(Uid :: binary(), Server :: binary(), Resource :: binary(), presence()) -> ok.
 set_presence_hook(_Uid, _Server, _Resource, _) ->
     ok.
 
 
--spec push_message(Packet :: pb_msg()) -> ok.
+-spec push_message(Packet :: message()) -> ok.
 push_message(#pb_msg{to_uid = Uid, id = MsgId} = Packet) ->
     ?INFO("Uid: ~p MsgId: ~p", [Uid, MsgId]),
     ejabberd_sm:push_message(Packet),

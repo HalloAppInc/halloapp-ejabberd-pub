@@ -37,7 +37,8 @@
 -include("logger.hrl").
 -include("account.hrl").
 -include("groups.hrl").
--include("xmpp.hrl").
+-include("xmlel.hrl").
+-include("jid.hrl").
 -include("ejabberd_http.hrl").
 -include("ejabberd_web_admin.hrl").
 -include("translate.hrl").
@@ -1625,14 +1626,14 @@ pretty_print_xml(#xmlel{name = Name, attrs = Attrs,
        [{Attr, Val} | RestAttrs] ->
 	   AttrPrefix = [Prefix,
 			 str:copies(<<" ">>, byte_size(Name) + 2)],
-	   [$\s, Attr, $=, $', fxml:crypt(Val) | [$',
+	   [$\s, Attr, $=, $', crypt(Val) | [$',
                                                  lists:map(fun ({Attr1,
                                                                  Val1}) ->
                                                                    [$\n,
                                                                     AttrPrefix,
                                                                     Attr1, $=,
                                                                     $',
-                                                                    fxml:crypt(Val1),
+                                                                    crypt(Val1),
                                                                     $']
                                                            end,
                                                            RestAttrs)]]
@@ -1644,7 +1645,7 @@ pretty_print_xml(#xmlel{name = Name, attrs = Attrs,
 				  end,
 				  Els),
 	    if OnlyCData ->
-		   [$>, fxml:get_cdata(Els), $<, $/, Name, $>, $\n];
+		   [$>, get_cdata(Els), $<, $/, Name, $>, $\n];
 	       true ->
 		   [$>, $\n,
 		    lists:map(fun (E) ->
@@ -1654,6 +1655,33 @@ pretty_print_xml(#xmlel{name = Name, attrs = Attrs,
 		    Prefix, $<, $/, Name, $>, $\n]
 	    end
      end].
+
+% below is pasted from fxml.
+-spec get_cdata(L :: [xmlel() | cdata()]) -> binary().
+
+get_cdata(L) ->
+    (iolist_to_binary(get_cdata(L, <<"">>))).
+
+-spec get_cdata(L :: [xmlel() | cdata()],
+		S :: binary() | iolist()) ->
+		       binary() | iolist().
+
+get_cdata([{xmlcdata, CData} | L], S) ->
+     get_cdata(L, [S, CData]);
+get_cdata([_ | L], S) -> get_cdata(L, S);
+get_cdata([], S) -> S.
+
+crypt(S) ->
+    << <<(case C of
+              $& -> <<"&amp;">>;
+              $< -> <<"&lt;">>;
+              $> -> <<"&gt;">>;
+              $" -> <<"&quot;">>;
+              $' -> <<"&apos;">>;
+              _ -> <<C>>
+          end)/binary>>
+       || <<C>> <= S >>.
+
 
 url_func({user_diapason, From, To}) ->
     <<(integer_to_binary(From))/binary, "-",

@@ -9,7 +9,6 @@
 -module(tutil).
 -author("nikola").
 
--include("xmpp.hrl").
 -include("packets.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
@@ -43,27 +42,17 @@ load_protobuf() ->
     end.
 
 
-get_result_iq_sub_el(#iq{} = IQ) ->
-    ?assertEqual(result, IQ#iq.type),
-    [Res] = IQ#iq.sub_els,
-    Res;
 get_result_iq_sub_el(#pb_iq{} = IQ) ->
     ?assertEqual(result, IQ#pb_iq.type),
     IQ#pb_iq.payload.
 
 
-assert_empty_result_iq(#iq{} = IQ) ->
-    ?assertEqual(result, IQ#iq.type),
-    ?assertEqual([], IQ#iq.sub_els);
+
 assert_empty_result_iq(#pb_iq{} = IQ) ->
     ?assertEqual(result, IQ#pb_iq.type),
     ?assertEqual(undefined, IQ#pb_iq.payload).
 
 
-get_error_iq_sub_el(#iq{} = IQ) ->
-    ?assertEqual(error, IQ#iq.type),
-    [Res] = IQ#iq.sub_els,
-    Res;
 get_error_iq_sub_el(#pb_iq{} = IQ) ->
     ?assertEqual(error, IQ#pb_iq.type),
     IQ#pb_iq.payload.

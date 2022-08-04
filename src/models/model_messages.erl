@@ -63,7 +63,7 @@
 -define(FIELD_THREAD_ID, <<"thid">>).
 -define(FIELD_SENT, <<"snt">>).
 
--spec store_message(Message :: pb_msg()) -> ok | {ok, term()} | {error, any()}.
+-spec store_message(Message :: message()) -> ok | {ok, term()} | {error, any()}.
 store_message(#pb_msg{} = Message) ->
     ToUid = Message#pb_msg.to_uid,
     FromUid = Message#pb_msg.from_uid,

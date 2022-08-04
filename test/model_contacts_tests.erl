@@ -13,6 +13,7 @@
 -define(CONTACT2, <<"16502241748">>).
 -define(CONTACT3, <<"14703381473">>).
 -define(SID, <<"dbd22016">>).
+-compile({nowarn_unused_function, [{sequence_loop, 4}, {test_hash_lossiness, 2}]}).
 
 setup() ->
     tutil:setup(),
@@ -235,7 +236,7 @@ non_invited_phone_test() ->
     ok.
 
 
-sequence_loop(To, To, Fun, MapAcc) -> maps:size(MapAcc);
+sequence_loop(To, To, _Fun, MapAcc) -> maps:size(MapAcc);
 sequence_loop(From, To, Fun, MapAcc) ->
     NewMapAcc = erlang:apply(Fun, [From, MapAcc]),
     sequence_loop(From + 1, To, Fun, NewMapAcc).

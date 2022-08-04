@@ -201,7 +201,7 @@ is_psa_tag_allowed(PSATag) ->
 %% Internal functions
 %%====================================================================
 
--spec set_sender_info(Message :: pb_msg()) -> pb_msg().
+-spec set_sender_info(Message :: message()) -> message().
 set_sender_info(#pb_msg{id = MsgId, payload = #pb_feed_items{items = Items} = FeedItems} = Message) ->
     NewItems = [set_ts_and_publisher_name(MsgId, Item) || Item <- Items],
     NewFeedItems = FeedItems#pb_feed_items{

@@ -67,7 +67,7 @@
     stream_authenticated => boolean(),
     crypto => tls | noise | none,
     ip => {inet:ip_address(), inet:port_number()},
-    codec_options => [xmpp:decode_option()],
+    codec_options => [atom()],
     xmlns => binary(),
     lang => binary(),
     user => binary(),
@@ -79,7 +79,7 @@
     _ => _
 }.
 
--type stanza() :: pb_iq() | pb_msg() | pb_ack() | pb_presence() | pb_chat_state().
+-type stanza() :: iq() | message() | ack() | presence() | chat_state().
 -type stream_state() :: accepting | wait_for_authentication | established | disconnected.
 -type stop_reason() :: {stream, reset | {in | out, pb_ha_error()}} |
                {tls, inet:posix() | atom() | binary()} |
@@ -480,7 +480,7 @@ init_state(#{socket := Socket, mod := Mod} = State, Opts) ->
             pending_acks => 0,
             last_msg_order_id => 0},
     State1 = State#{stream_direction => in,
-            stream_id => xmpp_stream:new_id(),
+            stream_id => p1_rand:get_string(),
             stream_state => wait_for_authentication,
             stream_version => {1,0},
             stream_authenticated => false,

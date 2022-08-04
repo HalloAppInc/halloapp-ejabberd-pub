@@ -205,8 +205,6 @@ fun(DepsList) ->
 end,
 
 DepAlts = fun("esip") -> ["esip", "p1_sip"];
-	     ("xmpp") -> ["xmpp", "p1_xmpp"];
-	     ("fast_xml") -> ["fast_xml", "p1_xml"];
 	     (Val) -> [Val]
 	  end,
 

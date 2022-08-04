@@ -54,7 +54,7 @@ mod_options(_Host) ->
 %% hooks.
 %%====================================================================
 
--spec process_local_iq(IQ :: pb_iq()) -> pb_iq().
+-spec process_local_iq(IQ :: iq()) -> iq().
 %% This phone must be sent with the country code.
 process_local_iq(#pb_iq{from_uid = Uid, type = set,
         payload = #pb_delete_account{phone = RawPhone, reason = Reason, feedback = Feedback}} = IQ) when RawPhone =/= undefined ->

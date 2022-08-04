@@ -82,7 +82,8 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
 -include("logger.hrl").
--include("xmpp.hrl").
+-include("jid.hrl").
+-include("stanza.hrl").
 -include("packets.hrl").
 -include("ejabberd_commands.hrl").
 -include("ejabberd_sm.hrl").
@@ -141,7 +142,7 @@ route(To, Term) ->
 route(Packet) ->
     do_route(Packet).
 
--spec check_privacy_and_dest_uid(Packet :: pb_msg()) -> allow | {deny, atom()}.
+-spec check_privacy_and_dest_uid(Packet :: message()) -> allow | {deny, atom()}.
 check_privacy_and_dest_uid(#pb_msg{to_uid = ToUid, type = _Type} = Packet) ->
     LServer = util:get_host(),
     case ejabberd_auth:user_exists(ToUid) of
@@ -158,7 +159,7 @@ check_privacy_and_dest_uid(#pb_msg{to_uid = ToUid, type = _Type} = Packet) ->
     end.
 
 % Store the message in the offline store.
--spec store_offline_message(pb_msg()) -> pb_msg().
+-spec store_offline_message(message()) -> message().
 store_offline_message(#pb_msg{} = Packet) ->
     LServer = util:get_host(),
     ejabberd_hooks:run_fold(store_message_hook, LServer, Packet, []).

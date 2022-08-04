@@ -81,7 +81,7 @@ mod_options(_Host) ->
 
 init([_Host, _Opts]) ->
     ?INFO("Start ~p", [?MODULE]),
-    xmpp_trace:notice("Start"),
+    trace:info("Start"),
     ets:new(trace_uids, [set, named_table, protected]),
     ?INFO("creating trace_uids ets table", []),
     timer:apply_interval(10 * ?MINUTES_MS, ?MODULE, refresh_traced, []),
@@ -297,7 +297,7 @@ trace_pb_packet(Uid, Direction, Packet, BinPacket) ->
     try
         case is_uid_traced(Uid) of
             true ->
-                xmpp_trace:info("Uid:~s ~p ~s === ~p | ~s",
+                trace:info("Uid:~s ~p ~s === ~p | ~s",
                     [Uid, self(), Direction, Packet, base64:encode(BinPacket)]);
             false -> ok
         end

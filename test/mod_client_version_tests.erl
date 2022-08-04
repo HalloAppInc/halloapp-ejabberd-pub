@@ -6,7 +6,6 @@
 -module(mod_client_version_tests).
 -author("nikola").
 
--include("xmpp.hrl").
 
 -include_lib("eunit/include/eunit.hrl").
 

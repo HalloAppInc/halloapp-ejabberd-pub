@@ -40,6 +40,9 @@
 		set_roster/3, del_roster/1]).
 -include("suite.hrl").
 -include("account_test_data.hrl").
+-include("packets.hrl").
+
+%TODO(thomas): add some tests reflecting current usage of ejabberd functionality
 
 suite() ->
     % TODO: it takes too long to wait for things to timeout
@@ -146,20 +149,18 @@ do_init_per_group(s2s, Config) ->
     ejabberd_config:set_option(ca_file, "ca.pem"),
     Port = ?config(s2s_port, Config),
     set_opt(server, ?COMMON_VHOST,
-	    set_opt(xmlns, ?NS_SERVER,
 		    set_opt(type, server,
 			    set_opt(server_port, Port,
 				    set_opt(stream_from, ?S2S_VHOST,
-					    set_opt(lang, <<"">>, Config))))));
+					    set_opt(lang, <<"">>, Config)))));
 do_init_per_group(component, Config) ->
     Server = ?config(server, Config),
     Port = ?config(component_port, Config),
-    set_opt(xmlns, ?NS_COMPONENT,
-            set_opt(server, <<"component.", Server/binary>>,
-                    set_opt(type, component,
-                            set_opt(server_port, Port,
-                                    set_opt(stream_version, undefined,
-                                            set_opt(lang, <<"">>, Config))))));
+    set_opt(server, <<"component.", Server/binary>>,
+        set_opt(type, component,
+            set_opt(server_port, Port,
+                set_opt(stream_version, undefined,
+                    set_opt(lang, <<"">>, Config)))));
 do_init_per_group(GroupName, Config) ->
     Pid = start_event_relay(),
     NewConfig = set_opt(event_relay, Pid, Config),
@@ -493,82 +494,12 @@ all() ->
 
 stop_ejabberd(Config) ->
     ok = application:stop(ejabberd),
-    ?recv1(#stream_error{reason = 'system-shutdown'}),
-    ?recv1({xmlstreamend, <<"stream:stream">>}),
     Config.
 
-test_connect_bad_xml(Config) ->
-    Config0 = tcp_connect(Config),
-    send_text(Config0, <<"<'/>">>),
-    Version = ?config(stream_version, Config0),
-    ?recv1(#stream_start{version = Version}),
-    ?recv1(#stream_error{reason = 'not-well-formed'}),
-    ?recv1({xmlstreamend, <<"stream:stream">>}),
-    close_socket(Config0).
-
-test_connect_unexpected_xml(Config) ->
-    Config0 = tcp_connect(Config),
-    send(Config0, #caps{}),
-    Version = ?config(stream_version, Config0),
-    ?recv1(#stream_start{version = Version}),
-    ?recv1(#stream_error{reason = 'invalid-xml'}),
-    ?recv1({xmlstreamend, <<"stream:stream">>}),
-    close_socket(Config0).
-
-test_connect_unknown_ns(Config) ->
-    Config0 = init_stream(set_opt(xmlns, <<"wrong">>, Config)),
-    ?recv1(#stream_error{reason = 'invalid-xml'}),
-    ?recv1({xmlstreamend, <<"stream:stream">>}),
-    close_socket(Config0).
-
-test_connect_bad_xmlns(Config) ->
-    NS = case ?config(type, Config) of
-	     client -> ?NS_SERVER;
-	     _ -> ?NS_CLIENT
-	 end,
-    Config0 = init_stream(set_opt(xmlns, NS, Config)),
-    ?recv1(#stream_error{reason = 'invalid-namespace'}),
-    ?recv1({xmlstreamend, <<"stream:stream">>}),
-    close_socket(Config0).
-
-test_connect_bad_ns_stream(Config) ->
-    Config0 = init_stream(set_opt(ns_stream, <<"wrong">>, Config)),
-    ?recv1(#stream_error{reason = 'invalid-namespace'}),
-    ?recv1({xmlstreamend, <<"stream:stream">>}),
-    close_socket(Config0).
-
-test_connect_bad_lang(Config) ->
-    Lang = iolist_to_binary(lists:duplicate(36, $x)),
-    Config0 = init_stream(set_opt(lang, Lang, Config)),
-    ?recv1(#stream_error{reason = 'invalid-xml'}),
-    ?recv1({xmlstreamend, <<"stream:stream">>}),
-    close_socket(Config0).
-
-test_connect_bad_to(Config) ->
-    Config0 = init_stream(set_opt(server, <<"wrong.com">>, Config)),
-    ?recv1(#stream_error{reason = 'host-unknown'}),
-    ?recv1({xmlstreamend, <<"stream:stream">>}),
-    close_socket(Config0).
-
-test_connect_missing_to(Config) ->
-    Config0 = init_stream(set_opt(server, <<"">>, Config)),
-    ?recv1(#stream_error{reason = 'improper-addressing'}),
-    ?recv1({xmlstreamend, <<"stream:stream">>}),
-    close_socket(Config0).
 
 test_connect(Config) ->
     disconnect(connect(Config)).
 
-test_connect_s2s_starttls_required(Config) ->
-    Config1 = connect(Config),
-    send(Config1, #presence{}),
-    ?recv1(#stream_error{reason = 'policy-violation'}),
-    ?recv1({xmlstreamend, <<"stream:stream">>}),
-    close_socket(Config1).
-
-test_connect_s2s_unauthenticated_iq(Config) ->
-    Config1 = connect(starttls(connect(Config))),
-    unauthenticated_iq(Config1).
 
 test_starttls(Config) ->
     case ?config(starttls, Config) of
@@ -591,114 +522,7 @@ test_zlib(Config) ->
             {skipped, 'compression_not_available'}
     end.
 
-test_register(Config) ->
-    case ?config(register, Config) of
-        true ->
-            disconnect(register(Config));
-        _ ->
-            {skipped, 'registration_not_available'}
-    end.
 
-register(Config) ->
-    #iq{type = result,
-        sub_els = [#register{username = <<>>,
-                             password = <<>>}]} =
-        send_recv(Config, #iq{type = get, to = server_jid(Config),
-                              sub_els = [#register{}]}),
-    #iq{type = result, sub_els = []} =
-        send_recv(
-          Config,
-          #iq{type = set,
-              sub_els = [#register{username = ?config(user, Config),
-                                   password = ?config(password, Config)}]}),
-    Config.
-
-test_unregister(Config) ->
-    case ?config(register, Config) of
-        true ->
-            try_unregister(Config);
-        _ ->
-            {skipped, 'registration_not_available'}
-    end.
-
-try_unregister(Config) ->
-    true = is_feature_advertised(Config, ?NS_REGISTER),
-    #iq{type = result, sub_els = []} =
-        send_recv(
-          Config,
-          #iq{type = set,
-              sub_els = [#register{remove = true}]}),
-    ?recv1(#stream_error{reason = conflict}),
-    Config.
-
-unauthenticated_presence(Config) ->
-    unauthenticated_packet(Config, #presence{}).
-
-unauthenticated_message(Config) ->
-    unauthenticated_packet(Config, #message{}).
-
-unauthenticated_iq(Config) ->
-    IQ = #iq{type = get, sub_els = [#disco_info{}]},
-    unauthenticated_packet(Config, IQ).
-
-unauthenticated_packet(Config, Pkt) ->
-    From = my_jid(Config),
-    To = server_jid(Config),
-    send(Config, xmpp:set_from_to(Pkt, From, To)),
-    #stream_error{reason = 'not-authorized'} = recv(Config),
-    {xmlstreamend, <<"stream:stream">>} = recv(Config),
-    close_socket(Config).
-
-bad_nonza(Config) ->
-    %% Unsupported and invalid nonza should be silently dropped.
-    send(Config, #caps{}),
-    send(Config, #stanza_error{type = wrong}),
-    disconnect(Config).
-
-invalid_from(Config) ->
-    send(Config, #message{from = jid:make(p1_rand:get_string())}),
-    ?recv1(#stream_error{reason = 'invalid-from'}),
-    ?recv1({xmlstreamend, <<"stream:stream">>}),
-    close_socket(Config).
-
-test_missing_from(Config) ->
-    Server = server_jid(Config),
-    send(Config, #message{to = Server}),
-    ?recv1(#stream_error{reason = 'improper-addressing'}),
-    ?recv1({xmlstreamend, <<"stream:stream">>}),
-    close_socket(Config).
-
-test_missing_to(Config) ->
-    Server = server_jid(Config),
-    send(Config, #message{from = Server}),
-    ?recv1(#stream_error{reason = 'improper-addressing'}),
-    ?recv1({xmlstreamend, <<"stream:stream">>}),
-    close_socket(Config).
-
-test_invalid_from(Config) ->
-    From = jid:make(p1_rand:get_string()),
-    To = jid:make(p1_rand:get_string()),
-    send(Config, #message{from = From, to = To}),
-    ?recv1(#stream_error{reason = 'invalid-from'}),
-    ?recv1({xmlstreamend, <<"stream:stream">>}),
-    close_socket(Config).
-
-test_component_send(Config) ->
-    To = jid:make(?COMMON_VHOST),
-    From = server_jid(Config),
-    #iq{type = result, from = To, to = From} =
-	send_recv(Config, #iq{type = get, to = To, from = From,
-			      sub_els = [#ping{}]}),
-    disconnect(Config).
-
-s2s_ping(Config) ->
-    From = my_jid(Config),
-    To = jid:make(?MNESIA_VHOST),
-    ID = p1_rand:get_string(),
-    ejabberd_s2s:route(#iq{from = From, to = To, id = ID,
-			   type = get, sub_els = [#ping{}]}),
-    #iq{type = result, id = ID, sub_els = []} = recv_iq(Config),
-    disconnect(Config).
 
 auth_md5(Config) ->
     Mechs = ?config(mechs, Config),
@@ -792,125 +616,11 @@ test_bind(Config) ->
 test_open_session(Config) ->
     disconnect(open_session(Config, true)).
 
-codec_failure(Config) ->
-    JID = my_jid(Config),
-    #iq{type = error} =
-	send_recv(Config, #iq{type = wrong, from = JID, to = JID}),
-    disconnect(Config).
 
-unsupported_query(Config) ->
-    ServerJID = server_jid(Config),
-    #iq{type = error} = send_recv(Config, #iq{type = get, to = ServerJID}),
-    #iq{type = error} = send_recv(Config, #iq{type = get, to = ServerJID,
-					      sub_els = [#caps{}]}),
-    #iq{type = error} = send_recv(Config, #iq{type = get, to = ServerJID,
-					      sub_els = [#roster_query{},
-							 #disco_info{},
-							 #privacy_query{}]}),
-    disconnect(Config).
-
-presence_broadcast(Config) ->
-    Feature = <<"p1:tmp:", (p1_rand:get_string())/binary>>,
-    Ver = crypto:hash(sha, ["client", $/, "bot", $/, "en", $/,
-                            "ejabberd_ct", $<, Feature, $<]),
-    B64Ver = base64:encode(Ver),
-    Node = <<(?EJABBERD_CT_URI)/binary, $#, B64Ver/binary>>,
-    Server = ?config(server, Config),
-    Info = #disco_info{identities =
-			   [#identity{category = <<"client">>,
-				      type = <<"bot">>,
-				      lang = <<"en">>,
-				      name = <<"ejabberd_ct">>}],
-		       node = Node, features = [Feature]},
-    Caps = #caps{hash = <<"sha-1">>, node = ?EJABBERD_CT_URI, version = B64Ver},
-    send(Config, #presence{sub_els = [Caps]}),
-    JID = my_jid(Config),
-    %% We receive:
-    %% 1) disco#info iq request for CAPS
-    %% 2) welcome message
-    %% 3) presence broadcast
-    IQ = #iq{type = get,
-	     from = JID,
-	     sub_els = [#disco_info{node = Node}]} = recv_iq(Config),
-    #message{type = normal} = recv_message(Config),
-    #presence{from = JID, to = JID} = recv_presence(Config),
-    send(Config, #iq{type = result, id = IQ#iq.id,
-		     to = JID, sub_els = [Info]}),
-    %% We're trying to read our feature from ejabberd database
-    %% with exponential back-off as our IQ response may be delayed.
-    [Feature] =
-	lists:foldl(
-	  fun(Time, []) ->
-		  timer:sleep(Time),
-		  mod_caps:get_features(Server, Caps);
-	     (_, Acc) ->
-		  Acc
-	  end, [], [0, 100, 200, 2000, 5000, 10000]),
-    disconnect(Config).
-
-ping(Config) ->
-    true = is_feature_advertised(Config, ?NS_PING),
-    #iq{type = result, sub_els = []} =
-        send_recv(
-          Config,
-          #iq{type = get, sub_els = [#ping{}], to = server_jid(Config)}),
-    disconnect(Config).
-
-time(Config) ->
-    true = is_feature_advertised(Config, ?NS_TIME),
-    #iq{type = result, sub_els = [#time{}]} =
-        send_recv(Config, #iq{type = get, sub_els = [#time{}],
-                              to = server_jid(Config)}),
-    disconnect(Config).
-
-disco(Config) ->
-    true = is_feature_advertised(Config, ?NS_DISCO_INFO),
-    true = is_feature_advertised(Config, ?NS_DISCO_ITEMS),
-    #iq{type = result, sub_els = [#disco_items{items = Items}]} =
-        send_recv(
-          Config, #iq{type = get, sub_els = [#disco_items{}],
-                      to = server_jid(Config)}),
-    lists:foreach(
-      fun(#disco_item{jid = JID, node = Node}) ->
-              #iq{type = result} =
-                  send_recv(Config,
-                            #iq{type = get, to = JID,
-                                sub_els = [#disco_info{node = Node}]})
-      end, Items),
-    disconnect(Config).
-
-last(Config) ->
-    true = is_feature_advertised(Config, ?NS_LAST),
-    #iq{type = result, sub_els = [#last{}]} =
-        send_recv(Config, #iq{type = get, sub_els = [#last{}],
-                              to = server_jid(Config)}),
-    disconnect(Config).
-
-
-stats(Config) ->
-    #iq{type = result, sub_els = [#stats{list = Stats}]} =
-        send_recv(Config, #iq{type = get, sub_els = [#stats{}],
-                              to = server_jid(Config)}),
-    lists:foreach(
-      fun(#stat{} = Stat) ->
-              #iq{type = result, sub_els = [_|_]} =
-                  send_recv(Config, #iq{type = get,
-                                        sub_els = [#stats{list = [Stat]}],
-                                        to = server_jid(Config)})
-      end, Stats),
-    disconnect(Config).
 
 %%%===================================================================
 %%% Aux functions
 %%%===================================================================
-bookmark_conference() ->
-    #bookmark_conference{name = <<"Some name">>,
-                         autojoin = true,
-                         jid = jid:make(
-                                 <<"some">>,
-                                 <<"some.conference.org">>,
-                                 <<>>)}.
-
 '$handle_undefined_function'(F, [Config]) when is_list(Config) ->
     case re:split(atom_to_list(F), "_", [{return, list}, {parts, 2}]) of
 	[M, T] ->

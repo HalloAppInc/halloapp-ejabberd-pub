@@ -12,7 +12,7 @@
 
 -include("logger.hrl").
 -include("time.hrl").
--include("xmpp.hrl").
+-include("jid.hrl").
 -include("proc.hrl").
 -include("ha_types.hrl").
 

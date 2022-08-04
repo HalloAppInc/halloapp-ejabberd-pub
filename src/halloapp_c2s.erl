@@ -59,7 +59,8 @@
     bounce_message_queue/2
 ]).
 
--include("xmpp.hrl").
+-include("stanza.hrl").
+-include("jid.hrl").
 -include("packets.hrl").
 -include("logger.hrl").
 -include("translate.hrl").
@@ -131,8 +132,8 @@ stop(Ref) ->
     halloapp_stream_in:stop(Ref).
 
 
--spec send(pid(), xmpp_element()) -> ok;
-      (state(), xmpp_element()) -> state().
+-spec send(pid(), stanza()) -> ok;
+      (state(), stanza()) -> state().
 send(Pid, Pkt) when is_pid(Pid) ->
     halloapp_stream_in:send(Pid, Pkt);
 send(#{lserver := LServer} = State, Pkt) ->
@@ -570,7 +571,7 @@ process_chatstate_out(#{user := _Uid, lserver := Server} = State, #pb_chat_state
 
 -spec check_privacy_then_route(state(), stanza()) -> state().
 check_privacy_then_route(State, Pkt)
-        when is_record(Pkt, pb_presence); is_record(Pkt, message);
+        when is_record(Pkt, pb_presence); 
         is_record(Pkt, pb_msg); is_record(Pkt, pb_chat_state) ->
     case privacy_check_packet(State, Pkt, out) of
         deny ->
@@ -662,10 +663,6 @@ bounce_message_queue({_, Pid} = SID, JID) ->
         end
     end.
 
-
--spec new_uniq_id() -> binary().
-new_uniq_id() ->
-    iolist_to_binary([p1_rand:get_string(), integer_to_binary(erlang:unique_integer([positive]))]).
 
 
 -spec get_conn_type(state()) -> c2s | c2s_tls | c2s_noise | websocket | http_bind.

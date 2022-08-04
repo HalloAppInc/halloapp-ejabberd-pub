@@ -19,7 +19,7 @@
     process_push_times/3
 ]).
 
--spec parse_metadata(Message :: pb_msg()) -> push_metadata().
+-spec parse_metadata(Message :: message()) -> push_metadata().
 parse_metadata(#pb_msg{payload = Payload} = Message) when is_record(Payload, pb_chat_stanza) ->
     #push_metadata{
         content_id = pb:get_content_id(Message),
@@ -210,7 +210,7 @@ parse_metadata(#pb_msg{} = Message) ->
     }.
 
 
--spec get_title_body(Message :: pb_msg(), PushInfo :: push_info()) -> {binary(), binary()}.
+-spec get_title_body(Message :: message(), PushInfo :: push_info()) -> {binary(), binary()}.
 get_title_body(#pb_msg{payload = #pb_marketing_alert{type = invite_friends}}, PushInfo) ->
     Title = translate(<<"server.marketing.title">>, PushInfo#push_info.lang_id),
     Body = translate(<<"server.marketing.body">>, PushInfo#push_info.lang_id),

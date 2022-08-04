@@ -11,7 +11,7 @@
 -behaviour(gen_mod).
 
 -include("logger.hrl").
--include("xmpp.hrl").
+-include("stanza.hrl").
 -include("packets.hrl").
 
 -define(STAT_PRIVACY, "HA/Privacy").
@@ -74,7 +74,7 @@ mod_options(_Host) ->
 %%====================================================================
 
 
--spec process_local_iq(IQ :: pb_iq()) -> pb_iq().
+-spec process_local_iq(IQ :: iq()) -> iq().
 process_local_iq(#pb_iq{from_uid = Uid, type = set,
         payload = #pb_privacy_list{type = Type, hash = HashValue,
         uid_elements = UidEls, phone_elements = [], using_phones = false}} = IQ) ->
@@ -273,7 +273,7 @@ check_blocked(FromUid, ToUid, Packet, Dir) ->
 
 
 %% TODO(murali@): counts for switching privacy modes will involve another redis call.
--spec update_privacy_type(Uid :: binary(), Type :: privacy_list_type(),
+-spec update_privacy_type(Uid :: binary(), Type :: atom(),
         HashValue :: binary(), UidEls :: list(binary())) -> ok | {error, any(), any()}.
 update_privacy_type(Uid, all = Type, _HashValue, []) ->
     set_privacy_type(Uid, Type),
@@ -297,7 +297,7 @@ update_privacy_type(_Uid, _, _, _) ->
 
 
 %% for phone-based privacy lists.
--spec update_privacy_type2(Uid :: binary(), Type :: privacy_list_type(),
+-spec update_privacy_type2(Uid :: binary(), Type :: atom(),
         HashValue :: binary(), PhoneEls :: list(binary())) -> ok | {error, any(), any()}.
 update_privacy_type2(Uid, all = Type, _HashValue, []) ->
     set_privacy_type(Uid, Type),
@@ -320,21 +320,21 @@ update_privacy_type2(_Uid, _, _, _) ->
     {error, invalid_type}.
 
 
--spec set_privacy_type(Uid :: binary(), Type :: privacy_type()) -> ok.
+-spec set_privacy_type(Uid :: binary(), Type :: atom()) -> ok.
 set_privacy_type(Uid, Type) ->
     ?INFO("Uid: ~s, privacy_type: ~p", [Uid, Type]),
     model_privacy:set_privacy_type(Uid, Type).
 
 
--spec get_privacy_type(Uid :: binary()) -> privacy_type().
+-spec get_privacy_type(Uid :: binary()) -> atom().
 get_privacy_type(Uid) ->
     {ok, Type} = model_privacy:get_privacy_type(Uid),
     ?INFO("Uid: ~s, privacy_type: ~p", [Uid, Type]),
     Type.
 
 
--spec update_privacy_list(Uid :: binary(), Type :: privacy_list_type(),
-        ClientHashValue :: binary(), UidEls :: list(uid_el())) -> ok.
+-spec update_privacy_list(Uid :: binary(), Type :: atom(),
+        ClientHashValue :: binary(), UidEls :: list(pb_uid_element())) -> ok.
 update_privacy_list(Uid, Type, ClientHashValue, UidEls) ->
     {DeleteUidsList, AddUidsList} = lists:partition(
             fun(#pb_uid_element{action = T}) ->
@@ -360,7 +360,7 @@ update_privacy_list(Uid, Type, ClientHashValue, UidEls) ->
 
 
 %% for phone-based privacy lists.
--spec update_privacy_list2(Uid :: binary(), Type :: privacy_list_type(),
+-spec update_privacy_list2(Uid :: binary(), Type :: atom(),
         ClientHashValue :: binary(), PhoneEls :: list(phone_el())) -> ok.
 update_privacy_list2(Uid, Type, ClientHashValue, PhoneEls) ->
     {DeletePhonesList, AddPhonesList} = lists:partition(
@@ -385,7 +385,7 @@ update_privacy_list2(Uid, Type, ClientHashValue, PhoneEls) ->
     end.
 
 
--spec compute_hash_value(Uid :: binary(), Type :: privacy_list_type(),
+-spec compute_hash_value(Uid :: binary(), Type :: atom(),
         DeleteUids :: [binary()], AddUids :: [binary()]) -> binary().
 compute_hash_value(Uid, Type, DeleteUids, AddUids) ->
     {ok, Ouids} = case Type of
@@ -405,7 +405,7 @@ compute_hash_value(Uid, Type, DeleteUids, AddUids) ->
 
 
 %% for phone-based privacy lists.
--spec compute_hash_value2(Uid :: binary(), Type :: privacy_list_type(),
+-spec compute_hash_value2(Uid :: binary(), Type :: atom(),
         DeletePhones :: [binary()], AddPhones :: [binary()]) -> binary().
 compute_hash_value2(Uid, Type, DeletePhones, AddPhones) ->
     {ok, OPhones} = case Type of
@@ -425,7 +425,7 @@ compute_hash_value2(Uid, Type, DeletePhones, AddPhones) ->
 
 
 -spec remove_uids_from_privacy_list(Uid :: binary(),
-        Type :: privacy_list_type(), Ouids :: list(binary())) -> ok.
+        Type :: atom(), Ouids :: list(binary())) -> ok.
 remove_uids_from_privacy_list(_Uid, _, []) -> ok;
 remove_uids_from_privacy_list(Uid, except, Ouids) ->
     model_privacy:remove_except_uids(Uid, Ouids),
@@ -447,7 +447,7 @@ remove_uids_from_privacy_list(Uid, block, Ouids) ->
 
 
 -spec add_uids_to_privacy_list(Uid :: binary(),
-        Type :: privacy_list_type(), Ouids :: list(binary())) -> ok.
+        Type :: atom(), Ouids :: list(binary())) -> ok.
 add_uids_to_privacy_list(_Uid, _, []) -> ok;
 add_uids_to_privacy_list(Uid, except, Ouids) ->
     model_privacy:add_except_uids(Uid, Ouids),
@@ -470,7 +470,7 @@ add_uids_to_privacy_list(Uid, block, Ouids) ->
 
 
 -spec remove_phones_from_privacy_list(Uid :: binary(),
-        Type :: privacy_list_type(), Phones :: list(binary())) -> ok.
+        Type :: atom(), Phones :: list(binary())) -> ok.
 remove_phones_from_privacy_list(_Uid, _, []) -> ok;
 remove_phones_from_privacy_list(Uid, except, Phones) ->
     model_privacy:remove_except_phones(Uid, Phones),
@@ -493,7 +493,7 @@ remove_phones_from_privacy_list(Uid, block, Phones) ->
 
 
 -spec add_phones_to_privacy_list(Uid :: binary(),
-        Type :: privacy_list_type(), Phones :: list(binary())) -> ok.
+        Type :: atom(), Phones :: list(binary())) -> ok.
 add_phones_to_privacy_list(_Uid, _, []) -> ok;
 add_phones_to_privacy_list(Uid, except, Phones) ->
     model_privacy:add_except_phones(Uid, Phones),
@@ -517,14 +517,14 @@ add_phones_to_privacy_list(Uid, block, Phones) ->
 
 
 -spec get_privacy_lists(Uid :: binary(),
-        Types :: list(privacy_list_type())) -> list(user_privacy_lists()).
+        Types :: list(atom())) -> list(pb_privacy_list()).
 get_privacy_lists(Uid, Types) ->
     get_privacy_lists(Uid, Types, []).
 
 
 -spec get_privacy_lists(Uid :: binary(),
-        Types :: list(privacy_list_type()),
-        Result :: list(user_privacy_lists())) -> list(user_privacy_lists()).
+        Types :: list(atom()),
+        Result :: list(pb_privacy_list())) -> list(pb_privacy_list()).
 get_privacy_lists(_Uid, [], Result) ->
     Result;
 get_privacy_lists(Uid, [Type | Rest], Result) ->

@@ -31,7 +31,7 @@
 
 -include("ejabberd_commands.hrl").
 
--define(RAW(V), if HTMLOutput -> fxml:crypt(iolist_to_binary(V)); true -> iolist_to_binary(V) end).
+-define(RAW(V), if HTMLOutput -> crypt(iolist_to_binary(V)); true -> iolist_to_binary(V) end).
 -define(TAG(N), if HTMLOutput -> [<<"<", ??N, "/>">>]; true -> md_tag(N, <<"">>) end).
 -define(TAG(N, V), if HTMLOutput -> [<<"<", ??N, ">">>, V, <<"</", ??N, ">">>]; true -> md_tag(N, V) end).
 -define(TAG(N, C, V), if HTMLOutput -> [<<"<", ??N, " class='", C, "'>">>, V, <<"</", ??N, ">">>]; true -> md_tag(N, V) end).
@@ -602,3 +602,14 @@ html_post() ->
   </script>
   </body>
 </html>".
+
+crypt(S) ->
+    << <<(case C of
+              $& -> <<"&amp;">>;
+              $< -> <<"&lt;">>;
+              $> -> <<"&gt;">>;
+              $" -> <<"&quot;">>;
+              $' -> <<"&apos;">>;
+              _ -> <<C>>
+          end)/binary>>
+       || <<C>> <= S >>.

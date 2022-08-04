@@ -6,7 +6,7 @@
 -include("sms.hrl").
 -include("logger.hrl").
 -include("packets.hrl").
--include("xmpp.hrl").
+-include("stanza.hrl").
 -include("time.hrl").
 -include("proc.hrl").
 

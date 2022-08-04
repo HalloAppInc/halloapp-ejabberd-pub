@@ -90,14 +90,14 @@ user_send_packet({_Packet, _State} = Acc) ->
 %% internal functions
 %%====================================================================
 
--spec set_sender_info(Message :: pb_msg()) -> pb_msg().
+-spec set_sender_info(Message :: message()) -> message().
 set_sender_info(#pb_msg{id = MsgId, from_uid = FromUid} = Message) ->
     ?INFO("FromUid: ~s, MsgId: ~s", [FromUid, MsgId]),
     {ok, SenderAccount} = model_accounts:get_account(FromUid),
     set_sender_info(Message, SenderAccount#account.name, SenderAccount#account.client_version).
 
 
--spec set_sender_info(Message :: pb_msg(), Name :: binary(), ClientVersion :: binary()) -> pb_msg().
+-spec set_sender_info(Message :: message(), Name :: binary(), ClientVersion :: binary()) -> message().
 set_sender_info(#pb_msg{from_uid = FromUid, payload = #pb_chat_stanza{} = Chat} = Message, Name, ClientVersion) ->
     {ok, FromPhone} = model_accounts:get_phone(FromUid),
     Chat1 = Chat#pb_chat_stanza{

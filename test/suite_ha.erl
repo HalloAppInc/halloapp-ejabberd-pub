@@ -66,8 +66,6 @@ init_config(Config) ->
         {persistent_room, true},
         {anonymous, false},
         {type, client},
-        {xmlns, ?NS_CLIENT},
-        {ns_stream, ?NS_STREAM},
         {stream_version, {1, 0}},
         {stream_id, <<"">>},
         {stream_from, <<"">>},

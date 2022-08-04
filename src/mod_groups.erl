@@ -643,7 +643,7 @@ send_retract_message(MsgId, Gid, Uid, GroupChatRetractSt) ->
 
 
 -spec broadcast_packet(FromUid :: uid(), BroadcastUids :: [uid()],
-            Packet :: pb_msg() | pb_chat_state()) -> ok.
+            Packet :: message() | chat_state()) -> ok.
 broadcast_packet(FromUid, BroadcastUids, Packet) ->
     ?INFO("Uid: ~s, receiver uids: ~p", [FromUid, BroadcastUids]),
     ejabberd_router:route_multicast(FromUid, BroadcastUids, Packet),

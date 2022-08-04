@@ -33,7 +33,7 @@
 
 -include("logger.hrl").
 
--include("xmpp.hrl").
+-include("xmlel.hrl").
 
 -include("ejabberd_http.hrl").
 

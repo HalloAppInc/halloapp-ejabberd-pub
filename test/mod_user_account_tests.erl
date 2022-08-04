@@ -6,7 +6,6 @@
 -module(mod_user_account_tests).
 -author('murali').
 
--include("xmpp.hrl").
 -include("account.hrl").
 -include("packets.hrl").
 
