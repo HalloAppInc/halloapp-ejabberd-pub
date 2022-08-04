@@ -14,10 +14,12 @@
 -include("groups.hrl").
 
 % -define(SCAN_SIZE, 2500).
+-define(DEFAULT_NUM_OUIDS, 10).
 
 -export([
     generate_friend_recos/3,
     invite_recos/2,
+    invite_recos/3,
     process_invite_recos/1,
     generate_invite_recos/2,
     % all_shared_group_membership/0,
@@ -97,17 +99,21 @@ generate_friend_recos(Uid, Phone, NumCommunityRecos) ->
 
 -spec invite_recos(Uid :: uid(), MaxInviteRecommendations :: pos_integer()) -> ok.
 invite_recos(Uid, MaxInviteRecommendations) ->
+    invite_recos(Uid, MaxInviteRecommendations, ?DEFAULT_NUM_OUIDS).
+
+-spec invite_recos(Uid :: uid(), MaxInviteRecommendations :: pos_integer(), NumOuids :: pos_integer()) -> ok.
+invite_recos(Uid, MaxInviteRecommendations, NumOuids) ->
     ?INFO("generating invite recommendations for ~p", [Uid]),
     case model_accounts:account_exists(Uid) of
         false -> io:format("Uid ~s doesn't have an account.~n", [Uid]);
         true ->
-            mod_athena_stats:run_query(invite_ouid_query(Uid, MaxInviteRecommendations))
+            mod_athena_stats:run_query(invite_ouid_query(Uid, MaxInviteRecommendations, NumOuids))
     end,
     ok.
 
 
--spec invite_ouid_query(Uid :: uid(), MaxInviteRecommendations :: pos_integer()) -> athena_query().
-invite_ouid_query(Uid, MaxInviteRecommendations) ->
+-spec invite_ouid_query(uid(), pos_integer(), pos_integer()) -> athena_query().
+invite_ouid_query(Uid, MaxInviteRecommendations, NumOuids) ->
     UidInt = binary_to_integer(Uid),
     QueryFormat = "
     SELECT uid, ouid, event_type, cnt from (
@@ -132,7 +138,7 @@ invite_ouid_query(Uid, MaxInviteRecommendations) ->
         tags = #{
             uid => Uid, 
             max_recs => MaxInviteRecommendations, 
-            max_ouids => 400 % TODO (luke) make this a parameter
+            max_ouids => NumOuids
         } 
     }.
 
@@ -148,8 +154,8 @@ process_invite_recos(Query) ->
     ResultRows = maps:get(<<"ResultRows">>, maps:get(<<"ResultSet">>, Result)),
     [_HeaderRow | ActualResultRows] = ResultRows,
     
-    % Calculate amount of communication between Uid and each Ouid for future use
-    OuidMap = lists:foldl(
+    % Calculate amount of communication between Uid and each Ouid
+    OuidCommunicationMap = lists:foldl(
         fun (ResultRow, UidAcc) ->
             [FromUidStr, ToUidStr, _EventTypeStr, CntStr | _] = maps:get(<<"Data">>, ResultRow),
             FromUid = integer_to_binary(util:to_integer(FromUidStr)),
@@ -164,8 +170,32 @@ process_invite_recos(Query) ->
         end,
         #{},
         ActualResultRows),
-    Ouids = lists:sublist(maps:keys(OuidMap), MaxOuids),
-    ?INFO("Ouids: ~p", [Ouids]),
+    OuidCommunicationList = maps:to_list(OuidCommunicationMap),
+
+    UidGroups = model_groups:get_groups(Uid),
+    SharedGroupMembership = get_shared_group_membership(UidGroups),
+    % Consolidate number of shared groups and friend events into single list
+    OuidInfoList = lists:map(
+        fun ({Ouid, NumEvents}) ->
+            SharedGroups = maps:get(Ouid, SharedGroupMembership, []),
+            {Ouid, NumEvents, length(SharedGroups)}
+        end,
+        OuidCommunicationList),
+    %Sort first by number of shared groups with Uid, then by number of friend_events
+    SortedOuidInfo = lists:sort( 
+        fun ({_Ouid1, NumEvents1, NumGroups1}, {_Ouid2, NumEvents2, NumGroups2}) when NumGroups1 =:= NumGroups2 ->
+                NumEvents1 >= NumEvents2;
+            ({_Ouid1, _NumEvents1, NumGroups1}, {_Ouid2, _NumEvents2, NumGroups2}) ->
+                NumGroups1 > NumGroups2
+        end,
+        OuidInfoList),
+
+    FinalUidInfo = lists:sublist(SortedOuidInfo, MaxOuids),
+    {Ouids, _NumEvents, _NumGroups} = lists:unzip3(FinalUidInfo),
+
+
+
+    ?INFO("Inviter Ouid Info {uid, num_friend_events, num_shared_groups}: ~p", [FinalUidInfo]),
 
     % % print info about all uids
     % lists:foreach(
@@ -205,7 +235,7 @@ process_invite_recos(Query) ->
 -spec generate_invite_recos(Uid :: uid(), Ouids :: [uid()]) -> [{phone(), [uid()]}].
 generate_invite_recos(Uid, Ouids) ->
     {ok, [MainContacts | OuidContactList]} = model_contacts:get_contacts([Uid | Ouids]),
-    
+
     CommonContactsMap = lists:foldl(
         fun (Contact, CommonMap) ->
             KnownOuids = lists:foldl(
@@ -302,19 +332,7 @@ shared_group_membership(Uid) ->
 
 shared_group_membership(Uid, Groups, Friends) ->
     % map of Uids -> [shared groups with uid]
-    SharedMembership = lists:foldl(
-        fun (GroupId, MembershipAcc) ->
-            Members = model_groups:get_member_uids(GroupId),
-            lists:foldl(
-                fun (MemberUid, Acc) ->
-                    CurMembership = maps:get(MemberUid, Acc, []),
-                    maps:put(MemberUid, [GroupId | CurMembership], Acc)
-                end,
-                MembershipAcc,
-                Members)
-        end,
-        #{},
-        Groups),
+    SharedMembership = get_shared_group_membership(Groups),
     
     ONameMap = model_accounts:get_names(maps:keys(SharedMembership)),
     InfoList = maps:fold(
@@ -334,6 +352,23 @@ shared_group_membership(Uid, Groups, Friends) ->
 
     print_shared_group_info(Uid, length(Groups), Friends, SortedInfo),
     ok.
+
+
+-spec get_shared_group_membership(Groups :: [gid()]) -> #{uid() => [gid()]}.
+get_shared_group_membership(Groups) ->
+    lists:foldl(
+        fun (GroupId, MembershipAcc) ->
+            Members = model_groups:get_member_uids(GroupId),
+            lists:foldl(
+                fun (MemberUid, Acc) ->
+                    CurMembership = maps:get(MemberUid, Acc, []),
+                    maps:put(MemberUid, [GroupId | CurMembership], Acc)
+                end,
+                MembershipAcc,
+                Members)
+        end,
+        #{},
+        Groups).
 
 
 print_shared_group_info(Uid, NumGroups, _Friends, []) ->
