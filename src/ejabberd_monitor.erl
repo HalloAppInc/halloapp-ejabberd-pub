@@ -39,7 +39,8 @@
     get_registered_name/0,
     get_registered_name/1,
     monitor_atoms/0,
-    monitor_c2s_heap_size/0
+    monitor_c2s_heap_size/0,
+    check_iam_role/1
 ]).
 
 %%====================================================================
@@ -133,17 +134,19 @@ init([]) ->
     {ok, TRef} = timer:apply_interval(?PING_INTERVAL_MS, ?MODULE, ping_procs, []),
     {ok, TRef2} = timer:apply_interval(?ATOM_CHECK_INTERVAL_MS, ?MODULE, monitor_atoms, []),
     {ok, TRef3} = timer:apply_interval(?C2S_SIZE_CHECK_INTERVAL_MS, ?MODULE, monitor_c2s_heap_size, []),
+    {ok, Config} = erlcloud_aws:auto_config(),
+    {ok, TRef4} = timer:apply_interval(?IAM_CHECK_INTERVAL_MS, ?MODULE, check_iam_role, [Config]),
     ets:new(?MONITOR_TABLE, [named_table, public]),
     ejabberd_hooks:add(node_up, ?MODULE, node_up, 10),
     {ok, #state{monitors = #{}, active_pings = #{}, gen_servers = [],
-        tref = TRef, atom_tref = TRef2, c2s_tref = TRef3}}.
+        trefs = [TRef, TRef2, TRef3, TRef4]}}.
 
 
-terminate(_Reason, #state{tref = TRef, atom_tref = AtomTRef, c2s_tref = C2STref} = _State) ->
+terminate(_Reason, #state{trefs = TRefs} = _State) ->
     ?INFO("Terminate: ~p", [?MONITOR_GEN_SERVER]),
-    timer:cancel(TRef),
-    timer:cancel(AtomTRef),
-    timer:cancel(C2STref),
+    lists:foreach(
+        fun(TRef) -> timer:cancel(TRef) end,
+        TRefs),
     ets:delete(?MONITOR_TABLE),
     ejabberd_hooks:delete(node_up, ?MODULE, node_up, 10),
     ok.
@@ -336,6 +339,25 @@ monitor_c2s_heap_size() ->
     ok.
 
 
+-spec check_iam_role(Config :: erlcloud_aws:aws_config()) -> ok.
+check_iam_role(Config) ->
+    case config:is_prod_env() of
+        false -> ok;
+        true ->
+            {ok, Result} = erlcloud_sts:get_caller_identity(Config),
+            {arn, Arn} = lists:keyfind(arn, 1, Result),
+            BinArn = util:to_binary(Arn),
+            Role = case util:is_machine_stest() of
+                true -> <<"s-test-perms">>;
+                false -> <<"Jabber-instance-perms">>
+            end,
+            case binary:match(BinArn, Role) of
+                nomatch -> send_role_change_alert(BinArn);
+                _ -> ok
+            end
+    end.
+
+
 check_ping_map(#state{active_pings = PingMap} = State) ->
     %% Check Ping Map and record ?FAIL_STATE for any leftover pings
     NumFailedPings = lists:foldl(
@@ -424,4 +446,10 @@ proc_to_binary(Proc) ->
 
 is_gen_server(Proc) ->
     not lists:member(Proc, get_supervisors()).
+
+
+send_role_change_alert(Info) ->
+    Host = util:get_machine_name(),
+    Msg = <<"IAM role change: ", Info/binary>>,
+    alerts:send_iam_role_change_alert(Host, Msg).
 

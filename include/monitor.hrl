@@ -27,15 +27,11 @@
 -define(ALIVE_STATE, ok).
 -define(FAIL_STATE, fail).
 
-%% TODO(josh): remove global_monitoring from state after all machines have globally registered ejabberd monitors
 -record(state, {
     monitors :: maps:map(),
     active_pings :: maps:map(),
     gen_servers :: [atom()],
-    tref :: timer:tref(),
-    atom_tref :: timer:tref(),
-    c2s_tref :: timer:tref(),
-    global_monitoring :: boolean()
+    trefs :: [timer:tref()]
 }).
 
 %%====================================================================
@@ -82,6 +78,8 @@
 -define(ATOM_LIMIT, 1048576).
 
 -define(C2S_SIZE_CHECK_INTERVAL_MS, 1 * ?HOURS_MS).
+
+-define(IAM_CHECK_INTERVAL_MS, (10 * ?MINUTES_MS)).
 
 -endif.
 
