@@ -87,17 +87,17 @@
 -define(GIGABYTE, 1073741824).
 %% redis-sessions is the smallest. it is just a bit more than 8KB.
 %% intent of the following macro is to capture deletion of almost all data.
-%% Current thresholds are set to (~80% of normal value) / 3 (one backup per shard, 3 shards per cluster)
+%% Current thresholds are set to (~20% of normal value) / 3 (one backup per shard, 3 shards per cluster)
 -define(MIN_BACKUP_SIZE_WARNING_THRESHOLD_MAP, #{
     "redis-sessions" => 5 * 1024, % normal size ~18MB
-    "redis-contacts" => 2 * ?GIGABYTE, % normal size ~9GB
-    "redis-accounts" => 100 * ?MEGABYTE, % normal size ~400MB
-    "redis-whisper" => 250 * ?MEGABYTE, % normal size ~1GB
-    "redis-auth" => 10 * ?MEGABYTE, % normal size ~50MB
-    "redisfeed" => 10 * ?MEGABYTE, % normal size ~70MB
-    "redis-groups" => 30 * ?MEGABYTE, % normal size ~175MB
-    "redismessages" => 30 * ?MEGABYTE, % normal size ~175MB
-    "redis-phone" => 50 * ?MEGABYTE % normal size ~225MB
+    "redis-contacts" => 600 * ?MEGABYTE, % normal size ~9GB
+    "redis-accounts" => 25 * ?MEGABYTE, % normal size ~400MB
+    "redis-whisper" => 70 * ?MEGABYTE, % normal size ~1GB
+    "redis-auth" => 5 * ?MEGABYTE, % normal size ~50MB
+    "redisfeed" => 5 * ?MEGABYTE, % normal size ~70MB
+    "redis-groups" => 12 * ?MEGABYTE, % normal size ~175MB
+    "redismessages" => 12 * ?MEGABYTE, % normal size ~175MB
+    "redis-phone" => 15 * ?MEGABYTE % normal size ~225MB
     }).
 -define(DEFAULT_MIN_BACKUP_SIZE_WARNING_THRESHOLD, 10 * 1024). %% 10KB
 
