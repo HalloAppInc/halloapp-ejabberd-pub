@@ -72,12 +72,12 @@ e2e_success_failure_rates(Platform, TimestampMsBin) ->
             (SELECT success.version, ROUND(success.count * 100 / total.count, 2) as success_rate, total.count as total_count
             FROM
                 (SELECT version, SUM(cast(count AS REAL)) as count
-                FROM \"default\".\"client_crypto_home_encryption\"
+                FROM \"default\".\"client_crypto_home_decryption\"
                     where platform='", Platform/binary, "' AND result='ok' AND \"timestamp_ms\" >= '", TimestampMsBin/binary, "'
                     GROUP BY version) as success
             JOIN
                 (SELECT version, SUM(cast(count AS REAL)) as count
-                FROM \"default\".\"client_crypto_home_encryption\"
+                FROM \"default\".\"client_crypto_home_decryption\"
                     where platform='", Platform/binary, "' AND \"timestamp_ms\" >= '", TimestampMsBin/binary, "'
                     GROUP BY version) as total  on success.version=total.version) as dec_success
         on enc_success.version=dec_success.version
