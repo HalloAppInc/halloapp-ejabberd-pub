@@ -156,16 +156,14 @@ get_uid_based_props(PropMap, Uid) ->
             PropMap4 = maps:update(external_sharing, true, PropMap3),
             PropMap5 = maps:update(draw_media, true, PropMap4),
             PropMap6 = maps:update(privacy_label, true, PropMap5),
-            PropMap7 = maps:update(krisp_noise_suppression, true, PropMap6),
-            PropMap8 = maps:update(home_feed_comment_notifications, false, PropMap7),
-            PropMap9 = maps:update(file_sharing, true, PropMap8),
-            PropMap10 = maps:update(use_cleartext_group_feed, false, PropMap9),
-            PropMap11 = maps:update(new_chat_ui, true, PropMap10),
-            PropMap12 = maps:update(default_krisp_noise_suppression, true, PropMap11),
-            PropMap13 = maps:update(enable_sentry_perf_tracking, true, PropMap12),
-            PropMap14 = maps:update(group_expiry, true, PropMap13),
-            PropMap15 = maps:update(enable_groups_grid, true, PropMap14),
-            PropMap15
+            PropMap7 = maps:update(home_feed_comment_notifications, false, PropMap6),
+            PropMap8 = maps:update(file_sharing, true, PropMap7),
+            PropMap9 = maps:update(use_cleartext_group_feed, false, PropMap8),
+            PropMap10 = maps:update(new_chat_ui, true, PropMap9),
+            PropMap11 = maps:update(enable_sentry_perf_tracking, true, PropMap10),
+            PropMap12 = maps:update(group_expiry, true, PropMap11),
+            PropMap13 = maps:update(enable_groups_grid, true, PropMap12),
+            PropMap13
     end,
     apply_uid_prop_overrides(Uid, ResPropMap).
 
@@ -210,98 +208,10 @@ apply_uid_prop_overrides(Uid, PropMap) ->
 -spec uid_prop_override(Uid :: uid(), Prop :: atom()) -> undef | term().
 uid_prop_override(<<"1000000000490675850">>, use_cleartext_group_feed) -> false;  %% Murali (groupe2e)
 uid_prop_override(<<"1000000000212763494">>, use_cleartext_group_feed) -> false;  %% Murali (groupe2e)
-uid_prop_override(Uid, krisp_noise_suppression) ->
-    is_krisp_on(Uid);
 uid_prop_override(Uid, is_psa_admin) ->
     dev_users:is_psa_admin(Uid);
-uid_prop_override(Uid, default_krisp_noise_suppression) ->
-    is_krisp_on(Uid);
 uid_prop_override(_Uid, _Prop) ->
     undef.
-
-is_krisp_on(Uid) ->
-    case is_krisp_on_uid(Uid) of
-        true -> true;
-        false -> is_krisp_on_for_contact(Uid)
-    end.
-
-is_krisp_on_uid(Uid) ->
-    case gb_sets:is_element(Uid, reach_out_users()) of
-        true -> true;
-        false -> is_uid_in_half_set(Uid)
-    end.
-
-is_uid_in_half_set(Uid) ->
-    crc16_redis:crc16(util:to_list(Uid)) rem 3 =:= 0.
-
-is_krisp_on_for_contact(Uid) ->
-    {ok, Phone} = model_accounts:get_phone(Uid),
-    {ok, ContactUids} = model_contacts:get_contact_uids(Phone),
-    case is_krisp_on_for_contact_list(ContactUids) of
-        true -> true;
-        false -> undef  %% Don't override the noise suppression prop
-    end.
-
-is_krisp_on_for_contact_list([Uid|T]) ->
-    case is_krisp_on_uid(Uid) of
-        true -> true;
-        false -> is_krisp_on_for_contact_list(T)
-    end;
-is_krisp_on_for_contact_list([]) -> false.
-
-
-%% English speaking android users that have received calls from >= 2 unique users
-%% total call time >= 30 seconds.
-reach_out_users() ->
-    gb_sets:from_list([
-        <<"1000000000986912824">>,
-        <<"1000000000595131504">>,
-        <<"1000000000185937915">>,
-        <<"1000000000679891282">>,
-        <<"1000000000523926349">>,
-        <<"1000000000305288240">>,
-        <<"1000000000318973506">>,
-        <<"1000000000893731049">>,
-        <<"1000000000470767888">>,
-        <<"1000000000394730720">>,   %% Above users were picked from the logs.
-        <<"1000000000244386007">>,   %% Babken
-        <<"1000000000391903431">>,   %% Tigran
-        <<"1000000000608373702">>,   %% Grigor
-        <<"1000000000470441450">>,
-        <<"1000000000319812640">>,
-        <<"1000000000501355953">>,
-        <<"1000000000073703946">>,
-        <<"1000000000986912824">>,
-        <<"1000000000732601709">>,
-        <<"1000000000422123879">>,
-        <<"1000000000589160898">>,
-        <<"1000000000679891282">>,
-        <<"1000000000842553635">>,
-        <<"1000000000305288240">>,
-        <<"1000000000871871514">>,
-        <<"1000000000272974927">>,
-        <<"1000000000257241282">>,
-        <<"1000000000595131504">>,
-        <<"1000000000325261047">>,
-        <<"1000000000384709179">>,
-        <<"1000000000342507776">>,
-        <<"1000000000080345706">>,
-        <<"1000000000913082664">>,
-        <<"1000000000489569557">>,
-        <<"1000000000338599889">>,
-        <<"1000000000956772891">>,
-        <<"1000000000109841048">>,
-        <<"1000000000977167116">>,
-        <<"1000000000545035268">>,
-        <<"1000000000394730720">>,
-        <<"1000000000228055381">>,
-        <<"1000000000523138805">>,
-        <<"1000000000470767888">>,
-        <<"1000000000637854529">>,
-        <<"1000000000399778754">>,
-        <<"1000000000976734425">>,
-        <<"1000000000615158513">>
-    ]).
 
 generate_hash(SortedProplist) ->
     Json = jsx:encode(SortedProplist),
