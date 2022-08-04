@@ -741,16 +741,24 @@ clear_cache() ->
 
 add_uid_trace(Uid) ->
     UidBin = list_to_binary(Uid),
-    % TODO: check if it looks like uid
-    ?INFO("Uid: ~s", [UidBin]),
-    mod_trace:add_uid(UidBin),
+    case util_uid:looks_like_uid(UidBin) of
+        true ->
+            ?INFO("Uid: ~s", [UidBin]),
+            mod_trace:add_uid(UidBin);
+        false ->
+            ?INFO("Not tracing Uid: ~s -- doesn't look like Uid", [UidBin])
+    end,
     ok.
 
 remove_uid_trace(Uid) ->
     UidBin = list_to_binary(Uid),
-    % TODO: check if it looks like uid
-    ?INFO("Uid: ~s", [UidBin]),
-    mod_trace:remove_uid(UidBin),
+    case util_uid:looks_like_uid(UidBin) of
+        true ->
+            ?INFO("Uid: ~s", [UidBin]),
+            mod_trace:remove_uid(UidBin);
+        false ->
+            ?INFO("Can't remove Uid: ~s -- doesn't look like Uid", [UidBin])
+    end,
     ok.
 
 add_phone_trace(Phone) ->

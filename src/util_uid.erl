@@ -17,7 +17,8 @@
 -export([
     generate_uid/0,
     generate_uid/2,
-    uid_size/0
+    uid_size/0,
+    looks_like_uid/1
 ]).
 
 
@@ -62,4 +63,14 @@ generate_uid(Region, Shard)
 -spec uid_size() -> non_neg_integer().
 uid_size() ->
     ?UID_SIZE.
+
+
+-spec looks_like_uid(binary()) -> boolean().
+looks_like_uid(Bin) when not is_binary(Bin) orelse byte_size(Bin) =/= ?UID_SIZE->
+    false;
+looks_like_uid(Bin) ->
+    case re:run(Bin, "1000000000[0-9]{9}") of
+        {match, [{0, 19}]} -> true;
+        _ -> false
+    end.
 

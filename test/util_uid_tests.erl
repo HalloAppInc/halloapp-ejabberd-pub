@@ -41,3 +41,13 @@ generate_uid_invalid_shard_test() ->
 uid_size_test() ->
     ?assertEqual(19, util_uid:uid_size()).
 
+
+looks_like_uid_test() ->
+    {ok, FreshUid} = util_uid:generate_uid(),
+    ?assert(util_uid:looks_like_uid(FreshUid)),
+    ?assert(util_uid:looks_like_uid(<<"1000000000000000001">>)), 
+    ?assertNot(util_uid:looks_like_uid(<<"10000000000000000001">>)), % too long
+    ?assertNot(util_uid:looks_like_uid(<<"0">>)), %too short
+    ?assertNot(util_uid:looks_like_uid("string")), % wrong type
+    ok.
+
