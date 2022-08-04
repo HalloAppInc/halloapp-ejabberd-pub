@@ -253,7 +253,7 @@ c2s_session_closed(#{user := UserId} = State) ->
             ok;
         _ ->
             MsgId = util_id:new_msg_id(),
-            ?INFO("Sending wake_up push msg to Uid: ~s, MsgId: ~s", [UserId, MsgId]),
+            ?INFO("Sending wake_up push msg to Uid: ~s, MsgId: ~s MsgQueue Size: ~p", [UserId, MsgId, Count]),
             Msg = #pb_msg{
                 id = MsgId,
                 to_uid = UserId,
