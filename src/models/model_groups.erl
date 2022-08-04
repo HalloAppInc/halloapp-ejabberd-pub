@@ -14,6 +14,7 @@
 -include("time.hrl").
 
 -define(GROUP_INVITE_LINK_SIZE, 24).
+-define(DEFAULT_GROUP_EXPIRY_SEC, (31 * ?DAYS)).
 
 
 %% API
@@ -91,7 +92,7 @@
 
 -spec create_group(Uid :: uid(), Name :: binary()) -> {ok, Gid :: gid()}.
 create_group(Uid, Name) ->
-    create_group(Uid, Name, expires_in_seconds, 30 * ?DAYS, util:now_ms()).
+    create_group(Uid, Name, expires_in_seconds, ?DEFAULT_GROUP_EXPIRY_SEC, util:now_ms()).
 
 
 -spec create_group(Uid :: uid(), Name :: binary(),
@@ -217,7 +218,7 @@ extract_expiry_info(GroupMap) ->
         expires_in_seconds ->
             #expiry_info{
                 expiry_type = ExpiryType,
-                expires_in_seconds = util_redis:decode_ts(maps:get(?FIELD_EXPIRY_TIMESTAMP, GroupMap, undefined))
+                expires_in_seconds = util_redis:decode_ts(maps:get(?FIELD_EXPIRY_TIMESTAMP, GroupMap, util:to_binary(?DEFAULT_GROUP_EXPIRY_SEC)))
             };
         custom_date ->
             #expiry_info{
