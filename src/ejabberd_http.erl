@@ -340,7 +340,7 @@ get_transfer_protocol(RE, SockMod, HostPort) ->
 %% matches the requested URL path, and pass control to it.  If none is
 %% found, answer with HTTP 404.
 
-process([], _) -> make_text_output(#state{}, 400, [], <<"Malformed Host header">>);
+process([], _) -> make_text_output(#state{request_keepalive = false}, 400, [], <<"Malformed Host header">>);
 process(Handlers, Request) ->
     {HandlerPathPrefix, HandlerModule, HandlerOpts, HandlersLeft} =
         case Handlers of
