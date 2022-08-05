@@ -81,7 +81,12 @@
 -define(DAILY_BACKUP_INTERVAL, 1 * ?DAYS).
 -define(AWS_RETRY_WINDOW, 15 * ?SECONDS_MS).
 -define(MAX_WAIT_RETRIES, 500). %% 2 hours, 5 minutes
+
+-ifdef(TEST).
+-define(NUM_BACKUPS_WARNING_THRESHOLD, 1). %% mod_backup test uses 2 backups
+-else.
 -define(NUM_BACKUPS_WARNING_THRESHOLD, 47).
+-endif.
 
 -define(MEGABYTE, 1048576).
 -define(GIGABYTE, 1073741824).
@@ -99,7 +104,12 @@
     "redismessages" => 12 * ?MEGABYTE, % normal size ~175MB
     "redis-phone" => 15 * ?MEGABYTE % normal size ~225MB
     }).
+
+-ifdef(TEST).
+-define(DEFAULT_MIN_BACKUP_SIZE_WARNING_THRESHOLD, 100). %% 100B -- the mod_backup test uses ~800B
+-else.
 -define(DEFAULT_MIN_BACKUP_SIZE_WARNING_THRESHOLD, 10 * 1024). %% 10KB
+-endif.
 
 %%%=============================================================================
 %%% END MACROS
