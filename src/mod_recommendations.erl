@@ -206,7 +206,7 @@ process_invite_recos(Query) ->
             end,
             lists:sublist(FinalUidInfo, 10)),
 
-        ?INFO("Showing ~p out of ~p invite recommendations:", [length(InviteRecommendations), MaxInviteRecommendations]),
+        ?INFO("Showing ~p out of ~p invite recommendations:", [MaxInviteRecommendations, length(InviteRecommendations)]),
         NewInvites2 = lists:sublist(InviteRecommendations, MaxInviteRecommendations),
         lists:foreach(
             fun({InvitePh, KnownUids}) ->
@@ -268,7 +268,7 @@ generate_invite_recos(Uid, Ouids) ->
                     end, 
                     0, 
                     KnownList2),
-                Rank1 >= Rank2;
+                Rank1 =< Rank2; % lower rank is better (closer to front of best friends list)
             ({_Ph1, KnownList1}, {_Ph2, KnownList2}) ->
                 length(KnownList1) > length(KnownList2)
         end, 
