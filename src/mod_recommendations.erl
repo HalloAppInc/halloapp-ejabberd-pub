@@ -103,10 +103,11 @@ invite_recos(Uid, MaxInviteRecommendations) ->
 
 -spec invite_recos(Uid :: uid(), MaxInviteRecommendations :: pos_integer(), NumOuids :: pos_integer()) -> ok.
 invite_recos(Uid, MaxInviteRecommendations, NumOuids) ->
-    ?INFO("generating invite recommendations for ~p", [Uid]),
     case model_accounts:account_exists(Uid) of
         false -> io:format("Uid ~s doesn't have an account.~n", [Uid]);
         true ->
+            {ok, Name} = model_accounts:get_name(Uid),
+            ?INFO("Generating invite recommendations for ~p (~p)", [Uid, Name]),
             mod_athena_stats:run_query(invite_ouid_query(Uid, MaxInviteRecommendations, NumOuids))
     end,
     ok.
@@ -181,7 +182,7 @@ process_invite_recos(Query) ->
             {Ouid, NumEvents, length(SharedGroups)}
         end,
         OuidCommunicationList),
-    %Sort first by number of shared groups with Uid, then by number of friend_events
+    % Sort first by number of shared groups with Uid, then by number of friend_events
     SortedOuidInfo = lists:sort( 
         fun ({_Ouid1, NumEvents1, NumGroups1}, {_Ouid2, NumEvents2, NumGroups2}) when NumGroups1 =:= NumGroups2 ->
                 NumEvents1 >= NumEvents2;
@@ -193,9 +194,14 @@ process_invite_recos(Query) ->
     FinalUidInfo = lists:sublist(SortedOuidInfo, MaxOuids),
     {Ouids, _NumEvents, _NumGroups} = lists:unzip3(FinalUidInfo),
 
-
-
-    ?INFO("Inviter Ouid Info {uid, num_friend_events, num_shared_groups}: ~p", [FinalUidInfo]),
+    NamesMap = model_accounts:get_names(Ouids),
+    ?INFO("Top 10 Close Friends Info:"),
+    lists:foreach(
+        fun ({Ouid, NumEvents, NumCommonGroups}) ->
+            ?INFO("  ~p: ~p groups, ~p friend_events", 
+                [maps:get(Ouid, NamesMap, Ouid), NumCommonGroups, NumEvents])
+        end,
+        lists:sublist(FinalUidInfo, 10)),
 
     % % print info about all uids
     % lists:foreach(
@@ -217,12 +223,11 @@ process_invite_recos(Query) ->
 
     InviteRecommendations = generate_invite_recos(Uid, Ouids),
 
-    ?INFO("(~p invite recommendations):", [length(InviteRecommendations)]),
+    ?INFO("Showing ~p out of ~p invite recommendations:", [length(InviteRecommendations), MaxInviteRecommendations]),
     NewInvites2 = lists:sublist(InviteRecommendations, MaxInviteRecommendations),
     lists:foreach(
         fun({InvitePh, KnownUids}) ->
             ?INFO("  ~s", [InvitePh]),
-            NamesMap = model_accounts:get_names(KnownUids),
             PhonesList = model_accounts:get_phones(KnownUids),
             PhoneUidList = lists:zip(PhonesList, KnownUids),
             [?INFO("    ~s, ~s, ~s",
@@ -235,19 +240,20 @@ process_invite_recos(Query) ->
 -spec generate_invite_recos(Uid :: uid(), Ouids :: [uid()]) -> [{phone(), [uid()]}].
 generate_invite_recos(Uid, Ouids) ->
     {ok, [MainContacts | OuidContactList]} = model_contacts:get_contacts([Uid | Ouids]),
-
+    
+    OuidEnum = lists:enumerate(Ouids),
     CommonContactsMap = lists:foldl(
         fun (Contact, CommonMap) ->
             KnownOuids = lists:foldl(
-                fun ({Ouid, OuidContacts}, KnownAcc) ->
+                fun ({OuidRank, OuidContacts}, KnownAcc) ->
                     case lists:member(Contact, OuidContacts) of
-                        true -> [Ouid | KnownAcc];
+                        true -> [OuidRank | KnownAcc];
                         false -> KnownAcc
                     end
                 end,
                 [],
-                lists:zip(Ouids, OuidContactList)),
-            CommonMap#{Contact => KnownOuids}
+                lists:zip(OuidEnum, OuidContactList)),
+            CommonMap#{Contact => lists:reverse(KnownOuids)} % display known ids in rank order
         end,
         #{},
         MainContacts),
@@ -258,16 +264,38 @@ generate_invite_recos(Uid, Ouids) ->
     NewInvites = [{Ph, maps:get(Ph, CommonContactsMap)} || Ph <- CommonContacts, 
             maps:get(Ph, CommonUidsMap, undefined) =:= undefined andalso 
             not util:is_test_number(Ph)],
-    NewInvitesSorted = lists:reverse(lists:sort(
-        fun ({_Ph1, KnownList1}, {_Ph2, KnownList2}) ->
-            length(KnownList1) =< length(KnownList2)
+
+    NewInvitesSorted = lists:sort(
+        fun ({_Ph1, KnownList1}, {_Ph2, KnownList2}) when length(KnownList1) =:= length(KnownList2) ->
+                % Sort recommendations by aggregate closeness rank of common contacts
+                Rank1 = lists:foldl(
+                    fun ({Rank, _Ouid}, Acc) ->
+                        Acc + Rank
+                    end, 
+                    0, 
+                    KnownList1),
+                Rank2 = lists:foldl(
+                    fun ({Rank, _Ouid}, Acc) ->
+                        Acc + Rank
+                    end, 
+                    0, 
+                    KnownList2),
+                Rank1 >= Rank2;
+            ({_Ph1, KnownList1}, {_Ph2, KnownList2}) ->
+                length(KnownList1) > length(KnownList2)
         end, 
-        NewInvites)),
-    lists:filter(
+        NewInvites),
+    Filtered = lists:filter(
         fun ({_Ph, KnownList}) ->
             length(KnownList) > 0
         end,
-        NewInvitesSorted).
+        NewInvitesSorted),
+    lists:map(
+        fun ({Ph, KnownList}) ->
+            {_Ranks, KnownOuids} = lists:unzip(KnownList),
+            {Ph, KnownOuids}
+        end,
+        Filtered).
 
 
 -spec update_ouid_map(Ouid :: uid(), Cnt :: pos_integer(), Map :: map()) -> map().
