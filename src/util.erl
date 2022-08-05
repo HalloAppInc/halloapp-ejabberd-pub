@@ -517,8 +517,8 @@ set_timestamp(#pb_msg{payload = #pb_silent_chat_stanza{chat_stanza = #pb_chat_st
 set_timestamp(#pb_msg{payload = #pb_played_receipt{} = PlayedReceipt} = Msg, T) ->
     Msg#pb_msg{payload = PlayedReceipt#pb_played_receipt{timestamp = T}};
 
-set_timestamp(#pb_msg{payload = #pb_saved_receipt{} = PlayedReceipt} = Msg, T) ->
-    Msg#pb_msg{payload = PlayedReceipt#pb_saved_receipt{timestamp = T}};
+set_timestamp(#pb_msg{payload = #pb_saved_receipt{} = SavedReceipt} = Msg, T) ->
+    Msg#pb_msg{payload = SavedReceipt#pb_saved_receipt{timestamp = T}};
 
 set_timestamp(Packet, _T) -> Packet.
 
