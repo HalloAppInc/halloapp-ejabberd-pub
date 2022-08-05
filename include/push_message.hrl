@@ -18,7 +18,7 @@
     retry_ms :: integer(),
     push_info :: push_info(),
     push_type = silent :: alert | silent,
-    content_type = <<>> :: binary(),
+    content_type = undefined :: atom(),
     apns_id :: binary()
 }).
 

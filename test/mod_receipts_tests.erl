@@ -23,7 +23,7 @@
 -define(TS2, <<"16000000000">>).
 -define(SERVER, <<"s.halloapp.net">>).
 
--define(TYPE1, <<"chat">>).
+-define(TYPE1, chat).
 -define(MESSAGE1, <<"msg_1">>). % arbitrary example binary blob
 -define(THREAD_ID, <<"thread">>).
 

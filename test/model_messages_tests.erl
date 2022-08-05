@@ -18,11 +18,11 @@
 -define(GROUP1, <<"gRYMMwrS_H0isftYAJOlLV">>).
 -define(SERVER, <<"s.halloapp.net">>).
 -define(MID1, <<"a985962b-33b1">>).
--define(TYPE1, <<"group_chat">>).
+-define(TYPE1, group_chat).
 -define(MID2, <<"cea48bd2-c1ab">>).
--define(TYPE2, <<"chat">>).
+-define(TYPE2, chat).
 -define(MID3, <<"dae46a45-95f2">>).
--define(TYPE3, <<"contact_list">>).
+-define(TYPE3, contact_list).
 -define(MESSAGE1, <<"msg_1">>). % arbitrary example binary blob
 -define(OFFLINE_MESSAGE1, #offline_message{msg_id = ?MID1, to_uid = ?UID1, from_uid = undefined,
         content_type = ?TYPE1, retry_count = 1, message = ?MESSAGE1, order_id = 1, protobuf = false,
@@ -94,14 +94,14 @@ store_message_pb_test() ->
     ?assertEqual({ok, ?EMPTY_OFFLINE_MESSAGE}, model_messages:get_message(?UID4, ?MID1)),
 
     MsgBin = enif_protobuf:encode(Msg),
-    ?assertEqual(ok, model_messages:store_message(?UID4, ?UID2, ?MID1, <<"pb_seen_receipt">>, undefined, MsgBin, true)),
+    ?assertEqual(ok, model_messages:store_message(?UID4, ?UID2, ?MID1, pb_seen_receipt, undefined, MsgBin, true)),
     {ok, ActualOfflineMessage} = model_messages:get_message(?UID4, ?MID1),
 
     ExpectedOfflineMessage = #offline_message{
         msg_id = ?MID1,
         to_uid = ?UID4,
         from_uid = ?UID2,
-        content_type = <<"pb_seen_receipt">>,
+        content_type = pb_seen_receipt,
         retry_count = 1,
         message = enif_protobuf:encode(Msg),
         order_id = 1,

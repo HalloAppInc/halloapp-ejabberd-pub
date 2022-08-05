@@ -280,13 +280,14 @@ parse_fields(MsgId, FieldValuesList) ->
         undefined -> undefined;
         _ ->
             RetryCount = binary_to_integer(maps:get(?FIELD_RETRY_COUNT, MsgDataMap)),
+            ContentType = util:to_atom(maps:get(?FIELD_CONTENT_TYPE, MsgDataMap, undefined)),
             ToUid = maps:get(?FIELD_TO, MsgDataMap),
             #offline_message{
                 msg_id = MsgId,
                 message = Message,
                 to_uid = ToUid,
                 from_uid = maps:get(?FIELD_FROM, MsgDataMap, undefined),
-                content_type = maps:get(?FIELD_CONTENT_TYPE, MsgDataMap),
+                content_type = ContentType,
                 retry_count = RetryCount,
                 order_id = binary_to_integer(maps:get(?FIELD_ORDER, MsgDataMap)),
                 thread_id = maps:get(?FIELD_THREAD_ID, MsgDataMap, undefined),

@@ -50,8 +50,8 @@ reload(_Host, _NewOpts, _OldOpts) ->
 -spec user_ack_packet(Ack :: ack(), OfflineMessage :: offline_message()) -> ok.
 user_ack_packet(#pb_ack{id = Id, from_uid = FromUid},
         #offline_message{content_type = ContentType, from_uid = MsgFromId, thread_id = ThreadId})
-        when ContentType =:= <<"chat">>; ContentType =:= <<"group_chat">>;
-        ContentType =:= <<"pb_chat_stanza">>; ContentType =:= <<"pb_group_chat">> ->
+        when ContentType =:= chat; ContentType =:= group_chat;
+        ContentType =:= pb_chat_stanza; ContentType =:= pb_group_chat ->
     ?INFO("Uid: ~s, Id: ~p, ContentType: ~p", [FromUid, Id, ContentType]),
     Timestamp = util:now(),
     send_receipt(MsgFromId, FromUid, Id, ThreadId, Timestamp),
@@ -78,13 +78,13 @@ send_receipt(ToUid, FromUid, Id, ThreadId, Timestamp) ->
     ejabberd_router:route(MessageReceipt).
 
 
-log_delivered(<<"chat">>) ->
+log_delivered(chat) ->
     stat:count("HA/im_receipts", "delivered");
-log_delivered(<<"pb_chat_stanza">>) ->
+log_delivered(pb_chat_stanza) ->
     stat:count("HA/im_receipts", "delivered");
-log_delivered(<<"group_chat">>) ->
+log_delivered(group_chat) ->
     stat:count("HA/group_im_receipts", "delivered");
-log_delivered(<<"pb_group_chat">>) ->
+log_delivered(pb_group_chat) ->
     stat:count("HA/group_im_receipts", "delivered");
 log_delivered(_) -> ok.
 

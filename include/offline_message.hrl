@@ -5,7 +5,6 @@
 %%%
 %%%--------------------------------------------------------------------------
 
-%% TODO(murali@): update content_type to be atom later.
 -author('murali').
 
 -ifndef(OFFLINE_MESSAGES_HRL).
@@ -19,7 +18,7 @@
     order_id :: integer(),
     to_uid :: binary(),
     from_uid :: binary(),
-    content_type :: binary(),
+    content_type :: atom(),
     retry_count :: integer(),
     message :: binary(),
     thread_id :: binary(),

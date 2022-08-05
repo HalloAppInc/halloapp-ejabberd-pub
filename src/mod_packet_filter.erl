@@ -65,7 +65,7 @@ offline_message_version_filter(allow, Uid, ClientVersion,
         #offline_message{msg_id = MsgId, content_type = ContentType,
         message = Message} = _OfflineMessage) ->
     Platform = util_ua:get_client_type(ClientVersion),
-    PayloadType = util:to_atom(ContentType),
+    PayloadType = ContentType,
     case check_content_version_rules(Platform, ClientVersion, PayloadType, Message) of
         false ->
             ?INFO("Uid: ~s, Dropping message for msgid: ~s, content: ~s due to client version: ~s",
