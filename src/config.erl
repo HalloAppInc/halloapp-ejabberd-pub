@@ -9,6 +9,8 @@
 -module(config).
 -author("nikola").
 
+-include("logger.hrl").
+
 %% API
 -export([
     get_hallo_env/0,
@@ -46,8 +48,12 @@ get_hallo_env() ->
         ?ENV_GITHUB -> github;
         ?ENV_STRESS -> stress;
         ?ENV_DOCKER -> docker;
-        _Else -> prod
-        %% TODO: %% if nothing is present then update to use test or github.
+        false -> 
+            ?ERROR("Environment ~p not set! Defaulting to test", [?HALLO_ENV_NAME]),
+            test;
+        Else -> 
+            ?ERROR("Unexpected ~p value: ~p. Defaulting to prod", [?HALLO_ENV_NAME, Else]),
+            prod
     end.
 
 
