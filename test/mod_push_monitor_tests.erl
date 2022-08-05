@@ -25,46 +25,44 @@ meck_finish(Mod) ->
     meck:unload(Mod).
 
 
-push_status_android_test() ->
+push_monitor_android_test() ->
     setup(),
     meck_init(alerts, send_alert, fun(_,_,_,_) -> ok end),
-    State = #{ios_pushes => [0], android_pushes => []},
-    State1 = mod_push_monitor:push_status(failure, android, State),
-    State1 = #{ios_pushes => [0], android_pushes => [0]},
-    State2 = mod_push_monitor:push_status(success, android, State1),
-    State2 = #{ios_pushes => [0], android_pushes => [1, 0]},
-    State3 = mod_push_monitor:push_status(failure, android, State2),
-    State3 = #{ios_pushes => [0], android_pushes => [0, 1, 0]},
+    {Android1, Ios1} = mod_push_monitor:push_monitor(failure, android, [], [0]),
+    ?assertEqual({[0], [0]}, {Android1, Ios1}),
+    {Android2, Ios2} = mod_push_monitor:push_monitor(success, android, Android1, Ios1),
+    ?assertEqual({[1, 0], [0]}, {Android2, Ios2}),
+    {Android3, Ios3} = mod_push_monitor:push_monitor(failure, android, Android2, Ios2),
+    ?assertEqual({[0, 1, 0], [0]}, {Android3, Ios3}),
 
     AlertRate = [0 || _ <- lists:seq(1,100)],
 
-    State4 = #{ios_pushes => [], android_pushes => AlertRate},
-    State5 = mod_push_monitor:push_status(success, android, State4),
+    {Android4, Ios4} = {AlertRate, []},
+    {Android5, Ios5} = mod_push_monitor:push_monitor(success, android, Android4, Ios4),
     NewSuccessList = [1] ++ [0 || _ <- lists:seq(1,99)],
-    State5 = #{ios_pushes => [], android_pushes => NewSuccessList},
+    ?assertEqual({NewSuccessList, []}, {Android5, Ios5}),
     ?assert(meck:called(alerts, send_alert, ['_', '_', '_', '_'])),
 
     meck_finish(alerts),
     ok.
 
 
-push_status_ios_test() ->
+push_monitor_ios_test() ->
     setup(),
     meck_init(alerts, send_alert, fun(_,_,_,_) -> ok end),
-    State = #{android_pushes => [0], ios_pushes => []},
-    State1 = mod_push_monitor:push_status(failure, ios, State),
-    State1 = #{android_pushes => [0], ios_pushes => [0]},
-    State2 = mod_push_monitor:push_status(success, ios, State1),
-    State2 = #{android_pushes => [0], ios_pushes => [1, 0]},
-    State3 = mod_push_monitor:push_status(failure, ios, State2),
-    State3 = #{android_pushes => [0], ios_pushes => [0, 1, 0]},
+    {Android1, Ios1} = mod_push_monitor:push_monitor(failure, ios, [0], []),
+    ?assertEqual({[0], [0]}, {Android1, Ios1}),
+    {Android2, Ios2} = mod_push_monitor:push_monitor(success, ios, Android1, Ios1),
+    ?assertEqual({[0], [1, 0]}, {Android2, Ios2}),
+    {Android3, Ios3} = mod_push_monitor:push_monitor(failure, ios, Android2, Ios2),
+    ?assertEqual({[0], [0, 1, 0]}, {Android3, Ios3}),
 
     AlertRate = [0 || _ <- lists:seq(1,100)],
 
-    State4 = #{android_pushes => [], ios_pushes => AlertRate},
-    State5 = mod_push_monitor:push_status(success, ios, State4),
+    {Android4, Ios4} = {[], AlertRate},
+    {Android5, Ios5} = mod_push_monitor:push_monitor(success, ios, Android4, Ios4),
     NewSuccessList = [1] ++ [0 || _ <- lists:seq(1,99)],
-    State5 = #{android_pushes => [], ios_pushes => NewSuccessList},
+    ?assertEqual({[], NewSuccessList}, {Android5, Ios5}),
     ?assert(meck:called(alerts, send_alert, ['_', '_', '_', '_'])),
 
     meck_finish(alerts),
