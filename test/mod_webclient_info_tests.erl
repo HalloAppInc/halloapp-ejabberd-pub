@@ -41,7 +41,8 @@ autheticate_test() ->
     PbIq2 = #pb_iq{from_uid = ?UID1, type = set, payload = PbWeb2},
     IqRes2 = mod_webclient_info:process_local_iq(PbIq2),
     #pb_iq{to_uid = ?UID1, type = result, payload = #pb_web_client_info{result = ok}} = IqRes2,
-    {ok, [?STATIC_KEY2, ?STATIC_KEY]} = model_auth:get_static_keys(?UID1),
+    {ok, StaticKeys} = model_auth:get_static_keys(?UID1),
+    ?assertEqual(sets:from_list([?STATIC_KEY2, ?STATIC_KEY]), sets:from_list(StaticKeys)),
 
     ok.
 
