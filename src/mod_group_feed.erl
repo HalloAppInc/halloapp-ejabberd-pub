@@ -291,7 +291,7 @@ publish_comment_unsafe(GroupInfo, Uid, CommentId, PostId, ParentCommentId, Paylo
     Gid = GroupInfo#group_info.gid,
     {ok, SenderName} = model_accounts:get_name(Uid),
     MediaCounters = GroupFeedSt#pb_group_feed_item.item#pb_comment.media_counters,
-
+    CommentType = GroupFeedSt#pb_group_feed_item.item#pb_comment.comment_type,
     case model_feed:get_comment_data(PostId, CommentId, ParentCommentId) of
         {{error, missing}, _, _} ->
             {error, invalid_post_id};
@@ -321,7 +321,7 @@ publish_comment_unsafe(GroupInfo, Uid, CommentId, PostId, ParentCommentId, Paylo
             ok = model_feed:publish_comment(CommentId, PostId, Uid,
                     ParentCommentId, PayloadBase64, TimestampMs),
             ejabberd_hooks:run(group_feed_item_published, Server,
-                    [Gid, Uid, PostOwnerUid, CommentId, comment, sets:size(AudienceSet), MediaCounters]),
+                    [Gid, Uid, PostOwnerUid, CommentId, CommentType, sets:size(AudienceSet), MediaCounters]),
 
             NewGroupFeedSt = make_pb_group_feed_item(GroupInfo, Uid,
                     SenderName, GroupFeedSt, util:ms_to_sec(TimestampMs)),

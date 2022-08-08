@@ -248,6 +248,20 @@ feed_item_published(Uid, PostOwnerUid, ItemId, ItemType, ItemTag, FeedAudienceTy
             report_audience_size("feed", "comment", CC, FeedAudienceSize),
             stat:count("HA/feed", "comment_by_cc", 1, [{cc, CC}]),
             stat:count("HA/feed", "comment_by_dev", 1, [{is_dev, IsDev}]);
+        comment_reaction ->
+            ?INFO("comment_reaction ~s from Uid: ~s CC: ~s IsDev: ~p",[ItemId, Uid, CC, IsDev]),
+            ha_events:log_user_event(Uid, comment_reaction_published),
+            ha_events:log_friend_event(PostOwnerUid, Uid, ItemId, comment_reaction_published),
+            stat:count("HA/feed", "comment_reaction"),
+            stat:count("HA/feed", "comment_reaction_by_cc", 1, [{cc, CC}]),
+            stat:count("HA/feed", "comment_reaction_by_dev", 1, [{is_dev, IsDev}]);
+        post_reaction ->
+            ?INFO("post_reaction ~s from Uid: ~s CC: ~s IsDev: ~p",[ItemId, Uid, CC, IsDev]),
+            ha_events:log_user_event(Uid, post_reaction_published),
+            ha_events:log_friend_event(PostOwnerUid, Uid, ItemId, post_reaction_published),
+            stat:count("HA/feed", "post_reaction"),
+            stat:count("HA/feed", "post_reaction_by_cc", 1, [{cc, CC}]),
+            stat:count("HA/feed", "post_reaction_by_dev", 1, [{is_dev, IsDev}]);
         _ -> ok
     end,
     ok.
@@ -293,6 +307,20 @@ group_feed_item_published(Gid, Uid, PostOwnerUid, ItemId, ItemType, AudienceSize
             report_audience_size("group_feed", "comment", CC, AudienceSize),
             stat:count("HA/group_feed", "comment_by_cc", 1, [{cc, CC}]),
             stat:count("HA/group_feed", "comment_by_dev", 1, [{is_dev, IsDev}]);
+        comment_reaction ->
+            ?INFO("comment_reaction ~s from Uid: ~s CC: ~s IsDev: ~p",[ItemId, Uid, CC, IsDev]),
+            ha_events:log_user_event(Uid, group_comment_reaction_published),
+            ha_events:log_friend_event(PostOwnerUid, Uid, ItemId, group_comment_reaction_published),
+            stat:count("HA/group_feed", "comment_reaction"),
+            stat:count("HA/group_feed", "comment_reaction_by_cc", 1, [{cc, CC}]),
+            stat:count("HA/group_feed", "comment_reaction_by_dev", 1, [{is_dev, IsDev}]);
+        post_reaction ->
+            ?INFO("post_reaction ~s from Uid: ~s CC: ~s IsDev: ~p",[ItemId, Uid, CC, IsDev]),
+            ha_events:log_user_event(Uid, group_post_reaction_published),
+            ha_events:log_friend_event(PostOwnerUid, Uid, ItemId, group_post_reaction_published),
+            stat:count("HA/group_feed", "post_reaction"),
+            stat:count("HA/group_feed", "post_reaction_by_cc", 1, [{cc, CC}]),
+            stat:count("HA/group_feed", "post_reaction_by_dev", 1, [{is_dev, IsDev}]);
         _ -> ok
     end,
     ok.
@@ -393,7 +421,7 @@ count_packet(Namespace, Action, #pb_msg{from_uid = FromUid, to_uid = ToUid, payl
     PayloadType = pb:get_payload_type(Message),
     stat:count(Namespace, "message", 1, [{payload_type, PayloadType}]),
     case Payload of
-        #pb_chat_stanza{} ->
+        #pb_chat_stanza{chat_type = chat} ->
             stat:count("HA/messaging", Action ++ "_im"),
             Uid = case Action of
                 "send" ->
@@ -408,6 +436,21 @@ count_packet(Namespace, Action, #pb_msg{from_uid = FromUid, to_uid = ToUid, payl
             IsDev = dev_users:is_dev_uid(Uid),
             stat:count("HA/messaging", Action ++ "_im_by_cc", 1, [{cc, CC}]),
             stat:count("HA/messaging", Action ++ "_im_by_dev", 1, [{is_dev, IsDev}]);
+        #pb_chat_stanza{chat_type = chat_reaction} ->
+            stat:count("HA/messaging", Action ++ "_im_reaction"),
+            Uid = case Action of
+                "send" ->
+                    ha_events:log_user_event(FromUid, im_reaction_sent),
+                    FromUid;
+                "receive" ->
+                    ha_events:log_user_event(ToUid, im_reaction_recv),
+                    ToUid
+            end,
+            {ok, Phone} = model_accounts:get_phone(Uid),
+            CC = mod_libphonenumber:get_cc(Phone),
+            IsDev = dev_users:is_dev_uid(Uid),
+            stat:count("HA/messaging", Action ++ "_im_reaction_by_cc", 1, [{cc, CC}]),
+            stat:count("HA/messaging", Action ++ "_im_reaction_by_dev", 1, [{is_dev, IsDev}]);
         #pb_seen_receipt{thread_id = ThreadId, id = ContentId} ->
             case ThreadId of
                 undefined ->
@@ -433,13 +476,13 @@ count_packet(Namespace, Action, #pb_msg{from_uid = FromUid, to_uid = ToUid, payl
                         "send" ->
                             %% FromUid saw post
                             {ok, FromPhone} = model_accounts:get_phone(FromUid),
-                            CC = mod_libphonenumber:get_cc(FromPhone),
+                            FromCC = mod_libphonenumber:get_cc(FromPhone),
                             stat:count("HA/feed_receipts", "post_viewed"),
-                            stat:count("HA/feed_receipts", "post_viewed_by_cc", 1, [{cc, CC}]),
+                            stat:count("HA/feed_receipts", "post_viewed_by_cc", 1, [{cc, FromCC}]),
 
                             %% Add seen receipt counters by post_tag.
                             stat:count("HA/feed_receipts", "post_viewed_by_tag", 1, [{tag, PostTag}]),
-                            stat:count("HA/feed_receipts", "post_viewed_by_tag_cc", 1, [{cc, CC}, {tag, PostTag}]),
+                            stat:count("HA/feed_receipts", "post_viewed_by_tag_cc", 1, [{cc, FromCC}, {tag, PostTag}]),
                             ha_events:log_user_event(FromUid, post_send_seen),
                             case PostTag =:= secret_post of
                                 true -> ha_events:log_user_event(FromUid, secret_post_send_seen);
@@ -464,9 +507,9 @@ count_packet(Namespace, Action, #pb_msg{from_uid = FromUid, to_uid = ToUid, payl
                         "send" ->
                             %% FromUid screenshots the post
                             {ok, FromPhone} = model_accounts:get_phone(FromUid),
-                            CC = mod_libphonenumber:get_cc(FromPhone),
+                            FromCC = mod_libphonenumber:get_cc(FromPhone),
                             stat:count("HA/feed_receipts", "post_screenshot"),
-                            stat:count("HA/feed_receipts", "post_screenshot_by_cc", 1, [{cc, CC}]),
+                            stat:count("HA/feed_receipts", "post_screenshot_by_cc", 1, [{cc, FromCC}]),
                             ha_events:log_user_event(FromUid, post_send_screenshot);
                         "receive" ->
                             %% ToUid's post was screenshot

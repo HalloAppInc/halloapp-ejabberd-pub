@@ -349,7 +349,7 @@ publish_comment(PublisherUid, CommentId, PostId, ParentCommentId, PayloadBase64,
     Server = util:get_host(),
     Action = publish,
     MediaCounters = HomeFeedSt#pb_feed_item.item#pb_comment.media_counters,
-
+    CommentType = HomeFeedSt#pb_feed_item.item#pb_comment.comment_type,
     case model_feed:get_comment_data(PostId, CommentId, ParentCommentId) of
         {{error, missing}, _, _} ->
             {error, invalid_post_id};
@@ -379,7 +379,7 @@ publish_comment(PublisherUid, CommentId, PostId, ParentCommentId, PayloadBase64,
                     ok = model_feed:publish_comment(CommentId, PostId, PublisherUid,
                             ParentCommentId, PayloadBase64, TimestampMs),
                     ejabberd_hooks:run(feed_item_published, Server,
-                        [PublisherUid, PostOwnerUid, CommentId, comment, undefined,
+                        [PublisherUid, PostOwnerUid, CommentId, CommentType, undefined,
                         Post#post.audience_type, sets:size(FeedAudienceSet), MediaCounters]),
                     broadcast_comment(CommentId, PostId, ParentCommentId, PublisherUid, HomeFeedSt,
                         TimestampMs, FeedAudienceSet, NewPushList),

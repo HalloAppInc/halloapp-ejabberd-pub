@@ -48,15 +48,28 @@ reload(_Host, _NewOpts, _OldOpts) ->
 
 %% Hook triggered when user sent the server an ack stanza for this particular message.
 -spec user_ack_packet(Ack :: ack(), OfflineMessage :: offline_message()) -> ok.
-user_ack_packet(#pb_ack{id = Id, from_uid = FromUid},
-        #offline_message{content_type = ContentType, from_uid = MsgFromId, thread_id = ThreadId})
+user_ack_packet(#pb_ack{id = Id, from_uid = FromUid}, #offline_message{content_type = ContentType,
+        from_uid = MsgFromId, thread_id = ThreadId, message = Message})
         when ContentType =:= chat; ContentType =:= group_chat;
         ContentType =:= pb_chat_stanza; ContentType =:= pb_group_chat ->
     ?INFO("Uid: ~s, Id: ~p, ContentType: ~p", [FromUid, Id, ContentType]),
-    Timestamp = util:now(),
-    send_receipt(MsgFromId, FromUid, Id, ThreadId, Timestamp),
-    log_delivered(ContentType);
-
+    case enif_protobuf:decode(Message, pb_packet) of
+        {error, DecodeReason} ->
+            ?ERROR("MsgId: ~p, Message: ~p, failed decoding reason: ~s", [Id, Message, DecodeReason]);
+        #pb_packet{stanza = #pb_msg{payload = Payload}} ->
+            case Payload of
+                #pb_chat_stanza{chat_type = chat_reaction} -> ok;
+                _ ->
+                    %% Count only chat stanzas here.
+                    Timestamp = util:now(),
+                    send_receipt(MsgFromId, FromUid, Id, ThreadId, Timestamp),
+                    log_delivered(ContentType)
+            end;
+        DecodedPacket ->
+            ?ERROR("MsgId: ~p, Message: ~p, failed decoding packet: ~p", [Id, Message, DecodedPacket]),
+            Timestamp = util:now(),
+            send_receipt(MsgFromId, FromUid, Id, ThreadId, Timestamp)
+    end;
 user_ack_packet(_, _) ->
     ok.
 

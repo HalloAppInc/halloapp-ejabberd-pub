@@ -181,6 +181,12 @@ message Comment {
     // Serialized EncryptedPayload (from client.proto).
     bytes enc_payload = 8;
     MediaCounters media_counters = 9;
+    enum CommentType {
+        COMMENT = 0;
+        COMMENT_REACTION = 1;
+        POST_REACTION = 2;
+    }
+    CommentType comment_type = 10;
 }
 
 
@@ -498,6 +504,11 @@ message ChatStanza {
     string sender_name = 6;
     string sender_phone = 7;
     MediaCounters media_counters = 8;
+    enum ChatType {
+        CHAT = 0;
+        CHAT_REACTION = 1;
+    }
+    ChatType chat_type = 9;
 
     // Use >=16 for temporary elements since 1-15 encode smaller
     string sender_log_info = 16;
@@ -1138,6 +1149,7 @@ message Rerequest {
         CHAT = 0;
         CALL = 1;
         GROUP_HISTORY = 2;
+        CHAT_REACTION = 3;
     }
     ContentType content_type = 7;
 }
@@ -1165,6 +1177,8 @@ message GroupFeedRerequest {
         POST = 1;
         COMMENT = 2;
         HISTORY_RESEND = 3;
+        POST_REACTION = 4;
+        COMMENT_REACTION = 5;
     }
     ContentType content_type = 4;
 }
@@ -1192,6 +1206,8 @@ message HomeFeedRerequest {
         UNKNOWN = 0;
         POST = 1;
         COMMENT = 2;
+        POST_REACTION = 3;
+        COMMENT_REACTION = 4;
     }
     ContentType content_type = 4;
 }
