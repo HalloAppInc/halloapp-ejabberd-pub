@@ -200,7 +200,7 @@ check_wakeup(Uid, WakeupMap) ->
             WakeupMap;
         {PushNum, _} ->
             mod_push_monitor:log_push_wakeup(failure, Platform),
-            ?ERROR("Uid ~s, Did not connect within ~p minutes after
+            ?INFO("Uid ~s, Did not connect within ~p minutes after
                 ~p wakeup pushes", [Uid, math:pow(2, PushNum), PushNum]),
             {_Pushes, FinalMap} = maps:take(Uid, WakeupMap),
             FinalMap
