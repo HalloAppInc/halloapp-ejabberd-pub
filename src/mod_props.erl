@@ -186,7 +186,10 @@ get_client_based_props(PropMap, ios, ClientVersion) ->
     PropMap1 = maps:update(voice_notes, Result, PropMap),
     Result2 = util_ua:is_version_greater_than(ClientVersion, <<"HalloApp/iOS1.16.237">>),
     PropMap2 = maps:update(external_sharing, Result2, PropMap1),
-    PropMap2;
+    %% Enable groups grid on the latest version.
+    Result3 = util_ua:is_version_greater_than(ClientVersion, <<"HalloApp/iOS1.21.279">>),
+    PropMap3 = maps:update(enable_groups_grid, Result3, PropMap2),
+    PropMap3;
 
 get_client_based_props(PropMap, undefined, _) ->
     maps:update(groups, false, PropMap).
