@@ -134,7 +134,10 @@ get_props(Uid, ClientVersion) ->
         group_expiry => false, %% whether group expiry option is turned on for clients.
         default_krisp_noise_suppression => false,  %% Should client use noise suppression by default
         enable_sentry_perf_tracking => false, %% Enable Sentry perf tracking on iOS clients
-        enable_groups_grid => false %% enables the new group grid experience on iOS clients
+        enable_groups_grid => false, %% enables the new group grid experience on iOS clients
+        chat_reactions => false, %% enable reactions in chat on the sending side.
+        comment_reactions => false, %% enable reactions in comments on the sending side.
+        post_reactions => false, %% enable reactions in posts on the sending side.
     },
     PropMap2 = get_uid_based_props(PropMap1, Uid),
     ClientType = util_ua:get_client_type(ClientVersion),
