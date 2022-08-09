@@ -68,6 +68,7 @@
 -define(IOS_DEV_TOKEN_TYPE, <<"ios_dev">>).
 -define(IOS_APPCLIP_TOKEN_TYPE, <<"ios_appclip">>).
 -define(IOS_VOIP_TOKEN_TYPE, <<"ios_voip">>).
+-define(ANDROID_HUAWEI_TOKEN_TYPE, <<"android_huawei">>).
 
 -define(MAX_NAME_SIZE, 25).   %% 25 utf8 characters
 

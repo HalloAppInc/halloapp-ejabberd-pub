@@ -173,6 +173,7 @@ is_valid_token_type(TokenType) ->
         ?IOS_APPCLIP_TOKEN_TYPE -> true;
         ?IOS_VOIP_TOKEN_TYPE -> true;
         ?ANDROID_TOKEN_TYPE -> true;
+        ?ANDROID_HUAWEI_TOKEN_TYPE -> true;
         _ -> false
     end.
 

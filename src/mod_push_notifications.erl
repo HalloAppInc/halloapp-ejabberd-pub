@@ -125,6 +125,9 @@ push_message(Message, #push_info{os = Os} = PushInfo)
 push_message(Message, #push_info{voip_token = VoipToken} = PushInfo)
         when VoipToken =/= undefined ->
     mod_ios_push:push(Message, PushInfo);
+push_message(#pb_msg{id = MsgId, to_uid = Uid}, #push_info{os = <<"android_huawei">>}) ->
+    ?INFO("ignoring android_huawei push, Uid: ~p, MsgId: ~p", [Uid, MsgId]),
+    ok;
 push_message(#pb_msg{id = MsgId, to_uid = Uid}, #push_info{os = <<"ios_appclip">>}) ->
     ?INFO("ignoring ios_appclip push, Uid: ~p, MsgId: ~p", [Uid, MsgId]),
     ok.
