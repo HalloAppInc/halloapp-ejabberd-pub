@@ -166,7 +166,10 @@ get_uid_based_props(PropMap, Uid) ->
             PropMap11 = maps:update(enable_sentry_perf_tracking, true, PropMap10),
             PropMap12 = maps:update(group_expiry, true, PropMap11),
             PropMap13 = maps:update(enable_groups_grid, true, PropMap12),
-            PropMap13
+            PropMap14 = maps:update(chat_reactions, true, PropMap13),
+            PropMap15 = maps:update(comment_reactions, true, PropMap14),
+            PropMap16 = maps:update(post_reactions, true, PropMap15),
+            PropMap16
     end,
     apply_uid_prop_overrides(Uid, ResPropMap).
 
