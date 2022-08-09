@@ -163,11 +163,11 @@ cancel_wakeup(Uid, WakeupMap) ->
     end,
     NewWakeupMap = case maps:take(Uid, WakeupMap) of
         {_, FinalMap} when WakeupPushNum =:= 0 -> 
-            mod_push_monitor:log_push_wakeup(success, Platform),
+            mod_push_monitor:log_push_wakeup(Uid, success, Platform),
             ?INFO("Uid ~s, Connected after normal push", [Uid]),
             FinalMap;
         {_, FinalMap} -> 
-            mod_push_monitor:log_push_wakeup(success, Platform),
+            mod_push_monitor:log_push_wakeup(Uid, success, Platform),
             ?INFO("Uid ~s, Connected after ~p wakeup pushes", [Uid, WakeupPushNum]),
             FinalMap;
         _ -> WakeupMap
@@ -187,7 +187,7 @@ check_wakeup(Uid, WakeupMap) ->
             ?INFO("Uid ~s, Client connected", [Uid]),
             WakeupMap;
         {PushNum, _} when PushNum < ?MAX_WAKEUP_PUSH_ATTEMPTS ->
-            mod_push_monitor:log_push_wakeup(failure, Platform),
+            mod_push_monitor:log_push_wakeup(Uid, failure, Platform),
             MsgId = util_id:new_msg_id(),
             ?INFO("Uid ~s, Did not connect within ~p minutes. Sending wakeup push #~p,
                     msgId: ~p", [Uid, math:pow(2, PushNum - 1), PushNum, MsgId]),
@@ -199,7 +199,7 @@ check_wakeup(Uid, WakeupMap) ->
             ejabberd_router:route(Msg),
             WakeupMap;
         {PushNum, _} ->
-            mod_push_monitor:log_push_wakeup(failure, Platform),
+            mod_push_monitor:log_push_wakeup(Uid, failure, Platform),
             ?INFO("Uid ~s, Did not connect within ~p minutes after
                 ~p wakeup pushes", [Uid, math:pow(2, PushNum), PushNum]),
             {_Pushes, FinalMap} = maps:take(Uid, WakeupMap),

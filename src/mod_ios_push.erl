@@ -93,8 +93,8 @@ crash() ->
 
 
 -spec pushed_message(PushMessageItem :: push_message_item(), Status :: success | failure) -> ok.
-pushed_message(PushMessageItem, Status) ->
-    mod_push_monitor:log_push_status(Status, ios),
+pushed_message(#{uid := Uid} = PushMessageItem, Status) ->
+    mod_push_monitor:log_push_status(Uid, Status, ios),
     gen_server:cast(?PROC(), {pushed_message, PushMessageItem, Status}).
 
 
