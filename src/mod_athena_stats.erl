@@ -169,7 +169,7 @@ run_query_internal(Query, #{queries := Queries} = State) ->
         ?INFO("ExecToken: ~p", [ExecToken]),
         Query2 = Query#athena_query{query_token = Token, result_token = ExecToken},
 
-        State#{queries => maps:put(ExecToken, Query2, Queries)}
+        State#{queries => maps:put(ExecToken, {Query2, 0}, Queries)}
     catch
         Class : Reason : Stacktrace  ->
             ?ERROR("Error in run_athena_queries: ~p Stacktrace:~s",
@@ -223,7 +223,7 @@ fetch_query_results_internal(ExecutionId, #{queries := Queries} = State) ->
     try
         ?INFO("fetching results for ~s", [ExecutionId]),
         % remove the query
-        {Query, Queries2} = maps:take(ExecutionId, Queries),
+        {{Query, _NumAttempts}, Queries2} = maps:take(ExecutionId, Queries),
 
         {ok, Result} = erlcloud_athena:get_query_results(ExecutionId),
         Query2 = Query#athena_query{result = Result},
@@ -234,7 +234,18 @@ fetch_query_results_internal(ExecutionId, #{queries := Queries} = State) ->
         Class : Reason : Stacktrace  ->
             ?ERROR("Error in query_execution_results: ~p Stacktrace:~s",
                 [Reason, lager:pr_stacktrace(Stacktrace, {Class, Reason})]),
-            State
+            case maps:get(ExecutionId, Queries, undefined) of
+                {Query1, NumAttempts} when NumAttempts >= ?MAX_PROCESS_QUERY_RETRIES ->
+                    ?ERROR("Query ~p has reached attempt limit (~p), removing from state.", 
+                        [Query1, ?MAX_PROCESS_QUERY_RETRIES]),
+                    State#{queries => maps:remove(ExecutionId, Queries)};
+                {Query1, NumAttempts} ->
+                    ?INFO("Query ~p now at ~p attempts", [Query1, NumAttempts + 1]),
+                    State#{queries => Queries#{ExecutionId => {Query1, NumAttempts + 1}}};
+                undefined ->
+                    ?ERROR("Query for ExecId ~p not found", [ExecutionId]),
+                    State
+            end
     end.
 
 

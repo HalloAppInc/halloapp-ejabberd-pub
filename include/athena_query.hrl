@@ -23,5 +23,8 @@
 -define(ANDROID, <<"android">>).
 -define(ATHENA_DB, <<"default">>).
 -define(ATHENA_RESULT_S3_BUCKET, <<"s3://ha-athena-results">>).
+% maximum number of times that processing a given query will be attempted -- queries are checked 
+% every 10 seconds, so this will try them for 5 minutes before giving up
+-define(MAX_PROCESS_QUERY_RETRIES, 30). 
 
 -endif.
