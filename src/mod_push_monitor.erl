@@ -27,10 +27,10 @@
 -export([push_monitor/6, check_error_rate/3]).
 -endif.
 
--define(MIN_SAMPLE, 20).
--define(ALERT_RATE, 50).
--define(ERROR_RATE, 25).
--define(WARNING_RATE, 15).
+-define(MIN_SAMPLE, 50).
+-define(ALERT_RATE, 60).
+-define(ERROR_RATE, 45).
+-define(WARNING_RATE, 30).
 
 
 %%====================================================================
