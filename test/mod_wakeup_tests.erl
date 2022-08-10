@@ -12,6 +12,9 @@
 
 -define(UID1, <<"10000000000000001">>).
 -define(UID2, <<"10000000000000002">>).
+-define(UID3, <<"10000000000000003">>).
+-define(UID4, <<"10000000000000004">>).
+
 -define(TREF, make_ref()).
 
 setup() ->
@@ -64,10 +67,17 @@ check_wakeup_test() ->
     #{} = mod_wakeup:check_wakeup(?UID1, #{}),
     
     % When push num attempts < 10, wake up push should be sent
-    WakeupMap = #{?UID1 => {2, ?TREF}},
+    WakeupMap = #{?UID1 => {3, ?TREF}, ?UID3 => {4, ?TREF}, ?UID4 => {5, ?TREF}},
     WakeupMap = mod_wakeup:check_wakeup(?UID1, WakeupMap),
     WakeupMap = mod_wakeup:check_wakeup(?UID2, WakeupMap),
-    ?assert(meck:called(ejabberd_router, route, [#pb_msg{id = '_', to_uid = ?UID1, payload = #pb_wake_up{}}])),
+    WakeupMap = mod_wakeup:check_wakeup(?UID3, WakeupMap),
+    WakeupMap = mod_wakeup:check_wakeup(?UID4, WakeupMap),
+    ?assert(meck:called(ejabberd_router, route,
+            [#pb_msg{id = '_', to_uid = ?UID1, payload = #pb_wake_up{alert_type = alert}}])),
+    ?assert(meck:called(ejabberd_router, route,
+            [#pb_msg{id = '_', to_uid = ?UID3, payload = #pb_wake_up{alert_type = silent}}])),
+    ?assert(meck:called(ejabberd_router, route,
+            [#pb_msg{id = '_', to_uid = ?UID4, payload = #pb_wake_up{alert_type = alert}}])),
 
     % When push num attempts >= 10, stop trying
     WakeupMap2 = #{?UID1 => {11, ?TREF}},

@@ -147,10 +147,11 @@ parse_metadata(#pb_msg{payload = #pb_request_logs{}} = Message) ->
         content_type = pb:get_payload_type(Message)
     };
 
-parse_metadata(#pb_msg{payload = #pb_wake_up{}} = Message) ->
+parse_metadata(#pb_msg{payload = #pb_wake_up{alert_type = AlertType}} = Message) ->
     #push_metadata{
         content_id = pb:get_content_id(Message),
-        content_type = pb:get_payload_type(Message)
+        content_type = pb:get_payload_type(Message),
+        push_type = AlertType
     };
 
 parse_metadata(#pb_msg{payload = #pb_incoming_call{}} = Message) ->

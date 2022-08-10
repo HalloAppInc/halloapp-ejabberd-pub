@@ -188,13 +188,19 @@ check_wakeup(Uid, WakeupMap) ->
             WakeupMap;
         {PushNum, _} when PushNum < ?MAX_WAKEUP_PUSH_ATTEMPTS ->
             mod_push_monitor:log_push_wakeup(Uid, failure, Platform),
+            % Send 4 alert pushes, then alternate between silent and alert pushes
+            AlertType = case PushNum of
+                Num when Num < 4 -> alert;
+                Num when Num rem 2 =:= 0 -> silent;
+                _ -> alert
+            end,
             MsgId = util_id:new_msg_id(),
             ?INFO("Uid ~s, Did not connect within ~p minutes. Sending wakeup push #~p,
-                    msgId: ~p", [Uid, math:pow(2, PushNum - 1), PushNum, MsgId]),
+                    msgId: ~p type: ~p", [Uid, math:pow(2, PushNum - 1), PushNum, MsgId, AlertType]),
             Msg = #pb_msg{
                 id = MsgId,
                 to_uid = Uid,
-                payload = #pb_wake_up{}
+                payload = #pb_wake_up{alert_type = AlertType}
             },
             ejabberd_router:route(Msg),
             WakeupMap;

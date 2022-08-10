@@ -1586,6 +1586,11 @@ message ClientOtpResponse {
 }
 
 message WakeUp {
+    enum AlertType {
+        ALERT = 0;
+        SILENT = 1;
+    }
+    AlertType alert_type = 1;
 }
 
 message MarketingAlert {
