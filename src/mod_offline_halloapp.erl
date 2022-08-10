@@ -219,6 +219,19 @@ user_receive_packet({#pb_msg{id = MsgId, to_uid = ToUid, payload = #pb_end_of_qu
         _State} = Acc) ->
     ?INFO("Uid: ~s MsgId: ~s sending end-of-queue", [ToUid, MsgId]),
     Acc;
+user_receive_packet({#pb_msg{id = MsgId, to_uid = ToUid, retry_count = RetryCount, payload = #pb_group_feed_item{}} = Message,
+        #{mode := active, offline_queue_cleared := false} = State}) when RetryCount =:= 0 ->
+    ?INFO("Uid: ~s MsgId: ~s, retry_count: ~p", [ToUid, MsgId, RetryCount]),
+    NewMessage = fix_group_feed_packet(Message),
+    setup_push_timer(NewMessage),
+    {stop, {drop, State}};
+user_receive_packet({#pb_msg{id = MsgId, to_uid = ToUid, retry_count = RetryCount, payload = #pb_group_feed_item{}} = Message,
+        #{mode := active, offline_queue_cleared := true} = State}) when RetryCount =:= 0 ->
+    ?INFO("Uid: ~s MsgId: ~s, retry_count: ~p", [ToUid, MsgId, RetryCount]),
+    NewMessage = fix_group_feed_packet(Message),
+    setup_push_timer(NewMessage),
+    model_messages:mark_sent(ToUid, MsgId),
+    {NewMessage, State};
 user_receive_packet({#pb_msg{id = MsgId, to_uid = ToUid, retry_count = RetryCount} = Message,
         #{mode := active, offline_queue_cleared := false} = State} = _Acc) when RetryCount =:= 0 ->
     ?INFO("Uid: ~s MsgId: ~s, retry_count: ~p", [ToUid, MsgId, RetryCount]),
@@ -232,7 +245,18 @@ user_receive_packet({#pb_msg{id = MsgId, to_uid = ToUid, retry_count = RetryCoun
     Acc;
 
 user_receive_packet({#pb_msg{id = MsgId, to_uid = ToUid,
-        payload = #pb_group_feed_item{item = #pb_post{}} = Payload} = Msg, State} = Acc) ->
+        payload = #pb_group_feed_item{item = #pb_post{}} = _Payload} = Msg, State}) ->
+    ?INFO("Uid: ~s MsgId: ~s", [ToUid, MsgId]),
+    NewMsg = fix_group_feed_packet(Msg),
+    {NewMsg, State};
+
+user_receive_packet(Acc) ->
+    Acc.
+
+
+-spec fix_group_feed_packet(Msg :: pb_msg()) -> pb_msg().
+fix_group_feed_packet(#pb_msg{id = MsgId, to_uid = ToUid,
+        payload = #pb_group_feed_item{item = #pb_post{}} = Payload} = Msg) ->
     {ok, ClientVersion} = model_accounts:get_client_version(ToUid),
     OldExpiryTimestamp = Payload#pb_group_feed_item.expiry_timestamp,
     ExpiryTimestampMilliSec = util:check_and_convert_sec_to_ms(OldExpiryTimestamp),
@@ -246,14 +270,14 @@ user_receive_packet({#pb_msg{id = MsgId, to_uid = ToUid,
                         expiry_timestamp = ExpiryTimestampSec
                     },
                     ?INFO("Uid: ~s MsgId: ~s updated timestamp: ~p old: ~p in payload", [ToUid, MsgId, ExpiryTimestampSec, OldExpiryTimestamp]),
-                    {Msg#pb_msg{payload = NewPayload}, State};
+                    Msg#pb_msg{payload = NewPayload};
                 false ->
                     %% Send milliseconds to older versions.
                     NewPayload = Payload#pb_group_feed_item{
                         expiry_timestamp = ExpiryTimestampMilliSec
                     },
                     ?INFO("Uid: ~s MsgId: ~s updated timestamp: ~p old: ~p in payload", [ToUid, MsgId, ExpiryTimestampMilliSec, OldExpiryTimestamp]),
-                    {Msg#pb_msg{payload = NewPayload}, State}
+                    Msg#pb_msg{payload = NewPayload}
             end;
         false ->
             %% Send seconds to all ios.
@@ -261,11 +285,9 @@ user_receive_packet({#pb_msg{id = MsgId, to_uid = ToUid,
                 expiry_timestamp = ExpiryTimestampSec
             },
             ?INFO("Uid: ~s MsgId: ~s updated timestamp: ~p old: ~p in payload", [ToUid, MsgId, ExpiryTimestampSec, OldExpiryTimestamp]),
-            {Msg#pb_msg{payload = NewPayload}, State}
+            Msg#pb_msg{payload = NewPayload}
     end;
-
-user_receive_packet(Acc) ->
-    Acc.
+fix_group_feed_packet(Msg) -> Msg.
 
 
 -spec c2s_session_opened(State :: state()) -> state().
