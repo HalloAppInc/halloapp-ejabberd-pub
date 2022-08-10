@@ -230,6 +230,40 @@ user_receive_packet({#pb_msg{id = MsgId, to_uid = ToUid, retry_count = RetryCoun
     setup_push_timer(Message),
     model_messages:mark_sent(ToUid, MsgId),
     Acc;
+
+user_receive_packet({#pb_msg{id = MsgId, to_uid = ToUid,
+        payload = #pb_group_feed_item{item = #pb_post{}} = Payload} = Msg, State} = Acc) ->
+    {ok, ClientVersion} = model_accounts:get_client_version(ToUid),
+    OldExpiryTimestamp = Payload#pb_group_feed_item.expiry_timestamp,
+    ExpiryTimestampMilliSec = util:check_and_convert_sec_to_ms(OldExpiryTimestamp),
+    ExpiryTimestampSec = util:check_and_convert_ms_to_sec(OldExpiryTimestamp),
+    case util:is_android(ClientVersion) of
+        true ->
+            case util:is_version_greater_than(ClientVersion, <<"HalloApp/Android1.3.2">>) of
+                true ->
+                    %% Send seconds to latest version.
+                    NewPayload = Payload#pb_group_feed_item{
+                        expiry_timestamp = ExpiryTimestampSec
+                    },
+                    ?INFO("Uid: ~s MsgId: ~s updated timestamp: ~p old: ~p in payload", [ToUid, MsgId, ExpiryTimestampSec, OldExpiryTimestamp]),
+                    {Msg#pb_msg{payload = NewPayload}, State};
+                false ->
+                    %% Send milliseconds to older versions.
+                    NewPayload = Payload#pb_group_feed_item{
+                        expiry_timestamp = ExpiryTimestampMilliSec
+                    },
+                    ?INFO("Uid: ~s MsgId: ~s updated timestamp: ~p old: ~p in payload", [ToUid, MsgId, ExpiryTimestampMilliSec, OldExpiryTimestamp]),
+                    {Msg#pb_msg{payload = NewPayload}, State}
+            end;
+        false ->
+            %% Send seconds to all ios.
+            NewPayload = Payload#pb_group_feed_item{
+                expiry_timestamp = ExpiryTimestampSec
+            },
+            ?INFO("Uid: ~s MsgId: ~s updated timestamp: ~p old: ~p in payload", [ToUid, MsgId, ExpiryTimestampSec, OldExpiryTimestamp]),
+            {Msg#pb_msg{payload = NewPayload}, State}
+    end;
+
 user_receive_packet(Acc) ->
     Acc.
 

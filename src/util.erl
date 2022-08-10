@@ -51,6 +51,8 @@
     list_to_map/1,
     ms_to_sec/1,
     sec_to_ms/1,
+    check_and_convert_ms_to_sec/1,
+    check_and_convert_sec_to_ms/1,
     send_after/2,
     timestamp_to_datetime/1,
     decode_base_64/1,
@@ -395,6 +397,36 @@ ms_to_sec(MilliSeconds) when is_integer(MilliSeconds) ->
 -spec sec_to_ms(Seconds :: integer()) -> integer().
 sec_to_ms(Seconds) when is_integer(Seconds) ->
     Seconds * 1000.
+
+
+-spec check_and_convert_ms_to_sec(Timestamp :: integer()) -> integer().
+check_and_convert_ms_to_sec(Timestamp) when is_integer(Timestamp) ->
+    case Timestamp of
+        %% 1597095974000 is epoch timestamp in ms for august 10th 2020.
+        %% any timestamp larger than that is definitely milliseconds.
+        %% else, we assume it is seconds.
+        MilliSeconds when MilliSeconds > 1597095974000 ->
+            Seconds = MilliSeconds div 1000,
+            ?INFO("changed timestamp to Seconds: ~p from MilliSeconds: ~p", [Seconds, MilliSeconds]),
+            Seconds;
+        Seconds ->
+            Seconds
+    end.
+
+
+-spec check_and_convert_sec_to_ms(Timestamp :: integer()) -> integer().
+check_and_convert_sec_to_ms(Timestamp) when is_integer(Timestamp) ->
+    case Timestamp of
+        %% 1029014873000 is epoch timestamp in ms for august 10th 2002.
+        %% any timestamp samller than that is definitely seconds.
+        %% else, we assume it is milliseconds.
+        Seconds when Seconds < 1029014873000 ->
+            MilliSeconds = Seconds * 1000,
+            ?INFO("changed timestamp to MilliSeconds: ~p from Seconds: ~p", [MilliSeconds, Seconds]),
+            MilliSeconds;
+        MilliSeconds ->
+            MilliSeconds
+    end.
 
 
 -spec send_after(TimeoutMs :: integer(), Msg :: any()) -> reference().
