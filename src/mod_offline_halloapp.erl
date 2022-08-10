@@ -237,9 +237,9 @@ user_receive_packet({#pb_msg{id = MsgId, to_uid = ToUid,
     OldExpiryTimestamp = Payload#pb_group_feed_item.expiry_timestamp,
     ExpiryTimestampMilliSec = util:check_and_convert_sec_to_ms(OldExpiryTimestamp),
     ExpiryTimestampSec = util:check_and_convert_ms_to_sec(OldExpiryTimestamp),
-    case util:is_android(ClientVersion) of
+    case util_ua:is_android(ClientVersion) of
         true ->
-            case util:is_version_greater_than(ClientVersion, <<"HalloApp/Android1.3.2">>) of
+            case util_ua:is_version_greater_than(ClientVersion, <<"HalloApp/Android1.3.2">>) of
                 true ->
                     %% Send seconds to latest version.
                     NewPayload = Payload#pb_group_feed_item{
