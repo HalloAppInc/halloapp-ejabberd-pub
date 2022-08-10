@@ -83,7 +83,7 @@ retry_message_item(PushMessageItem) ->
 
 
 -spec pushed_message(PushMessageItem :: push_message_item(), Status :: success | failure) -> ok.
-pushed_message(#push_message_item{uid := Uid} = PushMessageItem, Status) ->
+pushed_message(#push_message_item{uid = Uid} = PushMessageItem, Status) ->
     mod_push_monitor:log_push_response(Uid, Status, android),
     gen_server:cast(?PROC(), {pushed_message, PushMessageItem, Status}).
 

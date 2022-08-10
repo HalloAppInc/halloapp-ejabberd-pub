@@ -94,12 +94,14 @@ do_noise_register({Name, Host, Port}) ->
             success = Resp3#pb_register_response.response#pb_verify_otp_response.result,
             record_state(Host, register, ?ALIVE_STATE);
         {error, Err} ->
-            ?WARNING("Noise register error on ~s (~s): ~p", [Name, Host, Err]),
-            record_state(Host, register, ?FAIL_STATE)
+            ok
+            % ?WARNING("Noise register error on ~s (~s): ~p", [Name, Host, Err]),
+            % record_state(Host, register, ?FAIL_STATE)
     catch
         _:Reason:Stacktrace ->
-            ?ERROR("Noise register error on ~s (~s): ~p ~p", [Name, Host, Reason, Stacktrace]),
-            record_state(Host, register, ?FAIL_STATE)
+            ok
+            % ?ERROR("Noise register error on ~s (~s): ~p ~p", [Name, Host, Reason, Stacktrace]),
+            % record_state(Host, register, ?FAIL_STATE)
     end,
     ok.
 
