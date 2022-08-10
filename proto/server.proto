@@ -354,6 +354,11 @@ message GroupStanza {
     HistoryResend history_resend = 11;
     // Expiry timer information
     ExpiryInfo expiry_info = 12;
+    enum GroupType {
+        FEED = 0;
+        CHAT = 1;
+    }
+    GroupType group_type = 13;
 }
 
 
@@ -379,6 +384,30 @@ message GroupChat {
     string sender_name = 5;
     int64 timestamp = 6;
     bytes payload = 7;
+}
+
+message GroupChatStanza {
+    string gid = 1;
+    string name = 2;
+    string avatar_id = 3;
+    string sender_phone = 4;
+    string sender_name = 5;
+    int64 timestamp = 6;
+    bytes payload = 7;
+    bytes enc_payload = 8;
+    repeated SenderStateBundle sender_state_bundles = 9;
+    SenderStateWithKeyInfo sender_state = 10;
+    bytes audience_hash = 11;
+    MediaCounters media_counters = 12;
+    enum ChatType {
+        CHAT = 0;
+        CHAT_REACTION = 1;
+    }
+    ChatType chat_type = 13;
+
+    // Use >=16 for temporary elements since 1-15 encode smaller
+    string sender_log_info = 16;
+    string sender_client_version = 17;
 }
 
 message GroupsStanza {
@@ -939,7 +968,7 @@ message Msg {
         FeedItems feed_items = 12;
         ContactHash contact_hash = 13;
         GroupStanza group_stanza = 14;
-        GroupChat group_chat = 15;
+        GroupChat group_chat = 15 [deprecated = true]; // deprecated, use group_chat_stanza
         Name name = 16;
         ErrorStanza error_stanza = 17;
         GroupChatRetract groupchat_retract = 18;
@@ -974,6 +1003,7 @@ message Msg {
         ContentMissing content_missing = 49;
         ScreenshotReceipt screenshot_receipt = 50;
         SavedReceipt saved_receipt = 51;
+        GroupChatStanza group_chat_stanza = 52;
     }
     int32 retry_count = 21;
     int32 rerequest_count = 25;

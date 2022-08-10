@@ -117,6 +117,7 @@ message CommentContainer {
     Text text = 2;
     Album album = 3;
     VoiceNote voice_note = 4;
+    Reaction reaction = 5;
   }
 }
 
