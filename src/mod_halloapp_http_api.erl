@@ -16,7 +16,6 @@
     check_ua/1,
     check_name/1,
     check_sms_code/5,
-    create_hashcash_challenge/2,
     check_hashcash_solution/2,
     check_attempts_by_ip/1,
     check_attempts_by_static_key/1
@@ -58,7 +57,8 @@
     process_otp_request/1,
     process_register_request/1,
     insert_blocklist/0,
-    insert_blocklist/2
+    insert_blocklist/2,
+    create_hashcash_challenge/2
 ]).
 
 %%%----------------------------------------------------------------------

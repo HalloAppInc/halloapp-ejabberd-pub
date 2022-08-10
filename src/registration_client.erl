@@ -37,6 +37,7 @@
 
 %% API
 -export([
+    compose_hashcash_noise_request/0,
     compose_otp_noise_request/2,
     compose_verify_otp_noise_request/3,
     request_sms/2,
@@ -61,7 +62,10 @@ request_sms(Phone, Options) ->
     ClientKeyPair = #kp{type = ?CURVE_KEY_TYPE, sec = CurveSecret, pub = CurvePub},
 
     %% Connect and requestOtp
-    ConnectOptions = #{host => "localhost", port => 5208, state => register},
+    ConnectOptions = #{
+        host => maps:get(host, Options, "localhost"), 
+        port => 5208, 
+        state => register},
     {ok, _Client, ActualResponse} = ha_client:connect_and_send(RegisterRequestPkt, ClientKeyPair, ConnectOptions),
 
     {ok, ActualResponse#pb_register_response.response}.
@@ -108,10 +112,14 @@ register(Phone, Code, Name, Options) ->
     Response2 = ActualResponse2#pb_register_response.response,
     {ok, Response2}.
 
+-spec compose_hashcash_noise_request() -> {ok, pb_register_request()}.
+compose_hashcash_noise_request() ->
+    {ok, #pb_register_request{request = #pb_hashcash_request{}}}.
+
 -spec compose_otp_noise_request(Phone :: phone(), Options :: map()) -> {ok, pb_register_request()}.
 compose_otp_noise_request(Phone, Options) ->
     setup(),
-    HashcashChallenge = mod_halloapp_http_api:create_hashcash_challenge(<<>>, <<>>),
+    HashcashChallenge = maps:get(challenge, Options, mod_halloapp_http_api:create_hashcash_challenge(<<>>, <<>>)),
     HashcashSolution = util_hashcash:solve_challenge(HashcashChallenge),
     OtpRequestPkt = #pb_otp_request {
         phone = Phone,

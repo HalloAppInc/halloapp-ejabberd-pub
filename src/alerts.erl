@@ -12,8 +12,8 @@
 %% API
 -export([
     send_iam_role_change_alert/2,
-    send_noise_slow_alert/2,
-    send_noise_unreachable_alert/2,
+    send_noise_slow_alert/3,
+    send_noise_unreachable_alert/3,
     send_port_slow_alert/2,
     send_port_unreachable_alert/2,
     send_process_down_alert/2,
@@ -37,14 +37,14 @@ send_iam_role_change_alert(Host, Message) ->
     send_alert(<<Host/binary, " IAM role change">>, Host, <<"critical">>, Message).
 
 
--spec send_noise_slow_alert(Host :: binary(), Message :: binary()) -> ok.
-send_noise_slow_alert(Host, Message) ->
-    send_alert(<<Host/binary, " noise slow">>, Host, <<"critical">>, Message).
+-spec send_noise_slow_alert(Host :: binary(), CheckType :: binary(), Message :: binary()) -> ok.
+send_noise_slow_alert(Host, CheckType, Message) ->
+    send_alert(<<Host/binary, " noise ", CheckType/binary, " slow">>, Host, <<"critical">>, Message).
 
 
--spec send_noise_unreachable_alert(Proc :: binary(), Message :: binary()) -> ok.
-send_noise_unreachable_alert(Host, Message) ->
-    send_alert(<<Host/binary, " noise unreachable">>, Host, <<"critical">>, Message).
+-spec send_noise_unreachable_alert(Proc :: binary(), CheckType :: binary(), Message :: binary()) -> ok.
+send_noise_unreachable_alert(Host, CheckType, Message) ->
+    send_alert(<<Host/binary, " noise ", CheckType/binary, " unreachable">>, Host, <<"critical">>, Message).
 
 
 -spec send_port_slow_alert(Host :: binary(), Message :: binary()) -> ok.

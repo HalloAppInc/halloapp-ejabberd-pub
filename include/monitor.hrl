@@ -5,7 +5,8 @@
 
 -define(MONITOR_TABLE, ha_monitor).
 -define(HTTP_TABLE, mod_http_checker).
--define(NOISE_TABLE, mod_noise_checker).
+-define(NOISE_LOGIN_TABLE, mod_noise_checker_login).
+-define(NOISE_REGISTER_TABLE, mod_noise_checker_register).
 -define(REDIS_TABLE, mod_redis_checker).
 
 -define(MONITOR_GEN_SERVER, {global, ejabberd_monitor:get_registered_name()}).
@@ -80,6 +81,9 @@
 -define(C2S_SIZE_CHECK_INTERVAL_MS, 1 * ?HOURS_MS).
 
 -define(IAM_CHECK_INTERVAL_MS, (10 * ?MINUTES_MS)).
+
+-define(MONITOR_PHONE, <<"16175551234">>).
+-define(TEST_NAME, <<"NoiseRegisterTest">>).
 
 -endif.
 
