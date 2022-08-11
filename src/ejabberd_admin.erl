@@ -466,6 +466,12 @@ get_commands_spec() ->
     #ejabberd_commands{name = fetch_push_stats, tags = [server],
         desc = "Fetches push stats for android",
         module = android_push_stats, function = fetch_push_stats,
+        result = {res, rescode}},
+    #ejabberd_commands{name = get_invite_string, tags = [server],
+        desc = "Get invite string from its hash ID",
+        module = mod_props, function = lookup_invite_string,
+        args_desc = ["Invite string hash ID"],
+        args = [{hash_id, binary}],
         result = {res, rescode}}
     ].
 

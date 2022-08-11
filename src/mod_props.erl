@@ -35,7 +35,8 @@
 -export([
     get_hash/2,
     get_props/2,    %% debug only
-    get_invite_strings/1
+    get_invite_strings/1,
+    lookup_invite_string/1
 ]).
 
 %%====================================================================
@@ -173,6 +174,19 @@ get_invite_strings(Uid) ->
         Class: Reason: Stacktrace  ->
             ?ERROR("Failed to get invite strings: ~p, ~p, ~p", [lager:pr_stacktrace(Stacktrace, {Class, Reason})]),
             #{}
+    end.
+
+
+%% for `h get-invite-string`
+-spec lookup_invite_string(HashId :: binary()) -> ok.
+lookup_invite_string(HashId) ->
+    try
+        case ets:lookup(?INVITE_STRINGS_TABLE, HashId) of
+            [{HashId, {LangId, String}}] -> io:format("~s: ~s~n", [LangId, String]);
+            [] -> io:format("Invalid Version ID~n", [])
+        end
+    catch Error : Reason ->
+        io:format("Error (~p): ~p~n", [Error, Reason])
     end.
 
 %%====================================================================
