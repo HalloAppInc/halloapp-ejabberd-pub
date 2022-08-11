@@ -19,19 +19,9 @@ setup() ->
     ok.
 
 
-meck_init(Mod, FunName, Fun) ->
-    meck:new(Mod, [passthrough]),
-    meck:expect(Mod, FunName, Fun).
-
-
-meck_finish(Mod) ->
-    ?assert(meck:validate(Mod)),
-    meck:unload(Mod).
-
-
 push_monitor_android_test() ->
     setup(),
-    meck_init(alerts, send_alert, fun(_,_,_,_) -> ok end),
+    tutil:meck_init(alerts, send_alert, fun(_,_,_,_) -> ok end),
     {Android1, Ios1} = mod_push_monitor:push_monitor(?UID1, failure, android, [], [{?UID1, 0}], push_response),
     ?assertEqual({[{?UID1, 0}], [{?UID1, 0}]}, {Android1, Ios1}),
     {Android2, Ios2} = mod_push_monitor:push_monitor(?UID2, success, android, Android1, Ios1, push_wakeup),
@@ -47,13 +37,13 @@ push_monitor_android_test() ->
     ?assertEqual({NewSuccessList, []}, {Android5, Ios5}),
     ?assert(meck:called(alerts, send_alert, ['_', '_', '_', '_'])),
 
-    meck_finish(alerts),
+    tutil:meck_finish(alerts),
     ok.
 
 
 push_monitor_ios_test() ->
     setup(),
-    meck_init(alerts, send_alert, fun(_,_,_,_) -> ok end),
+    tutil:meck_init(alerts, send_alert, fun(_,_,_,_) -> ok end),
     {Android1, Ios1} = mod_push_monitor:push_monitor(?UID1, failure, ios, [{?UID1, 0}], [], push_wakeup),
     ?assertEqual({[{?UID1, 0}], [{?UID1, 0}]}, {Android1, Ios1}),
     {Android2, Ios2} = mod_push_monitor:push_monitor(?UID2, success, ios, Android1, Ios1, push_response),
@@ -69,7 +59,7 @@ push_monitor_ios_test() ->
     ?assertEqual({[], NewSuccessList}, {Android5, Ios5}),
     ?assert(meck:called(alerts, send_alert, ['_', '_', '_', '_'])),
 
-    meck_finish(alerts),
+    tutil:meck_finish(alerts),
     ok.
     
 
@@ -86,7 +76,7 @@ push_monitor_uid_test() ->
 
 check_error_rate_test() ->
     setup(),
-    meck_init(alerts, send_alert, fun(_,_,_,_) -> ok end),
+    tutil:meck_init(alerts, send_alert, fun(_,_,_,_) -> ok end),
 
     % info for <15% error rate
     InfoRate = [{?UID1, 0}] ++ [{?UID1, 1} || _ <- lists:seq(1,10)],
@@ -107,7 +97,7 @@ check_error_rate_test() ->
     AlertRate = [{?UID1, 0} || _ <- lists:seq(1,10)],
     100.0 = mod_push_monitor:check_error_rate(AlertRate, android, push_response),
     100.0 = mod_push_monitor:check_error_rate(AlertRate, ios, push_wakeup),
-    meck_finish(alerts),
+    tutil:meck_finish(alerts),
 
     ok.
 

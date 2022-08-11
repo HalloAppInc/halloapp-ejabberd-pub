@@ -33,13 +33,11 @@ is_dev_uid_test() ->
 %% ----------------------------------------------
 
 setup() ->
-    meck:new(model_accounts),
-    meck:expect(model_accounts, get_phone, fun mock_get_phone/1).
+    tutil:meck_init(model_accounts, get_phone, fun mock_get_phone/1).
 
 
 teardown() ->
-    ?assert(meck:validate(model_accounts)),
-    meck:unload(model_accounts).
+    tutil:meck_finish(model_accounts).
 
 
 mock_get_phone(Uid) ->

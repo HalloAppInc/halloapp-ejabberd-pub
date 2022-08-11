@@ -60,14 +60,14 @@ check_name_test() ->
 
 request_and_check_sms_code_test() ->
     setup(),
-    meck_init(ejabberd_router, is_my_host, fun(_) -> true end),
-    meck_init(twilio_verify, send_feedback, fun(_,_) -> ok end),
+    tutil:meck_init(ejabberd_router, is_my_host, fun(_) -> true end),
+    tutil:meck_init(twilio_verify, send_feedback, fun(_,_) -> ok end),
     ?assertError(wrong_sms_code, mod_halloapp_http_api:check_sms_code(?TEST_PHONE, ?IP1, noise, ?SMS_CODE, ?STATIC_KEY)),
     {ok, _} = mod_sms:request_sms(?TEST_PHONE, ?UA),
     ?assertError(wrong_sms_code, mod_halloapp_http_api:check_sms_code(?TEST_PHONE, ?IP1, noise, ?BAD_SMS_CODE, ?STATIC_KEY)),
     ?assertEqual(ok, mod_halloapp_http_api:check_sms_code(?TEST_PHONE, ?IP1, noise, ?SMS_CODE, ?STATIC_KEY)),
-    meck_finish(twilio_verify),
-    meck_finish(ejabberd_router).
+    tutil:meck_finish(twilio_verify),
+    tutil:meck_finish(ejabberd_router).
 
 
 check_empty_inviter_list_test() ->
@@ -145,14 +145,4 @@ clear() ->
     tutil:cleardb(redis_whisper),
     tutil:cleardb(redis_auth),
     ok.
-
-
-meck_init(Mod, FunName, Fun) ->
-    meck:new(Mod, [passthrough]),
-    meck:expect(Mod, FunName, Fun).
-
-
-meck_finish(Mod) ->
-    ?assert(meck:validate(Mod)),
-    meck:unload(Mod).
 

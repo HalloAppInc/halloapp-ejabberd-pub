@@ -87,16 +87,17 @@ mod_client_log_test() ->
     setup(),
     % we don't start the gen_server through gen_mod in our tests because
     % of the ets table lookup that is done when start_child is called
-    meck:new(gen_mod),
-    meck:expect(gen_mod, start_child, fun(_, _, _, _) -> ok end),
-    meck:expect(gen_mod, stop_child, fun(_) -> ok end),
-    meck:expect(gen_mod, get_module_proc, fun(_, _) -> 1234 end),
+    tutil:meck_init(gen_mod, [
+        {start_child, fun(_, _, _, _) -> ok end},
+        {stop_child, fun(_) -> ok end},
+        {get_module_proc, fun(_, _) -> 1234 end}
+    ]),
     Host = <<"s.halloapp.net">>,
     ?assertEqual(ok, mod_client_log:start(Host, [])),
     ?assertEqual(ok, mod_client_log:stop(Host)),
     ?assertEqual([{ha_events, hard}], mod_client_log:depends(Host, [])),
     ?assertEqual([], mod_client_log:mod_options(Host)),
-    meck:unload(gen_mod),
+    tutil:meck_finish(gen_mod),
     ok.
 
 
@@ -257,15 +258,13 @@ kill_gen_server() ->
     finish_s3_mock().
 
 mock_s3() ->
-    meck:new(erlcloud_s3),
-    meck:new(erlcloud),
-    meck:new(erlcloud_aws),
-    meck:expect(erlcloud_aws, auto_config, fun() -> {ok, "test_config"} end),
-    meck:expect(erlcloud_aws, configure, fun(_) -> ok end),
-    meck:expect(erlcloud_s3, put_object, fun(_, _, _, _, _) -> ok end).
+    tutil:meck_init(erlcloud_s3, put_object, fun(_, _, _, _, _) -> ok end),
+    tutil:meck_init(erlcloud_aws, [
+        {auto_config, fun() -> {ok, "test_config"} end},
+        {configure, fun(_) -> ok end}
+    ]).
 
 finish_s3_mock() ->
-    meck:unload(erlcloud),
-    meck:unload(erlcloud_aws),
-    meck:unload(erlcloud_s3),
+    tutil:meck_finish(erlcloud_s3),
+    tutil:meck_finish(erlcloud_aws),
     ok.

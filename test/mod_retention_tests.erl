@@ -20,8 +20,10 @@ schedule_test() ->
     TaskTime2 = {22, 59, 59},    % 11pm
     Self = self(),
     Timeout = 1500,
-    meck:expect(?MOD, dump_accounts, fun() -> Self ! ack end),
-    meck:expect(?MOD, compute_retention, fun() -> Self ! ack2 end),
+    tutil:meck_init(?MOD, [
+        {dump_accounts, fun() -> Self ! ack end},
+        {compute_retention, fun() -> Self ! ack2 end}
+    ]),
     setup_erlcron(),
 
     mod_retention:schedule(),
@@ -30,6 +32,7 @@ schedule_test() ->
     ?assertEqual(1, collect(ack, Timeout, 1)),
     ?assertEqual(1, collect(ack2, Timeout, 1)),
     mod_retention:unschedule(),
+    tutil:meck_finish(?MOD),
     cleanup_erlcron().
 
 %% -------------------------------------------- %%

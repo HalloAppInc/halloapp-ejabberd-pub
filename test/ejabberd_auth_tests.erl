@@ -38,10 +38,10 @@ check_spub_test() ->
 
 check_and_register_test() ->
     setup(),
-    meck_init(ejabberd_sm, kick_user, fun(_, _) -> 1 end),
+    tutil:meck_init(ejabberd_sm, kick_user, fun(_, _) -> 1 end),
     {ok, Uid, register} = ejabberd_auth:check_and_register(?PHONE, ?SERVER, ?SPUB, ?NAME, ?UA, ?CAMPAIGN_ID),
     {ok, Uid, login} = ejabberd_auth:check_and_register(?PHONE, ?SERVER, ?SPUB, ?NAME, ?UA, ?CAMPAIGN_ID),
-    meck_finish(ejabberd_sm).
+    tutil:meck_finish(ejabberd_sm).
 
 
 ha_try_register_test() ->
@@ -64,12 +64,12 @@ try_enroll_test() ->
 
 user_exists_test() ->
     setup(),
-    meck_init(ejabberd_router, is_my_host, fun(_) -> true end),
+    tutil:meck_init(ejabberd_router, is_my_host, fun(_) -> true end),
     ?assertNot(ejabberd_auth:user_exists(?UID)),
     ?assertNot(ejabberd_auth:user_exists(?UID)),
     {ok, Uid, register} = ejabberd_auth:check_and_register(?PHONE, ?SERVER, ?SPUB, ?NAME, ?UA, ?CAMPAIGN_ID),
     ?assert(ejabberd_auth:user_exists(Uid)),
-    meck_finish(ejabberd_router).
+    tutil:meck_finish(ejabberd_router).
 
 
 remove_user_test() ->
@@ -96,14 +96,4 @@ clear() ->
     tutil:cleardb(redis_auth),
     tutil:cleardb(redis_phone),
     tutil:cleardb(redis_accounts).
-
-
-meck_init(Mod, FunName, Fun) ->
-    meck:new(Mod),
-    meck:expect(Mod, FunName, Fun).
-
-
-meck_finish(Mod) ->
-    ?assert(meck:validate(Mod)),
-    meck:unload(Mod).
 

@@ -70,10 +70,9 @@ get_secret_test() ->
 
 get_secret_value_test() ->
     setup(),
-    meck:new(mod_aws, [passthrough]),
-    meck:expect(mod_aws, get_secret, fun(_Name) -> ?SECRET1_VALUE end),
+    tutil:meck_init(mod_aws, get_secret, fun(_Name) -> ?SECRET1_VALUE end),
     ?assertEqual("data", mod_aws:get_secret_value(?SECRET1, <<"api_key">>)),
-    meck:unload(mod_aws),
+    tutil:meck_finish(mod_aws),
     finish(),
     ok.
 
@@ -97,37 +96,21 @@ mock_get_ec2_instances(_, _, _) ->
     {ok, Res}.
 
 
--spec meck_init(Module :: module(), MockedAndReplacementFuns :: [{atom(), function()}]) -> ok.
-meck_init(Module, MockedAndReplacementFuns) ->
-    meck:new(Module),
-    lists:foreach(
-        fun({MockedFun, ReplacementFun}) ->
-            meck:expect(Module, MockedFun, ReplacementFun)
-        end,
-        MockedAndReplacementFuns),
-    ok.
-
-
-meck_finish(Module) ->
-    ?assert(meck:validate(Module)),
-    meck:unload(Module),
-    ok.
-
-
 setup() ->
-    meck_init(ejabberd_hooks, [{add, fun(_, _, _, _) -> ok end},
+    tutil:meck_init(ejabberd_hooks, [
+        {add, fun(_, _, _, _) -> ok end},
         {delete, fun(_, _, _, _) -> ok end}]),
     ok = mod_aws:start(util:get_host(), []),
     application:ensure_all_started(erlcloud),
-    meck_init(erlcloud_sm, [{get_secret_value, fun mock_get_secret_value/2}]),
-    meck_init(erlcloud_ec2, [{describe_instances, fun mock_get_ec2_instances/3}]),
+    tutil:meck_init(erlcloud_sm, get_secret_value, fun mock_get_secret_value/2),
+    tutil:meck_init(erlcloud_ec2, describe_instances, fun mock_get_ec2_instances/3),
     ok.
 
 
 finish() ->
     ok = mod_aws:stop(util:get_host()),
-    meck_finish(ejabberd_hooks),
-    meck_finish(erlcloud_sm),
-    meck_finish(erlcloud_ec2),
+    tutil:meck_finish(ejabberd_hooks),
+    tutil:meck_finish(erlcloud_sm),
+    tutil:meck_finish(erlcloud_ec2),
     ok.
 

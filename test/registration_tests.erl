@@ -467,10 +467,11 @@ full_test(_Conf) ->
 
 %% TODO(nikola): this test can fail sometimes if running right at midnight UTC...
 too_many_phone_attempts_register_test(_Conf) ->
-    meck:new(mod_halloapp_http_api, [passthrough]),
     % prevent ip check
-    meck:expect(mod_halloapp_http_api, check_attempts_by_ip, fun(_) -> ok end),
-    meck:expect(mod_halloapp_http_api, check_attempts_by_static_key, fun(_) -> ok end),
+    tutil:meck_init(mod_halloapp_http_api, [
+        {check_attempts_by_ip, fun(_) -> ok end},
+        {check_attempts_by_static_key, fun(_) -> ok end}
+    ]),
     registration_client:request_sms(?PHONE12, #{}),
     SMSErr = #pb_verify_otp_response{
         result = failure,
@@ -486,14 +487,12 @@ too_many_phone_attempts_register_test(_Conf) ->
     % trying the right code should fail
     {ok, SMSErr} = registration_client:register(?PHONE12, <<"111111">>, ?NAME12, #{}),
     ?assertEqual({ok, undefined}, model_phone:get_uid(?PHONE12)),
-    ?assert(meck:validate(mod_halloapp_http_api)),
-    meck:unload(mod_halloapp_http_api),
+    tutil:meck_finish(mod_halloapp_http_api),
     ok.
 
 
 too_many_ip_attempts_register_test(_Conf) ->
-    meck:new(mod_halloapp_http_api, [passthrough]),
-    meck:expect(mod_halloapp_http_api, check_attempts_by_static_key, fun(_) -> ok end),
+    tutil:meck_init(mod_halloapp_http_api, check_attempts_by_static_key, fun(_) -> ok end),
     registration_client:request_sms(?PHONE13, #{}),
     SMSErr = #pb_verify_otp_response{
         result = failure,
@@ -512,14 +511,12 @@ too_many_ip_attempts_register_test(_Conf) ->
     % trying the right code should fail
     {ok, SMSErr} = registration_client:register(?PHONE13, <<"111111">>, ?NAME11, #{}),
     ?assertEqual({ok, undefined}, model_phone:get_uid(?PHONE13)),
-    ?assert(meck:validate(mod_halloapp_http_api)),
-    meck:unload(mod_halloapp_http_api),
+    tutil:meck_finish(mod_halloapp_http_api),
     ok.
 
 
 too_many_static_key_attempts_register_test(_Conf) ->
-    meck:new(mod_halloapp_http_api, [passthrough]),
-    meck:expect(mod_halloapp_http_api, check_attempts_by_ip, fun(_) -> ok end),
+    tutil:meck_init(mod_halloapp_http_api, check_attempts_by_ip, fun(_) -> ok end),
     registration_client:request_sms(?PHONE14, #{}),
     SMSErr = #pb_verify_otp_response{
         result = failure,
@@ -534,6 +531,5 @@ too_many_static_key_attempts_register_test(_Conf) ->
     % trying the right code should fail
     {ok, SMSErr} = registration_client:register(?PHONE14, <<"111111">>, ?NAME11, #{}),
     ?assertEqual({ok, undefined}, model_phone:get_uid(?PHONE14)),
-    ?assert(meck:validate(mod_halloapp_http_api)),
-    meck:unload(mod_halloapp_http_api),
+    tutil:meck_finish(mod_halloapp_http_api),
     ok.

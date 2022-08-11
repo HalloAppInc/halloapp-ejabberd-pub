@@ -669,8 +669,7 @@ leave_group_test() ->
 
 set_avatar_test() ->
     setup(),
-    meck:new(mod_user_avatar, [passthrough]),
-    meck:expect(mod_user_avatar, check_and_upload_avatar, fun (_, _) -> {ok, ?AVATAR1} end),
+    tutil:meck_init(mod_user_avatar, check_and_upload_avatar, fun (_, _) -> {ok, ?AVATAR1} end),
 
     Gid = create_group(?UID1, ?GROUP_NAME1, [?UID2, ?UID3]),
     IQ = set_avatar_IQ(?UID2, Gid),
@@ -685,16 +684,16 @@ set_avatar_test() ->
     GroupInfo = model_groups:get_group_info(Gid),
     ?assertEqual(?AVATAR1, GroupInfo#group_info.avatar),
 
-    ?assert(meck:validate(mod_user_avatar)),
-    meck:unload(mod_user_avatar),
+    tutil:meck_finish(mod_user_avatar),
     ok.
 
 
 delete_avatar_test() ->
     setup(),
-    meck:new(mod_user_avatar, [passthrough]),
-    meck:expect(mod_user_avatar, check_and_upload_avatar, fun (_, _) -> {ok, ?AVATAR1} end),
-    meck:expect(mod_user_avatar, delete_avatar_s3, fun (_) -> ok end),
+    tutil:meck_init(mod_user_avatar, [
+        {check_and_upload_avatar, fun (_, _) -> {ok, ?AVATAR1} end},
+        {delete_avatar_s3, fun (_) -> ok end}
+    ]),
 
     % First create the group and set the avatar
     Gid = create_group(?UID1, ?GROUP_NAME1, [?UID2, ?UID3]),
@@ -723,8 +722,7 @@ delete_avatar_test() ->
     GroupInfo2 = model_groups:get_group_info(Gid),
     ?assertEqual(undefined, GroupInfo2#group_info.avatar),
 
-    ?assert(meck:validate(mod_user_avatar)),
-    meck:unload(mod_user_avatar),
+    tutil:meck_finish(mod_user_avatar),
     ok.
 
 set_background_test() ->
@@ -781,9 +779,10 @@ publish_group_feed_bad_audience_hash_test() ->
     setup(),
     % First create the group and set the avatar
     {Gid, _LocalHash, _IKMap} = create_group_with_identity_keys(?UID1, ?GROUP_NAME1, [?UID2, ?UID3]),
-    meck:new(ejabberd_router, [passthrough]),
-    meck:expect(ejabberd_router, route_multicast, fun (_, _, _) -> ok end),
-    meck:expect(ejabberd_router, route, fun(_) -> ok end),
+    tutil:meck_init(ejabberd_router, [
+        {route_multicast, fun (_, _, _) -> ok end},
+        {route, fun(_) -> ok end}
+    ]),
 
     PostSt = make_pb_post(?ID1, <<>>, <<>>, ?PAYLOAD1, undefined),
     SenderStateBundles = create_sender_state_bundles(
@@ -798,8 +797,7 @@ publish_group_feed_bad_audience_hash_test() ->
     ?assertEqual(<<"audience_hash_mismatch">>, SubEl#pb_error_stanza.reason),
     ?assertEqual(0, meck:num_calls(ejabberd_router, route_multicast, '_')),
     ?assertEqual(0, meck:num_calls(ejabberd_router, route, '_')),
-    ?assert(meck:validate(ejabberd_router)),
-    meck:unload(ejabberd_router),
+    tutil:meck_finish(ejabberd_router),
 
     {error, missing} = model_feed:get_post(?ID1),
     ok.
@@ -814,9 +812,8 @@ publish_group_feed_helper(WithAudienceHash) ->
     setup(),
     % First create the group and set the avatar
     {Gid, AudienceHash, _} = create_group_with_identity_keys(?UID1, ?GROUP_NAME1, [?UID2, ?UID3]),
-    meck:new(ejabberd_router, [passthrough]),
 
-    meck:expect(ejabberd_router, route,
+    tutil:meck_init(ejabberd_router, route,
         fun(Packet) ->
             ?assertEqual(?UID1, Packet#pb_msg.from_uid),
             ?assert(Packet#pb_msg.to_uid =:= ?UID2 orelse Packet#pb_msg.to_uid =:= ?UID3),
@@ -849,8 +846,7 @@ publish_group_feed_helper(WithAudienceHash) ->
     ?assertEqual(?UID1, GroupPostSt#pb_post.publisher_uid),
     ?assertNotEqual(undefined, GroupPostSt#pb_post.timestamp),
     ?assertEqual(2, meck:num_calls(ejabberd_router, route, '_')),
-    ?assert(meck:validate(ejabberd_router)),
-    meck:unload(ejabberd_router),
+    tutil:meck_finish(ejabberd_router),
 
     {ok, Post} = model_feed:get_post(?ID1),
     ?assertEqual(?ID1, Post#post.id),
@@ -865,9 +861,10 @@ history_resend_bad_audience_hash_test() ->
     setup(),
     % First create the group and set the avatar
     {Gid, _LocalHash, _IKMap} = create_group_with_identity_keys(?UID1, ?GROUP_NAME1, [?UID2, ?UID3]),
-    meck:new(ejabberd_router, [passthrough]),
-    meck:expect(ejabberd_router, route_multicast, fun (_, _, _) -> ok end),
-    meck:expect(ejabberd_router, route, fun(_) -> ok end),
+    tutil:meck_init(ejabberd_router, [
+        {route_multicast, fun (_, _, _) -> ok end},
+        {route, fun(_) -> ok end}
+    ]),
 
     SenderStateBundles = create_sender_state_bundles(
         [{?UID2, ?ENC_SENDER_STATE2}, {?UID3, ?ENC_SENDER_STATE3}]),
@@ -881,17 +878,17 @@ history_resend_bad_audience_hash_test() ->
     ?assertEqual(<<"audience_hash_mismatch">>, SubEl#pb_error_stanza.reason),
     ?assertEqual(0, meck:num_calls(ejabberd_router, route_multicast, '_')),
     ?assertEqual(0, meck:num_calls(ejabberd_router, route, '_')),
-    ?assert(meck:validate(ejabberd_router)),
-    meck:unload(ejabberd_router),
+    tutil:meck_finish(ejabberd_router),
     ok.
 
 history_resend_non_admin_test() ->
     setup(),
     % First create the group and set the avatar
     {Gid, AudienceHash, _IKMap} = create_group_with_identity_keys(?UID1, ?GROUP_NAME1, [?UID2, ?UID3]),
-    meck:new(ejabberd_router, [passthrough]),
-    meck:expect(ejabberd_router, route_multicast, fun (_, _, _) -> ok end),
-    meck:expect(ejabberd_router, route, fun(_) -> ok end),
+    tutil:meck_init(ejabberd_router, [
+        {route_multicast, fun (_, _, _) -> ok end},
+        {route, fun(_) -> ok end}
+    ]),
 
     SenderStateBundles = create_sender_state_bundles(
         [{?UID2, ?ENC_SENDER_STATE2}, {?UID3, ?ENC_SENDER_STATE3}]),
@@ -905,8 +902,7 @@ history_resend_non_admin_test() ->
     ?assertEqual(<<"not_admin">>, SubEl#pb_error_stanza.reason),
     ?assertEqual(0, meck:num_calls(ejabberd_router, route_multicast, '_')),
     ?assertEqual(0, meck:num_calls(ejabberd_router, route, '_')),
-    ?assert(meck:validate(ejabberd_router)),
-    meck:unload(ejabberd_router),
+    tutil:meck_finish(ejabberd_router),
     ok.
 
 history_resend_with_audience_hash_test() ->
@@ -919,9 +915,8 @@ history_resend_helper(WithAudienceHash) ->
     setup(),
     % First create the group and set the avatar
     {Gid, AudienceHash, _} = create_group_with_identity_keys(?UID1, ?GROUP_NAME1, [?UID2, ?UID3]),
-    meck:new(ejabberd_router, [passthrough]),
 
-    meck:expect(ejabberd_router, route,
+    tutil:meck_init(ejabberd_router, route,
         fun(Packet) ->
             ?assertEqual(?UID1, Packet#pb_msg.from_uid),
             ?assert(Packet#pb_msg.to_uid =:= ?UID2 orelse Packet#pb_msg.to_uid =:= ?UID3),
@@ -947,8 +942,7 @@ history_resend_helper(WithAudienceHash) ->
     ?assertEqual(Gid, SubEl#pb_history_resend.gid),
     ?assertEqual(SubEl#pb_history_resend.payload, ?PAYLOAD1),
     ?assertEqual(2, meck:num_calls(ejabberd_router, route, '_')),
-    ?assert(meck:validate(ejabberd_router)),
-    meck:unload(ejabberd_router),
+    tutil:meck_finish(ejabberd_router),
     ok.
 
 
@@ -956,9 +950,10 @@ add_member_with_history_bad_audience_hash_test() ->
     setup(),
     % First create the group and set the avatar
     {Gid, _LocalHash, _IKMap} = create_group_with_identity_keys(?UID1, ?GROUP_NAME1, [?UID2]),
-    meck:new(ejabberd_router, [passthrough]),
-    meck:expect(ejabberd_router, route_multicast, fun (_, _, _) -> ok end),
-    meck:expect(ejabberd_router, route, fun(_) -> ok end),
+    tutil:meck_init(ejabberd_router, [
+        {route_multicast, fun (_, _, _) -> ok end},
+        {route, fun(_) -> ok end}
+    ]),
 
     SenderStateBundles = create_sender_state_bundles(
         [{?UID2, ?ENC_SENDER_STATE2}, {?UID3, ?ENC_SENDER_STATE3}]),
@@ -972,17 +967,17 @@ add_member_with_history_bad_audience_hash_test() ->
     ?assertEqual(<<"audience_hash_mismatch">>, SubEl#pb_error_stanza.reason),
     ?assertEqual(0, meck:num_calls(ejabberd_router, route_multicast, '_')),
     ?assertEqual(0, meck:num_calls(ejabberd_router, route, '_')),
-    ?assert(meck:validate(ejabberd_router)),
-    meck:unload(ejabberd_router),
+    tutil:meck_finish(ejabberd_router),
     ok.
 
 add_member_with_history_non_admin_test() ->
     setup(),
     % First create the group and set the avatar
     {Gid, AudienceHash, _IKMap} = create_group_with_identity_keys(?UID1, ?GROUP_NAME1, [?UID2]),
-    meck:new(ejabberd_router, [passthrough]),
-    meck:expect(ejabberd_router, route_multicast, fun (_, _, _) -> ok end),
-    meck:expect(ejabberd_router, route, fun(_) -> ok end),
+    tutil:meck_init(ejabberd_router, [
+        {route_multicast, fun (_, _, _) -> ok end},
+        {route, fun(_) -> ok end}
+    ]),
 
     SenderStateBundles = create_sender_state_bundles(
         [{?UID1, ?ENC_SENDER_STATE2}, {?UID3, ?ENC_SENDER_STATE3}]),
@@ -996,8 +991,7 @@ add_member_with_history_non_admin_test() ->
     ?assertEqual(<<"not_admin">>, SubEl#pb_error_stanza.reason),
     ?assertEqual(0, meck:num_calls(ejabberd_router, route_multicast, '_')),
     ?assertEqual(0, meck:num_calls(ejabberd_router, route, '_')),
-    ?assert(meck:validate(ejabberd_router)),
-    meck:unload(ejabberd_router),
+    tutil:meck_finish(ejabberd_router),
     ok.
 
 
@@ -1005,9 +999,8 @@ add_member_with_history_resend_test() ->
     setup(),
     % First create the group and set the avatar
     {Gid, AudienceHash, _} = create_group_with_identity_keys(?UID1, ?GROUP_NAME1, [?UID2]),
-    meck:new(ejabberd_router, [passthrough]),
 
-    meck:expect(ejabberd_router, route,
+    tutil:meck_init(ejabberd_router, route,
         %% Ignore new group-info updates.
         fun(#pb_msg{payload = #pb_group_stanza{history_resend = undefined}}) -> ok;
            (Packet) ->
@@ -1032,8 +1025,7 @@ add_member_with_history_resend_test() ->
 
     ?assertEqual(result, ResultIQ#pb_iq.type),
     ?assertEqual(4, meck:num_calls(ejabberd_router, route, '_')),
-    ?assert(meck:validate(ejabberd_router)),
-    meck:unload(ejabberd_router),
+    tutil:meck_finish(ejabberd_router),
     ok.
 
 
@@ -1046,9 +1038,8 @@ retract_group_feed_test() ->
     Timestamp = util:now_ms(),
     ok = model_feed:publish_post(?ID2, ?UID1, <<>>, empty, all, [?UID1, ?UID2, ?UID3], Timestamp, Gid),
     ok = model_feed:publish_comment(?ID1, ?ID2, ?UID2, <<>>, <<>>, Timestamp),
-    meck:new(ejabberd_router, [passthrough]),
 
-    meck:expect(ejabberd_router, route,
+    tutil:meck_init(ejabberd_router, route,
         fun(Packet) ->
             ?assertEqual(?UID2, Packet#pb_msg.from_uid),
             ?assert(Packet#pb_msg.to_uid =:= ?UID1 orelse Packet#pb_msg.to_uid =:= ?UID3),
@@ -1075,8 +1066,7 @@ retract_group_feed_test() ->
     ?assertEqual(?UID2, GroupCommentSt#pb_comment.publisher_uid),
     ?assertNotEqual(undefined, GroupCommentSt#pb_comment.timestamp),
     ?assertEqual(2, meck:num_calls(ejabberd_router, route, '_')),
-    ?assert(meck:validate(ejabberd_router)),
-    meck:unload(ejabberd_router),
+    tutil:meck_finish(ejabberd_router),
 
     ?assertEqual({error, missing}, model_feed:get_comment(?ID1, ?ID2)),
     ok.

@@ -33,8 +33,7 @@ clear() ->
 
 create_empty_group_test() ->
     setup(),
-    meck:new(util, [passthrough]),
-    meck:expect(util, now_ms, fun() -> ?TIMESTAMP end),
+    tutil:meck_init(util, now_ms, fun() -> ?TIMESTAMP end),
     {ok, Group} = mod_groups:create_group(?UID1, ?GROUP_NAME1, #pb_expiry_info{expiry_type = never, expiry_timestamp = -1}),
     Gid = Group#group.gid,
 %%    ?debugVal(Group),
@@ -50,8 +49,7 @@ create_empty_group_test() ->
     }, Group#group.expiry_info),
     ?assertEqual([#group_member{uid = ?UID1, type = admin, joined_ts_ms = ?TIMESTAMP}],
         Group#group.members),
-    ?assert(meck:validate(util)),
-    meck:unload(util),
+    tutil:meck_finish(util),
     ok.
 
 create_group_bad_name_test() ->
@@ -64,8 +62,7 @@ create_group_bad_name_test() ->
 
 create_group_with_members_test() ->
     setup(),
-    meck:new(util, [passthrough]),
-    meck:expect(util, now_ms, fun() -> ?TIMESTAMP end),
+    tutil:meck_init(util, now_ms, fun() -> ?TIMESTAMP end),
     {ok, Group, AddMemberResult} = mod_groups:create_group(?UID1, ?GROUP_NAME1,
          #pb_expiry_info{expiry_type = expires_in_seconds, expires_in_seconds = 86400}, [?UID2, ?UID3]),
     ?assertEqual(?GROUP_NAME1, Group#group.name),
@@ -79,14 +76,12 @@ create_group_with_members_test() ->
         {?UID3, add, ok}
     ],
     ?assertEqual(ExpectedAddMemberResult, AddMemberResult),
-    ?assert(meck:validate(util)),
-    meck:unload(util),
+    tutil:meck_finish(util),
     ok.
 
 create_group_member_has_no_account_test() ->
     setup(),
-    meck:new(util, [passthrough]),
-    meck:expect(util, now_ms, fun() -> ?TIMESTAMP end),
+    tutil:meck_init(util, now_ms, fun() -> ?TIMESTAMP end),
     {ok, Group, AddMemberResult} = mod_groups:create_group(?UID1, ?GROUP_NAME1,
         #pb_expiry_info{expiry_type = expires_in_seconds, expires_in_seconds = 86400}, [?UID2, ?UID5]),
     ?assertEqual(2, length(Group#group.members)),
@@ -98,8 +93,7 @@ create_group_member_has_no_account_test() ->
         {?UID5, add, no_account}
     ],
     ?assertEqual(ExpectedAddMemberResult, AddMemberResult),
-    ?assert(meck:validate(util)),
-    meck:unload(util),
+    tutil:meck_finish(util),
     ok.
 
 
@@ -278,8 +272,7 @@ get_group_not_member_test() ->
 
 get_group_test() ->
     setup(),
-    meck:new(util, [passthrough]),
-    meck:expect(util, now_ms, fun() -> ?TIMESTAMP end),
+    tutil:meck_init(util, now_ms, fun() -> ?TIMESTAMP end),
     {ok, Group} = mod_groups:create_group(?UID1, ?GROUP_NAME1),
     Gid = Group#group.gid,
     mod_groups:add_members(Gid, ?UID1, [?UID2, ?UID3]),
@@ -300,8 +293,7 @@ get_group_test() ->
         }
     },
     ?assertEqual(ExpectedGroup, Group2),
-    ?assert(meck:validate(util)),
-    meck:unload(util),
+    tutil:meck_finish(util),
     ok.
 
 get_groups_test() ->
@@ -373,8 +365,7 @@ set_avatar_test() ->
 
 delete_avatar_test() ->
     setup(),
-    meck:new(mod_user_avatar),
-    meck:expect(mod_user_avatar, delete_avatar_s3, fun(_Id) -> ok end),
+    tutil:meck_init(mod_user_avatar, delete_avatar_s3, fun(_Id) -> ok end),
     {ok, Group} = mod_groups:create_group(?UID1, ?GROUP_NAME1),
     Gid = Group#group.gid,
     ?assertEqual(undefined, Group#group.avatar),
@@ -384,7 +375,7 @@ delete_avatar_test() ->
     ?assertEqual({ok, ?GROUP_NAME1}, mod_groups:delete_avatar(Gid, ?UID1)),
     {ok, GroupNew2} = mod_groups:get_group(Gid, ?UID1),
     ?assertEqual(undefined, GroupNew2#group.avatar),
-    meck:unload(mod_user_avatar),
+    tutil:meck_finish(mod_user_avatar),
     ok.
 
 set_background_test() ->

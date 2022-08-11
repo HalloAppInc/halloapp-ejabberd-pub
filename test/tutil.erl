@@ -20,6 +20,7 @@
     assert_empty_result_iq/1,
     get_error_iq_sub_el/1,
     cleardb/1,
+    meck_init/2,
     meck_init/3,
     meck_finish/1,
     gen_keyb64/1,
@@ -75,12 +76,27 @@ cleardb(DBName) ->
     ok = ecredis:flushdb(RedisClient).
 
 
+-spec meck_init(Mod ::module(), FunName ::atom(), Fun :: function()) -> ok.
 meck_init(Mod, FunName, Fun) ->
-    meck:new(Mod, [passthrough]),
-    meck:expect(Mod, FunName, Fun).
+    meck_init(Mod, [{FunName, Fun}]).
+
+-spec meck_init(Module :: module(), MockedAndReplacementFuns :: [{atom(), function()}]) -> ok.
+meck_init(Module, MockedAndReplacementFuns) ->
+    %% the passthrough option allows all non-mocked functions in the module to be preserved
+    meck:new(Module, [passthrough]),
+    lists:foreach(
+        fun({MockedFun, ReplacementFun}) ->
+            meck:expect(Module, MockedFun, ReplacementFun)
+        end,
+        MockedAndReplacementFuns),
+    ok.
 
 
+-spec meck_finish(Mod :: module()) -> ok.
 meck_finish(Mod) ->
+    %% this assertion will fail if:
+    %%  - the function is called with the wrong arg types (function_clause)
+    %%  - an exception is thrown inside the function (and meck:exception was not used)
     ?assert(meck:validate(Mod)),
     meck:unload(Mod).
 

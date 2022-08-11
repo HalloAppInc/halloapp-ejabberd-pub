@@ -17,25 +17,17 @@ setup() ->
     ha_redis:start(),
     application:ensure_all_started(locus),
     clear(),
-    meck_load(),
+    tutil:meck_init(mod_aws, get_secret, fun(_Key) -> undefined end),
     ok.
 
 clear() ->
     tutil:cleardb(redis_accounts).
 
-meck_load() ->
-    meck:new(mod_aws, [passthrough]),
-    meck:expect(mod_aws, get_secret, fun(_Key) -> undefined end),
-    ok.
-
-meck_unload() ->
-    meck:unload(mod_aws).
-
 start_test() ->
     setup(),
     mod_geodb:start(undefined, []),
     mod_call_servers:start_link(),
-    meck_unload(),
+    tutil:meck_finish(mod_aws),
     ok.
 
 get_stun_turn_servers_basic_test() ->
@@ -47,7 +39,7 @@ get_stun_turn_servers_basic_test() ->
     ?assertEqual(<<"35.175.122.234">>, TurnServer2#pb_turn_server.host),
     ?assertEqual(443, TurnServer2#pb_turn_server.port),
     ?assertEqual(<<"clients">>, TurnServer2#pb_turn_server.username),
-    meck_unload(),
+    tutil:meck_finish(mod_aws),
     ok.
 
 get_stun_turn_servers_by_ip_test() ->
@@ -56,7 +48,7 @@ get_stun_turn_servers_by_ip_test() ->
     model_accounts:set_last_ip_and_connection_time(?UID2, ?DE_IP, util:now_ms()),
     check_server_from_region(?UID1, ?UID2, <<"us-east-1">>),
     check_server_from_region(?UID2, ?UID1, <<"eu-central-1">>),
-    meck_unload(),
+    tutil:meck_finish(mod_aws),
     ok.
 
 get_stun_turn_servers_by_ip2_test() ->
@@ -65,7 +57,7 @@ get_stun_turn_servers_by_ip2_test() ->
     model_accounts:set_last_ip_and_connection_time(?UID2, ?BR_IP, util:now_ms()),
     check_server_from_region(?UID1, ?UID2, <<"me-south-1">>),
     check_server_from_region(?UID2, ?UID1, <<"sa-east-1">>),
-    meck_unload(),
+    tutil:meck_finish(mod_aws),
     ok.
 
 check_server_from_region(Uid1, Uid2, Region) ->
@@ -95,7 +87,7 @@ get_ip_test() ->
     check_country_to_region(<<"AE">>, <<"me-south-1">>),
     check_country_to_region(<<"BR">>, <<"sa-east-1">>),
     check_country_to_region(<<"MX">>, <<"us-west-1">>),
-    meck_unload(),
+    tutil:meck_finish(mod_aws),
     ok.
 
 check_country_to_region(CC, Region) ->

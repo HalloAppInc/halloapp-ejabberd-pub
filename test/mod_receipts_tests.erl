@@ -71,8 +71,7 @@ send_1on1_delivery_receipt_test() ->
     % UID1 acks the message
     Ack = ?ACK1,
 
-    meck:new(ejabberd_router),
-    meck:expect(ejabberd_router, route,
+    tutil:meck_init(ejabberd_router, route,
         fun(Packet) ->
             ?assertEqual(Packet#pb_msg.to_uid, ?UID2),
             ?assertEqual(Packet#pb_msg.from_uid, ?UID1),
@@ -83,6 +82,5 @@ send_1on1_delivery_receipt_test() ->
 
     mod_receipts:user_ack_packet(Ack, OfflineMsg),
     ?assertEqual(1, meck:num_calls(ejabberd_router, route, '_')),
-    meck:validate(ejabberd_router),
-    meck:unload(ejabberd_router),
+    tutil:meck_finish(ejabberd_router),
     ok.

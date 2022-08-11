@@ -24,16 +24,6 @@ setup() ->
     ok.
 
 
-meck_init(Mod, FunName, Fun) ->
-    meck:new(Mod, [passthrough]),
-    meck:expect(Mod, FunName, Fun).
-
-
-meck_finish(Mod) ->
-    ?assert(meck:validate(Mod)),
-    meck:unload(Mod).
-
-
 remind_wakeup_test() ->
     setup(),
     % normal pushes reset wakeup push counter; wakeup pushes increment counter
@@ -62,7 +52,7 @@ cancel_wakeup_test() ->
 
 
 check_wakeup_test() ->
-    meck_init(ejabberd_router, route, fun(_) -> ok end),
+    tutil:meck_init(ejabberd_router, route, fun(_) -> ok end),
 
     #{} = mod_wakeup:check_wakeup(?UID1, #{}),
     
@@ -84,6 +74,6 @@ check_wakeup_test() ->
     #{} = mod_wakeup:check_wakeup(?UID1, WakeupMap2),
     WakeupMap2 = mod_wakeup:check_wakeup(?UID2, WakeupMap2),
 
-    meck_finish(ejabberd_router),
+    tutil:meck_finish(ejabberd_router),
     ok.
 

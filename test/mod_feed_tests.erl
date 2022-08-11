@@ -252,8 +252,7 @@ publish_post_no_audience_error_test() ->
 publish_post_test() ->
     setup(),
 
-    meck:new(ejabberd_router, [passthrough]),
-    meck:expect(ejabberd_router, route,
+    tutil:meck_init(ejabberd_router, route,
         fun(Packet) ->
             ?assertEqual(?UID1, Packet#pb_msg.from_uid),
             ?assert(Packet#pb_msg.to_uid =:= ?UID2),
@@ -284,8 +283,7 @@ publish_post_test() ->
     ?assertEqual(ExpectedResultIQ, ResultIQ2),
 
     ?assertEqual(2, meck:num_calls(ejabberd_router, route, '_')),
-    ?assert(meck:validate(ejabberd_router)),
-    meck:unload(ejabberd_router),
+    tutil:meck_finish(ejabberd_router),
 
     ok.
 
@@ -303,8 +301,7 @@ publish_non_existing_post_comment_test() ->
 publish_comment_test() ->
     setup(),
     %% publish post and then comment.
-    meck:new(ejabberd_router, [passthrough]),
-    meck:expect(ejabberd_router, route,
+    tutil:meck_init(ejabberd_router, route,
         fun(Packet) ->
             ?assertEqual(?UID1, Packet#pb_msg.from_uid),
             ?assert(Packet#pb_msg.to_uid =:= ?UID2),
@@ -332,8 +329,7 @@ publish_comment_test() ->
     ?assertEqual(ExpectedResultIQ, ResultIQ2),
 
     ?assertEqual(2, meck:num_calls(ejabberd_router, route, '_')),
-    ?assert(meck:validate(ejabberd_router)),
-    meck:unload(ejabberd_router),
+    tutil:meck_finish(ejabberd_router),
     ok.
 
 
@@ -350,16 +346,14 @@ retract_non_existing_post_test() ->
 retract_post_test() ->
     setup(),
     %% publish post and then retract.
-    meck:new(ejabberd_router, [passthrough]),
-    meck:expect(ejabberd_router, route, fun(_) -> ok end),
+    tutil:meck_init(ejabberd_router, route, fun(_) -> ok end),
     ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, empty, all, [?UID1, ?UID2], util:now_ms()),
     RetractIQ = get_post_retract_iq(?POST_ID1, ?UID1),
     ResultIQ = mod_feed:process_local_iq(RetractIQ),
     Timestamp = get_timestamp(ResultIQ),
     ExpectedResultIQ = get_post_retract_iq_result(?POST_ID1, ?UID1, Timestamp),
     ?assertEqual(ExpectedResultIQ, ResultIQ),
-    ?assert(meck:validate(ejabberd_router)),
-    meck:unload(ejabberd_router),
+    tutil:meck_finish(ejabberd_router),
     ok.
 
 
@@ -387,8 +381,7 @@ retract_non_existing_comment_test() ->
 retract_comment_test() ->
     setup(),
     %% publish post and comment and then retract comment.
-    meck:new(ejabberd_router, [passthrough]),
-    meck:expect(ejabberd_router, route, fun(_) -> ok end),
+    tutil:meck_init(ejabberd_router, route, fun(_) -> ok end),
     ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, empty, all, [?UID1, ?UID2], util:now_ms()),
     ok = model_feed:publish_comment(?COMMENT_ID1, ?POST_ID1,
             ?UID1, <<>>, ?COMMENT_PAYLOAD1, util:now_ms()),
@@ -398,8 +391,7 @@ retract_comment_test() ->
     ExpectedResultIQ = get_comment_retract_iq_result(?COMMENT_ID1, ?POST_ID1,
             ?UID1, Timestamp),
     ?assertEqual(ExpectedResultIQ, ResultIQ),
-    ?assert(meck:validate(ejabberd_router)),
-    meck:unload(ejabberd_router),
+    tutil:meck_finish(ejabberd_router),
     ok.
 
 
@@ -419,56 +411,52 @@ retract_not_authorized_comment_test() ->
 share_post_non_friend_test() ->
     setup(),
     %% publish post and add non-friend
-    meck:new(ejabberd_router, [passthrough]),
-    meck:expect(ejabberd_router, route, fun(_) -> ok end),
+    tutil:meck_init(ejabberd_router, route, fun(_) -> ok end),
     ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, empty, all, [?UID1], util:now_ms()),
     ShareIQ = get_share_iq(?UID1, ?UID2, [?POST_ID1]),
     ResultIQ = mod_feed:process_local_iq(ShareIQ),
     ExpectedResultIQ = get_share_iq_result(?UID1, ?UID2),
     ?assertEqual(ExpectedResultIQ#pb_iq.payload, ResultIQ#pb_iq.payload),
-    ?assert(meck:validate(ejabberd_router)),
-    meck:unload(ejabberd_router),
+    tutil:meck_finish(ejabberd_router),
     ok.
 
 
 share_post_iq_test() ->
     setup(),
-    meck:new(ejabberd_router, [passthrough]),
-    meck:expect(ejabberd_router, route, fun(_) -> ok end),
+    tutil:meck_init(ejabberd_router, route, fun(_) -> ok end),
     ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, empty, all, [?UID1], util:now_ms()),
     model_friends:add_friend(?UID1, ?UID2),
     ShareIQ = get_share_iq(?UID1, ?UID2, [?POST_ID1]),
     ResultIQ = mod_feed:process_local_iq(ShareIQ),
     ExpectedResultIQ = get_share_iq_result(?UID1, ?UID2),
     ?assertEqual(ExpectedResultIQ, ResultIQ),
-    ?assert(meck:validate(ejabberd_router)),
-    meck:unload(ejabberd_router),
+    tutil:meck_finish(ejabberd_router),
     ok.
 
 
 add_friend_test() ->
     setup2(),
-    meck:new(ejabberd_router, [passthrough]),
-    meck:expect(ejabberd_router, route, fun(P) ->
-        #pb_msg {
-            id = _Id,
-            to_uid = ToUid,
-            type = MsgType,
-            payload = Payload
-        } = P,
-        ?assertEqual(?UID2, ToUid),
-        ?assertEqual(normal, MsgType),
-        #pb_feed_items{
-            items = [#pb_feed_item{item = Post}]
-        } = Payload,
-        ?assertEqual(?POST_ID1, Post#pb_post.id),
-        ?assertEqual(?PAYLOAD1, Post#pb_post.payload),
-        ok
-    end),
+    tutil:meck_init(ejabberd_router, route,
+        fun(P) ->
+            #pb_msg {
+                id = _Id,
+                to_uid = ToUid,
+                type = MsgType,
+                payload = Payload
+            } = P,
+            ?assertEqual(?UID2, ToUid),
+            ?assertEqual(normal, MsgType),
+            #pb_feed_items{
+                items = [#pb_feed_item{item = Post}]
+            } = Payload,
+            ?assertEqual(?POST_ID1, Post#pb_post.id),
+            ?assertEqual(?PAYLOAD1, Post#pb_post.payload),
+            ok
+        end),
     ok = model_feed:publish_post(?POST_ID1, ?UID1, base64:encode(?PAYLOAD1), empty, all, [?UID1], util:now_ms()),
     model_friends:add_friend(?UID1, ?UID2),
     mod_feed:add_friend(?UID1, ?SERVER, ?UID2, false),
     ?assertEqual(1, meck:num_calls(ejabberd_router, route, '_')),
-    meck:unload(ejabberd_router),
+    tutil:meck_finish(ejabberd_router),
     ok.
 

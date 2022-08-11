@@ -609,8 +609,7 @@ check_whisper_keys() ->
     setup(),
     ?assertEqual(ok, model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1, ?CAMPAIGN_ID, ?TS1)),
     {?PHONE2, ok, undefined} = mod_invites:request_invite(?UID1, ?PHONE2),
-    meck:new(dev_users),
-    meck:expect(dev_users, is_dev_uid, fun(_) -> true end),
+    tutil:meck_init(dev_users, is_dev_uid, fun(_) -> true end),
     ?assertEqual(ok, model_accounts:create_account(?UID2, ?PHONE2, ?NAME2, ?USER_AGENT2, ?CAMPAIGN_ID, ?TS2)),
     ?assertEqual(ok, model_accounts:create_account(?UID3, ?PHONE3, ?NAME3, ?USER_AGENT3, ?CAMPAIGN_ID, ?TS1)),
     ?assertEqual(ok, model_accounts:create_account(?UID4, ?PHONE4, ?NAME4, ?USER_AGENT4, ?CAMPAIGN_ID, ?TS2)),
@@ -625,8 +624,7 @@ check_whisper_keys() ->
             [{dry_run, true}, {execute, sequential}]),
     %% Just so the above async range scan finish, we will wait for 5 seconds.
     timer:sleep(timer:seconds(5)),
-    meck:validate(dev_users),
-    meck:unload(dev_users),
+    tutil:meck_finish(dev_users),
     ok.
 
 %% This test is simply for code coverage to avoid fixing silly mistakes in prod.

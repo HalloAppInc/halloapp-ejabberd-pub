@@ -22,8 +22,8 @@
 verify_test() ->
     % should have identical behavior to mbird_verify. (in fact this test is the exact same)
     setup(),
-    meck_init(ejabberd_router, is_my_host, fun(_) -> true end),
-    meck_init(vonage_verify, verify_code_internal,
+    tutil:meck_init(ejabberd_router, is_my_host, fun(_) -> true end),
+    tutil:meck_init(vonage_verify, verify_code_internal,
         fun(_,Code,Sid) ->
             %?debugFmt("Verify attempt ~p\n",[Code]),
             Status = case Code =:= ?CODE of
@@ -34,7 +34,6 @@ verify_test() ->
             model_phone:add_gateway_callback_info(GatewayResponse),
             Status =:= accepted
         end),
-    meck:new(mod_sms, [passthrough]),
     {ok, AttemptId1, _} = model_phone:add_sms_code2(?PHONE, ?VONAGE_CODE),
     ok = model_phone:add_gateway_response(?PHONE, AttemptId1,
         #gateway_response{gateway = vonage_verify, gateway_id = ?SID1, status = sent}),
@@ -59,9 +58,8 @@ verify_test() ->
     nomatch = mod_sms:verify_sms(?PHONE, ?CODE),
     {ok, AllVerifyInfo} = model_phone:get_all_verification_info(?PHONE),
     nomatch = mbird_verify:verify_code(?PHONE, ?CODE, AllVerifyInfo),
-    meck_finish(mod_sms),
-    meck_finish(ejabberd_router),
-    meck_finish(vonage_verify).
+    tutil:meck_finish(ejabberd_router),
+    tutil:meck_finish(vonage_verify).
 
 
 %%%----------------------------------------------------------------------
@@ -77,12 +75,3 @@ setup() ->
 clear() ->
     tutil:cleardb(redis_phone).
 
-
-meck_init(Mod, FunName, Fun) ->
-    meck:new(Mod, [passthrough]),
-    meck:expect(Mod, FunName, Fun).
-
-
-meck_finish(Mod) ->
-    ?assert(meck:validate(Mod)),
-    meck:unload(Mod).

@@ -40,9 +40,11 @@ schedule_test() ->
     TaskTime3 = {21, 59, 59},   % 10pm
     Self = self(),
     Timeout = 500,
-    meck:expect(?MOD, find_uids, fun() -> Self ! ack end),
-    meck:expect(?MOD, check_uids, fun() -> Self ! ack2 end),
-    meck:expect(?MOD, delete_uids, fun() -> Self ! ack3 end),
+    tutil:meck_init(?MOD, [
+        {find_uids, fun() -> Self ! ack end},
+        {check_uids, fun() -> Self ! ack2 end},
+        {delete_uids, fun() -> Self ! ack3 end}
+    ]),
     setup_erlcron(),
 
     mod_inactive_accounts:schedule(),
@@ -59,6 +61,7 @@ schedule_test() ->
     erlcron:set_datetime({Wed, TaskTime3}),
     ?assertEqual(3, collect(ack3, Timeout, 3)),
     mod_inactive_accounts:unschedule(),
+    tutil:meck_finish(?MOD),
     cleanup_erlcron().
 
 %% -------------------------------------------- %%

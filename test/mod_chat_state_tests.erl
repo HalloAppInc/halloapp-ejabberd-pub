@@ -29,8 +29,7 @@ process_chat_state_typing_test() ->
     setup(),
     %% UID1 send `typing` chat_state to server, thread_id is UID2
     ChatState = create_chat_state(?UID1, <<>>, ?UID2, typing,  chat),
-    meck:new(ejabberd_router),
-    meck:expect(ejabberd_router, route,
+    tutil:meck_init(ejabberd_router, route,
         fun(Packet) ->
             %% UID1 send `typing` chat_state to UID2, thread_id is UID1
             ExpectedPacket = create_chat_state(?UID1, ?UID2, ?UID1, typing, chat),
@@ -38,16 +37,14 @@ process_chat_state_typing_test() ->
             ok
         end),
     mod_chat_state:process_chat_state(ChatState, ?UID2),
-    meck:validate(ejabberd_router),
-    meck:unload(ejabberd_router).
+    tutil:meck_finish(ejabberd_router).
 
 
 process_chat_state_available_test() ->
     setup(),
     %% UID1 send `available` chat_state to server, thread_id is UID2
     ChatState = create_chat_state(?UID1, <<>>, ?UID2, available, chat),
-    meck:new(ejabberd_router),
-    meck:expect(ejabberd_router, route,
+    tutil:meck_init(ejabberd_router, route,
         fun(Packet) ->
             %% UID1 send `available` chat_state to UID2, thread_id is UID1
             ExpectedPacket = create_chat_state(?UID1, ?UID2, ?UID1, available, chat),
@@ -55,16 +52,14 @@ process_chat_state_available_test() ->
             ok
         end),
     mod_chat_state:process_chat_state(ChatState, ?UID2),
-    meck:validate(ejabberd_router),
-    meck:unload(ejabberd_router).
+    tutil:meck_finish(ejabberd_router).
 
 
 process_group_chat_state_test() ->
     setup(),
     Gid = create_group(),
     ChatState = create_chat_state(?UID1, <<>>, Gid, available, chat),
-    meck:new(ejabberd_router),
-    meck:expect(ejabberd_router, route_multicast,
+    tutil:meck_init(ejabberd_router, route_multicast,
         fun(FromUid, BroadcastUids, Packet) ->
             ?assertEqual(?UID1, FromUid),
             ?assertEqual(lists:sort([?UID2, ?UID3]), lists:sort(BroadcastUids)),
@@ -72,8 +67,7 @@ process_group_chat_state_test() ->
             ok
         end),
     mod_chat_state:process_group_chat_state(ChatState, Gid),
-    meck:validate(ejabberd_router),
-    meck:unload(ejabberd_router).
+    tutil:meck_finish(ejabberd_router).
 
 
 %%====================================================================
