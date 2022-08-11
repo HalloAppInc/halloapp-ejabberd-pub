@@ -41,7 +41,8 @@
     compose_otp_noise_request/2,
     compose_verify_otp_noise_request/3,
     request_sms/2,
-    register/4
+    register/4,
+    hashcash_register/3
 ]).
 
 
@@ -111,6 +112,51 @@ register(Phone, Code, Name, Options) ->
     %% Return result
     Response2 = ActualResponse2#pb_register_response.response,
     {ok, Response2}.
+
+
+-spec hashcash_register(Name :: binary(), Phone :: binary(), Options :: map()) -> ok.
+hashcash_register(Name, Phone, Options) ->
+    setup(),
+    KeyPair = ha_enoise:generate_signature_keypair(),
+    {CurveSecret, CurvePub} = {
+        enacl:crypto_sign_ed25519_secret_to_curve25519(maps:get(secret, KeyPair)),
+        enacl:crypto_sign_ed25519_public_to_curve25519(maps:get(public, KeyPair))},
+    ClientKeyPair = {kp, dh25519, CurveSecret, CurvePub},
+    Host = maps:get(host, Options, "127.0.0.1"),
+    Port = maps:get(port, Options, 5208),
+    ClientOptions = #{host => Host, port => Port, state => register},
+    % request hashcash challenge
+    {ok, HashcashRequestPkt} = compose_hashcash_noise_request(),
+    case ha_client:connect_and_send(HashcashRequestPkt, ClientKeyPair, ClientOptions) of
+        {error, _} = Error -> Error;
+        {ok, Pid, Resp1} ->
+            case Resp1 of
+                #pb_register_response{response = #pb_hashcash_response{hashcash_challenge = Challenge}} ->
+                % ask for an otp request for the test number
+                {ok, RegisterRequestPkt} = compose_otp_noise_request(Phone, #{challenge => Challenge}),
+                ha_client:send(Pid, enif_protobuf:encode(RegisterRequestPkt)),
+                Resp2 = ha_client:recv(Pid),
+                case Resp2 of
+                    #pb_register_response{response = #pb_otp_response{result = success}} ->
+                        % look up otp code from redis.
+                        {ok, VerifyAttempts} = model_phone:get_verification_attempt_list(Phone),
+                        [{AttemptId, _TTL} | _Rest] = VerifyAttempts,
+                        {ok, Code} = model_phone:get_sms_code2(Phone, AttemptId),
+                        % verify with the code.
+                        SignedMessage = enacl:sign("HALLO", maps:get(secret, KeyPair)),
+                        VerifyOtpOptions = #{name => Name, static_key => maps:get(public, KeyPair), signed_phrase => SignedMessage}, 
+                        {ok, VerifyOTPRequestPkt} = registration_client:compose_verify_otp_noise_request(Phone, Code, VerifyOtpOptions),
+                        ha_client:send(Pid, enif_protobuf:encode(VerifyOTPRequestPkt)),
+                        Resp3 = ha_client:recv(Pid),
+                        case Resp3 of
+                            #pb_register_response{response = #pb_verify_otp_response{result = success}} -> ok;
+                            BadResp -> {error, {bad_verify_otp_response, BadResp}}
+                        end;
+                    BadResp -> {error, {bad_otp_response, BadResp}} 
+                end;
+                BadResp -> {error, {bad_hashcash_response, BadResp}}
+            end
+    end.
 
 -spec compose_hashcash_noise_request() -> {ok, pb_register_request()}.
 compose_hashcash_noise_request() ->

@@ -84,6 +84,8 @@
 
 -define(MONITOR_PHONE, <<"16175551234">>).
 -define(TEST_NAME, <<"NoiseRegisterTest">>).
+-define(NOISE_LOGIN_PORT, 5222).
+-define(NOISE_REGISTER_PORT,5208).
 
 -endif.
 

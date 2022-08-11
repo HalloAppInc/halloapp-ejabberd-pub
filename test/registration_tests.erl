@@ -50,6 +50,7 @@ group() ->
         registration_request_otp_noise_invalid_phone_fail_test,
         registration_request_otp_noise_bad_request_fail_test,
         registration_verify_otp_fail_noise_test,
+        registration_full_test,
         registration_too_many_phone_attempts_register_test,
         registration_too_many_ip_attempts_register_test,
         registration_too_many_static_key_attempts_register_test
@@ -457,6 +458,9 @@ verify_otp_fail_noise_test(_Conf) ->
     ?assertEqual(failure, Response3#pb_verify_otp_response.result),
     ?assertEqual(unable_to_open_signed_phrase, Response3#pb_verify_otp_response.reason),
     ok.
+
+full_test(_Conf) ->
+    ok = registration_client:hashcash_register(?NAME10, ?PHONE10, #{}).
 
 %% TODO(murali@): add different failure cases in tests.
 %% TODO(murali@): use IK handshake as well - extend ha_client to perform IK handshake.

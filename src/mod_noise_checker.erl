@@ -41,11 +41,11 @@ do_noise_checks() ->
     gen_server:call(?PROC(), do_noise_checks).
 
 
-do_noise_login({Name, Host, Port}, Version) ->
+do_noise_login({Name, Host}, Version) ->
     NoiseUid = get_uid(),
     %% Does XX noise login
     KeyPair = {kp, dh25519, get_secret_key(), get_public_key()},
-    Options = #{host => Host, port => Port, version => Version, resource => <<"iphone">>, monitor => true},
+    Options = #{host => Host, port => ?NOISE_LOGIN_PORT, version => Version, resource => <<"iphone">>, monitor => true},
     try ha_client:connect_and_login(NoiseUid, KeyPair, Options) of
         {ok, Pid} ->
             gen_server:stop(Pid),
@@ -62,46 +62,17 @@ do_noise_login({Name, Host, Port}, Version) ->
     end,
     ok.
 
-do_noise_register({Name, Host, Port}) ->
-    KeyPair = ha_enoise:generate_signature_keypair(),
-    {CurveSecret, CurvePub} = {
-        enacl:crypto_sign_ed25519_secret_to_curve25519(maps:get(secret, KeyPair)),
-        enacl:crypto_sign_ed25519_public_to_curve25519(maps:get(public, KeyPair))},
-    ClientKeyPair = {kp, dh25519, CurveSecret, CurvePub},
-    Options = #{host => Host, port => Port, state => register, monitor => true},
-    % ask for a hashcash challenge
-    {ok, HashcashRequestPkt} = registration_client:compose_hashcash_noise_request(),
-    try ha_client:connect_and_send(HashcashRequestPkt, ClientKeyPair, Options) of
-        {ok, Pid, Resp1} ->
-            Challenge = Resp1#pb_register_response.response#pb_hashcash_response.hashcash_challenge,
-            % ask for an otp request for the test number
-            {ok, RegisterRequestPkt} = 
-                registration_client:compose_otp_noise_request(?MONITOR_PHONE, #{challenge => Challenge}),
-            ha_client:send(Pid, enif_protobuf:encode(RegisterRequestPkt)),
-            Resp2 = ha_client:recv(Pid),
-            success = Resp2#pb_register_response.response#pb_otp_response.result,
-            % look up otp code from redis.
-            {ok, VerifyAttempts} = model_phone:get_verification_attempt_list(?MONITOR_PHONE),
-            [{AttemptId, _TTL} | _Rest] = VerifyAttempts,
-            {ok, Code} = model_phone:get_sms_code2(?MONITOR_PHONE, AttemptId),
-            % verify with the code.
-            SignedMessage = enacl:sign("HALLO", maps:get(secret, KeyPair)),
-            VerifyOtpOptions = #{name => Name, static_key => maps:get(public, KeyPair), signed_phrase => SignedMessage}, 
-            {ok, VerifyOTPRequestPkt} = 
-                registration_client:compose_verify_otp_noise_request(?MONITOR_PHONE, Code, VerifyOtpOptions),
-            ha_client:send(Pid, enif_protobuf:encode(VerifyOTPRequestPkt)),
-            Resp3 = ha_client:recv(Pid),
-            success = Resp3#pb_register_response.response#pb_verify_otp_response.result,
-            record_state(Host, register, ?ALIVE_STATE);
-        {error, Err} ->
-            ok
-            % ?WARNING("Noise register error on ~s (~s): ~p", [Name, Host, Err]),
-            % record_state(Host, register, ?FAIL_STATE)
+do_noise_register({Name, Host}) ->
+    Options = #{host => Host, port => ?NOISE_REGISTER_PORT},
+    try registration_client:full_register(Name, ?MONITOR_PHONE, Options) of
+        ok -> record_state(Host, register, ?ALIVE_STATE);
+        {error, Err} -> 
+            ?WARNING("Noise login error on ~s (~s): ~p", [Name, Host, Err]),
+            record_state(Host, register, ?FAIL_STATE)
     catch
         _:Reason:Stacktrace ->
-            ok
-            % ?ERROR("Noise register error on ~s (~s): ~p ~p", [Name, Host, Reason, Stacktrace]),
-            % record_state(Host, register, ?FAIL_STATE)
+            ?ERROR("Noise register error on ~s (~s): ~p ~p", [Name, Host, Reason, Stacktrace]),
+            record_state(Host, register, ?FAIL_STATE)
     end,
     ok.
 
@@ -226,7 +197,7 @@ get_client_version(#{client_version := CV} = State) ->
 do_noise_logins(#{mrefs := MRefs} = State) ->
     {Version, _Ts} = maps:get(client_version, State),
     NewMRefs = lists:foldl(
-        fun({_Name, Host, _Port} = Args, AccMap) ->
+        fun({_Name, Host} = Args, AccMap) ->
             {_Pid, Monitor} = spawn_monitor(?MODULE, do_noise_login, [Args, Version]),
             maps:put(Monitor, {Host, login}, AccMap)
         end,
@@ -236,7 +207,7 @@ do_noise_logins(#{mrefs := MRefs} = State) ->
 
 do_noise_registers(#{mrefs := MRefs} = State) ->
     NewMRefs = lists:foldl(
-        fun({_Name, Host, _Port} = Args, AccMap) ->
+        fun({_Name, Host} = Args, AccMap) ->
             {_Pid, Monitor} = spawn_monitor(?MODULE, do_noise_register, [Args]),
             maps:put(Monitor, {Host, register}, AccMap)
         end,
@@ -315,12 +286,12 @@ check_states(CheckType) ->
 %%====================================================================
 
 get_load_balancer_hosts() -> [
-    {"load_balancer", "s.halloapp.net", 5222}
+    {"load_balancer", "s.halloapp.net"}
 ].
 
 
 get_all_hosts() ->
-    IpsAndPorts = lists:map(fun({Name, Ip}) -> {Name, Ip, 5222} end, mod_aws:get_ejabberd_machines()),
+    IpsAndPorts = mod_aws:get_ejabberd_machines(),
     lists:concat([IpsAndPorts, get_load_balancer_hosts()]).
 
 
