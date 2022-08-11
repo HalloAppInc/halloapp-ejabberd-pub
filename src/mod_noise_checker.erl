@@ -271,7 +271,7 @@ check_states() ->
     check_states(register).
 check_states(CheckType) ->
     lists:foreach(
-        fun({Name, Ip, _Port}) ->
+        fun({Name, Ip}) ->
             CheckHistory = get_state_history(Ip, CheckType),
             %% do checks until one returns true (meaning an alert has been sent)
             check_consecutive_fails({Name, Ip}, CheckHistory, CheckType) orelse check_slow({Name, Ip}, CheckHistory, CheckType),
