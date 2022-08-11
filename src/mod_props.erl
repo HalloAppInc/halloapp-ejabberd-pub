@@ -217,7 +217,8 @@ get_client_based_props(PropMap, android, ClientVersion) ->
     PropMap2 = maps:update(voice_posts, Result2, PropMap1),
     Result3 = util_ua:is_version_greater_than(ClientVersion, <<"HalloApp/Android1.31">>),
     PropMap3 = maps:update(external_sharing, Result3, PropMap2),
-    PropMap3;
+    PropMap4 = maps:update(streaming_sending_enabled, true, PropMap3),
+    PropMap4;
 
 get_client_based_props(PropMap, ios, ClientVersion) ->
     %% All ios versions starting v1.10.167
