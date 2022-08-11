@@ -101,6 +101,7 @@
     set_push_token/5,
     get_push_token/1,
     set_voip_token/4,
+    set_huawei_token/4,
     get_lang_id/1,
     remove_push_token/1,
     remove_push_info/1,
