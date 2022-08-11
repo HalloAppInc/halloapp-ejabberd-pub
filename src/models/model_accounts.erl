@@ -188,6 +188,7 @@
 -define(FIELD_PUSH_COMMENT, <<"pc">>).
 -define(FIELD_PUSH_LANGUAGE_ID, <<"pl">>).
 -define(FIELD_VOIP_TOKEN, <<"pvt">>).
+-define(FIELD_HUAWEI_TOKEN, <<"ht">>).
 -define(FIELD_DEVICE, <<"dvc">>).
 -define(FIELD_OS_VERSION, <<"osv">>).
 -define(FIELD_COMMUNITY, <<"cm">>). % Label for community detection -- updated by mod_communities
@@ -596,6 +597,20 @@ set_push_token(Uid, TokenType, PushToken, TimestampMs, LangId) ->
     ok.
 
 
+-spec set_huawei_token(Uid :: binary(), HuaweiToken :: binary(),
+    TimestampMs :: integer(), LangId :: binary()) -> ok.
+set_huawei_token(Uid, HuaweiToken, TimestampMs, LangId) ->
+    {ok, OldLangId} = get_lang_id(Uid),
+    {ok, _Res} = q([
+            "HMSET", account_key(Uid),
+            ?FIELD_HUAWEI_TOKEN, HuaweiToken,
+            ?FIELD_PUSH_TIMESTAMP, integer_to_binary(TimestampMs),
+            ?FIELD_PUSH_LANGUAGE_ID, LangId
+        ]),
+    update_lang_counters(Uid, LangId, OldLangId),
+    ok.
+
+
 -spec set_voip_token(Uid :: binary(), VoipToken :: binary(),
     TimestampMs :: integer(), LangId :: binary()) -> ok.
 set_voip_token(Uid, VoipToken, TimestampMs, LangId) ->
@@ -631,9 +646,9 @@ update_lang_counters(Uid, LangId, OldLangId) ->
 
 -spec get_push_token(Uid :: uid()) -> {ok, maybe(push_info())} | {error, missing}.
 get_push_token(Uid) ->
-    {ok, [Os, Token, TimestampMs, LangId, VoipToken]} = q(
+    {ok, [Os, Token, TimestampMs, LangId, VoipToken, HuaweiToken]} = q(
             ["HMGET", account_key(Uid), ?FIELD_PUSH_OS, ?FIELD_PUSH_TOKEN,
-                    ?FIELD_PUSH_TIMESTAMP, ?FIELD_PUSH_LANGUAGE_ID, ?FIELD_VOIP_TOKEN]),
+                    ?FIELD_PUSH_TIMESTAMP, ?FIELD_PUSH_LANGUAGE_ID, ?FIELD_VOIP_TOKEN, ?FIELD_HUAWEI_TOKEN]),
     Res = case Token =:= undefined andalso VoipToken =:= undefined of
         true -> undefined;
         false ->
@@ -642,6 +657,7 @@ get_push_token(Uid) ->
                 os = Os, 
                 token = Token, 
                 voip_token = VoipToken,
+                huawei_token = HuaweiToken,
                 timestamp_ms = util_redis:decode_ts(TimestampMs),
                 lang_id = LangId
             }
@@ -658,15 +674,16 @@ remove_push_token(Uid) ->
 
 -spec get_push_info(Uid :: uid()) -> {ok, maybe(push_info())} | {error, missing}.
 get_push_info(Uid) ->
-    {ok, [Os, Token, TimestampMs, PushPost, PushComment, ClientVersion, LangId, VoipToken]} = q(
+    {ok, [Os, Token, TimestampMs, PushPost, PushComment, ClientVersion, LangId, VoipToken, HuaweiToken]} = q(
             ["HMGET", account_key(Uid), ?FIELD_PUSH_OS, ?FIELD_PUSH_TOKEN, ?FIELD_PUSH_TIMESTAMP,
             ?FIELD_PUSH_POST, ?FIELD_PUSH_COMMENT, ?FIELD_CLIENT_VERSION, ?FIELD_PUSH_LANGUAGE_ID,
-            ?FIELD_VOIP_TOKEN]),
+            ?FIELD_VOIP_TOKEN, ?FIELD_HUAWEI_TOKEN]),
     Res = #push_info{
             uid = Uid,
             os = Os,
             token = Token,
             voip_token = VoipToken,
+            huawei_token = HuaweiToken,
             timestamp_ms = util_redis:decode_ts(TimestampMs),
             post_pref = boolean_decode(PushPost, true),
             comment_pref = boolean_decode(PushComment, true),
@@ -679,7 +696,7 @@ get_push_info(Uid) ->
 -spec remove_push_info(Uid :: uid()) -> ok | {error, missing}.
 remove_push_info(Uid) ->
     {ok, _Res} = q(["HDEL", account_key(Uid), ?FIELD_PUSH_OS, ?FIELD_PUSH_TOKEN,
-        ?FIELD_PUSH_TIMESTAMP, ?FIELD_PUSH_LANGUAGE_ID, ?FIELD_VOIP_TOKEN]),
+        ?FIELD_PUSH_TIMESTAMP, ?FIELD_PUSH_LANGUAGE_ID, ?FIELD_VOIP_TOKEN, ?FIELD_HUAWEI_TOKEN]),
     ok.
 
 

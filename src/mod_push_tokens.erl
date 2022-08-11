@@ -139,6 +139,12 @@ register_push_info(Uid, TokenType, Token, LangId) when TokenType =:= ?IOS_VOIP_T
     ok = model_accounts:set_voip_token(Uid, Token, TimestampMs, LanguageId),
     stat:count("HA/push_tokens", "set_voip_token"),
     ok;
+register_push_info(Uid, TokenType, Token, LangId) when TokenType =:= ?ANDROID_HUAWEI_TOKEN_TYPE ->
+    LanguageId = get_language_id(LangId),
+    TimestampMs = util:now_ms(),
+    ok = model_accounts:set_huawei_token(Uid, Token, TimestampMs, LanguageId),
+    stat:count("HA/push_tokens", "set_huawei_token"),
+    ok;
 register_push_info(Uid, TokenType, Token, LangId) ->
     LanguageId = get_language_id(LangId),
     TimestampMs = util:now_ms(),

@@ -118,7 +118,13 @@ push_message_internal(#pb_msg{id = MsgId, to_uid = User} = Message, PushInfo) ->
 
 -spec push_message(Message :: message(), PushInfo :: push_info()) -> ok.
 push_message(Message, #push_info{os = <<"android">>} = PushInfo) ->
-    mod_android_push:push(Message, PushInfo);
+    mod_android_push:push(Message, PushInfo),
+    case PushInfo#push_info.huawei_token =/= undefined of
+        true ->
+            %% TODO: Send push via huawei push service as well.
+            ok;
+        false -> ok
+    end;
 push_message(Message, #push_info{os = Os} = PushInfo)
         when Os =:= <<"ios">>; Os =:= <<"ios_dev">> ->
     mod_ios_push:push(Message, PushInfo);

@@ -54,6 +54,7 @@
     os :: binary(),
     token :: binary(),
     voip_token :: binary(),
+    huawei_token :: binary(),
     timestamp_ms :: integer(),
     post_pref :: maybe(boolean()),
     comment_pref :: maybe(boolean()),
