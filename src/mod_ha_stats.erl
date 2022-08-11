@@ -9,6 +9,7 @@
 -include("stanza.hrl").
 -include("time.hrl").
 -include("proc.hrl").
+-include("props.hrl").
 
 -export([start_link/0]).
 %% gen_mod callbacks
@@ -359,6 +360,28 @@ register_user(Uid, _Server, Phone, CampaignId) ->
             LangId1 = mod_translate:recast_langid(LangId),
             stat:count("HA/account", "registration_by_lang_id", 1,
                 [{lang_id, util:to_list(LangId1)}]),
+            % get most recent inviter and track invite string used
+            case IsInvitedTag of
+                {is_invited, true} ->
+                    {ok, InviterList} = model_invites:get_inviters_list(Phone),
+                    {RecentInviterUid, _Ts} = lists:nth(1, InviterList),
+                    InviteStringsMap = mod_props:get_invite_strings(RecentInviterUid),
+                    case maps:get(LangId1, InviteStringsMap, undefined) of
+                        undefined -> ?INFO("LangId not in InviteStringsMap: ~p", [LangId1]);
+                        InviteString ->
+                            <<InvStrId:?INVITE_STRING_ID_SHA_HASH_LENGTH_BYTES/binary, _Rest/binary>> =
+                                crypto:hash(sha256, InviteString),
+                            Event = #{
+                                phone => Phone,
+                                inviter_uid => RecentInviterUid,
+                                invite_string_id => util:to_list(InvStrId),
+                                lang_id => LangId1,
+                                timestamp => util:now()
+                            },
+                            ha_events:log_event(<<"server.invite_strings">>, Event)
+                    end;
+                _ -> ok
+            end,
             ok;
         true ->
             stat:count("HA/account", "registration_test_account")

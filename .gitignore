@@ -13,6 +13,7 @@
 /crash.log*
 /error.log*
 /ejabberd.log*
+/event_logs/*
 /msg_trace.log*
 /Makefile
 /config.log

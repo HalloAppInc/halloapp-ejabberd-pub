@@ -17,6 +17,8 @@
 -include("time.hrl").
 
 -define(INVITE_STRINGS_FILE, "invite_strings.json").
+-define(INVITE_STRINGS_TABLE, invite_strings).
+-define(INVITE_STRINGS_ETS_KEY, invite_strings_map).
 
 -ifdef(TEST).
 -export([
@@ -32,7 +34,8 @@
 %% API
 -export([
     get_hash/2,
-    get_props/2    %% debug only
+    get_props/2,    %% debug only
+    get_invite_strings/1
 ]).
 
 %%====================================================================
@@ -41,10 +44,15 @@
 
 start(Host, _Opts) ->
     gen_iq_handler:add_iq_handler(ejabberd_local, Host, pb_props, ?MODULE, process_local_iq, 2),
-    ok.
+    init_invite_string_table().
 
 stop(Host) ->
     gen_iq_handler:remove_iq_handler(ejabberd_local, Host, pb_props),
+    try
+        ets:delete(?INVITE_STRINGS_TABLE)
+    catch Error:Reason ->
+        ?WARNING("Could not delete ets table ~p: ~p: ~p", [?INVITE_STRINGS_TABLE, Error, Reason])
+    end,
     ok.
 
 depends(_Host, _Opts) ->
@@ -128,7 +136,7 @@ get_props(Uid, ClientVersion) ->
         nse_runtime_sec => 17, %% ios-nse needs 3 secs to cleanup, we want our nse to run =< 20 secs.
         moments => true,   %% clients are capable of sending moments.
         file_sharing => false,   %% clients are capable of sending files.
-        invite_strings => get_invite_strings_bin(), %% json string with invite text.
+        invite_strings => get_invite_strings_bin(Uid), %% json string with invite text.
         new_chat_ui => false,   %% turn on new chat ui on ios.
         is_psa_admin => false, %% is client allowed to post PSA Moment
         group_expiry => false, %% whether group expiry option is turned on for clients.
@@ -146,6 +154,29 @@ get_props(Uid, ClientVersion) ->
     Proplist = maps:to_list(PropMap3),
     lists:keysort(1, Proplist).
 
+
+-spec get_invite_strings(Uid :: uid()) -> map().
+get_invite_strings(Uid) ->
+    try
+        [{?INVITE_STRINGS_ETS_KEY, InviteStringsMap}] =
+            ets:lookup(?INVITE_STRINGS_TABLE, ?INVITE_STRINGS_ETS_KEY),
+        maps:fold(
+            fun(LangId, Strings, Acc) ->
+                StringIndex = util:to_integer(Uid) rem length(Strings),
+                String = lists:nth(StringIndex + 1, Strings),
+                Acc#{LangId => String}
+            end,
+            #{},
+            InviteStringsMap)
+    catch
+        Class: Reason: Stacktrace  ->
+            ?ERROR("Failed to get invite strings: ~p, ~p, ~p", [lager:pr_stacktrace(Stacktrace, {Class, Reason})]),
+            #{}
+    end.
+
+%%====================================================================
+%% Internal functions
+%%====================================================================
 
 -spec get_uid_based_props(PropMap :: map(), Uid :: binary()) -> map().
 get_uid_based_props(PropMap, Uid) ->
@@ -205,9 +236,6 @@ get_client_based_props(PropMap, ios, ClientVersion) ->
 get_client_based_props(PropMap, undefined, _) ->
     maps:update(groups, false, PropMap).
 
-%%====================================================================
-%% Internal functions
-%%====================================================================
 
 apply_uid_prop_overrides(Uid, PropMap) ->
     maps:map(
@@ -246,20 +274,52 @@ make_response(IQ, SortedProplist, Hash) ->
     pb:make_iq_result(IQ, Prop).
 
 
-get_invite_strings_bin() ->
+get_invite_strings_bin(Uid) ->
+    InviteStringsMap = get_invite_strings(Uid),
+    jiffy:encode(InviteStringsMap).
+
+
+init_invite_string_table() ->
+    %% Load invite strings into ets
     try
+        ?INFO("Trying to create table for invite strings in ets", []),
+        ets:new(?INVITE_STRINGS_TABLE, [named_table, public, {read_concurrency, true}]),
+        % load and store invite strings in ets
+        % to refresh the invite strings json file, run `make invite-strings`
         Filename = filename:join(misc:data_dir(), ?INVITE_STRINGS_FILE),
         {ok, Bin} = file:read_file(Filename),
         InviteStringsMap = jiffy:decode(Bin, [return_maps]),
         %% en localization strings dont appear with other languages in ios repo for some reason.
         %% TODO: need to fix this in the ios repo.
         InviteStringsMap1 = InviteStringsMap#{
-            <<"en">> => <<"I’m inviting you to join me on HalloApp. It is a private and secure app to share pictures, chat and call your friends. Get it at https://halloapp.com/get"/utf8>>
+            <<"en">> => [
+                <<"I’m inviting you to join me on HalloApp. It is a private and secure app to share pictures, chat and call your friends. Get it at https://halloapp.com/get"/utf8>>,
+                <<"Hey %1$@, I have an invite for you to join me on HalloApp - a real-relationship network for those closest to me. Use %2$@ to register. Get it at https://halloapp.com/dl"/utf8>>,
+                <<"Join me on HalloApp – a simple, private, and secure way to stay in touch with friends and family. Get it at https://halloapp.com/dl"/utf8>>,
+                <<"Hey %@, I’m on HalloApp. Download to join me https://halloapp.com/install"/utf8>>,
+                <<"Hey %@, let’s keep in touch on HalloApp. Download at https://halloapp.com/kit (HalloApp is a new, private social app for close friends and family, with no ads or algorithms)."/utf8>>,
+                <<"I am inviting you to install HalloApp. Download for free here: https://halloapp.com/free"/utf8>>,
+                <<"Hey %@! Join me on HalloApp, and share real moments with real friends. Check it out: https://halloapp.com/new"/utf8>>
+            ]
         },
-        jiffy:encode(InviteStringsMap1)
-    catch
-        Class: Reason: Stacktrace  ->
-            ?ERROR("Failed to get invite strings", [lager:pr_stacktrace(Stacktrace, {Class, Reason})]),
-            <<>>
-    end.
+        ets:insert(?INVITE_STRINGS_TABLE, {?INVITE_STRINGS_ETS_KEY, InviteStringsMap1}),
+        %% store shortened hash of each string to identify it later
+        %% TODO(josh): create h script function to get string via hash
+        %% TODO: use maps:foreach here after upgrade to otp 24
+        lists:foreach(
+            fun({LangId, Strings}) ->
+                lists:foreach(
+                    fun(String) ->
+                        <<HashValue:?INVITE_STRING_ID_SHA_HASH_LENGTH_BYTES/binary, _Rest/binary>> =
+                            crypto:hash(sha256, String),
+                        HashEncoded = base64:encode(HashValue),
+                        ets:insert(?INVITE_STRINGS_TABLE, {HashEncoded, {LangId, String}})
+                    end,
+                    Strings)
+            end,
+            maps:to_list(InviteStringsMap1))
+    catch Error:Reason ->
+        ?WARNING("Failed to create a table for invite strings in ets: ~p: ~p", [Error, Reason])
+    end,
+    ok.
 

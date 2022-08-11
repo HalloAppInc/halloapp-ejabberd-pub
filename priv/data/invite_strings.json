@@ -1,15 +1,119 @@
 {
-"cs": "Ahoj %1$@, zvu tě, aby ses ke mě přidal/a na HalloApp - síť skutečných vztahů pro ty, kdo jsou mi nejbližší. Pro registraci použij %2$@. Stahuj na https://halloapp.com/get",
-"de": "Ich lade dich ein, dich auch bei HalloApp anzumelden. Eine private und sichere App, um Bilder zu teilen, zu chatten und deine Freunde anzurufen. Hol dir die App unter: https://halloapp.com/get",
-"el": "Γεια σου %1$@, έχω μια πρόσκληση για σένα να με βρεις στο HalloApp (μια απλή κοινωνική εφαρμογή για κοινοποίηση καθημερινών στιγμών). Χρησιμοποίησε το %2$@ για να εγγραφείς. Κατέβασέ το στο https://halloapp.com/get",
-"es": "Te invito a que te unas a mí en HalloApp. Una aplicación privada y segura para compartir fotos, chatear y llamar a tus amigos. Consíguela en https://halloapp.com/get",
-"fa": "شما را دعوت میکنم به من در هالواپ بپیوندید. برنامه‌ای ایمن و خصوصی برای به اشتراک گذاشتن عکس‌ها، پیام‌ها و تماس‌ها با دوستانتان. آن را از این وبسایت دریافت کنید https://halloapp.com/get",
-"fr": "Bonjour %1$@, j'ai une invitation pour que tu me rejoignes sur HalloApp – un réseau de relations authentiques pour tous mes proches. Utilise %2$@ pour t'inscrire. Télécharge l'appli sur https://halloapp.com/get",
-"id": "Saya mengundang Anda untuk bergabung dengan saya di HalloApp. App pribadi dan aman untuk berbagi foto, chat, dan menghubungi teman Anda. Dapatkan di https://halloapp.com/get",
-"nl": "Ik nodig je uit om met me mee te doen op HalloApp. Het is een privé en veilige app waarmee je foto's kunt delen, chatten en je vrienden bellen. Download de app op https://halloapp.com/get",
-"pl": "Witaj, %1$@, mam dla Ciebie zaproszenie do dołączenia do mnie na HalloApp – sieci wspierającej prawdziwe relacje między najbliższymi osobami. Skorzystaj z numeru %2$@, aby się zarejestrować. Pobierz z https://halloapp.com/get",
-"pt-br": "Estou convidando você para se juntar a mim no HalloApp. É um aplicativo privado e seguro para compartilhar fotos, conversar e ligar para seus amigos. Obtenha em https://halloapp.com/get",
-"pt": "Estou convidando você para se juntar a mim no HalloApp. É um aplicativo privado e seguro para compartilhar fotos, conversar e ligar para seus amigos. Obtenha em https://halloapp.com/get",
-"ru": "Привет, %1$@, приглашаю тебя присоединиться ко мне в HalloApp — подлинной сети отношений между близкими мне людьми. Используй %2$@ для регистрации. Получи его по адресу https://halloapp.com/get",
-"tr": "Merhaba %1$@! Seni, sevdiklerimizle gerçek bağlantılar kurabildiğimiz bir uygulama olan HalloApp'e davet ediyorum. Kaydolmak için %2$@ numarasını kullan. halloapp.com/get adresinden uygulamayı indir."
+"ar": [
+  "يمكنك الانضمام معي إلى هالوآب، وهو تطبيق بسيط ويتمتع بالخصوصية والأمان يتيح لك التواصل مع الأصدقاء والعائلة. يمكنك تنزيله من https://halloapp.com/dl",
+  "مرحبًا %1$@، هذه دعوة مني لتنضم إليّ في استخدام هالوآب - وهو عبارة عن شبكة للعلاقات الفعلية بين الأشخاص المقربين. استخدم %2$@ للتسجيل في التطبيق. يمكنك تنزيله من https://halloapp.com/dl",
+  "أهلاً %@، أنا أستخدم هالوآب. يمكنك تنزيل التطبيق للانضمام معي عبر https://halloapp.com/install",
+  "أهلاً %@، هيّا نتواصل معًا عبر هالوآب. يمكنك تنزيل التطبيق عبر https://halloapp.com/kit (هالوآب هو تطبيق جديد للتواصل الاجتماعي ويتميز بالخصوصية فهو مصمم للأصدقاء المقربين وأفراد العائلة، ويخلو من الإعلانات أو اللوغاريتمات).",
+  "هذه دعوة مني لتثبيت هالوآب. يمكنك تنزيله مجانًا من هنا: https://halloapp.com/free",
+  "مرحبًا %@! يمكنك الانضمام معي إلى هالوآب، ومشاركة اللحظات الحقيقية مع الأصدقاء الفعليين. تجربة التطبيق من هنا: https://halloapp.com/new",
+  "هذه دعوة مني لتنضم إليّ في استخدام هالوآب، وهو تطبيق يتمتع بالخصوصية والأمان حيث يمكنك من خلاله مشاركة الصور والدردشة مع الأصدقاء والاتصال بهم. يمكنك تنزيله من https://halloapp.com/get"
+],
+"cs": [
+  "Přidejte se ke mně na HalloApp - jednoduchém, soukromém a bezpečném způsobu, jak zůstat v kontaktu s přáteli a rodinou. Získejte ji na https://halloapp.com/dl",
+  "Ahoj %1$@, mám pro tebe pozvánku, aby ses ke mně připojil na HalloApp - síť pro skutečné vztahy pro mé nejbližší. Pro registraci použij %2$@. Získej ji na adrese https://halloapp.com/dl",
+  "Ahoj %@, jsem na HalloApp. Stáhni si ji taky a přidej se ke mně https://halloapp.com/install",
+  "Ahoj %@, zůstaňme v kontaktu na HalloApp. Stáhni si ji na adrese https://halloapp.com/kit (HalloApp je nová, soukromá sociální aplikace pro blízké přátele a rodinu, bez reklam a algoritmů).",
+  "Zvu tě k instalaci aplikace HalloApp. Ke stažení zdarma zde: https://halloapp.com/free",
+  "Ahoj! Připoj se ke mně na HalloApp a sdílej skutečné momenty se skutečnými přáteli. Mrkni na to: https://halloapp.com/new"
+],
+"de": [
+  "Mach mit bei HalloApp - ganz einfach, privat und sicher den Kontakt zu Freunden und zur Familie halten. Hol dir die App auf https://halloapp.com/dl",
+  "Hey %1$@, ich lade dich ein, dich auch bei HalloApp anzumelden. Ein Netzwerk für echte Beziehungen und diejenigen, die einem am nächsten stehen. Verwende %2$@ zur Registrierung und hol dir die App auf https://halloapp.com/dl",
+  "Hey %@, ich bin auf HalloApp. Mach mit und lade die App hier herunter: https://halloapp.com/install",
+  "Hey %@, lass uns über HalloApp in Kontakt bleiben. Lade die App hier herunter: https://halloapp.com/kit (HalloApp ist eine neue, private Social App für enge Freunde und Familie, ohne Werbung oder Algorithmen).",
+  "Ich lade dich ein, HalloApp zu installieren. Hier kostenlos herunterladen:\nhttps://halloapp.com/free",
+  "Hey %@! Mach mit bei HalloApp und teile echte Momente mit echten Freunden. Schau mal rein: https://halloapp.com/new",
+  "Ich lade dich ein, dich auch bei HalloApp anzumelden. Eine private und sichere App, um Bilder zu teilen, zu chatten und deine Freunde anzurufen. Hol dir die App auf https://halloapp.com/get"
+],
+"el": [
+  "Ελάτε μαζί μου στο HalloApp - ένας απλός, ιδιωτικός και ασφαλής τρόπος για να επικοινωνείτε με τους φίλους και την οικογένειά σας. Αποκτήστε το στη διεύθυνση https://halloapp.com/dl",
+  "Γεια σου %1$@, έχω μια πρόσκληση για σένα να με βρεις στο HalloApp (μια απλή κοινωνική εφαρμογή για κοινοποίηση καθημερινών στιγμών). Χρησιμοποίησε το %2$@ για να εγγραφείς. Κατέβασέ το στο https://halloapp.com/dl"
+],
+"es": [
+  "Acompáñame en HalloApp, una forma privada, simple y segura de seguir en contacto con tus amigos y familia. Obténla en https://halloapp.com/dl",
+  "Hola %1$@, tengo una invitación para que te unas a HalloApp (una red social de relaciones reales para aquellos más cercanos a mí). Usa %2$@ para registrarte. Bájala en https://halloapp.com/dl",
+  "Hey %@, estoy en HalloApp. Descarga la app para unirte a mí https://halloapp.com/install",
+  "Oye, %@, sigamos en contacto en HalloApp. Descárgala en https://halloapp.com/kit (HalloApp es una nueva aplicación social privada para amigos cercanos y familiares, sin anuncios ni algoritmos).",
+  "Te invito a instalar HalloApp. Descárgala gratis aquí: https://halloapp.com/free",
+  "Hey %@! Únete a mí en HalloApp, y comparte momentos verdaderos con amistades reales. Échale un vistazo: https://halloapp.com/new",
+  "Te invito a que te unas a mí en HalloApp. Una aplicación privada y segura para compartir fotos, chatear y llamar a tus amigos. Consíguela en https://halloapp.com/get"
+],
+"fa": [
+  "به من در هالواپ ملحق شوید - راهی ساده، خصوصی و مطمئن برای ارتباط با دوستان و آشنایان. آن را از طریق https://halloapp.com/dl نصب کنید",
+  "سلام @$1%، شما را دعوت میکنم به من در هالواپ ملحق شوید - یک شبکه برای آشنایانم. از @$2% برای ثبت نام استفاده کنید. آن را از https://halloapp.com/dl نصب کنید",
+  "سلام @%, من در هالواپ هستم. میتوانید دانلود کنید و به من ملحق شوید https://halloapp.com/install",
+  "سلام @%, بیایید از طریق هالواپ در تماس باشیم. از https://halloapp.com/kit دانلود کنید (هالواپ وسیله ارتباطی جدید برای دوستان و آشنایان، بدون هیچ تبلیغات و یا الگوریتم است).",
+  "من شما را به دانلود هالواپ دعوت میکنم. به صورت رایگان از https://halloapp.com/free دانلود کنید",
+  "سلام @%! به من در هالواپ بپیوند و لحظه‌های جدیدت را با دوستان واقعیت به اشتراک بگذار. به این سایت برو: https://halloapp.com/new",
+  "شما را دعوت میکنم به من در هالواپ بپیوندید. برنامه‌ای ایمن و خصوصی برای به اشتراک گذاشتن عکس‌ها، پیام‌ها و تماس‌ها با دوستانتان. آن را از این وبسایت دریافت کنید https://halloapp.com/get"
+],
+"fr": [
+  "Rejoignez-moi sur HalloApp – un moyen simple, confidentiel et sécurisé vous permettant de rester en contact avec vos amis et votre famille. Téléchargez sur https://halloapp.com/dl",
+  "Bonjour %1$@, j'ai une invitation pour que vous me rejoigniez sur HalloApp, un réseau de relations réelles pour les personnes les plus proches de moi. Utilisez %2$@ pour vous inscrire. Obtenez-le sur https://halloapp.com/dl",
+  "Bonjour %@, je suis sur HalloApp. Téléchargez-la pour me rejoindre https://halloapp.com/install",
+  "Bonjour %@, restons en contact sur HalloApp. Téléchargez-la sur https://halloapp.com/kit (HalloApp est une nouvelle application de réseaux sociaux privée pour les amis proches et la famille, sans publicité ni algorithmes).",
+  "Je vous invite à installer HalloApp. Téléchargez-la gratuitement ici : https://halloapp.com/free",
+  "Bonjour %@ ! Rejoignez-moi sur HalloApp, et partagez de vrais moments avec de vrais amis. Découvrez-le : https://halloapp.com/new"
+],
+"id": [
+  "Bergabunglah dengan saya di HalloApp, cara sederhana, pribadi, dan aman untuk tetap terhubung dengan teman dan keluarga. Dapatkan di https://halloapp.com/dl",
+  "Halo %1$@, saya memiliki undangan untuk Anda bergabung dengan saya di HalloApp, jejaring hubungan sungguhan untuk mereka yang terdekat dengan saya. Gunakan %2$@ untuk mendaftar. Dapatkan di https://halloapp.com/dl",
+  "Halo %@, saya menggunakan HalloApp. Unduh untuk bergabung dengan saya, https://halloapp.com/install",
+  "Halo %@, ayo tetap terhubung di HalloApp. Unduh di https://halloapp.com/kit (HalloApp adalah app sosial pribadi baru untuk teman dan keluarga dekat, bebas iklan atau algoritma).",
+  "Saya mengundang Anda untuk menginstal HalloApp. Unduh gratis di sini: https://halloapp.com/free",
+  "Halo %@! Bergabunglah dengan saya di HalloApp dan berbagi momen bermakna dengan teman sejati. Lihat: https://halloapp.com/new",
+  "Saya mengundang Anda untuk bergabung dengan saya di HalloApp. App pribadi dan aman untuk berbagi foto, chat, dan menghubungi teman Anda. Dapatkan di https://halloapp.com/get"
+],
+"nl": [
+  "Doe met me mee op HalloApp - een eenvoudige, privé en veilige manier om in contact te blijven met vrienden en familie. Download de app op https://halloapp.com/dl",
+  "Hey %1$@, ik wil je graag uitnodigen voor HalloApp - een netwerk voor échte relaties die het dichtst bij me staan. Gebruik %2$@ om je te registreren. Download de app op https://halloapp.com/dl",
+  "Hey %@, ik zit op HalloApp. Doe met me mee en download de app https://halloapp.com/install",
+  "Hey %@, laten we met elkaar in contact blijven via HalloApp. Download op https://halloapp.com/kit (HalloApp is een nieuwe, privé sociale app voor goede vrienden en familie, zonder advertenties of algoritmes).",
+  "Ik nodig je uit om HalloApp te installeren. Download hier gratis: https://halloapp.com/free",
+  "Hey %@! Doe met me mee op HalloApp en deel echte momenten met echte vrienden. Bekijk het hier: https://halloapp.com/new",
+  "Ik nodig je uit om met me mee te doen op HalloApp. Het is een privé en veilige app waarmee je foto's kunt delen, chatten en je vrienden bellen. Download de app op https://halloapp.com/get"
+],
+"pl": [
+  "Dołącz do mnie na HalloApp – prostym, prywatnym i bezpiecznym sposobie pozostawania w kontakcie z przyjaciółmi oraz rodziną. Pobierz z https://halloapp.com/dl",
+  "Cześć, %1$@, mam dla Ciebie zaproszenie – dołącz do mnie w aplikacji HalloApp, sieci prawdziwych relacji dla najbliższych mi osób. Użyj %2$@ do rejestracji. Pobierz na stronie https://halloapp.com/dl",
+  "Cześć, %@, jestem w aplikacji HalloApp. Pobierz ją i dołącz do mnie na stronie https://halloapp.com/install",
+  "Cześć, %@, pozostańmy w kontakcie w aplikacji HalloApp. Pobierz ją na stronie https://halloapp.com/kit (HalloApp to nowa, prywatna aplikacja społecznościowa dla bliskich znajomych i rodziny, bez reklam i algorytmów).",
+  "Zapraszam Cię do zainstalowania aplikacji HalloApp. Pobierz ją za darmo tutaj: https://halloapp.com/free",
+  "Cześć, %@! Dołącz do mnie w aplikacji HalloApp i dziel się prawdziwymi chwilami z prawdziwymi przyjaciółmi. Sprawdź tutaj: https://halloapp.com/new"
+],
+"pt-br": [
+  "Junte-se a mim no HalloApp — uma maneira simples, privada e segura de manter contato com amigos e familiares. Obtenha-o no https://halloapp.com/dl",
+  "Ei, %1$@, tenho um convite para você se juntar a mim no HalloApp — uma rede de relacionamento real para aqueles mais próximos a mim. Use %2$@ para se cadastrar. Baixe o aplicativo no link a seguir: https://halloapp.com/dl",
+  "Ei %@, estou no HalloApp. Baixe para se juntar a mim no link seguinte: https://halloapp.com/install",
+  "Ei %@, vamos manter contato no HalloApp. Baixe-o em https://halloapp.com/kit (HalloApp é um novo aplicativo social privado para amigos próximos e familiares, sem anúncios ou algoritmos).",
+  "Estou convidando você a instalar o HalloApp. Baixe-o gratuitamente aqui: https://halloapp.com/free",
+  "Ei %@! Junte-se a mim no HalloApp e compartilhe momentos reais com amigos reais. Confira: https://halloapp.com/new",
+  "Estou convidando você para se juntar a mim no HalloApp. É um aplicativo privado e seguro para compartilhar fotos, conversar e ligar para seus amigos. Obtenha em https://halloapp.com/get"
+],
+"pt": [
+  "Junte-se a mim no HalloApp — uma maneira simples, privada e segura de manter contato com amigos e familiares. Obtenha-o em https://halloapp.com/dl",
+  "Ei %1$@, tenho um convite para tu se juntar a mim no HalloApp — uma rede de relacionamento real para aqueles mais próximos de mim. Use %2$@ para se cadastrar. Obtenha-o em https://halloapp.com/dl",
+  "Ei %@, estou no HalloApp. Baixe-o para se juntar a mim https://halloapp.com/install",
+  "Ei %@, vamos manter contato no HalloApp. Baixe-o em https://halloapp.com/kit (HalloApp é um novo aplicativo social privado para amigos próximos e familiares, sem anúncios ou algoritmos).",
+  "Estou convidando você a instalar o HalloApp. Baixe-o gratuitamente aqui: https://halloapp.com/free",
+  "Ei %@! Junte-se a mim no HalloApp e compartilhe momentos reais com amigos reais. Confira: https://halloapp.com/new",
+  "Estou convidando você para se juntar a mim no HalloApp. É um aplicativo privado e seguro para compartilhar fotos, conversar e ligar para seus amigos. Obtenha em https://halloapp.com/get"
+],
+"ru": [
+  "Присоединяйтесь ко мне в HalloApp — простом, конфиденциальном и безопасном месте для поддержания связи с друзьями и семьей. Загружайте на https://halloapp.com/dl",
+  "Привет, %1$@, приглашаю тебя присоединиться ко мне в HalloApp — подлинной сети отношений между близкими мне людьми. Используй %2$@ для регистрации. Получи его по адресу https://halloapp.com/dl",
+  "Привет, %@, я использую HalloApp. Скачайте, чтобы присоединиться ко мне https://halloapp.com/install",
+  "Привет, %@, давайте поддерживать связь с HalloApp. Загрузите по адресу https://halloapp.com/kit (HalloApp — это новое частное социальное приложение для близких друзей и семьи, без рекламы и алгоритмов).",
+  "Я приглашаю вас установить HalloApp. Скачать бесплатно здесь: https://halloapp.com/free",
+  "Привет %@! Присоединяйтесь ко мне в HalloApp и делитесь реальными моментами с настоящими друзьями. Проверьте это: https://halloapp.com/new",
+  "Я приглашаю вас присоединиться ко мне на HalloApp. Это частное и безопасное приложение для обмена фотографиями, чата и звонков друзьям. Получите его на https://halloapp.com/get"
+],
+"tr": [
+  "HalloApp'te bana katıl — ailen ve arkadaşlarınla iletişimde kalmanın kolay, özel ve güvenli bir yolu. https://halloapp.com/dl adresinden indir.",
+  "Merhaba %1$@! Seni, sevdiklerimizle gerçek bağlantılar kurabildiğimiz bir uygulama olan HalloApp'e davet ediyorum. Kaydolmak için %2$@ numarasını kullan. halloapp.com/dl adresinden uygulamayı indir.",
+  "Selam %@, ben HalloApp'teyim. Bana katılmak için https://halloapp.com/install adresinden uygulamayı indir.",
+  "Selam %@, HalloApp'te buluşalım! https://halloapp.com/kit adresinden indir. (HalloApp, ailen ve yakın arkadaşlarınla bağlantı kurabilmen için özel bir sosyal medya uygulamasıdır; reklam ve algoritma içermez).",
+  "Seni HalloApp'e davet ediyorum. https://halloapp.com/free adresinden ücretsiz indir.",
+  "Selam %@! Gerçek dostlarla gerçek anlarımızı paylaştığımız HalloApp'te bana katıl. Hemen göz at: https://halloapp.com/new"
+]
 }
