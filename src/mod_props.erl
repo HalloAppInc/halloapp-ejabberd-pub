@@ -146,7 +146,8 @@ get_props(Uid, ClientVersion) ->
         chat_reactions => false, %% enable reactions in chat on the sending side.
         comment_reactions => false, %% enable reactions in comments on the sending side.
         post_reactions => false, %% enable reactions in posts on the sending side.
-        pre_answer_calls => false   %% Enables clients to pre-answer calls.
+        pre_answer_calls => false,   %% Enables clients to pre-answer calls.
+        background_upload => false   %% Enables background upload on ios clients.
     },
     PropMap2 = get_uid_based_props(PropMap1, Uid),
     ClientType = util_ua:get_client_type(ClientVersion),
@@ -202,7 +203,8 @@ get_uid_based_props(PropMap, Uid) ->
             PropMap15 = maps:update(comment_reactions, true, PropMap14),
             PropMap16 = maps:update(post_reactions, true, PropMap15),
             PropMap17 = maps:update(pre_answer_calls, true, PropMap16),
-            PropMap17
+            PropMap18 = maps:update(background_upload, true, PropMap17),
+            PropMap18
     end,
     apply_uid_prop_overrides(Uid, ResPropMap).
 
