@@ -836,6 +836,28 @@ uid_info(Uid, Options) ->
             io:format("Last connection on ~s at ~s~n", [LastConnDate, LastConnTime]),
             io:format("Current Version: ~s Lang: ~s~n", [Account#account.client_version, Account#account.lang_id]),
 
+            case model_accounts:get_push_token(Uid) of
+                {ok, undefined} -> io:format("No Push Token");
+                {ok, #push_info{os = Os, 
+                        token = Token, 
+                        voip_token = VoipToken, 
+                        huawei_token = HuaweiToken}} ->
+                    TokenPrint = case Token of
+                        <<TokenHead:8/binary, _/binary>> -> TokenHead;
+                        _ -> Token
+                    end,
+                    VoipTokenPrint = case VoipToken of
+                        <<VoipTokenHead:8/binary, _/binary>> -> VoipTokenHead;
+                        _ -> VoipToken
+                    end,
+                    HuaweiTokenPrint = case Token of
+                        <<HuaweiTokenHead:8/binary, _/binary>> -> HuaweiTokenHead;
+                        _ -> HuaweiToken
+                    end,
+                    io:format("TokenInfo, OS: ~s, TokenHead: ~s, VoipTokenHead: ~s, HuaweiTokenHead: ~s~n", 
+                            [Os, TokenPrint, VoipTokenPrint, HuaweiTokenPrint])
+            end,
+
             {ok, ContactList, NumFriends} = format_contact_list(Uid),
             ContactList2 = case lists:member(show_all_contacts, Options) of
                 true -> ContactList;
