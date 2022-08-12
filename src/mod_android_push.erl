@@ -68,6 +68,8 @@ mod_options(_Host) ->
 -spec push(Message :: message(), PushInfo :: push_info()) -> ok.
 push(Message, #push_info{os = <<"android">>} = PushInfo) ->
     gen_server:cast(?PROC(), {push_message, Message, PushInfo});
+push(Message, #push_info{os = <<"android_huawei">>} = PushInfo) ->
+    gen_server:cast(?PROC(), {push_message, Message, PushInfo});
 push(_Message, _PushInfo) ->
     ?ERROR("Invalid push_info : ~p", [_PushInfo]).
 
@@ -143,6 +145,7 @@ handle_cast(_Request, State) ->
 handle_info({retry, PushMessageItem}, State) ->
     Uid = PushMessageItem#push_message_item.uid,
     Id = PushMessageItem#push_message_item.id,
+    PushInfo = PushMessageItem#push_message_item.push_info,
     ?DEBUG("retry: push_message_item: ~p", [PushMessageItem]),
     CurTimestampMs = util:now_ms(),
     MsgTimestampMs = PushMessageItem#push_message_item.timestamp_ms,
@@ -155,7 +158,12 @@ handle_info({retry, PushMessageItem}, State) ->
             ?INFO("Uid: ~s, retry push_message_item: ~s", [Uid, Id]),
             NewRetryMs = round(PushMessageItem#push_message_item.retry_ms * ?GOLDEN_RATIO),
             NewPushMessageItem = PushMessageItem#push_message_item{retry_ms = NewRetryMs},
-            wpool:cast(?ANDROID_POOL, {push_message_item, NewPushMessageItem})
+            wpool:cast(?ANDROID_POOL, {push_message_item, NewPushMessageItem}),
+            % Send to huawei push notification if applicable
+            case PushInfo#push_info.huawei_token of
+                undefined -> ok;
+                _ -> mod_huawei_push_msg:push_message(PushMessageItem)
+            end
     end,
     {noreply, State};
 
@@ -181,7 +189,12 @@ push_message(Message, PushInfo) ->
                 timestamp_ms = TimestampMs,
                 retry_ms = ?RETRY_INTERVAL_MILLISEC,
                 push_info = PushInfo},
-        wpool:cast(?ANDROID_POOL, {push_message_item, PushMessageItem})
+        wpool:cast(?ANDROID_POOL, {push_message_item, PushMessageItem}),
+        % Send to huawei push notification if applicable
+        case PushInfo#push_info.huawei_token of
+            undefined -> ok;
+            _ -> mod_huawei_push_msg:push_message(PushMessageItem)
+        end
     catch
         Class: Reason: Stacktrace ->
             ?ERROR("Failed to push MsgId: ~s ToUid: ~s crash:~s",

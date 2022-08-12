@@ -54,6 +54,7 @@
 
 -define(FCM, "fcm").
 -define(APNS, "apns").
+-define(HUAWEI, "huawei").
 
 -type (contentType() :: pb_chat_stanza
                     | pb_chat_retract

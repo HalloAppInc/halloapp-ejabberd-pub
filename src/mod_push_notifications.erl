@@ -118,22 +118,15 @@ push_message_internal(#pb_msg{id = MsgId, to_uid = User} = Message, PushInfo) ->
 
 -spec push_message(Message :: message(), PushInfo :: push_info()) -> ok.
 push_message(Message, #push_info{os = <<"android">>} = PushInfo) ->
-    mod_android_push:push(Message, PushInfo),
-    case PushInfo#push_info.huawei_token =/= undefined of
-        true ->
-            %% TODO: Send push via huawei push service as well.
-            ok;
-        false -> ok
-    end;
+    mod_android_push:push(Message, PushInfo);
+push_message(Message, #push_info{os = <<"android_huawei">>} = PushInfo) ->
+    mod_android_push:push(Message, PushInfo);
 push_message(Message, #push_info{os = Os} = PushInfo)
         when Os =:= <<"ios">>; Os =:= <<"ios_dev">> ->
     mod_ios_push:push(Message, PushInfo);
 push_message(Message, #push_info{voip_token = VoipToken} = PushInfo)
         when VoipToken =/= undefined ->
     mod_ios_push:push(Message, PushInfo);
-push_message(#pb_msg{id = MsgId, to_uid = Uid}, #push_info{os = <<"android_huawei">>}) ->
-    ?INFO("ignoring android_huawei push, Uid: ~p, MsgId: ~p", [Uid, MsgId]),
-    ok;
 push_message(#pb_msg{id = MsgId, to_uid = Uid}, #push_info{os = <<"ios_appclip">>}) ->
     ?INFO("ignoring ios_appclip push, Uid: ~p, MsgId: ~p", [Uid, MsgId]),
     ok.
