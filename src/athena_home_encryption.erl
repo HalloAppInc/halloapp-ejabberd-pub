@@ -185,7 +185,7 @@ e2e_decryption_report_7day(TimestampMsBin) ->
                     MAX(\"timestamp_ms\") as \"timestamp_ms\"
                 FROM \"default\".\"client_home_decryption_report\"
                 WHERE \"home_decryption_report\".\"time_taken_s\" <= 604800
-                GROUP BY \"group_decryption_report\", \"platform\")
+                GROUP BY \"home_decryption_report\", \"platform\")
                 WHERE timestamp_ms >= '", TimestampMsBin/binary, "'
                     AND \"home_decryption_report\".\"reason\" != 'missingContent'
                     AND \"home_decryption_report\".\"reason\" != 'content_missing'
