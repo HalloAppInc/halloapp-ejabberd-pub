@@ -164,11 +164,11 @@ cancel_wakeup(Uid, WakeupMap) ->
     NewWakeupMap = case maps:take(Uid, WakeupMap) of
         {_, FinalMap} when WakeupPushNum =:= 0 -> 
             mod_push_monitor:log_push_wakeup(Uid, success, Platform),
-            ?INFO("Uid ~s, Connected after normal push", [Uid]),
+            ?INFO("Uid ~s, Connected after normal ~p push", [Uid, Platform]),
             FinalMap;
         {_, FinalMap} -> 
             mod_push_monitor:log_push_wakeup(Uid, success, Platform),
-            ?INFO("Uid ~s, Connected after ~p wakeup pushes", [Uid, WakeupPushNum]),
+            ?INFO("Uid ~s, Connected after ~p wakeup ~p pushes", [Uid, WakeupPushNum, Platform]),
             FinalMap;
         _ -> WakeupMap
     end,
@@ -195,8 +195,8 @@ check_wakeup(Uid, WakeupMap) ->
                 _ -> alert
             end,
             MsgId = util_id:new_msg_id(),
-            ?INFO("Uid ~s, Did not connect within ~p minutes. Sending wakeup push #~p,
-                    msgId: ~p type: ~p", [Uid, math:pow(2, PushNum - 1), PushNum, MsgId, AlertType]),
+            ?INFO("Uid ~s, Did not connect within ~p minutes. Sending wakeup push #~p, msgId: ~p type: ~p 
+                platform: ~p", [Uid, math:pow(2, PushNum - 1), PushNum, MsgId, AlertType, Platform]),
             Msg = #pb_msg{
                 id = MsgId,
                 to_uid = Uid,
@@ -206,8 +206,8 @@ check_wakeup(Uid, WakeupMap) ->
             WakeupMap;
         {PushNum, _} ->
             mod_push_monitor:log_push_wakeup(Uid, failure, Platform),
-            ?INFO("Uid ~s, Did not connect within ~p minutes after
-                ~p wakeup pushes", [Uid, math:pow(2, PushNum), PushNum]),
+            ?INFO("Uid ~s, Did not connect within ~p minutes after ~p wakeup pushes, 
+                platform: ~p", [Uid, math:pow(2, PushNum), PushNum, Platform]),
             {_Pushes, FinalMap} = maps:take(Uid, WakeupMap),
             FinalMap
     end,
