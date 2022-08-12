@@ -837,7 +837,7 @@ uid_info(Uid, Options) ->
             io:format("Current Version: ~s Lang: ~s~n", [Account#account.client_version, Account#account.lang_id]),
 
             case model_accounts:get_push_token(Uid) of
-                {ok, undefined} -> io:format("No Push Token");
+                {ok, undefined} -> io:format("No Push Token~n");
                 {ok, #push_info{os = Os, 
                         token = Token, 
                         voip_token = VoipToken, 
