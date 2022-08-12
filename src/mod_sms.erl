@@ -11,6 +11,7 @@
 -behavior(gen_mod).
 
 -include("logger.hrl").
+-include("monitor.hrl").
 -include("sms.hrl").
 -include("ha_types.hrl").
 -include("time.hrl").
@@ -149,6 +150,7 @@ verify_sms(Phone, Code) ->
 
 -spec add_verification_success(Phone :: phone(), FetchedInfo :: verification_info(),
         AllVerifyInfo :: [verification_info()]) -> match.
+add_verification_success(Phone, _FetchedInfo, _AllVerifyInfo) when Phone =:= ?MONITOR_PHONE -> ok;
 add_verification_success(Phone, FetchedInfo, AllVerifyInfo) ->
     #verification_info{attempt_id = AttemptId, gateway = Gateway} = FetchedInfo,
     ok = model_phone:add_verification_success(Phone, AttemptId),

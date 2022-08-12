@@ -367,7 +367,9 @@ process_element(#pb_register_request{request = #pb_verify_otp_request{} = Verify
     UserAgent = VerifyOtpRequest#pb_verify_otp_request.user_agent,
     CampaignId = case VerifyOtpRequest#pb_verify_otp_request.campaign_id of
         undefined -> "undefined";
-        SomeList when is_list(SomeList) -> SomeList
+        SomeList when is_list(SomeList) -> SomeList;
+        SomeBin when is_binary(SomeBin) -> util:to_list(SomeBin);
+        _ -> "undefined"
     end,
     stat:count("HA/registration", "verify_otp_request", 1, [{protocol, "noise"}]),
     stat:count("HA/registration", "verify_otp_request_by_campaign_id", 1,
