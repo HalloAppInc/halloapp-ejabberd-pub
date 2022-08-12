@@ -140,9 +140,10 @@ push_monitor(Uid, Status, Platform, AndroidData, IosData, PushCheckType) ->
         % only track the 100 latest pushes
         {android, AndroidData, IosData} ->
             IsMember = lists:search(fun({OldUid, _}) -> OldUid =:= Uid end, AndroidData),
-            AndroidData2 = case IsMember of
-                {value, _} -> AndroidData;
-                false ->
+            % Only prevent duplicate uids for push_wakeup alerts, not push_response
+            AndroidData2 = case {PushCheckType, IsMember} of
+                {push_wakeup, {value, _}} -> AndroidData;
+                _ ->
                     AndroidData1 = lists:sublist([UidWithStatusCode] ++ AndroidData, 100),
                     check_error_rate(AndroidData1, android, PushCheckType),
                     AndroidData1
@@ -150,9 +151,9 @@ push_monitor(Uid, Status, Platform, AndroidData, IosData, PushCheckType) ->
             {AndroidData2, IosData};
         {ios, AndroidData, IosData} ->
             IsMember = lists:search(fun({OldUid, _}) -> OldUid =:= Uid end, IosData),
-            IosData2 = case IsMember of
-                {value, _} -> IosData;
-                false ->
+            IosData2 = case {PushCheckType, IsMember} of
+                {push_wakeup, {value, _}} -> IosData;
+                _ ->
                     IosData1 = lists:sublist([UidWithStatusCode] ++ IosData, 100),
                     check_error_rate(IosData1, ios, PushCheckType),
                     IosData1

@@ -66,11 +66,17 @@ push_monitor_ios_test() ->
 push_monitor_uid_test() ->
     setup(),
     {Android, Ios} = {[{?UID1, 0}], [{?UID1, 0}]},
-    % Don't add the statuses if Uid is already present
-    {Android, Ios} = mod_push_monitor:push_monitor(?UID1, success, android, Android, Ios, push_response),
+    % Don't add the statuses if Uid is already present for push_wakeup
+    {Android, Ios} = mod_push_monitor:push_monitor(?UID1, success, android, Android, Ios, push_wakeup),
     {Android, Ios} = mod_push_monitor:push_monitor(?UID1, failure, android, Android, Ios, push_wakeup),
-    {Android, Ios} = mod_push_monitor:push_monitor(?UID1, success, ios, Android, Ios, push_response),
+    {Android, Ios} = mod_push_monitor:push_monitor(?UID1, success, ios, Android, Ios, push_wakeup),
     {Android, Ios} = mod_push_monitor:push_monitor(?UID1, failure, ios, Android, Ios, push_wakeup),
+    
+    % Duplicate Uids is okay for push_response
+    {[{?UID1, 1}, {?UID1, 0}], Ios} = mod_push_monitor:push_monitor(?UID1, success, android, Android, Ios, push_response),
+    {[{?UID1, 0}, {?UID1, 0}], Ios} = mod_push_monitor:push_monitor(?UID1, failure, android, Android, Ios, push_response),
+    {Android, [{?UID1, 1}, {?UID1, 0}]} = mod_push_monitor:push_monitor(?UID1, success, ios, Android, Ios, push_response),
+    {Android, [{?UID1, 0}, {?UID1, 0}]} = mod_push_monitor:push_monitor(?UID1, failure, ios, Android, Ios, push_response),
     ok.
 
 
