@@ -32,8 +32,8 @@
 -export([push_message/1]).
 
 -define(REFRESH_TIME_MS, (60 * ?MINUTES_MS)).          %% 60 minutes.
--define(HTTP_TIMEOUT_MS, (10 * ?SECONDS)).             %% 10 seconds.
--define(HTTP_CONNECT_TIMEOUT_MS, (10 * ?SECONDS)).     %% 10 seconds.
+-define(HTTP_TIMEOUT_MS, (60 * ?SECONDS)).             %% 10 seconds.
+-define(HTTP_CONNECT_TIMEOUT_MS, (60 * ?SECONDS)).     %% 10 seconds.
 
 -define(HUAWEI_URL_PREFIX, <<"https://push-api.cloud.huawei.com/v1/">>).
 -define(HUAWEI_URL_SUFFIX, <<"/messages:send">>).
@@ -98,8 +98,17 @@ handle_cast({ping, Id, Ts, From}, State) ->
     util_monitor:send_ack(self(), From, {ack, Id, Ts, self()}),
     {noreply, State};
 handle_cast({push_message_item, PushMessageItem}, State) ->
-    NewState = push_message_item(PushMessageItem, State),
-    {noreply, NewState};
+    Id = PushMessageItem#push_message_item.id,
+    Uid = PushMessageItem#push_message_item.uid,
+    Token = PushMessageItem#push_message_item.push_info#push_info.huawei_token,
+    case Token =:= undefined orelse Token =:= <<>> of
+        true ->
+            ?INFO("Ignoring push for Uid: ~p MsgId: ~p due to invalid token: ~p", [Uid, Id, Token]),
+            {noreply, State};
+        false ->
+            NewState = push_message_item(PushMessageItem, State),
+            {noreply, NewState}
+    end;
 handle_cast(_Request, State) ->
     ?DEBUG("Invalid request, ignoring it: ~p", [_Request]),
     {noreply, State}.
@@ -183,15 +192,15 @@ push_message_item(PushMessageItem, #{auth_token := AuthToken, url := Url, pendin
     Uid = PushMessageItem#push_message_item.uid,
     ContentId = PushMetadata#push_metadata.content_id,
     ContentType = PushMetadata#push_metadata.content_type,
-    Token = PushMessageItem#push_message_item.push_info#push_info.token,
+    Token = PushMessageItem#push_message_item.push_info#push_info.huawei_token,
 
     AndroidMap = extract_android_map(PushMessageItem, PushMetadata),
     PushBody = #{
-        <<"validate_only">> => <<"true">>, % set true for test mode
+        % <<"validate_only">> => <<"true">>, % set true for test mode
         <<"message">> => #{
             <<"token">> => [Token],
             <<"android">> => AndroidMap,
-            <<"notification">> => #{
+            <<"data">> => #{
                 <<"title">> => <<"test">>,
                 <<"body">> => <<"test">>
             }
@@ -201,6 +210,7 @@ push_message_item(PushMessageItem, #{auth_token := AuthToken, url := Url, pendin
     Request = {Url, [{"Authorization", AuthToken}], "application/json; UTF-8", jiffy:encode(PushBody)},
     HTTPOptions = [{timeout, ?HTTP_TIMEOUT_MS}, {connect_timeout, ?HTTP_CONNECT_TIMEOUT_MS}],
     Options = [{sync, false}, {receiver, self()}],
+    ?DEBUG("Request: ~p", [Request]),
 
     %% Send the request.
     case httpc:request(post, Request, HTTPOptions, Options) of
@@ -258,7 +268,7 @@ handle_huawei_response({_Id, Response}, PushMessageItem, #{host := Host} = State
     Uid = PushMessageItem#push_message_item.uid,
     Version = PushMessageItem#push_message_item.push_info#push_info.client_version,
     ContentType = PushMessageItem#push_message_item.content_type,
-    Token = PushMessageItem#push_message_item.push_info#push_info.token,
+    Token = PushMessageItem#push_message_item.push_info#push_info.huawei_token,
     TokenPart = binary:part(Token, 0, 10),
     case Response of
         {{_, StatusCode5xx, _}, _, Body} when StatusCode5xx >= 500 andalso StatusCode5xx < 600 ->
@@ -279,25 +289,25 @@ handle_huawei_response({_Id, Response}, PushMessageItem, #{host := Host} = State
                             platform => android, client_version => Version, push_type => silent,
                             content_type => ContentType, cc => CC});
                 {error, _} ->
-                    stat:count("HA/push", ?HUAWEI, 1, [{"result", "failure"}]),
-                    remove_push_token(Uid, Host)
+                    stat:count("HA/push", ?HUAWEI, 1, [{"result", "failure"}])
+                    % remove_push_token(Uid, Host)
             end,
             State;
         {{_, 401, _}, _, Body} ->
             stat:count("HA/push", ?HUAWEI, 1, [{"result", "huawei_error"}]),
-            ?ERROR("Push failed, Uid: ~s, Token: ~p, expired auth token, Response: ~p", [Uid, TokenPart, Body]),
+            ?ERROR("Push failed, Uid: ~s, Token: ~p, expired auth token, Response: ~p", [Uid, TokenPart, Response]),
             mod_android_push:retry_message_item(PushMessageItem),
             NewState = load_access_token(State),
             NewState;
         {{_, 404, _}, _, Body} ->
             stat:count("HA/push", ?HUAWEI, 1, [{"result", "failure"}]),
-            ?ERROR("Push failed, Uid: ~s, Token: ~p, incorrect request url, Response: ~p", [Uid, TokenPart, Body]),
-            remove_push_token(Uid, Host),
+            ?ERROR("Push failed, Uid: ~s, Token: ~p, incorrect request url, Response: ~p", [Uid, TokenPart, Response]),
+            % remove_push_token(Uid, Host),
             State;
         {_, _, Body} ->
             stat:count("HA/push", ?HUAWEI, 1, [{"result", "failure"}]),
-            ?ERROR("Push failed, Uid:~s, token: ~p, non-recoverable Huawei error: ~p", [Uid, TokenPart, Body]),
-            remove_push_token(Uid, Host),
+            ?ERROR("Push failed, Uid:~s, token: ~p, non-recoverable Huawei Response: ~p", [Uid, TokenPart, Response]),
+            % remove_push_token(Uid, Host),
             State;
         {error, Reason} ->
             ?INFO("Push failed, Uid:~s, token: ~p, reason: ~p", [Uid, TokenPart, Reason]),
@@ -323,5 +333,5 @@ parse_response(Body) ->
 
 -spec remove_push_token(Uid :: binary(), Server :: binary()) -> ok.
 remove_push_token(Uid, Server) ->
-    mod_push_tokens:remove_push_token(Uid, Server).
+    mod_push_tokens:remove_huawei_token(Uid, Server).
 

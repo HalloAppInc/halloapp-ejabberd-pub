@@ -180,7 +180,8 @@ handle_info({retry, PushMessageItem}, State) ->
             ?INFO("Uid: ~s, retry push_message_item: ~p", [Uid, Id]),
             NewRetryMs = round(PushMessageItem#push_message_item.retry_ms * ?GOLDEN_RATIO),
             NewPushMessageItem = PushMessageItem#push_message_item{retry_ms = NewRetryMs},
-            wpool:cast(?IOS_POOL, {push_message_item, NewPushMessageItem})
+            wpool:cast(?IOS_POOL, {push_message_item, NewPushMessageItem}),
+            State
     end,
     {noreply, NewState};
 

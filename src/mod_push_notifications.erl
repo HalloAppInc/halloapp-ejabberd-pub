@@ -77,8 +77,8 @@ push_message(#pb_msg{id = MsgId, to_uid = User} = _Message, PushInfo, undefined)
     ?ERROR("Uid: ~s, MsgId: ~p ignore push: invalid client type, push_info: ~p",
         [User, MsgId, PushInfo]);
 push_message(#pb_msg{id = MsgId, to_uid = User} = Message, PushInfo, android) ->
-    case PushInfo#push_info.token of
-        undefined ->
+    case {PushInfo#push_info.token, PushInfo#push_info.huawei_token} of
+        {undefined, undefined} ->
             %% invalid fcm-token for android.
             ?INFO("Uid: ~s, MsgId: ~p ignore push: no push token", [User, MsgId]);
         _ ->

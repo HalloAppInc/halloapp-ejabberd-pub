@@ -158,11 +158,15 @@ handle_info({retry, PushMessageItem}, State) ->
             ?INFO("Uid: ~s, retry push_message_item: ~s", [Uid, Id]),
             NewRetryMs = round(PushMessageItem#push_message_item.retry_ms * ?GOLDEN_RATIO),
             NewPushMessageItem = PushMessageItem#push_message_item{retry_ms = NewRetryMs},
-            wpool:cast(?ANDROID_POOL, {push_message_item, NewPushMessageItem}),
+            % Send to fcm push notification if applicable
+            case PushInfo#push_info.token of
+                undefined -> ok;
+                _ -> wpool:cast(?ANDROID_POOL, {push_message_item, NewPushMessageItem})
+            end,
             % Send to huawei push notification if applicable
             case PushInfo#push_info.huawei_token of
                 undefined -> ok;
-                _ -> mod_huawei_push_msg:push_message(PushMessageItem)
+                _ -> mod_huawei_push_msg:push_message(NewPushMessageItem)
             end
     end,
     {noreply, State};
@@ -189,7 +193,11 @@ push_message(Message, PushInfo) ->
                 timestamp_ms = TimestampMs,
                 retry_ms = ?RETRY_INTERVAL_MILLISEC,
                 push_info = PushInfo},
-        wpool:cast(?ANDROID_POOL, {push_message_item, PushMessageItem}),
+        % Send to fcm push notification if applicable
+        case PushInfo#push_info.token of
+            undefined -> ok;
+            _ -> wpool:cast(?ANDROID_POOL, {push_message_item, PushMessageItem})
+        end,
         % Send to huawei push notification if applicable
         case PushInfo#push_info.huawei_token of
             undefined -> ok;

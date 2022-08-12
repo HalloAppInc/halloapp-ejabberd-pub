@@ -21,7 +21,8 @@
 -export([
     process_local_iq/1,
     get_push_info/1,
-    remove_push_token/2,
+    remove_huawei_token/2,
+    remove_android_token/2,
     re_register_user/4,
     remove_user/2,
     register_push_info/4,
@@ -69,13 +70,17 @@ mod_options(_Host) ->
 %%====================================================================
 
 -spec re_register_user(UserId :: binary(), Server :: binary(), Phone :: binary(), CampaignId :: binary()) -> ok.
-re_register_user(UserId, Server, _Phone, _CampaignId) ->
-    remove_push_token(UserId, Server).
+re_register_user(UserId, _Server, _Phone, _CampaignId) ->
+    stat:count("HA/push_tokens", "remove_push_token"),
+    model_accounts:remove_push_info(UserId),
+    ok.
 
 
 -spec remove_user(UserId :: binary(), Server :: binary()) -> ok.
-remove_user(UserId, Server) ->
-    remove_push_token(UserId, Server).
+remove_user(UserId, _Server) ->
+    stat:count("HA/push_tokens", "remove_push_token"),
+    model_accounts:remove_push_info(UserId),
+    ok.
 
 
 -spec process_local_iq(IQ :: iq()) -> iq().
@@ -159,10 +164,15 @@ get_push_info(Uid) ->
     RedisPushInfo.
 
 
--spec remove_push_token(Uid :: binary(), Server :: binary()) -> ok.
-remove_push_token(Uid, _Server) ->
-    ok = model_accounts:remove_push_token(Uid),
-    stat:count("HA/push_tokens", "remove_push_token"),
+-spec remove_android_token(Uid :: binary(), Server :: binary()) -> ok.
+remove_android_token(Uid, _Server) ->
+    ok = model_accounts:remove_android_token(Uid),
+    ok.
+
+
+-spec remove_huawei_token(Uid :: binary(), Server :: binary()) -> ok.
+remove_huawei_token(Uid, _Server) ->
+    ok = model_accounts:remove_huawei_token(Uid),
     ok.
 
 

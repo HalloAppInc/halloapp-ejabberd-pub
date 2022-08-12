@@ -103,7 +103,8 @@
     set_voip_token/4,
     set_huawei_token/4,
     get_lang_id/1,
-    remove_push_token/1,
+    remove_android_token/1,
+    remove_huawei_token/1,
     remove_push_info/1,
     set_push_post_pref/2,
     get_push_post_pref/1,
@@ -604,6 +605,7 @@ set_huawei_token(Uid, HuaweiToken, TimestampMs, LangId) ->
     {ok, OldLangId} = get_lang_id(Uid),
     {ok, _Res} = q([
             "HMSET", account_key(Uid),
+            ?FIELD_PUSH_OS, ?ANDROID_HUAWEI_TOKEN_TYPE,
             ?FIELD_HUAWEI_TOKEN, HuaweiToken,
             ?FIELD_PUSH_TIMESTAMP, integer_to_binary(TimestampMs),
             ?FIELD_PUSH_LANGUAGE_ID, LangId
@@ -666,10 +668,15 @@ get_push_token(Uid) ->
     {ok, Res}.
 
 
--spec remove_push_token(Uid :: uid()) -> ok | {error, missing}.
-remove_push_token(Uid) ->
-    {ok, _Res} = q(["HDEL", account_key(Uid),
-        ?FIELD_PUSH_OS, ?FIELD_PUSH_TOKEN, ?FIELD_PUSH_TIMESTAMP, ?FIELD_VOIP_TOKEN]),
+-spec remove_android_token(Uid :: uid()) -> ok | {error, missing}.
+remove_android_token(Uid) ->
+    {ok, _Res} = q(["HDEL", account_key(Uid), ?FIELD_PUSH_TOKEN]),
+    ok.
+
+
+-spec remove_huawei_token(Uid :: uid()) -> ok | {error, missing}.
+remove_huawei_token(Uid) ->
+    {ok, _Res} = q(["HDEL", account_key(Uid), ?FIELD_HUAWEI_TOKEN]),
     ok.
 
 

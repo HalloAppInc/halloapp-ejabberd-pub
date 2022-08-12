@@ -78,9 +78,17 @@ handle_cast({ping, Id, Ts, From}, State) ->
     {noreply, State};
 
 handle_cast({push_message_item, PushMessageItem}, State) ->
-    NewState = push_message_item(PushMessageItem, State),
-    {noreply, NewState};
-
+    Id = PushMessageItem#push_message_item.id,
+    Uid = PushMessageItem#push_message_item.uid,
+    Token = PushMessageItem#push_message_item.push_info#push_info.token,
+    case Token =:= undefined orelse Token =:= <<>> of
+        true ->
+            ?INFO("Ignoring push for Uid: ~p MsgId: ~p due to invalid token: ~p", [Uid, Id, Token]),
+            {noreply, State};
+        false ->
+            NewState = push_message_item(PushMessageItem, State),
+            {noreply, NewState}
+    end;
 handle_cast(refresh_token, State) ->
     NewState = reload_access_token(State),
     {noreply, NewState};
@@ -264,7 +272,7 @@ handle_fcm_response({_RequestId, Response}, PushMessageItem, #{host := ServerHos
                             ?ERROR("Push failed: Server Error, Uid:~s, token: ~p, reason: ~p, FcmId: ~p",
                                 [Uid, binary:part(Token, 0, 10), Reason, FcmId])
                     end,
-                    remove_push_token(Uid, ServerHost),
+                    % remove_push_token(Uid, ServerHost),
                     mod_android_push:pushed_message(PushMessageItem, failure)
             end,
             State;
@@ -280,14 +288,14 @@ handle_fcm_response({_RequestId, Response}, PushMessageItem, #{host := ServerHos
             stat:count("HA/push", ?FCM, 1, [{"result", "failure"}]),
             ?INFO("Push failed, Uid:~s, token: ~p, unregistered FCM error: ~p",
                     [Uid, binary:part(Token, 0, 10), ResponseBody]),
-            remove_push_token(Uid, ServerHost),
+            % remove_push_token(Uid, ServerHost),
             mod_android_push:pushed_message(PushMessageItem, failure),
             State;
         {{_, _, _}, _, ResponseBody} ->
             stat:count("HA/push", ?FCM, 1, [{"result", "failure"}]),
             ?ERROR("Push failed, Uid:~s, token: ~p, non-recoverable FCM error: ~p",
                     [Uid, binary:part(Token, 0, 10), ResponseBody]),
-            remove_push_token(Uid, ServerHost),
+            % remove_push_token(Uid, ServerHost),
             mod_android_push:pushed_message(PushMessageItem, failure),
             State;
         {error, Reason} ->
@@ -316,5 +324,5 @@ parse_response(ResponseBody) ->
 
 -spec remove_push_token(Uid :: binary(), Server :: binary()) -> ok.
 remove_push_token(Uid, Server) ->
-    mod_push_tokens:remove_push_token(Uid, Server).
+    mod_push_tokens:remove_android_token(Uid, Server).
 

@@ -409,7 +409,7 @@ push_token_test() ->
     ?assertEqual(ok, model_accounts:set_push_token(?UID1, ?PUSH_TOKEN_OS1,
             ?PUSH_TOKEN1, ?PUSH_TOKEN_TIMESTAMP1, ?PUSH_LANG_ID1)),
     ?assertEqual({ok, ?PUSH_INFO1}, model_accounts:get_push_token(?UID1)),
-    ?assertEqual(ok, model_accounts:remove_push_token(?UID1)),
+    ?assertEqual(ok, model_accounts:remove_push_info(?UID1)),
     ?assertEqual({ok, undefined}, model_accounts:get_push_token(?UID1)),
 
     ?assertEqual({ok, undefined}, model_accounts:get_push_token(?UID2)),
@@ -424,7 +424,7 @@ voip_token_test() ->
     ?assertEqual(ok, model_accounts:set_voip_token(?UID1,
         ?PUSH_TOKEN1, ?PUSH_TOKEN_TIMESTAMP1, ?PUSH_LANG_ID1)),
     ?assertEqual({ok, ?VOIP_PUSH_INFO1}, model_accounts:get_push_token(?UID1)),
-    ?assertEqual(ok, model_accounts:remove_push_token(?UID1)),
+    ?assertEqual(ok, model_accounts:remove_push_info(?UID1)),
     ?assertEqual({ok, undefined}, model_accounts:get_push_token(?UID1)),
     ok.
 
