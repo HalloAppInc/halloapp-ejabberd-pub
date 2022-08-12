@@ -68,7 +68,7 @@
         ok |
         {block, BlockReason :: atom(), Details :: any()} |
         {error, ErrorReason :: atom(), Details :: any()}.
-check(Phone, IP, UserAgent, Method, Protocol, RemoteStaticKey) when Phone =:= ?MONITOR_PHONE ->
+check(Phone, _IP, _UserAgent, _Method, _Protocol, _RemoteStaticKey) when Phone =:= ?MONITOR_PHONE ->
     %% Ignore checks for noise checker on our server.
     ok;
 check(Phone, IP, UserAgent, Method, Protocol, RemoteStaticKey) ->

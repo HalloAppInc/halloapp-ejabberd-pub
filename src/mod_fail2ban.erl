@@ -211,7 +211,7 @@ unban(Net, Mask) ->
 %%%===================================================================
 -spec log_and_disconnect(ejabberd_c2s:state(), pos_integer(), non_neg_integer())
       -> {stop, ejabberd_c2s:state()}.
-log_and_disconnect(#{ip := {Addr, _}, lang := Lang} = State, Attempts, UnbanTS) ->
+log_and_disconnect(#{ip := {Addr, _}} = State, Attempts, UnbanTS) ->
     IP = misc:ip_to_list(Addr),
     UnbanDate = format_date(
 		  calendar:now_to_universal_time(msec_to_now(UnbanTS))),
