@@ -31,6 +31,7 @@
 -include("sms.hrl").
 -include("time.hrl").
 -include("invites.hrl").
+-include("monitor.hrl").
 
 -define(MSG_TO_SIGN, <<"HALLO">>).
 
@@ -720,6 +721,7 @@ check_sms_code(Phone, ClientIP, Protocol, Code, RemoteStaticKey) ->
 
 % Throws error if too many attempts
 -spec check_excessive_sms_code_attempts(Phone :: binary(), ClientIP :: binary(), StaticKey :: binary()) -> ok | no_return().
+check_excessive_sms_code_attempts(Phone, _IP, _StaticKey) when Phone =:= ?MONITOR_PHONE -> ok;
 check_excessive_sms_code_attempts(Phone, IP, StaticKey) ->
     check_attempts_by_phone(Phone),
     check_attempts_by_ip(IP),

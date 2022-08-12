@@ -10,6 +10,7 @@
 -author("nikola").
 
 -include("logger.hrl").
+-include("monitor.hrl").
 
 -export([
     check/6,
@@ -67,6 +68,9 @@
         ok |
         {block, BlockReason :: atom(), Details :: any()} |
         {error, ErrorReason :: atom(), Details :: any()}.
+check(Phone, IP, UserAgent, Method, Protocol, RemoteStaticKey) when Phone =:= ?MONITOR_PHONE ->
+    %% Ignore checks for noise checker on our server.
+    ok;
 check(Phone, IP, UserAgent, Method, Protocol, RemoteStaticKey) ->
     Result = lists:foldl(
         fun(Checker, Acc) ->
