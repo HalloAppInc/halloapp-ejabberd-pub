@@ -64,7 +64,7 @@ do_noise_login({Name, Host}, Version) ->
 
 do_noise_register({Name, Host}) ->
     Options = #{host => Host, port => ?NOISE_REGISTER_PORT},
-    try registration_client:full_register(Name, ?MONITOR_PHONE, Options) of
+    try registration_client:hashcash_register(Name, ?MONITOR_PHONE, Options) of
         ok -> record_state(Host, register, ?ALIVE_STATE);
         {error, Err} -> 
             ?WARNING("Noise login error on ~s (~s): ~p", [Name, Host, Err]),
