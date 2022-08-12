@@ -368,7 +368,13 @@ process_element(#pb_register_request{request = #pb_verify_otp_request{} = Verify
     CampaignId = case VerifyOtpRequest#pb_verify_otp_request.campaign_id of
         undefined -> "undefined";
         SomeList when is_list(SomeList) -> SomeList;
-        SomeBin when is_binary(SomeBin) -> util:to_list(SomeBin);
+        SomeBin when is_binary(SomeBin) ->
+            case util:to_list(SomeBin) of
+                [] ->
+                    ?INFO("Weird campaign_id is : ~p", [SomeBin]),
+                    "undefined";
+                SomethingElse -> SomethingElse
+            end;
         _ -> "undefined"
     end,
     stat:count("HA/registration", "verify_otp_request", 1, [{protocol, "noise"}]),
