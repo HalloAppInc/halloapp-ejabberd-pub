@@ -168,6 +168,7 @@ check_error_rate(Data, Platform, PushCheckType) ->
     Success = lists:foldl(fun({_, Status}, Sum) -> Status + Sum end, 0, Data),
     Length = length(Data),
     ErrorRate = util:to_float(io_lib:format("~.2f", [100 - (Success/Length * 100)])),
+    [{Uid, _} | _Tail] = Data,
     % throw appropriate msg based on error rate and amount of sample pushes
     case ErrorRate of
         Rate when Rate >= ?ALERT_RATE andalso Length > ?MIN_SAMPLE ->
@@ -176,15 +177,18 @@ check_error_rate(Data, Platform, PushCheckType) ->
             BinPlatform = util:to_binary(Platform),
             BinLength = util:to_binary(Length),
             BinCheckType = util:to_binary(PushCheckType),
-            Msg = <<Host/binary, ": ", BinPlatform/binary, " has ", BinCheckType/binary,
-                " error rate of ", BinPercent/binary, "% from ", BinLength/binary, " total pushes">>,
+            Msg = <<Host/binary, ": ", BinPlatform/binary, " has ", BinCheckType/binary, " error rate of ",
+                BinPercent/binary, "% from ", BinLength/binary, " total pushes, latest uid: ", Uid/binary>>,
             alerts:send_alert(<<Host/binary, " has high ", BinCheckType/binary, " error rate.">>, Host, <<"critical">>, Msg);
         Rate when Rate >= ?ERROR_RATE andalso Length > ?MIN_SAMPLE ->
-            ?ERROR("Checking ~p: ~p has ~p% error rate from ~p total pushes", [PushCheckType, Platform, ErrorRate, Length]);
+            ?ERROR("Checking ~p: ~p has ~p% error rate from ~p total pushes, latest Uid: ~s",
+                [PushCheckType, Platform, ErrorRate, Length, Uid]);
         Rate when Rate >= ?WARNING_RATE andalso Length > ?MIN_SAMPLE ->
-            ?WARNING("Checking ~p: ~p has ~p% error rate from ~p total pushes", [PushCheckType, Platform, ErrorRate, Length]);
+            ?WARNING("Checking ~p: ~p has ~p% error rate from ~p total pushes, latest Uid: ~s",
+                [PushCheckType, Platform, ErrorRate, Length, Uid]);
         _ ->
-            ?INFO("Checking ~p: ~p has ~p% error rate from ~p total pushes", [PushCheckType, Platform, ErrorRate, Length])
+            ?INFO("Checking ~p: ~p has ~p% error rate from ~p total pushes, latest Uid: ~s",
+                [PushCheckType, Platform, ErrorRate, Length, Uid])
     end,
     ErrorRate.
 
