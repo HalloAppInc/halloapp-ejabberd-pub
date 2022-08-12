@@ -850,7 +850,7 @@ uid_info(Uid, Options) ->
                         <<VoipTokenHead:8/binary, _/binary>> -> VoipTokenHead;
                         _ -> VoipToken
                     end,
-                    HuaweiTokenPrint = case Token of
+                    HuaweiTokenPrint = case HuaweiToken of
                         <<HuaweiTokenHead:8/binary, _/binary>> -> HuaweiTokenHead;
                         _ -> HuaweiToken
                     end,
