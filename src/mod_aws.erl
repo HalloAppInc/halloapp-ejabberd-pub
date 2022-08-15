@@ -233,6 +233,7 @@ get_machines_internal() ->
     end.
 
 -spec get_ip(MachineName :: string()) -> string().
+get_ip("s-test") -> "100.27.28.171";
 get_ip(MachineName) ->
     case lists:keyfind(MachineName, 1, get_ejabberd_machines()) of
         false -> "";
