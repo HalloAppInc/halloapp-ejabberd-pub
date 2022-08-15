@@ -371,12 +371,12 @@ register_user(Uid, _Server, Phone, CampaignId) ->
                         InviteString ->
                             <<InvStrId:?INVITE_STRING_ID_SHA_HASH_LENGTH_BYTES/binary, _Rest/binary>> =
                                 crypto:hash(sha256, InviteString),
+                            EncodedHash = base64:encode(InvStrId),
                             Event = #{
                                 phone => Phone,
                                 inviter_uid => RecentInviterUid,
-                                invite_string_id => util:to_list(InvStrId),
-                                lang_id => LangId1,
-                                timestamp => util:now()
+                                invite_string_id => util:to_list(EncodedHash),
+                                lang_id => LangId1
                             },
                             ha_events:log_event(<<"server.invite_strings">>, Event)
                     end;
