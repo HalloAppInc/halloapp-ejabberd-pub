@@ -200,15 +200,12 @@ push_message_item(PushMessageItem, #{auth_token := AuthToken, url := Url, pendin
         <<"message">> => #{
             <<"token">> => [Token],
             <<"android">> => AndroidMap,
-            <<"data">> => #{
-                <<"title">> => <<"test">>,
-                <<"body">> => <<"test">>
-            }
+            <<"data">> => <<"{\"title\":\"test\",\"body\":\"test\"}">>
         }
     },
 
-    Request = {Url, [{"Authorization", AuthToken}], "application/json; UTF-8", jiffy:encode(PushBody)},
-    HTTPOptions = [{timeout, ?HTTP_TIMEOUT_MS}, {connect_timeout, ?HTTP_CONNECT_TIMEOUT_MS}],
+    Request = {Url, [{"Authorization", AuthToken}], "application/json; charset=UTF-8", jiffy:encode(PushBody)},
+    HTTPOptions = [],
     Options = [{sync, false}, {receiver, self()}],
     ?DEBUG("Request: ~p", [Request]),
 
@@ -322,7 +319,7 @@ parse_response(Body) ->
     ReqId = proplists:get_value(<<"requestId">>, JsonData, undefined),
     ResultCode = proplists:get_value(<<"code">>, JsonData, undefined),
     case ResultCode of
-        "80000000" -> 
+        <<"80000000">> ->
             ?DEBUG("Huawei success: ReqId: ~p response body: ~p", [ReqId, Body]),
             {ok, ReqId};
         _ ->
