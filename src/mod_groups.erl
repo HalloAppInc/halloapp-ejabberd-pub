@@ -67,6 +67,7 @@
 -define(MAX_GROUP_DESCRIPTION_SIZE, 500).   %% 500 utf8 characters
 -define(MAX_BG_LENGTH, 64).
 -define(DEFAULT_GROUP_EXPIRY, 30 * ?DAYS).
+-define(OLD_GROUP_EXPIRY, 31 * ?DAYS).
 
 -define(MAX_PREMIUM_GROUP_SIZE, 100).
 
@@ -799,7 +800,7 @@ validate_expiry_info(GroupExpiry) ->
     case ExpiryType of
         expires_in_seconds -> 
             Ts = GroupExpiry#pb_expiry_info.expires_in_seconds,
-            case Ts =:= ?DAYS orelse Ts =:= ?DEFAULT_GROUP_EXPIRY of
+            case Ts =:= ?DAYS orelse Ts =:= ?DEFAULT_GROUP_EXPIRY orelse Ts =:= ?OLD_GROUP_EXPIRY of
                 true -> {ok, {ExpiryType, Ts}};
                 false -> {error, invalid_sec}
             end;
