@@ -23,12 +23,11 @@
 %% gen_server API
 -export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, handle_info/2]).
 
--export([c2s_session_opened/1, monitor_push/2]).
+-export([monitor_push/2]).
 
  -ifdef(TEST).
  -export([
      remind_wakeup/3,
-     cancel_wakeup/2,
      check_wakeup/2
  ]).
  -endif.
@@ -40,13 +39,11 @@
 start(Host, Opts) ->
     ?INFO("start ~w", [?MODULE]),
     gen_mod:start_child(?MODULE, Host, Opts, ?PROC()),
-    ejabberd_hooks:add(c2s_session_opened, Host, ?MODULE, c2s_session_opened, 50),
     ok.
 
-stop(Host) ->
+stop(_Host) ->
     ?INFO("stop ~w", [?MODULE]),
     gen_mod:stop_child(?PROC()),
-    ejabberd_hooks:delete(c2s_session_opened, Host, ?MODULE, c2s_session_opened, 50),
     ok.
 
 depends(_Host, _Opts) ->
@@ -62,10 +59,6 @@ mod_options(_Host) ->
 %% API
 %%====================================================================
 
--spec c2s_session_opened(State :: #{}) -> ok.
-c2s_session_opened(#{user := Uid} = State) ->
-    gen_server:cast(?PROC(), {cancel_wakeup, Uid}),
-    State.
 
 
 -spec monitor_push(Uid :: binary(), Message :: pb_msg()) -> ok.
@@ -106,10 +99,6 @@ handle_cast({remind_wakeup, Uid, PayloadType}, #{wakeup_map := WakeupMap} = Stat
     NewWakeupMap = remind_wakeup(Uid, WakeupMap, PayloadType),
     {noreply, State#{wakeup_map => NewWakeupMap}};
 
-handle_cast({cancel_wakeup, Uid}, #{wakeup_map := WakeupMap} = State) ->
-    NewWakeupMap = cancel_wakeup(Uid, WakeupMap),    
-    {noreply, State#{wakeup_map => NewWakeupMap}};
-
 handle_cast(_Request, State) ->
     ?DEBUG("Invalid request, ignoring it: ~p", [_Request]),
     {noreply, State}.
@@ -131,48 +120,23 @@ handle_info(Request, State) ->
 -spec remind_wakeup(Uid :: uid(), WakeupMap :: #{uid() := {integer(), integer()}},
         PayloadType :: atom()) -> #{uid() := {integer(), integer()}}.
 remind_wakeup(Uid, WakeupMap, PayloadType) ->
-    {PushNum, OldTRef} = maps:get(Uid, WakeupMap, {0,0}),
+    Now = util:now(),
+    {PushNum, OldTRef, OldTs} = maps:get(Uid, WakeupMap, {0, 0, Now}),
     case is_reference(OldTRef) of
         true -> erlang:cancel_timer(OldTRef);
         false -> ok
     end,
-    NewPushNum = case PayloadType of
-        pb_wake_up -> PushNum + 1;
+    {NewPushNum, Ts} = case PayloadType of
+        pb_wake_up -> {PushNum + 1, OldTs};
         % Reset backoff time on normal pushes
-        _ -> 0
+        _ -> {0, Now}
     end,
     % Check in 1 min, 2 min, 4 min, 8 min, ... 512 minutes
     BackoffTimeMs = trunc(math:pow(2, NewPushNum) * ?MINUTES_MS),
     ?INFO("Uid: ~s, Tracking if client comes online in ~p ms
             after ~p wake up pushes", [Uid, BackoffTimeMs, NewPushNum]),
     TRef = erlang:send_after(BackoffTimeMs, self(), {check_wakeup, Uid}),
-    WakeupMap#{Uid => {NewPushNum, TRef}}.
-
-
--spec cancel_wakeup(Uid :: uid(), WakeupMap :: #{uid() := {integer(), integer()}}) ->
-        #{uid() := {integer(), integer()}}.
-cancel_wakeup(Uid, WakeupMap) ->
-    {WakeupPushNum, TRef} = maps:get(Uid, WakeupMap, {0, 0}),
-    case is_reference(TRef) of
-        true -> erlang:cancel_timer(TRef);
-        false -> ok
-    end,
-    Platform = case util:is_android_user(Uid) of
-        true -> android;
-        false -> ios
-    end,
-    NewWakeupMap = case maps:take(Uid, WakeupMap) of
-        {_, FinalMap} when WakeupPushNum =:= 0 -> 
-            mod_push_monitor:log_push_wakeup(Uid, success, Platform),
-            ?INFO("Uid ~s, Connected after normal ~p push", [Uid, Platform]),
-            FinalMap;
-        {_, FinalMap} -> 
-            mod_push_monitor:log_push_wakeup(Uid, success, Platform),
-            ?INFO("Uid ~s, Connected after ~p wakeup ~p pushes", [Uid, WakeupPushNum, Platform]),
-            FinalMap;
-        _ -> WakeupMap
-    end,
-    NewWakeupMap.
+    WakeupMap#{Uid => {NewPushNum, TRef, Ts}}.
 
 
 -spec check_wakeup(Uid :: uid(), WakeupMap :: #{uid() := {integer(), integer()}}) ->
@@ -182,29 +146,21 @@ check_wakeup(Uid, WakeupMap) ->
         true -> android;
         false -> ios
     end,
+    LastActiveTime = model_accounts:get_last_connection_time(Uid) div 1000,
     NewWakeupMap = case maps:get(Uid, WakeupMap, undefined) of
         undefined ->
-            ?INFO("Uid ~s, Client connected", [Uid]),
             WakeupMap;
-        {PushNum, _} when PushNum < ?MAX_WAKEUP_PUSH_ATTEMPTS ->
-            mod_push_monitor:log_push_wakeup(Uid, failure, Platform),
-            % Send 4 alert pushes, then alternate between silent and alert pushes
-            AlertType = case PushNum of
-                Num when Num < 4 -> alert;
-                Num when Num rem 2 =:= 0 -> silent;
-                _ -> alert
-            end,
-            MsgId = util_id:new_msg_id(),
-            ?INFO("Uid ~s, Did not connect within ~p minutes. Sending wakeup push #~p, msgId: ~p type: ~p 
-                platform: ~p", [Uid, math:pow(2, PushNum - 1), PushNum, MsgId, AlertType, Platform]),
-            Msg = #pb_msg{
-                id = MsgId,
-                to_uid = Uid,
-                payload = #pb_wake_up{alert_type = AlertType}
-            },
-            ejabberd_router:route(Msg),
+        _ when LastActiveTime =:= undefined ->
+            send_wakeup_push(Uid, Platform, 0),
             WakeupMap;
-        {PushNum, _} ->
+        {PushNum, _, PushTs} when LastActiveTime >= PushTs ->
+            mod_push_monitor:log_push_wakeup(Uid, success, Platform),
+            ?INFO("Uid ~s, Client connected in ~p seconds after ~p wakeup pushes", [Uid, (LastActiveTime - PushTs), PushNum]),
+            WakeupMap;
+        {PushNum, _, _} when PushNum < ?MAX_WAKEUP_PUSH_ATTEMPTS ->
+            send_wakeup_push(Uid, Platform, PushNum),
+            WakeupMap;
+        {PushNum, _, _} ->
             mod_push_monitor:log_push_wakeup(Uid, failure, Platform),
             ?INFO("Uid ~s, Did not connect within ~p minutes after ~p wakeup pushes, 
                 platform: ~p", [Uid, math:pow(2, PushNum), PushNum, Platform]),
@@ -212,4 +168,25 @@ check_wakeup(Uid, WakeupMap) ->
             FinalMap
     end,
     NewWakeupMap.
+
+
+-spec send_wakeup_push(Uid :: uid(), Platform :: atom(), PushNum :: integer()) -> ok.
+send_wakeup_push(Uid, Platform, PushNum) ->
+    mod_push_monitor:log_push_wakeup(Uid, failure, Platform),
+    % Send 4 alert pushes, then alternate between silent and alert pushes
+    AlertType = case PushNum of
+        Num when Num < 4 -> alert;
+        Num when Num rem 2 =:= 0 -> silent;
+        _ -> alert
+    end,
+    MsgId = util_id:new_msg_id(),
+    ?INFO("Uid ~s, Did not connect within ~p minutes. Sending wakeup push #~p, msgId: ~p type: ~p
+        platform: ~p", [Uid, math:pow(2, PushNum - 1), PushNum, MsgId, AlertType, Platform]),
+    Msg = #pb_msg{
+        id = MsgId,
+        to_uid = Uid,
+        payload = #pb_wake_up{alert_type = AlertType}
+    },
+    ejabberd_router:route(Msg),
+    ok.
 

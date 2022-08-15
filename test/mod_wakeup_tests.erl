@@ -27,37 +27,31 @@ setup() ->
 remind_wakeup_test() ->
     setup(),
     % normal pushes reset wakeup push counter; wakeup pushes increment counter
-    #{?UID1 := {0,TRef}} = mod_wakeup:remind_wakeup(?UID1, #{}, pb_feed_item),
-    #{?UID1 := {1,TRef2}} = mod_wakeup:remind_wakeup(?UID1, #{}, pb_wake_up),
+    #{?UID1 := {0,TRef, _}} = mod_wakeup:remind_wakeup(?UID1, #{}, pb_feed_item),
+    #{?UID1 := {1,TRef2, _}} = mod_wakeup:remind_wakeup(?UID1, #{}, pb_wake_up),
     ?assertNotEqual(TRef, TRef2),
 
-    WakeupMap = #{?UID1 => {2, ?TREF}},
-    #{?UID1 := {0,TRef3}} = mod_wakeup:remind_wakeup(?UID1,  WakeupMap, pb_feed_item),
-    #{?UID1 := {3,TRef4}} = mod_wakeup:remind_wakeup(?UID1,  WakeupMap, pb_wake_up),
+    WakeupMap = #{?UID1 => {2, ?TREF, util:now()}},
+    #{?UID1 := {0,TRef3, _}} = mod_wakeup:remind_wakeup(?UID1,  WakeupMap, pb_feed_item),
+    #{?UID1 := {3,TRef4, _}} = mod_wakeup:remind_wakeup(?UID1,  WakeupMap, pb_wake_up),
     ?assertNotEqual(TRef3, TRef4),
 
-    #{?UID1 := {2,_}, ?UID2 := {0,TRef5}} = mod_wakeup:remind_wakeup(?UID2, WakeupMap, pb_feed_item),
-    #{?UID1 := {2,_}, ?UID2 := {1,TRef6}} = mod_wakeup:remind_wakeup(?UID2, WakeupMap, pb_wake_up),
+    #{?UID1 := {2,_,_}, ?UID2 := {0,TRef5,_}} = mod_wakeup:remind_wakeup(?UID2, WakeupMap, pb_feed_item),
+    #{?UID1 := {2,_,_}, ?UID2 := {1,TRef6,_}} = mod_wakeup:remind_wakeup(?UID2, WakeupMap, pb_wake_up),
     ?assertNotEqual(TRef5, TRef6),
     ok.
 
 
-cancel_wakeup_test() ->
-    setup(),
-    #{} = mod_wakeup:cancel_wakeup(?UID1, #{}),
-    #{} = mod_wakeup:cancel_wakeup(?UID1, #{?UID1 => {1, ?TREF}}),
-    WakeupMap = #{?UID1 => {1, ?TREF}, ?UID2 => {1, ?TREF}},
-    #{?UID2 := {1, _}} = mod_wakeup:cancel_wakeup(?UID1, WakeupMap),
-    ok.
-
-
 check_wakeup_test() ->
+    setup(),
+    Now = util:now(),
     tutil:meck_init(ejabberd_router, route, fun(_) -> ok end),
+    tutil:meck_init(model_accounts, get_last_connection_time, fun(_) -> 1 end),
 
     #{} = mod_wakeup:check_wakeup(?UID1, #{}),
     
     % When push num attempts < 10, wake up push should be sent
-    WakeupMap = #{?UID1 => {3, ?TREF}, ?UID3 => {4, ?TREF}, ?UID4 => {5, ?TREF}},
+    WakeupMap = #{?UID1 => {3, ?TREF, Now}, ?UID3 => {4, ?TREF, Now}, ?UID4 => {5, ?TREF, Now}},
     WakeupMap = mod_wakeup:check_wakeup(?UID1, WakeupMap),
     WakeupMap = mod_wakeup:check_wakeup(?UID2, WakeupMap),
     WakeupMap = mod_wakeup:check_wakeup(?UID3, WakeupMap),
@@ -70,10 +64,11 @@ check_wakeup_test() ->
             [#pb_msg{id = '_', to_uid = ?UID4, payload = #pb_wake_up{alert_type = alert}}])),
 
     % When push num attempts >= 10, stop trying
-    WakeupMap2 = #{?UID1 => {11, ?TREF}},
+    WakeupMap2 = #{?UID1 => {11, ?TREF, Now}},
     #{} = mod_wakeup:check_wakeup(?UID1, WakeupMap2),
     WakeupMap2 = mod_wakeup:check_wakeup(?UID2, WakeupMap2),
 
     tutil:meck_finish(ejabberd_router),
+    tutil:meck_finish(model_accounts),
     ok.
 
