@@ -18,7 +18,9 @@
     get_dev_uids/0,
     is_dev_uid/1,
     is_murali/1,
-    is_psa_admin/1
+    is_psa_admin/1,
+    is_ke_or_ug_uid/1,
+    get_detective_uids/0
 ]).
 
 %%====================================================================
@@ -88,6 +90,30 @@ is_dev_uid(Uid) ->
         {ok, Phone} ->
             util:is_test_number(Phone) orelse IsUIDDev
     end.
+
+
+-spec is_ke_or_ug_uid(Uid :: uid()) -> boolean().
+is_ke_or_ug_uid(Uid) ->
+    case model_accounts:get_phone(Uid) of
+        {ok, Phone} ->
+            CC = mod_libphonenumber:get_cc(Phone),
+            case CC of
+                <<"KE">> -> true;
+                <<"UG">> -> true;
+                _ -> false
+            end;
+        {error, missing} -> false
+    end.
+
+
+-spec get_detective_uids() -> [uid()].
+get_detective_uids() -> 
+    [
+        <<"1000000000893731049">>,
+        <<"1000000000523926349">>
+    ].
+
+
 
 is_murali(<<"1000000000739856658">>) -> true;  %% Murali
 is_murali(<<"1000000000773653288">>) -> true;  %% Murali android

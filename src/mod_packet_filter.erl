@@ -107,6 +107,12 @@ user_send_packet({#pb_msg{id = MsgId, to_uid = ToUid, from_uid = FromUid,
             ?ERROR("Dropping pb_group_feed_rerequest FromUid: ~s ToUid: ~s MsgId: ~s", [FromUid, ToUid, MsgId]),
             {drop, State}
     end;
+user_send_packet({#pb_msg{to_uid = ToUid, from_uid = FromUid,
+        payload = #pb_seen_receipt{}} = Packet, State}) ->
+    case dev_users:is_ke_or_ug_uid(ToUid) andalso dev_users:is_dev_uid(FromUid) of
+        true -> {drop, State};
+        false -> {Packet, State}
+    end;
 user_send_packet({_Packet, _State} = Acc) ->
     Acc.
 
