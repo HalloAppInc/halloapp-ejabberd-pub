@@ -273,18 +273,18 @@ terminate(_Reason, State) ->
 -spec process_element(stanza(), state()) -> state().
 process_element(#pb_register_request{request = #pb_hashcash_request{} = HashcashRequest},
         #{ip := ClientIP} = State) ->
-    stat:count("HA/registration", "request_hashcash", 1, [{protocol, "noise"}]),
+    check_and_count(ClientIP, "HA/registration", "request_hashcash", 1, [{protocol, "noise"}]),
     CC = HashcashRequest#pb_hashcash_request.country_code,
     RequestData = #{cc => CC, ip => ClientIP, raw_data => HashcashRequest,
         protocol => noise
     },
     {ok, HashcashChallenge} = mod_halloapp_http_api:process_hashcash_request(RequestData),
-    stat:count("HA/registration", "request_hashcash_success", 1, [{protocol, "noise"}]),
+    check_and_count(ClientIP, "HA/registration", "request_hashcash_success", 1, [{protocol, "noise"}]),
     HashcashResponse = #pb_hashcash_response{hashcash_challenge = HashcashChallenge},
     send(State, #pb_register_response{response = HashcashResponse});
 process_element(#pb_register_request{request = #pb_otp_request{} = OtpRequest},
         #{socket := Socket, ip := ClientIP} = State) ->
-    stat:count("HA/registration", "request_otp_request", 1, [{protocol, "noise"}]),
+    check_and_count(ClientIP, "HA/registration", "request_otp_request", 1, [{protocol, "noise"}]),
     RawPhone = OtpRequest#pb_otp_request.phone,
     MethodBin = util:to_binary(OtpRequest#pb_otp_request.method),
     LangId = OtpRequest#pb_otp_request.lang_id,
@@ -303,7 +303,7 @@ process_element(#pb_register_request{request = #pb_otp_request{} = OtpRequest},
     },
     OtpResponse = case mod_halloapp_http_api:process_otp_request(RequestData) of
         {ok, Phone, RetryAfterSecs} ->
-            stat:count("HA/registration", "request_otp_success", 1, [{protocol, "noise"}]),
+            check_and_count(ClientIP, "HA/registration", "request_otp_success", 1, [{protocol, "noise"}]),
             #pb_otp_response{
                 phone = Phone,
                 result = success,
@@ -385,9 +385,8 @@ process_element(#pb_register_request{request = #pb_verify_otp_request{} = Verify
             end;
         _ -> "undefined"
     end,
-    stat:count("HA/registration", "verify_otp_request", 1, [{protocol, "noise"}]),
-    stat:count("HA/registration", "verify_otp_request_by_campaign_id", 1,
-        [{campaign_id, CampaignId}]),
+    check_and_count(ClientIP, "HA/registration", "verify_otp_request", 1, [{protocol, "noise"}]),
+    check_and_count(ClientIP, "HA/registration", "verify_otp_request_by_campaign_id", 1, [{campaign_id, CampaignId}]),
     RemoteStaticKey = get_peer_static_key(Socket),
     RequestData = #{
         raw_phone => RawPhone, name => Name, ua => UserAgent, code => Code,
@@ -399,7 +398,7 @@ process_element(#pb_register_request{request = #pb_verify_otp_request{} = Verify
     },
     VerifyOtpResponse = case mod_halloapp_http_api:process_register_request(RequestData) of
         {ok, Result} ->
-            stat:count("HA/registration", "verify_otp_success", 1, [{protocol, "noise"}]),
+            check_and_count(ClientIP, "HA/registration", "verify_otp_success", 1, [{protocol, "noise"}]),
             #pb_verify_otp_response{
                 uid = maps:get(uid, Result),
                 phone = maps:get(phone, Result),
@@ -496,4 +495,11 @@ send_pkt(#{socket := #socket_state{socket_type = SocketType} = Socket} = State, 
 
 cast(Pid, Msg) ->
     ?GEN_SERVER:cast(Pid, Msg).
+
+% Counts requests that aren't from the registration checker.
+check_and_count(ClientIP, Namespace, Metric, Value, Tags) ->
+    case ClientIP =:= mod_aws:get_ip("s-test") of 
+        true -> ok;
+        false -> stat:count(Namespace, Metric, Value, Tags)
+    end.
 

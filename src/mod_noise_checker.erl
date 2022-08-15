@@ -67,7 +67,7 @@ do_noise_register({Name, Host}) ->
     try registration_client:hashcash_register(Name, ?MONITOR_PHONE, Options) of
         ok -> record_state(Host, register, ?ALIVE_STATE);
         {error, Err} -> 
-            ?WARNING("Noise login error on ~s (~s): ~p", [Name, Host, Err]),
+            ?WARNING("Noise register error on ~s (~s): ~p", [Name, Host, Err]),
             record_state(Host, register, ?FAIL_STATE)
     catch
         _:Reason:Stacktrace ->

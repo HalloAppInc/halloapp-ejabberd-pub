@@ -29,6 +29,7 @@
 -include("password.hrl").
 -include("account.hrl").
 -include("sms.hrl").
+-include("monitor.hrl").
 -include_lib("stdlib/include/assert.hrl").
 
 -define(SALT_LENGTH, 16).
@@ -79,7 +80,10 @@ check_and_register(Phone, Host, SPub, Name, UserAgent, CampaignId) ->
 try_enroll(Phone, Passcode, CampaignId) ->
     ?INFO("phone:~s code:~s", [Phone, Passcode]),
     {ok, AttemptId, Timestamp} = model_phone:add_sms_code2(Phone, Passcode, CampaignId),
-    stat:count("HA/account", "enroll"),
+    case Phone of
+        ?MONITOR_PHONE -> ok;
+        _ -> stat:count("HA/account", "enroll")
+    end,
     {ok, AttemptId, Timestamp}.
 
 

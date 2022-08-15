@@ -40,7 +40,8 @@
     clear_cache/1,
     get_secret/1,
     get_secret_value/2,
-    get_ejabberd_machines/0
+    get_ejabberd_machines/0,
+    get_ip/1
 ]).
 
 %% Hooks
@@ -231,3 +232,9 @@ get_machines_internal() ->
         Ips -> Ips
     end.
 
+-spec get_ip(MachineName :: string()) -> string().
+get_ip(MachineName) ->
+    case lists:keyfind(MachineName, 1, get_ejabberd_machines()) of
+        false -> "";
+        {MachineName, IpAddr} -> IpAddr
+    end.
