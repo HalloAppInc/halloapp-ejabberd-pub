@@ -179,7 +179,9 @@ check_error_rate(Data, Platform, PushCheckType) ->
             BinCheckType = util:to_binary(PushCheckType),
             Msg = <<Host/binary, ": ", BinPlatform/binary, " has ", BinCheckType/binary, " error rate of ",
                 BinPercent/binary, "% from ", BinLength/binary, " total pushes, latest uid: ", Uid/binary>>,
-            alerts:send_alert(<<Host/binary, " has high ", BinCheckType/binary, " error rate.">>, Host, <<"critical">>, Msg);
+            ok;
+            % TODO: murali@: investigate too many alerts, fix and then enable this.
+            % alerts:send_alert(<<Host/binary, " has high ", BinCheckType/binary, " error rate.">>, Host, <<"critical">>, Msg);
         Rate when Rate >= ?ERROR_RATE andalso Length > ?MIN_SAMPLE ->
             ?ERROR("Checking ~p: ~p has ~p% error rate from ~p total pushes, latest Uid: ~s",
                 [PushCheckType, Platform, ErrorRate, Length, Uid]);
