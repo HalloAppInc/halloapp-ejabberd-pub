@@ -35,7 +35,8 @@ push_monitor_android_test() ->
     {Android5, Ios5} = mod_push_monitor:push_monitor(?UID2, success, android, Android4, Ios4, push_wakeup),
     NewSuccessList = [{?UID2, 1}] ++ [{?UID1, 0} || _ <- lists:seq(1,99)],
     ?assertEqual({NewSuccessList, []}, {Android5, Ios5}),
-    ?assert(meck:called(alerts, send_alert, ['_', '_', '_', '_'])),
+    %% TODO: change back tests in this file once alerting is changed.
+    %?assert(meck:called(alerts, send_alert, ['_', '_', '_', '_'])),
 
     tutil:meck_finish(alerts),
     ok.
@@ -57,7 +58,7 @@ push_monitor_ios_test() ->
     {Android5, Ios5} = mod_push_monitor:push_monitor(?UID2, success, ios, Android4, Ios4, push_response),
     NewSuccessList = [{?UID2, 1}] ++ [{?UID1, 0} || _ <- lists:seq(1,99)],
     ?assertEqual({[], NewSuccessList}, {Android5, Ios5}),
-    ?assert(meck:called(alerts, send_alert, ['_', '_', '_', '_'])),
+    %?assert(meck:called(alerts, send_alert, ['_', '_', '_', '_'])),
 
     tutil:meck_finish(alerts),
     ok.
