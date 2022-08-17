@@ -101,6 +101,8 @@ message Contact {
     string avatar_id = 5;
     string name = 7;
     int64 num_potential_friends = 8;
+    int64 num_potential_close_friends = 9;
+    int64 invitation_rank = 10;
     reserved 6; // can be used after Jan 31st.
 }
 
@@ -859,7 +861,10 @@ message WebClientInfo {
 message WebStanza {
     bytes static_key = 1;  // Used to identify the user. Must be set on every packet exchanged
                            // between mobile and web client.
-    bytes content = 2;  // Noise encrypted content or it is encoded and serialized NoiseMessage.
+    oneof payload {
+        bytes content = 2;  // Noise encrypted content
+        NoiseMessage noise_message = 3;
+    }
 }
 
 
