@@ -146,7 +146,10 @@ check_wakeup(Uid, WakeupMap) ->
         true -> android;
         false -> ios
     end,
-    LastActiveTime = model_accounts:get_last_connection_time(Uid) div 1000,
+    LastActiveTime = case model_accounts:get_last_connection_time(Uid) of
+        undefined -> undefined;
+        LastConnectionTime -> LastConnectionTime div 1000
+    end,
     NewWakeupMap = case maps:get(Uid, WakeupMap, undefined) of
         undefined ->
             WakeupMap;
