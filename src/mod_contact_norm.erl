@@ -51,7 +51,7 @@ normalize_contacts(Uid, Contacts, RegionId) ->
         Class:Reason:Stacktrace ->
             ?ERROR("Failed parallel norm Uid: ~p", [Uid]),
             ?ERROR("Stacktrace:~s", [lager:pr_stacktrace(Stacktrace, {Class, Reason})]),
-            normalize(Contacts, RegionId)
+            {ok, normalize(Contacts, RegionId)}
     end.
 
 
