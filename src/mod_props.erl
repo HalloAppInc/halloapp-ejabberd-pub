@@ -149,7 +149,8 @@ get_props(Uid, ClientVersion) ->
         post_reactions => false, %% enable reactions in posts on the sending side.
         pre_answer_calls => false,   %% Enables clients to pre-answer calls.
         background_upload => false,   %% Enables background upload on ios clients.
-        aggressive_invite_screen => false  %% Indicates to the client to show invite screen
+        aggressive_invite_screen => false,  %% Indicates to the client to show invite screen
+        contact_sharing => false  %% Enables clients to share contacts on chat
     },
     PropMap2 = get_uid_based_props(PropMap1, Uid),
     ClientType = util_ua:get_client_type(ClientVersion),
@@ -220,7 +221,8 @@ get_uid_based_props(PropMap, Uid) ->
             PropMap17 = maps:update(pre_answer_calls, true, PropMap16),
             PropMap18 = maps:update(background_upload, true, PropMap17),
             PropMap19 = maps:update(aggressive_invite_screen, true, PropMap18),
-            PropMap19
+            PropMap20 = maps:update(contact_sharing, true, PropMap19),
+            PropMap20
     end,
     apply_uid_prop_overrides(Uid, ResPropMap).
 
