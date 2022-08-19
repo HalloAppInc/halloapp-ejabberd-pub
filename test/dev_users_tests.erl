@@ -1,6 +1,6 @@
 %%%-------------------------------------------------------------------
 %%% @author josh
-%%% @copyright (C) 2020, <COMPANY>
+%%% @copyright (C) 2020, HalloApp, Inc
 %%% @doc
 %%%
 %%% @end
@@ -21,23 +21,22 @@
 %% Tests
 %% ----------------------------------------------
 
-is_dev_uid_test() ->
-    setup(),
-    ?assert(dev_users:is_dev_uid(?DEV_UID)),
-    ?assert(dev_users:is_dev_uid(?TEST_UID)),
-    ?assertNot(dev_users:is_dev_uid(?UID)),
-    teardown().
+is_dev_uid(_) ->
+    [?_assert(dev_users:is_dev_uid(?DEV_UID)),
+    ?_assert(dev_users:is_dev_uid(?TEST_UID)),
+    ?_assertNot(dev_users:is_dev_uid(?UID))].
+
+dev_users_test_() ->
+    {setup, fun setup/0, fun tutil:cleanup/1, fun is_dev_uid/1}.
 
 %% ----------------------------------------------
 %% Internal functions
 %% ----------------------------------------------
 
 setup() ->
-    tutil:meck_init(model_accounts, get_phone, fun mock_get_phone/1).
-
-
-teardown() ->
-    tutil:meck_finish(model_accounts).
+    tutil:setup([
+        {meck, model_accounts, get_phone, fun mock_get_phone/1}
+    ]).
 
 
 mock_get_phone(Uid) ->
