@@ -149,7 +149,7 @@ init_module(Module) when not is_list(Module) ->
 init_module(Modules) ->
     lists:foreach(
         fun(Module) ->
-            ok = application:ensure_all_started(Module)
+            {ok, _StartedMods} = application:ensure_all_started(Module)
         end,
         Modules).
 

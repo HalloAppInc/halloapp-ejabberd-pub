@@ -26,74 +26,93 @@
 %% Tests
 %%====================================================================
 
-check_spub_test() ->
-    setup(),
+check_spub(_) ->
     ok = ejabberd_auth:set_spub(?UID, ?SPUB),
     {ok, S} = model_auth:get_spub(?UID),
     SPub = S#s_pub.s_pub,
-    ?assert(SPub /= <<"">>),
-    ?assert(ejabberd_auth:check_spub(?UID, ?SPUB)),
-    ?assertNot(ejabberd_auth:check_spub(?UID, <<"nopass">>)).
+    [?_assert(SPub /= <<"">>),
+    ?_assert(ejabberd_auth:check_spub(?UID, ?SPUB)),
+    ?_assertNot(ejabberd_auth:check_spub(?UID, <<"nopass">>))].
 
 
-check_and_register_test() ->
-    setup(),
-    tutil:meck_init(ejabberd_sm, kick_user, fun(_, _) -> 1 end),
-    {ok, Uid, register} = ejabberd_auth:check_and_register(?PHONE, ?SERVER, ?SPUB, ?NAME, ?UA, ?CAMPAIGN_ID),
-    {ok, Uid, login} = ejabberd_auth:check_and_register(?PHONE, ?SERVER, ?SPUB, ?NAME, ?UA, ?CAMPAIGN_ID),
-    tutil:meck_finish(ejabberd_sm).
+check_and_register(_) ->
+    {ok, Uid1, Result1} = ejabberd_auth:check_and_register(?PHONE, ?SERVER, ?SPUB, ?NAME, ?UA, ?CAMPAIGN_ID),
+    {ok, Uid2, Result2} = ejabberd_auth:check_and_register(?PHONE, ?SERVER, ?SPUB, ?NAME, ?UA, ?CAMPAIGN_ID),
+    [?_assertEqual(Uid1, Uid2),
+    ?_assertEqual(Result1, register),
+    ?_assertEqual(Result2, login)].
 
 
-ha_try_register_test() ->
-    clear(),
+ha_try_register(_) ->
     {ok, SPub, Uid} = ejabberd_auth:ha_try_register(?PHONE, ?SPUB, ?NAME, ?UA, <<>>),
-    ?assertEqual(?SPUB, SPub),
-    ?assert(model_accounts:account_exists(Uid)),
-    ?assert(ejabberd_auth:check_spub(Uid, ?SPUB)),
-    ?assertEqual({ok, ?PHONE}, model_accounts:get_phone(Uid)),
-    ?assertEqual({ok, Uid}, model_phone:get_uid(?PHONE)),
-    ?assertEqual({ok, ?NAME}, model_accounts:get_name(Uid)),
-    ?assertEqual({ok, ?UA}, model_accounts:get_signup_user_agent(Uid)).
+    [?_assertEqual(?SPUB, SPub),
+    ?_assert(model_accounts:account_exists(Uid)),
+    ?_assert(ejabberd_auth:check_spub(Uid, ?SPUB)),
+    ?_assertEqual({ok, ?PHONE}, model_accounts:get_phone(Uid)),
+    ?_assertEqual({ok, Uid}, model_phone:get_uid(?PHONE)),
+    ?_assertEqual({ok, ?NAME}, model_accounts:get_name(Uid)),
+    ?_assertEqual({ok, ?UA}, model_accounts:get_signup_user_agent(Uid))].
 
 
-try_enroll_test() ->
-    clear(),
+try_enroll(_) ->
     {ok, AttemptId, _} = ejabberd_auth:try_enroll(?PHONE, ?CODE, <<>>),
-    ?assertEqual({ok, ?CODE}, model_phone:get_sms_code2(?PHONE, AttemptId)).
+    [?_assertEqual({ok, ?CODE}, model_phone:get_sms_code2(?PHONE, AttemptId))].
 
 
-user_exists_test() ->
-    setup(),
-    tutil:meck_init(ejabberd_router, is_my_host, fun(_) -> true end),
-    ?assertNot(ejabberd_auth:user_exists(?UID)),
-    ?assertNot(ejabberd_auth:user_exists(?UID)),
+user_exists(_) ->
+    UserDoesntExist = ejabberd_auth:user_exists(?UID),
     {ok, Uid, register} = ejabberd_auth:check_and_register(?PHONE, ?SERVER, ?SPUB, ?NAME, ?UA, ?CAMPAIGN_ID),
-    ?assert(ejabberd_auth:user_exists(Uid)),
-    tutil:meck_finish(ejabberd_router).
+    UserExists = ejabberd_auth:user_exists(Uid),
+    [?_assertNot(UserDoesntExist),
+    ?_assert(UserExists)].
 
 
-remove_user_test() ->
-    setup(),
+remove_user(_) ->
     {ok, Uid, register} = ejabberd_auth:check_and_register(?PHONE, ?SERVER, ?SPUB, ?NAME, ?UA, ?CAMPAIGN_ID),
-    ?assert(ejabberd_auth:user_exists(Uid)),
+    Exists = ejabberd_auth:user_exists(Uid),
     ok = ejabberd_auth:remove_user(Uid, ?SERVER),
-    ?assertNot(ejabberd_auth:user_exists(Uid)).
+    [?_assert(Exists),
+    ?_assertNot(ejabberd_auth:user_exists(Uid))].
 
+
+ejabberd_auth_test_() ->
+    {foreach, fun setup/0, fun tutil:cleanup/1,
+        [fun check_spub/1,
+        fun ha_try_register/1,
+        fun try_enroll/1,
+        fun remove_user/1]}.
+
+
+check_and_register_test_() ->
+    {setup,
+        fun() ->
+            tutil:combine_cleanup_info([
+                setup(),
+                tutil:setup([{meck, ejabberd_sm, kick_user, fun(_, _) -> 1 end}])
+            ])
+        end,
+        fun tutil:cleanup/1,
+        fun check_and_register/1}.
+
+
+user_exists_test_() ->
+    {setup,
+        fun() ->
+            tutil:combine_cleanup_info([
+                setup(),
+                tutil:setup([{meck, ejabberd_router, is_my_host, fun(_) -> true end}])
+            ])
+        end,
+        fun tutil:cleanup/1,
+        fun user_exists/1}.
 
 %%====================================================================
 %% Internal functions
 %%====================================================================
 
 setup() ->
-    tutil:setup(),
-    {ok, _} = application:ensure_all_started(stringprep),
-    ha_redis:start(),
-    clear(),
-    ok.
-
-
-clear() ->
-    tutil:cleardb(redis_auth),
-    tutil:cleardb(redis_phone),
-    tutil:cleardb(redis_accounts).
+    tutil:setup([
+        {start, stringprep},
+        {redis, [redis_auth, redis_phone, redis_accounts]}
+    ]).
 
