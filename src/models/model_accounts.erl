@@ -62,6 +62,7 @@
     accounts_exist/1,
     filter_nonexisting_uids/1,
     is_account_deleted/1,
+    get_deleted_account/1,
     get_account/1,
     get_phone/1,
     get_phones/1,
@@ -785,6 +786,43 @@ filter_nonexisting_uids(Uids) ->
 is_account_deleted(Uid) ->
     {ok, Res} = q(["EXISTS", deleted_uid_key(Uid)]),
     binary_to_integer(Res) > 0.
+
+
+-spec get_deleted_account(Uid :: uid()) ->
+        {error, not_deleted} | {DeletionTsMs :: non_neg_integer(), account()}.
+get_deleted_account(Uid) ->
+    case is_account_deleted(Uid) of
+        false -> {error, not_deleted};
+        true ->
+            {ok, Res} = q(["HMGET",
+                deleted_uid_key(Uid),
+                ?FIELD_CREATION_TIME,
+                ?FIELD_LAST_REGISTRATION_TIME,
+                ?FIELD_LAST_ACTIVITY,
+                ?FIELD_ACTIVITY_STATUS,
+                ?FIELD_USER_AGENT,
+                ?FIELD_CAMPAIGN_ID,
+                ?FIELD_CLIENT_VERSION,
+                ?FIELD_DELETION_TIME,
+                ?FIELD_DEVICE,
+                ?FIELD_OS_VERSION
+            ]),
+            [CreationTime, LastRegTime, LastActivity, ActivityStatus,
+                UserAgent, CampaignId, ClientVersion, DeletionTsMs, Device, Os] = Res,
+            Account = #account{
+                uid = Uid,
+                creation_ts_ms = util:to_integer(CreationTime),
+                last_registration_ts_ms = util:to_integer(LastRegTime),
+                signup_user_agent = UserAgent,
+                campaign_id = CampaignId,
+                client_version = ClientVersion,
+                last_activity_ts_ms = util:to_integer(LastActivity),
+                activity_status = ActivityStatus,
+                device = Device,
+                os_version = Os
+            },
+            {util:to_integer(DeletionTsMs), Account}
+    end.
 
 
 %%====================================================================

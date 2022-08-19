@@ -818,7 +818,30 @@ uid_info(Uid) ->
 uid_info(Uid, Options) ->
     ?INFO("Admin requesting account info for uid: ~s", [Uid]),
     case model_accounts:account_exists(Uid) of
-        false -> io:format("There is no account associated with uid: ~s~n", [Uid]);
+        false ->
+            case model_accounts:get_deleted_account(Uid) of
+                {error, not_deleted} ->
+                    io:format("There is no account associated with uid: ~s~n", [Uid]);
+                {DeleteTimeMS, Acc} ->
+                    {CreationDate, CreationTime} =
+                        util:ms_to_datetime_string(Acc#account.creation_ts_ms),
+                    {LastRegDate, LastRegTime} =
+                        util:ms_to_datetime_string(Acc#account.last_registration_ts_ms),
+                    {LastActiveDate, LastActiveTime} =
+                        util:ms_to_datetime_string(Acc#account.last_activity_ts_ms),
+                    {DeletetionDate, DeletionTime} =
+                        util:ms_to_datetime_string(DeleteTimeMS),
+                    io:format("Deleted uid: ~s~n", [Uid]),
+                    io:format("Account created on ~s at ~s ua: ~s~n",
+                        [CreationDate, CreationTime, Acc#account.signup_user_agent]),
+                    io:format("Last registration on ~s at ~s~n", [LastRegDate, LastRegTime]),
+                    io:format("Last activity on ~s at ~s and current status is ~s~n",
+                        [LastActiveDate, LastActiveTime, Acc#account.activity_status]),
+                    io:format("Deleted on ~s at ~s~n", [DeletetionDate, DeletionTime]),
+                    io:format("Campaign ID: ~s~n", [Acc#account.campaign_id]),
+                    io:format("Device: ~s, OS version: ~s, Client version: ~s~n",
+                        [Acc#account.device, Acc#account.os_version, Acc#account.client_version])
+            end;
         true ->
             {ok, #account{phone = Phone, name = Name, signup_user_agent = UserAgent,
                 creation_ts_ms = CreationTs, last_activity_ts_ms = LastActivityTs,
