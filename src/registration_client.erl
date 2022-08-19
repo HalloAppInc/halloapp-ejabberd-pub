@@ -140,7 +140,8 @@ hashcash_register(Name, Phone, Options) ->
                     #pb_register_response{response = #pb_otp_response{result = success}} ->
                         % look up otp code from redis.
                         {ok, VerifyAttempts} = model_phone:get_verification_attempt_list(Phone),
-                        [{AttemptId, _TTL} | _Rest] = VerifyAttempts,
+                        SortedVerifyAttempts = lists:keysort(2, VerifyAttempts),
+                        {AttemptId, _TTL} = lists:last(SortedVerifyAttempts),
                         {ok, Code} = model_phone:get_sms_code2(Phone, AttemptId),
                         % verify with the code.
                         SignedMessage = enacl:sign("HALLO", maps:get(secret, KeyPair)),
