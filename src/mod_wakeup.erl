@@ -127,7 +127,7 @@ remind_wakeup(Uid, WakeupMap, PayloadType) ->
         false -> ok
     end,
     {NewPushNum, Ts} = case PayloadType of
-        pb_wake_up -> {PushNum + 1, OldTs};
+        pb_wake_up -> {erlang:min(PushNum + 1, ?MAX_WAKEUP_PUSH_ATTEMPTS), OldTs};
         % Reset backoff time on normal pushes
         _ -> {0, Now}
     end,
