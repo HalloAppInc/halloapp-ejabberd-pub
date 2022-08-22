@@ -153,7 +153,22 @@ group_exists(Gid) ->
     binary_to_integer(Res) == 1.
 
 
--spec get_member_uids(Gid :: gid()) -> [uid()].
+-spec get_member_uids(Gid :: gid() | list(gid())) -> list(uid()) | #{gid() => list(uid())}.
+get_member_uids(Gids) when is_list(Gids) ->
+    Commands = lists:map(fun (Gid) -> 
+            ["HKEYS", members_key(Gid)] 
+        end, 
+        Gids),
+    Res = qmn(Commands),
+    MemberMap = lists:foldl(
+        fun({Gid, {ok, Members}}, Acc) ->
+            case Members of
+                undefined -> Acc;
+                _ -> Acc#{Gid => Members}
+            end
+        end, #{}, lists:zip(Gids, Res)),
+    MemberMap;
+
 get_member_uids(Gid) ->
     {ok, Members} = q(["HKEYS", members_key(Gid)]),
     Members.
@@ -234,7 +249,22 @@ extract_expiry_info(GroupMap) ->
     ExpiryInfo.
 
 
--spec get_groups(Uid :: uid()) -> [gid()].
+-spec get_groups(Uid :: uid() | list(uid())) -> list(gid()) | #{uid() => list(gid())}.
+get_groups(Uids) when is_list(Uids) ->
+    Commands = lists:map(fun (Uid) -> 
+            ["SMEMBERS", user_groups_key(Uid)] 
+        end, 
+        Uids),
+    Res = qmn(Commands),
+    GidMap = lists:foldl(
+        fun({Uid, {ok, Groups}}, Acc) ->
+            case Groups of
+                undefined -> Acc;
+                _ -> Acc#{Uid => Groups}
+            end
+        end, #{}, lists:zip(Uids, Res)),
+    GidMap;
+
 get_groups(Uid) ->
     {ok, Gids} = q(["SMEMBERS", user_groups_key(Uid)]),
     Gids.

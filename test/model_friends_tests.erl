@@ -24,6 +24,11 @@ setup() ->
 clear() ->
   tutil:cleardb(redis_friends).
 
+fixture_setup() ->
+  tutil:setup([
+      {redis, [redis_friends]}
+  ]).
+
 add_friend_test() ->
   setup(),
   ?assertEqual(ok, model_friends:add_friend(?UID1, ?UID2)),
@@ -130,6 +135,7 @@ set_get_friend_recommendations_test() ->
   ?assertEqual([?UID2, ?UID3], model_friends:get_friend_recommendations(?UID1)),
   ?assertEqual([?UID2], model_friends:get_friend_recommendations(?UID1, 1)).
 
+
 set_get_friend_recommendations_multi_test() ->
   setup(),
   Uids = [?UID1, ?UID2, ?UID3],
@@ -141,6 +147,22 @@ set_get_friend_recommendations_multi_test() ->
   ?assertEqual(
     #{?UID1 => [?UID2, ?UID3], ?UID2 => [?UID3], ?UID3 => []}, 
     model_friends:get_friend_recommendations(Uids)).
+
+
+set_get_friend_scores(_) ->
+  FriendScoreMap = #{?UID2 => 2, ?UID3 => 3},
+  EmptyScores = model_friends:get_friend_scores(?UID1),
+  ok = model_friends:set_friend_scores(?UID1, FriendScoreMap),
+  FullScores =  model_friends:get_friend_scores(?UID1),
+  [?_assertEqual(#{}, EmptyScores), ?_assertEqual(FriendScoreMap, FullScores)].
+
+
+score_test_() ->
+  [
+    {foreach, fun fixture_setup/0, fun tutil:cleanup/1, [
+        fun set_get_friend_scores/1
+      ]}  
+  ].
 
 
 while(0, _F) -> ok;

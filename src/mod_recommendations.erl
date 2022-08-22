@@ -12,9 +12,11 @@
 -include("athena_query.hrl").
 -include("account.hrl").
 -include("groups.hrl").
+-include("friend_scoring.hrl").
 
 % -define(SCAN_SIZE, 2500).
 -define(DEFAULT_NUM_OUIDS, 10).
+
 
 -export([
     generate_friend_recos/3,
@@ -23,7 +25,10 @@
     process_invite_recos/1,
     generate_invite_recos/2,
     % all_shared_group_membership/0,
-    shared_group_membership/1
+    shared_group_membership/1,
+    do_friend_scoring/0,
+    do_friend_scoring/1,
+    score_all_friends/1
 ]).
 
 
@@ -115,7 +120,7 @@ invite_recos(Uid, MaxInviteRecommendations, NumOuids) ->
 
 -spec invite_ouid_query(uid(), pos_integer(), pos_integer()) -> athena_query().
 invite_ouid_query(Uid, MaxInviteRecommendations, NumOuids) ->
-    UidInt = binary_to_integer(Uid),
+    UidInt = util:to_integer(Uid),
     QueryFormat = "
     SELECT uid, ouid, event_type, cnt from (
       SELECT 
@@ -134,7 +139,7 @@ invite_ouid_query(Uid, MaxInviteRecommendations, NumOuids) ->
     ) where cnt > 1;",
     Query = io_lib:format(QueryFormat, [UidInt, UidInt]),
     #athena_query{
-        query_bin = list_to_binary(Query),
+        query_bin = util:to_binary(Query),
         result_fun = {?MODULE, process_invite_recos},
         tags = #{
             uid => Uid, 
@@ -160,8 +165,8 @@ process_invite_recos(Query) ->
         OuidCommunicationMap = lists:foldl(
             fun (ResultRow, UidAcc) ->
                 [FromUidStr, ToUidStr, _EventTypeStr, CntStr | _] = maps:get(<<"Data">>, ResultRow),
-                FromUid = integer_to_binary(util:to_integer(FromUidStr)),
-                ToUid = integer_to_binary(util:to_integer(ToUidStr)),
+                FromUid = util:to_binary(FromUidStr),
+                ToUid = util:to_binary(ToUidStr),
                 Cnt = util:to_integer(CntStr),
                 case {FromUid =:= Uid, ToUid =:= Uid} of
                     {true, false} -> 
@@ -371,10 +376,12 @@ shared_group_membership(Uid, Groups, Friends) ->
 
 
 -spec get_shared_group_membership(Groups :: [gid()]) -> #{uid() => [gid()]}.
+get_shared_group_membership([]) -> #{};
 get_shared_group_membership(Groups) ->
+    GroupMemberMap = model_groups:get_member_uids(Groups),
     lists:foldl(
         fun (GroupId, MembershipAcc) ->
-            Members = model_groups:get_member_uids(GroupId),
+            Members = maps:get(GroupId, GroupMemberMap, []),
             lists:foldl(
                 fun (MemberUid, Acc) ->
                     CurMembership = maps:get(MemberUid, Acc, []),
@@ -413,4 +420,121 @@ print_shared_group_info(Uid, NumGroups, Friends, InfoList) ->
 %             Uid;
 %         _ -> <<"">>
 %     end.
+
+-spec do_friend_scoring() -> ok.
+do_friend_scoring() ->
+    mod_athena_stats:run_query(all_friend_events_query(undefined)).
+
+do_friend_scoring(Uid) -> % to allow for smaller-scale testing
+    mod_athena_stats:run_query(all_friend_events_query(Uid)).
+
+
+-spec all_friend_events_query(maybe(uid())) -> athena_query().
+all_friend_events_query(Uid) ->
+    % Get count of all friend events between users
+    QueryMiddle = case Uid of
+        undefined -> io_lib:format("~n", []);
+        _ when is_binary(Uid) ->
+            io_lib:format("~nWHERE (uid = '~s' OR ouid = '~s')~n", [Uid, Uid])
+    end,
+    Query = "
+        SELECT 
+            uid, 
+            ouid, 
+            event_type,
+            count(*) AS cnt
+        FROM server_friend_event" ++ 
+        QueryMiddle ++
+        "GROUP BY 
+            uid, 
+            ouid,
+            event_type;",
+
+    #athena_query{
+      query_bin = util:to_binary(Query),
+      result_fun = {?MODULE, score_all_friends}
+    }.
+
+
+-spec score_all_friends(Query :: athena_query()) -> ok.
+score_all_friends(Query) ->
+    Result = Query#athena_query.result,
+    ResultRows = maps:get(<<"ResultRows">>, maps:get(<<"ResultSet">>, Result)),
+    [_HeaderRow | ActualResultRows] = ResultRows,
+    
+    FriendEventMap = lists:foldl(
+        fun (ResultRow, EventAcc) ->
+            [FromUidStr, ToUidStr, EventTypeStr, CntStr | _] = maps:get(<<"Data">>, ResultRow),
+            FromUid = util:to_binary(FromUidStr),
+            ToUid = util:to_binary(ToUidStr),
+            Cnt = util:to_integer(CntStr),
+            EventType = util:to_atom(EventTypeStr),
+
+            ScoreInc = get_score_inc(Cnt, EventType),
+
+            FromUidMap = maps:get(FromUid, EventAcc, #{}), 
+            CurToScore = maps:get(ToUid, FromUidMap, 0),
+            UpdatedFromUidMap = maps:put(ToUid, CurToScore + ScoreInc, FromUidMap),
+
+            ToUidMap = maps:get(ToUid, EventAcc, #{}),
+            CurFromScore = maps:get(FromUid, ToUidMap, 0),
+            UpdatedToUidMap = maps:put(FromUid, CurFromScore + ScoreInc, ToUidMap), 
+
+            EventAcc#{FromUid => UpdatedFromUidMap, ToUid => UpdatedToUidMap}
+        end,
+        #{},
+        ActualResultRows),
+    
+    Uids = maps:keys(FriendEventMap),
+    {ok, FriendsListMap} = model_friends:get_friends(Uids),
+    GroupMap = model_groups:get_groups(Uids),
+
+    lists:foreach(
+        fun (Uid) -> 
+            Groups = maps:get(Uid, GroupMap, []),
+            Friends = maps:get(Uid, FriendsListMap, []),
+            EventMap = maps:get(Uid, FriendEventMap, #{}),
+            rank_friends(Uid, Friends, Groups, EventMap)
+        end,
+        Uids),
+    ok.
+
+
+-spec get_score_inc(pos_integer(), string()) -> pos_integer().
+get_score_inc(NumEvents, group_comment_published) -> 
+    NumEvents * ?COMMENT_MULT;
+get_score_inc(NumEvents, comment_published) ->
+    NumEvents * ?COMMENT_MULT;
+
+get_score_inc(NumEvents, group_comment_reaction_published) ->
+    NumEvents * ?REACTION_MULT;
+get_score_inc(NumEvents, comment_reaction_published) ->
+    NumEvents * ?REACTION_MULT;
+
+get_score_inc(NumEvents, post_receive_seen) ->
+    NumEvents * ?POST_SEEN_MULT;
+
+get_score_inc(NumEvents, im_receive_seen) ->
+    NumEvents * ?IM_MULT;
+
+get_score_inc(NumEvents, EventType) ->
+    ?INFO("Processing unknown friend event: ~s", [EventType]),
+    NumEvents * ?DEFAULT_MULT.
+
+
+%% Updates redis with new friend scores
+-spec rank_friends(uid(), list(uid()), list(gid()), #{uid() => integer()}) -> ok.
+rank_friends(Uid, FriendList, GroupList, FriendEventMap) ->
+    SharedGroupMembership = get_shared_group_membership(GroupList),
+    FriendScoreMap = lists:foldl(
+        fun (Ouid, Acc) ->
+            NumSharedGroups = length(maps:get(Ouid, SharedGroupMembership, [])),
+            NumFriendEvents = maps:get(Ouid, FriendEventMap, 0),
+            FriendScore = NumFriendEvents + (NumSharedGroups * ?SHARED_GROUP_MULT),
+            maps:put(Ouid, FriendScore, Acc)
+        end,
+        #{},
+        FriendList),
+    
+    model_friends:set_friend_scores(Uid, FriendScoreMap).
 

@@ -19,6 +19,11 @@ setup() ->
 clear() ->
     tutil:cleardb(redis_groups).
 
+fixture_setup() ->
+    tutil:setup([
+        {redis, [redis_groups]}
+    ]).
+
 group_key_test() ->
     ?assertEqual(<<"g:{g9kljfdl39kfsljlsfj03}">>, model_groups:group_key(?GID1)).
 
@@ -98,13 +103,28 @@ get_group_test() ->
     tutil:meck_finish(util),
     ok.
 
-get_member_uids_test() ->
-    setup(),
+get_member_uids_test(_) ->
     {ok, Gid} = model_groups:create_group(?UID1, ?GROUP_NAME1),
     {ok, true} = model_groups:add_member(Gid, ?UID2, ?UID1),
     {ok, true} = model_groups:add_member(Gid, ?UID3, ?UID1),
-    ?assertEqual([?UID1, ?UID2, ?UID3], model_groups:get_member_uids(Gid)),
-    ok.
+    G1Uids = sets:from_list(model_groups:get_member_uids(Gid)),
+
+    {ok, Gid2} = model_groups:create_group(?UID2, ?GROUP_NAME2),
+    [true, true] = model_groups:add_members(Gid2, [?UID1, ?UID4], ?UID2),
+    G2Uids = sets:from_list(model_groups:get_member_uids(Gid2)),
+    #{Gid := G1UidList, Gid2 := G2UidList} = model_groups:get_member_uids([Gid, Gid2]),
+
+    [?_assertEqual(sets:from_list([?UID1, ?UID2, ?UID3]), G1Uids), 
+    ?_assertEqual(sets:from_list([?UID1, ?UID2, ?UID4]), G2Uids),
+    ?_assertEqual(sets:from_list([?UID1, ?UID2, ?UID3]), sets:from_list(G1UidList)), 
+    ?_assertEqual(sets:from_list([?UID1, ?UID2, ?UID4]), sets:from_list(G2UidList))].
+
+membership_test_() ->
+    [
+        {foreach, fun fixture_setup/0, fun tutil:cleanup/1, [
+            fun get_member_uids_test/1
+        ]}
+    ].
 
 get_group_size_test() ->
     setup(),

@@ -31,7 +31,9 @@
     get_friend_recommendations/1,
     get_friend_recommendations/2,
     set_friend_recommendations/1,
-    set_friend_recommendations/2
+    set_friend_recommendations/2,
+    get_friend_scores/1,
+    set_friend_scores/2
 ]).
 
 %%====================================================================
@@ -39,7 +41,7 @@
 %%====================================================================
 
 
--define(USER_VAL, <<"">>).
+-define(USER_VAL, 0).
 
 -spec add_friend(Uid :: uid(), Buid :: uid()) -> ok | {error, any()}.
 add_friend(Uid, Buid) ->
@@ -63,7 +65,7 @@ remove_friend(Uid, Buid) ->
     ok.
 
 
--spec get_friends(Uid :: uid()) -> {ok, list(binary())} | {error, any()}.
+-spec get_friends(Uid :: uid() | list(uid())) -> {ok, list(uid()) | #{uid() => list(uid())} } | {error, any()}.
 get_friends(Uids) when is_list(Uids)->
     Commands = lists:map(fun (Uid) -> 
             ["HKEYS", key(Uid)] 
@@ -106,6 +108,46 @@ remove_all_friends(Uid) ->
     {ok, _Res} = q(["DEL", key(Uid)]),
     ok.
 
+
+%%====================================================================
+%% Friend Scoring API
+%%====================================================================
+
+-spec get_friend_scores(uid()) -> #{uid() => integer()} | {error, any()}.
+get_friend_scores(Uid) ->
+    UidKey = key(Uid),
+    {ok, Res} = q(["HGETALL", UidKey]),
+    lists:foldl( % convert list of [key, value, key1, value1...] to map
+        fun (Value, {Buid, Map}) when Value =:= <<"">> -> % need to be compatible with old field data
+                Map#{Buid => ?USER_VAL};
+            (Value, {Buid, Map}) ->
+                Map#{Buid => util:to_integer(Value)};
+            (Buid, Map) -> 
+                {Buid, Map} % preserve Buid to use as key for following value
+        end,
+        #{},
+        Res).
+
+-spec set_friend_scores(Uid :: uid(), ScoreMap :: #{Buid :: uid() => integer()}) -> ok | {error, any()}.
+set_friend_scores(Uid, ScoreMap) ->
+    UidKey = key(Uid),
+    Command = ["HSET", UidKey] ++ lists:foldl(
+        fun ({Buid, Score}, Acc) ->
+            [Buid | [Score | Acc]]
+        end,
+        [],
+        maps:to_list(ScoreMap)),
+    {ok, Res} = case maps:size(ScoreMap) of
+        0 -> {ok, 0}; % If ScoreMap is empty, just skip
+        _ -> q(Command)
+    end,
+    case util:to_integer(Res) of 
+        0 -> ok;
+        Num -> 
+            ?INFO("Setting friend scores for ~s added ~p new friends. ScoreMap = ~p", 
+                    [Uid, Num, ScoreMap])
+    end,
+    ok.
 
 %%====================================================================
 %% Recommendations API
