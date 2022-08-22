@@ -550,7 +550,8 @@ update_feed_post_st(PublisherUid, PublisherName, HomeFeedSt, ToUid, TimestampMs)
                     publisher_name = PublisherName,
                     timestamp = util:ms_to_sec(TimestampMs),
                     moment_unlock_uid = MomentUnlockUid,
-                    audience = PbAudience
+                    audience = PbAudience,
+                    show_post_share_screen = dev_users:is_dev_uid(PublisherUid)
                 },
                 sender_state_bundles = []
             };

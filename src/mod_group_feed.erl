@@ -543,7 +543,10 @@ add_sender_state2(HistoryResendSt, Uid, StateBundlesMap) ->
 make_pb_group_feed_item(GroupInfo, Uid, SenderName, GroupFeedSt, Ts) ->
     Item = case GroupFeedSt#pb_group_feed_item.item of
         #pb_post{} = Post ->
-            Post#pb_post{publisher_uid = Uid, publisher_name = SenderName, timestamp = Ts};
+            Post#pb_post{
+                publisher_uid = Uid, publisher_name = SenderName, timestamp = Ts,
+                show_post_share_screen = dev_users:is_dev_uid(Uid)
+            };
         #pb_comment{} = Comment ->
             Comment#pb_comment{publisher_uid = Uid, publisher_name = SenderName, timestamp = Ts}
     end,
