@@ -579,7 +579,7 @@ check_possible_spam(_TimeWindow, _CC, _CountType, _TotalCount) ->
          fun(GW) ->
              lists:all(fun(Other) ->
                   Other == GW orelse
-                  not stats:is_statistically_worse(maps:get(GW, GatewayScores), maps:get(Other, GatewayScores))
+                  not statscalc:is_statistically_worse(maps:get(GW, GatewayScores), maps:get(Other, GatewayScores))
              end, SampledGateways)
          end,
      SampledGateways).

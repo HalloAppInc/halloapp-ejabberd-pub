@@ -195,15 +195,8 @@ clean_event(#pb_event_data{uid = UidInt, platform = Platform, cc = CC,
         edata = #pb_push_received{id = Id, client_timestamp = Stamp} = Edata} = Event) ->
     ?INFO("Uid: ~p Platform: ~s CC: ~s PushId: ~s", [UidInt, Platform, CC, Id]),
     % temporary fix, TODO: remove once iOS pushes are changed
-    NewStamp = case Stamp of
-        % any time before 2001 is definitely in seconds!
-        Seconds when Seconds < 1000000000000 ->
-            ?INFO("mod_client_log: event_push_received: changed timestamp (old was ~p)", [Seconds]),
-            Seconds * 1000 + 999;
-        Milliseconds ->
-            Milliseconds
-    end,
-    Event#pb_event_data{edata = Edata#pb_push_received{client_timestamp = NewStamp} };
+    NewStamp = util:check_and_convert_sec_to_ms(Stamp),
+    Event#pb_event_data{edata = Edata#pb_push_received{client_timestamp = NewStamp}};
 clean_event(Event) ->
     Event.
 
