@@ -117,7 +117,7 @@ remove_all_friends(Uid) ->
 get_friend_scores(Uid) ->
     UidKey = key(Uid),
     {ok, Res} = q(["HGETALL", UidKey]),
-    lists:foldl( % convert list of [key, value, key1, value1...] to map
+    ScoreMap = lists:foldl( % convert list of [key, value, key1, value1...] to map
         fun (Value, {Buid, Map}) when Value =:= <<"">> -> % need to be compatible with old field data
                 Map#{Buid => ?USER_VAL};
             (Value, {Buid, Map}) ->
@@ -126,7 +126,8 @@ get_friend_scores(Uid) ->
                 {Buid, Map} % preserve Buid to use as key for following value
         end,
         #{},
-        Res).
+        Res),
+    {ok, ScoreMap}.
 
 -spec set_friend_scores(Uid :: uid(), ScoreMap :: #{Buid :: uid() => integer()}) -> ok | {error, any()}.
 set_friend_scores(Uid, ScoreMap) ->

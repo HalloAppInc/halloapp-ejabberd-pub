@@ -151,9 +151,9 @@ set_get_friend_recommendations_multi_test() ->
 
 set_get_friend_scores(_) ->
   FriendScoreMap = #{?UID2 => 2, ?UID3 => 3},
-  EmptyScores = model_friends:get_friend_scores(?UID1),
+  {ok, EmptyScores} = model_friends:get_friend_scores(?UID1),
   ok = model_friends:set_friend_scores(?UID1, FriendScoreMap),
-  FullScores =  model_friends:get_friend_scores(?UID1),
+  {ok, FullScores} =  model_friends:get_friend_scores(?UID1),
   [?_assertEqual(#{}, EmptyScores), ?_assertEqual(FriendScoreMap, FullScores)].
 
 
