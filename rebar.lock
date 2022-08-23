@@ -39,7 +39,7 @@
   0},
  {<<"enif_protobuf">>,
   {git,"git@github.com:HalloAppInc/enif_protobuf.git",
-       {ref,"2bf1b2c8afd869fcb4ba9c17a9144d6e6c267fdc"}},
+       {ref,"bd83fa0cbd5e7324189332e8813add1eadcdaa09"}},
   0},
  {<<"enoise">>,
   {git,"git@github.com:HalloAppInc/halloapp_enoise.git",
