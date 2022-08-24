@@ -9,7 +9,7 @@
 -include("stanza.hrl").
 -include("time.hrl").
 -include("proc.hrl").
--include("props.hrl").
+-include("invites.hrl").
 
 -export([start_link/0]).
 %% gen_mod callbacks
@@ -365,7 +365,7 @@ register_user(Uid, _Server, Phone, CampaignId) ->
                 {is_invited, true} ->
                     {ok, InviterList} = model_invites:get_inviters_list(Phone),
                     {RecentInviterUid, _Ts} = lists:nth(1, InviterList),
-                    InviteStringsMap = mod_props:get_invite_strings(RecentInviterUid),
+                    InviteStringsMap = mod_invites:get_invite_strings(RecentInviterUid),
                     case maps:get(LangId1, InviteStringsMap, undefined) of
                         undefined -> ?INFO("LangId not in InviteStringsMap: ~p", [LangId1]);
                         InviteString ->

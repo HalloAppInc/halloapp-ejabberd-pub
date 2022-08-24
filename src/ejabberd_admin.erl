@@ -469,7 +469,7 @@ get_commands_spec() ->
         result = {res, rescode}},
     #ejabberd_commands{name = get_invite_string, tags = [server],
         desc = "Get invite string from its hash ID",
-        module = mod_props, function = lookup_invite_string,
+        module = mod_invites, function = lookup_invite_string,
         args_desc = ["Invite string hash ID"],
         args = [{hash_id, binary}],
         result = {res, rescode}}

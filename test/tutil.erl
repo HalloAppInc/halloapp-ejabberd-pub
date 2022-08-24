@@ -51,7 +51,8 @@
 
 
 setup() ->
-    ?assert(config:is_testing_env()).
+    ?assert(config:is_testing_env()),
+    #{}.
 
 
 -spec setup(Options :: [setup_option()]) -> cleanup_info().

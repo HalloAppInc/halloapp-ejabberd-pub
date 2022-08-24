@@ -6,4 +6,6 @@
 -define(IS_INVITE_REQUIRED, false).
 -define(INF_INVITES, 10000).
 
+-define(INVITE_STRING_ID_SHA_HASH_LENGTH_BYTES, 16).
+
 -endif.

@@ -242,6 +242,30 @@ api_test_() ->
         {setup, fun setup_with_meck/0, fun tutil:cleanup/1, fun request_invite_error4/1}
     ].
 
+%% -------------------------------------------- %%
+%% Tests for invite strings
+%% --------------------------------------------	%%
+
+get_invite_strings(_) ->
+    InviteStringMap = mod_invites:get_invite_strings(?UID1),
+    [?_assertNotEqual(#{}, InviteStringMap),
+    ?_assertNotEqual(undefined, maps:get(<<"en">>, InviteStringMap, undefined)),
+    ?_assertNotEqual(undefined, maps:get(<<"id">>, InviteStringMap, undefined))].
+
+invite_string_id(_) ->
+    InviteStringMap = mod_invites:get_invite_strings(?UID1),
+    InvStr = maps:get(<<"en">>, InviteStringMap, undefined),
+    [?_assertNotEqual(undefined, InvStr),
+    ?_assertEqual(InvStr,
+        mod_invites:lookup_invite_string(mod_invites:get_invite_string_id(InvStr)))].
+
+invite_strings_test_() ->
+    {setup, fun setup_invite_strings/0, fun tutil:cleanup/1,
+        fun(CleanupInfo) ->
+            [get_invite_strings(CleanupInfo),
+            invite_string_id(CleanupInfo)]
+        end}.
+
 %% --------------------------------------------	%%
 %% Tests for internal functions
 %% -------------------------------------------- %%
@@ -294,6 +318,10 @@ setup_redis_only() ->
     tutil:setup([
         {redis, [redis_accounts, redis_phone]}
     ]).
+
+setup_invite_strings() ->
+    mod_invites:init_invite_string_table(),
+    tutil:setup().
 
 create_get_iq(Uid) ->
     #pb_iq{
