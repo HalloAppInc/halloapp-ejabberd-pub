@@ -102,7 +102,7 @@
  {<<"jsx">>,{pkg,<<"jsx">>,<<"2.9.0">>},1},
  {<<"lager">>,
   {git,"https://github.com/erlang-lager/lager",
-       {ref,"4ffdf0dbef53304bc0e958a00776bf0650de8c8b"}},
+       {ref,"c5447d2d85a0d446d41a79bffe0a6a66bd50c901"}},
   0},
  {<<"lhttpc">>,{pkg,<<"lhttpc">>,<<"1.6.2">>},1},
  {<<"locus">>,
