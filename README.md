@@ -9,24 +9,24 @@ Development
 
 ##### On Mac
 
-Install Erlang 23
+Install Erlang 24
 
-    brew install erlang@23
+    brew install erlang@24
 
 In terminal, enter `erl` to see whether erlang works fine. If not, run
 `vi ~/.zshrc` and modify the content to be
 
-`export PATH=/usr/local/opt/erlang@23/bin:$PATH`. Use `source ~/.zshrc` to run the updated script.
+`export PATH=/usr/local/opt/erlang@24/bin:$PATH`. Use `source ~/.zshrc` to run the updated script.
 
 ##### On Linux
-Install Erlang 23
+Install Erlang 24
     
-    # before you install erlang 23, install libraries
+    # before you install erlang 24, install libraries
     sudo apt install autoconf libssl-dev libncurses5-dev
     sudo apt install openjdk-11-jdk unixodbc-dev build-essential libwxbase3.0-dev libwxgtk3.0-dev
 
     # Download erlang
-    wget https://github.com/erlang/otp/archive/refs/tags/OTP-23.3.4.1.zip
+    wget https://github.com/erlang/otp/archive/refs/tags/OTP-24.3.4.2.zip
     #unzip the code and go to the folder
     ./configure
     make
@@ -68,7 +68,7 @@ Configure ejabberd to use custom OpenSSL, Yaml, iconv. [Resource](https://docs.e
     export LDFLAGS="-L$(brew --prefix)/opt/openssl/lib -L$(brew --prefix)/lib"
     export LDLIBS="-L$(brew --prefix)/lib"
 
->> Note: `$(brew --prefix)` is the installation location for `brew install`and was changed from `/usr/local/` on x86 to `/opt/homebrew` on M1 arm64. We use it to ensure the compiler and linker can find these libraries. You can see which yours is by running `echo $(brew --prefix)`
+> Note: `$(brew --prefix)` is the installation location for `brew install`and was changed from `/usr/local/` on x86 to `/opt/homebrew` on M1 arm64. We use it to ensure the compiler and linker can find these libraries. You can see which yours is by running `echo $(brew --prefix)`
 
 ##### On Linux
 Install dependencies:
