@@ -494,6 +494,7 @@ score_all_friends(Query) ->
             Groups = maps:get(Uid, GroupMap, []),
             Friends = maps:get(Uid, FriendsListMap, []),
             EventMap = maps:get(Uid, FriendEventMap, #{}),
+            ?INFO("Ranking Uid ~p's friends: ~p", [Uid, Friends]),
             rank_friends(Uid, Friends, Groups, EventMap)
         end,
         Uids),
@@ -530,7 +531,10 @@ rank_friends(Uid, FriendList, GroupList, FriendEventMap) ->
         fun (Ouid, Acc) ->
             NumSharedGroups = length(maps:get(Ouid, SharedGroupMembership, [])),
             NumFriendEvents = maps:get(Ouid, FriendEventMap, 0),
-            FriendScore = NumFriendEvents + (NumSharedGroups * ?SHARED_GROUP_MULT),
+            FriendScore = case dev_users:is_dev_uid(Uid) andalso dev_users:is_dev_uid(Ouid) of
+                true -> 0; %% if both users are devs, score 0
+                false -> NumFriendEvents + (NumSharedGroups * ?SHARED_GROUP_MULT)
+            end,
             maps:put(Ouid, FriendScore, Acc)
         end,
         #{},
