@@ -84,7 +84,7 @@
   0},
  {<<"ha_enoise">>,
   {git,"git@github.com:HalloAppInc/ha_enoise.git",
-       {ref,"e111a702ff0285ab7f5531becb00e8f377750ccc"}},
+       {ref,"366fef5c7c1a2e897f6aac466c38105d9a952c85"}},
   0},
  {<<"hkdf">>,
   {git,"https://github.com/schnef/hkdf",
