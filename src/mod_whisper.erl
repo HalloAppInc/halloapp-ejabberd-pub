@@ -387,10 +387,9 @@ notify_key_subscribers(Uid, IdentityKeyB64) ->
             Ouids2 = maps:values(PhoneToUidMap),
 
             %% GroupMember-Uids.
-            %% TODO (murali@): make this a qmn query.
-            Ouids3 = lists:merge(lists:map(fun model_groups:get_member_uids/1, model_groups:get_groups(Uid))),
+            Ouids3 = lists:flatten(maps:values(model_groups:get_member_uids(model_groups:get_groups(Uid)))),
             %% Ensure that we dont route the update message to ourselves.
-            SubscriberUids = sets:to_list(sets:del_element(Uid, sets:from_list(Ouids1 ++ Ouids2 ++ Ouids3))),
+            SubscriberUids = lists:delete(Uid, lists:usort(Ouids1 ++ Ouids2 ++ Ouids3)),
 
             Packet = #pb_msg{
                 id = util_id:new_msg_id(),
