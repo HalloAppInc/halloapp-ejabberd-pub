@@ -6,9 +6,11 @@
 -ifndef(ATHENA_QUERY_HRL).
 -define(ATHENA_QUERY_HRL, 1).
 
+-include("ha_types.hrl").
 
 -record(athena_query, {
     query_bin :: binary(),
+    exec_id :: maybe(binary()),
     query_token :: binary(),
     result_token :: binary(),
     tags :: map(),

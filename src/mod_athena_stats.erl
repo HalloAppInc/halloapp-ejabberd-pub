@@ -226,7 +226,7 @@ fetch_query_results_internal(ExecutionId, #{queries := Queries} = State) ->
         {{Query, _NumAttempts}, Queries2} = maps:take(ExecutionId, Queries),
 
         {ok, Result} = erlcloud_athena:get_query_results(ExecutionId),
-        Query2 = Query#athena_query{result = Result},
+        Query2 = Query#athena_query{result = Result, exec_id = ExecutionId},
 
         process_result(Query2),
         State#{queries => Queries2}
