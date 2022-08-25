@@ -35,7 +35,7 @@ close() ->
 
 
 %% Inserts the record into the table.
--spec insert(#region_metadata{}) -> ok.
+-spec insert(#region_metadata{}) -> true.
 insert(RegionMetadata) ->
     true = ets:insert(?LIBPHONENUMBER_METADATA_TABLE, RegionMetadata).
 

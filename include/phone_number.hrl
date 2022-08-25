@@ -11,6 +11,8 @@
 -ifndef(PHONE_NUMBER_HRL).
 -define(PHONE_NUMBER_HRL, 1).
 
+-include("ha_types.hrl").
+
 -define(FILE_PHONE_NUMBER_METADATA, "PhoneNumberMetadata.xml").
 
 %% name of the table to hold all the country code information.
@@ -20,36 +22,36 @@
 %% Necessary attributes of the xml element territory in the phonenumbermetadata xml file.
 -record(attributes,
 {
-    id :: binary(),
+    id :: binary() | '_',
     country_code :: list(),
-    main_country_for_code :: binary(),
-    leading_digits :: list(),
-    preferred_international_prefix :: list(),
-    international_prefix :: list(),
-    national_prefix :: list(),
-    national_prefix_for_parsing :: list(),
-    national_prefix_transform_rule :: list(),
-    national_prefix_formatting_rule :: list(),
-    national_prefix_optional_when_formatting :: binary(),
-    carrier_code_formatting_rule :: list(),
-    mobile_number_portable_region :: binary()
+    main_country_for_code :: binary() | '_',
+    leading_digits :: maybe(list()) | '_',
+    preferred_international_prefix :: list() | '_',
+    international_prefix :: list() | '_',
+    national_prefix :: list() | '_',
+    national_prefix_for_parsing :: maybe(list()) | '_',
+    national_prefix_transform_rule :: maybe(list()) | '_',
+    national_prefix_formatting_rule :: list() | '_',
+    national_prefix_optional_when_formatting :: binary() | '_',
+    carrier_code_formatting_rule :: list() | '_',
+    mobile_number_portable_region :: binary() | '_'
 }).
 
 %% Necessary elements of the mobile child element in the phonenumbermetadata xml file.
 -record(number_type,
 {
     type :: atom(),
-    national_lengths :: list(),
-    local_only_lengths :: list(),
-    pattern :: list()
+    national_lengths :: maybe(list()),
+    local_only_lengths :: maybe(list()),
+    pattern :: maybe(list())
 }).
 
 %% Record to hold all the necessary metadata about a region.
 -record(region_metadata,
 {
-    id :: binary(),
+    id :: binary() | '_',
     attributes = #attributes{},
-    number_types :: list() % list of number types (mobile, voip, fixed line)
+    number_types :: list() | '_' % list of number types (mobile, voip, fixed line)
 }).
 
 %% Type of country code source.
@@ -80,13 +82,13 @@
 %% Record to hold all the necessary information about a phone_number as state when processing it.
 -record(phone_number_state,
 {
-    country_code :: list(),
-    national_number :: list(),
-    phone_number :: list(),
-    raw :: list(),
-    valid :: boolean(),
-    e164_value :: list(),
-    country_code_source :: countryCodeSource(),
+    country_code :: maybe(list()),
+    national_number :: maybe(list()),
+    phone_number :: maybe(list()),
+    raw :: maybe(list()),
+    valid :: maybe(boolean()),
+    e164_value :: maybe(list()),
+    country_code_source :: maybe(countryCodeSource()),
     error_msg :: errorMsg()
 }).
 

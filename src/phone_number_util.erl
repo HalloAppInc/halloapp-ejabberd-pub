@@ -620,8 +620,6 @@ is_valid_number_for_region(PhoneNumberState, RegionId) ->
             if
                 %% Either the region code was invalid, or the country calling code
                 %% for this number does not match that of the region code.
-                RegionMetadata == [] ->
-                    {false, invalid_region};
                 CountryCode == undefined ->
                     {false, invalid_country_code};
                 (RegionId =/= ?REGION_CODE_FOR_NON_GEO_ENTITY andalso
@@ -634,11 +632,11 @@ is_valid_number_for_region(PhoneNumberState, RegionId) ->
 
 
 
- %% Returns the region where a phone number is from. This could be used for geocoding at the region
- %% level. Only guarantees correct results for valid, full numbers (not short-codes, or invalid
- %% numbers).
- -spec get_region_id_for_number(#phone_number_state{}) -> binary() | {error, atom()}.
- get_region_id_for_number(PhoneNumberState) ->
+%% Returns the region where a phone number is from. This could be used for geocoding at the region
+%% level. Only guarantees correct results for valid, full numbers (not short-codes, or invalid
+%% numbers).
+-spec get_region_id_for_number(#phone_number_state{}) -> binary() | {error, atom()}.
+get_region_id_for_number(PhoneNumberState) ->
     CountryCode = PhoneNumberState#phone_number_state.country_code,
     Matches = libphonenumber_ets:match_object_on_country_code(CountryCode),
     case Matches of
@@ -686,7 +684,7 @@ get_region_id_for_number_from_regions_list(PhoneNumberState, [RegionMetadata | R
 
 
 %% Checks if the number is matching the mobile description of the region and returns a boolean.
--spec is_number_matching_desc(list(), #region_metadata{}) -> boolean() | {boolean(), atom}.
+-spec is_number_matching_desc(list(), #region_metadata{}) -> true | {false, atom()}.
 is_number_matching_desc(PhoneNumber, RegionMetadata) ->
 
     if
@@ -744,7 +742,7 @@ match_number_type_pattern(PhoneNumber, RegionMetadata, Type) ->
     NumTypes = RegionMetadata#region_metadata.number_types,
     NumType = lists:keyfind(Type, #number_type.type, NumTypes),
     case NumType of
-        undefined ->
+        false ->
             false;
         _ ->
             Pattern = NumType#number_type.pattern,
@@ -783,7 +781,7 @@ test_number_length(PhoneNumber, RegionMetadata) ->
             NumTypes = RegionMetadata#region_metadata.number_types,
             Mobile = lists:keyfind(mobile, #number_type.type, NumTypes),
             case Mobile of
-                undefined ->
+                false ->
                     invalid_length;
                 _ ->
                     LocalLengths = Mobile#number_type.local_only_lengths,
@@ -890,7 +888,7 @@ check_region_for_parsing(PhoneNumber, DefaultRegionId) ->
 %% commonly found in phone numbers.
 %% This method does not require the number to be normalized in advance - but does assume that
 %% leading non-number symbols have been removed, such as by the method extract_possible_number().
--spec is_viable_phone_number(list) -> {ok, valid} | {error, too_short | invalid_chars}.
+-spec is_viable_phone_number(list()) -> {ok, valid} | {error, too_short | invalid_chars}.
 is_viable_phone_number(PhoneNumber) ->
     ReResult = re:run(PhoneNumber, get_valid_phone_number_pattern_matcher(), [notempty, {capture, none}]),
     if

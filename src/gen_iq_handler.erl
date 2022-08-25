@@ -56,17 +56,17 @@ start(Component) ->
     ok.
 
 
--spec add_iq_handler(component(), binary(), binary(), module(), atom()) -> ok.
+-spec add_iq_handler(component(), binary(), atom(), module(), atom()) -> ok.
 add_iq_handler(Component, Host, NS, Module, Function) ->
     add_iq_handler(Component, Host, NS, Module, Function, 1).
 
 
--spec add_iq_handler(component(), binary(), binary(), module(), atom(), integer()) -> ok.
+-spec add_iq_handler(component(), binary(), atom(), module(), atom(), integer()) -> ok.
 add_iq_handler(Component, Host, NS, Module, Function, NumArgs) ->
     ets:insert(Component, {{Host, NS}, Module, Function, NumArgs}),
     ok.
 
--spec remove_iq_handler(component(), binary(), binary()) -> ok.
+-spec remove_iq_handler(component(), binary(), atom()) -> ok.
 remove_iq_handler(Component, Host, NS) ->
     ets:delete(Component, {Host, NS}),
     ok.
