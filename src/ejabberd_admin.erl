@@ -944,12 +944,13 @@ group_info(Gid) ->
             Group = model_groups:get_group(Gid),
             GName = Group#group.name,
             Members = [{Uid, Type, util:ms_to_datetime_string(Ts),
-                model_accounts:get_name_binary(Uid)}
+                model_accounts:get_name_binary(Uid), format_contact_list(Uid)}
                 || #group_member{uid = Uid, type = Type, joined_ts_ms = Ts} <- Group#group.members],
             {CreateDate, CreateTime} = util:ms_to_datetime_string(Group#group.creation_ts_ms),
             io:format("~s (~s), created on ~s at ~s:~n", [GName, Gid, CreateDate, CreateTime]),
-            [io:format("    ~s (~s) | ~s | joined on ~s at ~s~n", [Name, Uid, Type, Date, Time])
-                || {Uid, Type, {Date, Time}, Name} <- Members]
+            [io:format("    ~s (~s) | ~s | joined on ~s at ~s, Num Contacts: ~p, Num Friends: ~p~n",
+                [Name, Uid, Type, Date, Time, length(ContactList), NumFriends])
+                || {Uid, Type, {Date, Time}, Name, {ok, ContactList, NumFriends}} <- Members]
     end,
     ok.
 
