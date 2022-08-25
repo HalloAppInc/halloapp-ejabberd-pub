@@ -13,13 +13,15 @@
 -include("redis_keys.hrl").
 -include("sms.hrl").
 -include("time.hrl").
+-include("monitor.hrl").
 -include_lib("stdlib/include/assert.hrl").
 
 
 %% Export all functions for unit tests
 -ifdef(TEST).
 -export([
-    q/1
+    q/1, qmn/1,
+    verification_attempt_key/2
 ]).
 -endif.
 
@@ -93,6 +95,8 @@
 
 -define(TTL_VERIFICATION_ATTEMPTS, 30 * 86400).  %% 30 days
 
+-define(MONITOR_VERIFICATION_TTL, 60).
+
 %% TTL for phone pattern data: 24 hour.
 -define(TTL_PHONE_PATTERN, 86400).
 
@@ -121,11 +125,15 @@ add_sms_code2(Phone, Code, CampaignId) ->
     Timestamp = util:now(),
     VerificationAttemptListKey = verification_attempt_list_key(Phone),
     VerificationAttemptKey = verification_attempt_key(Phone, AttemptId),
+    TTL = case Phone of
+        ?MONITOR_PHONE -> ?MONITOR_VERIFICATION_TTL;
+        _ -> ?TTL_VERIFICATION_ATTEMPTS
+    end,
     _Results = qp([["MULTI"],
                    ["ZADD", VerificationAttemptListKey, Timestamp, AttemptId],
-                   ["EXPIRE", VerificationAttemptListKey, ?TTL_VERIFICATION_ATTEMPTS],
+                   ["EXPIRE", VerificationAttemptListKey, TTL],
                    ["HSET", VerificationAttemptKey, ?FIELD_CODE, Code, ?FIELD_VALID, "1", ?FIELD_CAMPAIGN_ID, CampaignId],
-                   ["EXPIRE", VerificationAttemptKey, ?TTL_VERIFICATION_ATTEMPTS],
+                   ["EXPIRE", VerificationAttemptKey, TTL],
                    ["EXEC"]]),
 
     %% Store Phone in a set determined by the timestamp increment (15 mins). We want to make sure

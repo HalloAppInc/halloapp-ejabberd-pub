@@ -8,6 +8,7 @@
 
 -include_lib("eunit/include/eunit.hrl").
 -include_lib("sms.hrl").
+-include("monitor.hrl").
 
 -define(PHONE1, <<"14703381473">>).
 -define(UID1, <<"1000000000376503286">>).
@@ -258,6 +259,19 @@ phone_attempt_test() ->
     {ok, TTLBin} = model_phone:q(["TTL", model_phone:phone_attempt_key(?PHONE1, Now)]),
     TTL = util_redis:decode_int(TTLBin),
     ?assertEqual(true, TTL > 0),
+    ok.
+
+verify_ttl_test() ->
+    % ensure that monitor phone correctly gets much shorter ttl than another phone.
+    setup(),
+    {ok, AttemptId1, _Timestamp1} = model_phone:add_sms_code2(?PHONE1, ?CODE1),
+    {ok, AttemptId2, _Timestamp2} = model_phone:add_sms_code2(?MONITOR_PHONE, ?CODE1),
+    [{ok, TTLBin1}, {ok, TTLBin2}] = model_phone:qmn([
+        ["TTL", model_phone:verification_attempt_key(?PHONE1, AttemptId1)],
+        ["TTL", model_phone:verification_attempt_key(?MONITOR_PHONE, AttemptId2)]]),
+    TTL1 = util_redis:decode_int(TTLBin1),
+    TTL2 = util_redis:decode_int(TTLBin2),
+    ?assert(TTL1 > 10*TTL2),
     ok.
 
 
