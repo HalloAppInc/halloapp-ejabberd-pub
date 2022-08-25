@@ -458,11 +458,35 @@ all_friend_events_query(Uid) ->
 
 -spec score_all_friends(Query :: athena_query()) -> ok.
 score_all_friends(Query) ->
-    Result = Query#athena_query.result,
+    StartMs = util:now_ms(),
+    FriendEventMap = parse_query_results(Query, #{}),
+    Uids = maps:keys(FriendEventMap),
+    {ok, FriendsListMap} = model_friends:get_friends(Uids),
+    GroupMap = model_groups:get_groups(Uids),
+
+    lists:foreach(
+        fun (Uid) -> 
+            Groups = maps:get(Uid, GroupMap, []),
+            Friends = maps:get(Uid, FriendsListMap, []),
+            EventMap = maps:get(Uid, FriendEventMap, #{}),
+            ?INFO("Ranking Uid ~p's friends: ~p", [Uid, Friends]),
+            rank_friends(Uid, Friends, Groups, EventMap)
+        end,
+        Uids),
+    ?INFO("Done ranking friends for ~p uids! Took ~p ms", [length(Uids), util:now_ms() - StartMs]),
+    ok.
+
+
+-spec parse_query_results(athena_query(), CurEventMap :: map()) -> map().
+parse_query_results(#athena_query{result = Result, exec_id = ExecutionId}, CurEventMap) ->
     ResultRows = maps:get(<<"ResultRows">>, maps:get(<<"ResultSet">>, Result)),
-    [_HeaderRow | ActualResultRows] = ResultRows,
-    
-    FriendEventMap = lists:foldl(
+    [HeaderRow | NonHeaderRows] = ResultRows,
+    FinalResultRows = case lists:member(<<"uid">>, maps:get(<<"Data">>, HeaderRow, [])) of
+        false -> ResultRows;
+        true -> NonHeaderRows
+    end,
+    ?INFO("Processing ~p rows", [length(FinalResultRows)]),
+    NewEventMap = lists:foldl(
         fun (ResultRow, EventAcc) ->
             [FromUidStr, ToUidStr, EventTypeStr, CntStr | _] = maps:get(<<"Data">>, ResultRow),
             FromUid = util:to_binary(FromUidStr),
@@ -482,26 +506,18 @@ score_all_friends(Query) ->
 
             EventAcc#{FromUid => UpdatedFromUidMap, ToUid => UpdatedToUidMap}
         end,
-        #{},
-        ActualResultRows),
+        CurEventMap,
+        FinalResultRows),
     
-    Uids = maps:keys(FriendEventMap),
-    {ok, FriendsListMap} = model_friends:get_friends(Uids),
-    GroupMap = model_groups:get_groups(Uids),
-
-    lists:foreach(
-        fun (Uid) -> 
-            Groups = maps:get(Uid, GroupMap, []),
-            Friends = maps:get(Uid, FriendsListMap, []),
-            EventMap = maps:get(Uid, FriendEventMap, #{}),
-            ?INFO("Ranking Uid ~p's friends: ~p", [Uid, Friends]),
-            rank_friends(Uid, Friends, Groups, EventMap)
-        end,
-        Uids),
-    ok.
+    case maps:get(<<"NextToken">>, Result, undefined) of
+        undefined -> NewEventMap;
+        NextToken -> 
+            {ok, NextResult} = erlcloud_athena:get_query_results(ExecutionId, #{<<"NextToken">> => NextToken}),
+            parse_query_results(#athena_query{result = NextResult, exec_id = ExecutionId}, NewEventMap)
+    end.
 
 
--spec get_score_inc(pos_integer(), string()) -> pos_integer().
+-spec get_score_inc(integer(), atom()) -> integer().
 get_score_inc(NumEvents, group_comment_published) -> 
     NumEvents * ?COMMENT_MULT;
 get_score_inc(NumEvents, comment_published) ->
