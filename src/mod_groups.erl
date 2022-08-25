@@ -853,21 +853,21 @@ add_members_unsafe_2(Gid, Uid, MemberUids) ->
     RedisResults = model_groups:add_members(Gid, ValidMemberUids, Uid),
     AddResults = lists:zip(ValidMemberUids, RedisResults),
     Server = util:get_host(),
-    % TODO: this is O(N^2), could be improved.
+    AddResultsByMember = maps:from_list(AddResults),
+    InvalidMembers = sets:from_list(InvalidMemberUids),
     Results = lists:map(
         fun (OUid) ->
-
-            case lists:keyfind(OUid, 1, AddResults) of
-                false ->
-                    case lists:member(OUid, InvalidMemberUids) of
+            case maps:get(OUid, AddResultsByMember, undefined) of
+                undefined ->
+                    case sets:is_element(OUid, InvalidMembers) of
                         true ->
                             {OUid, add, max_group_count};
                         false ->
                             {OUid, add, no_account}
                     end;
-                {OUid, false} ->
+                false ->
                     {OUid, add, already_member};
-                {OUid, true} ->
+                true ->
                     ejabberd_hooks:run(group_member_added, Server, [Gid, OUid, Uid]),
                     {OUid, add, ok}
             end
