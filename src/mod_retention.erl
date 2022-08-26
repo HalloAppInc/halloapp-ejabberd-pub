@@ -35,8 +35,9 @@ start(_Host, _Opts) ->
 
 -spec schedule() -> ok.
 schedule() ->
+    %% dump account data daily at 3pm PT
     erlcron:cron(dump_accounts, {
-        {weekly, tue, {10, pm}},
+        {daily, {10, pm}},
         {?MODULE, dump_accounts, []}
     }),
     
