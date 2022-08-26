@@ -122,9 +122,6 @@ check_content_version_rules(Platform, ClientVersion, PayloadType, Message) ->
         {error, _} ->
             ?ERROR("Failed decoding message: ~p", [Message]),
             false;
-        %% remove these delete_notice filters in 2months - 05-18-2021.
-        #pb_packet{stanza = #pb_msg{payload = #pb_contact_list{type = delete_notice}}} ->
-            false;
         #pb_packet{stanza = #pb_msg{payload = #pb_group_stanza{action = get}}} ->
             case Platform of
                 android -> true;
