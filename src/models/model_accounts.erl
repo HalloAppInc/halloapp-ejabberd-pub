@@ -93,6 +93,7 @@
     set_user_agent/2,
     set_last_registration_ts_ms/2,
     get_signup_user_agent/1,
+    set_client_info/4,
     set_client_version/2,
     get_client_version/1,
     set_device_info/3,
@@ -483,6 +484,31 @@ get_signup_user_agent(Uid) ->
     end.
 
 
+-spec set_client_info(Uid :: uid(), Version :: binary(), Device :: binary(), OsVersion :: binary()) -> ok.
+set_client_info(Uid, Version, Device, OsVersion) ->
+    Slot = util_redis:eredis_hash(binary_to_list(Uid)),
+    NewSlot = Slot rem ?NUM_VERSION_SLOTS,
+    VersionCommands = case get_client_and_os_version(Uid) of
+        {ok, OldClient, OldOs} ->
+            [["HINCRBY", version_key(NewSlot), OldClient, -1],
+            ["HINCRBY", os_version_key(NewSlot), OldOs, -1]];
+        _ -> []
+    end,
+    qmn([["HMSET", account_key(Uid), ?FIELD_DEVICE, Device, ?FIELD_OS_VERSION, OsVersion, ?FIELD_CLIENT_VERSION, Version],
+        ["HINCRBY", os_version_key(NewSlot), OsVersion, 1],
+        ["HINCRBY", version_key(NewSlot), Version, 1]] ++ VersionCommands),
+    ok.
+
+
+-spec get_client_and_os_version(Uid :: uid()) -> {ok, binary(), binary()} | {error, missing}.
+get_client_and_os_version(Uid) ->
+    {ok, Res} = q(["HMGET", account_key(Uid), ?FIELD_CLIENT_VERSION, ?FIELD_OS_VERSION]),
+    case Res of
+        [undefined, undefined] -> {error, missing};
+        [Client, Os] -> {ok, Client, Os}
+    end.
+
+
 -spec set_client_version(Uid :: uid(), Version :: binary()) -> ok.
 set_client_version(Uid, Version) ->
     Slot = util_redis:eredis_hash(binary_to_list(Uid)),
@@ -508,9 +534,6 @@ get_client_version(Uid) ->
 
 
 -spec set_device_info(Uid :: uid(), Device :: maybe(binary()), OsVersion :: maybe(binary())) -> ok.
-set_device_info(_Uid, undefined, undefined) ->
-    %% TODO: murali@: temporary until clients send us this - check-in on 12-20-2021.
-    ok;
 set_device_info(Uid, Device, OsVersion) ->
     Slot = util_redis:eredis_hash(binary_to_list(Uid)),
     NewSlot = Slot rem ?NUM_VERSION_SLOTS,

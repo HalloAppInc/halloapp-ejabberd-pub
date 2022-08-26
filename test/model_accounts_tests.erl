@@ -286,6 +286,30 @@ set_device_info_test() ->
     ?assertEqual(1, maps:get(?OS_VERSION2, VersionCount3, 0)),
     ok.
 
+set_client_info_test() ->
+    setup(),
+    ok = model_accounts:set_client_info(?UID1, ?CLIENT_VERSION1, ?DEVICE, ?OS_VERSION1),
+    OsVersionCount1 = model_accounts:count_os_version_keys(),
+    ClientVersionCount1 = model_accounts:count_version_keys(),
+    ?assertEqual(1, maps:get(?OS_VERSION1, OsVersionCount1, 0)),
+    ?assertEqual(0, maps:get(?OS_VERSION2, OsVersionCount1, 0)),
+    ?assertEqual(1, maps:get(?CLIENT_VERSION1, ClientVersionCount1, 0)),
+    ?assertEqual(0, maps:get(?CLIENT_VERSION2, ClientVersionCount1, 0)),
+    ok = model_accounts:set_client_info(?UID1, ?CLIENT_VERSION2, ?DEVICE, ?OS_VERSION2),
+    OsVersionCount2 = model_accounts:count_os_version_keys(),
+    ClientVersionCount2 = model_accounts:count_version_keys(),
+    ?assertEqual(0, maps:get(?OS_VERSION1, OsVersionCount2, 0)),
+    ?assertEqual(1, maps:get(?OS_VERSION2, OsVersionCount2, 0)),
+    ?assertEqual(0, maps:get(?CLIENT_VERSION1, ClientVersionCount2, 0)),
+    ?assertEqual(1, maps:get(?CLIENT_VERSION2, ClientVersionCount2, 0)),
+    ok = model_accounts:set_client_info(?UID2, ?CLIENT_VERSION2, ?DEVICE, ?OS_VERSION1),
+    OsVersionCount3 = model_accounts:count_os_version_keys(),
+    ClientVersionCount3 = model_accounts:count_version_keys(),
+    ?assertEqual(1, maps:get(?OS_VERSION1, OsVersionCount3, 0)),
+    ?assertEqual(1, maps:get(?OS_VERSION2, OsVersionCount3, 0)),
+    ?assertEqual(0, maps:get(?CLIENT_VERSION1, ClientVersionCount3, 0)),
+    ?assertEqual(2, maps:get(?CLIENT_VERSION2, ClientVersionCount3, 0)).
+
 
 list_to_map_test() ->
     L = ["a", 1, "b", 2],

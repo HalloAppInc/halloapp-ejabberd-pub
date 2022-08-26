@@ -64,9 +64,7 @@ process_local_iq(#pb_iq{type = get, from_uid = Uid,
 
 c2s_session_opened(#{user := Uid, client_version := ClientVersion,
         device := Device, os_version := OsVersion} = State) ->
-    %% TODO: combine these redis calls.
-    ok = model_accounts:set_client_version(Uid, ClientVersion),
-    ok = model_accounts:set_device_info(Uid, Device, OsVersion),
+    ok = model_accounts:set_client_info(Uid, ClientVersion, Device, OsVersion),
     State.
 
 
@@ -120,7 +118,6 @@ get_time_left(Version, CurTimestamp) ->
         true -> ?INFO("New version ~s inserted at ~p", [Version, CurTimestamp]);
         false -> ok
     end,
-    % TODO: we can combine the get with the set.
     VerTs = model_client_version:get_version_ts(Version),
     case VerTs of
         undefined ->
