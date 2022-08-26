@@ -25,7 +25,9 @@
     process_local_iq/1,
     add_friend/4,
     remove_user/2,
-    get_active_psa_tag_list/0
+    get_active_psa_tag_list/0,
+    send_old_items/3,
+    share_feed_items/4
 ]).
 
 
@@ -163,12 +165,12 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
 
 
 -spec add_friend(Uid :: uid(), Server :: binary(), Ouid :: uid(), WasBlocked :: boolean()) -> ok.
-add_friend(Uid, Server, Ouid, false) ->
+add_friend(Uid, _Server, Ouid, false) ->
     ?INFO("Uid: ~s, Ouid: ~s", [Uid, Ouid]),
     % Posts from Uid to Ouid
-    send_old_items(Uid, Ouid, Server),
+    % send_old_items(Uid, Ouid, Server),
     % Posts from Ouid to Uid
-    send_old_items(Ouid, Uid, Server),
+    % send_old_items(Ouid, Uid, Server),
     ok;
 add_friend(_Uid, _Server, _Ouid, true) ->
     ok.
@@ -489,16 +491,17 @@ retract_comment(PublisherUid, CommentId, PostId, HomeFeedSt) ->
 
 -spec process_share_posts(Uid :: uid(), Server :: binary(),
         SharePostSt :: pb_share_stanza()) -> pb_share_stanza().
-process_share_posts(Uid, Server, SharePostSt) ->
+process_share_posts(_Uid, _Server, SharePostSt) ->
+    %% Disable sharing posts.
     %% clients dont know the relationship anymore,
     %% so server should decide whether to broadcast or not.
     Ouid = SharePostSt#pb_share_stanza.uid,
-    case model_friends:is_friend(Uid, Ouid) of
-        true ->
-            PostIds = [PostId || PostId <- SharePostSt#pb_share_stanza.post_ids],
-            share_feed_items(Uid, Ouid, Server, PostIds);
-        false -> ok
-    end,
+    % case model_friends:is_friend(Uid, Ouid) of
+    %     true ->
+    %         PostIds = [PostId || PostId <- SharePostSt#pb_share_stanza.post_ids],
+    %         share_feed_items(Uid, Ouid, Server, PostIds);
+    %     false -> ok
+    % end,
     #pb_share_stanza{
         uid = Ouid,
         result = <<"ok">>

@@ -434,29 +434,29 @@ share_post_iq_test() ->
     ok.
 
 
-add_friend_test() ->
-    setup2(),
-    tutil:meck_init(ejabberd_router, route,
-        fun(P) ->
-            #pb_msg {
-                id = _Id,
-                to_uid = ToUid,
-                type = MsgType,
-                payload = Payload
-            } = P,
-            ?assertEqual(?UID2, ToUid),
-            ?assertEqual(normal, MsgType),
-            #pb_feed_items{
-                items = [#pb_feed_item{item = Post}]
-            } = Payload,
-            ?assertEqual(?POST_ID1, Post#pb_post.id),
-            ?assertEqual(?PAYLOAD1, Post#pb_post.payload),
-            ok
-        end),
-    ok = model_feed:publish_post(?POST_ID1, ?UID1, base64:encode(?PAYLOAD1), empty, all, [?UID1], util:now_ms()),
-    model_friends:add_friend(?UID1, ?UID2),
-    mod_feed:add_friend(?UID1, ?SERVER, ?UID2, false),
-    ?assertEqual(1, meck:num_calls(ejabberd_router, route, '_')),
-    tutil:meck_finish(ejabberd_router),
-    ok.
+% add_friend_test() ->
+%     setup2(),
+%     tutil:meck_init(ejabberd_router, route,
+%         fun(P) ->
+%             #pb_msg {
+%                 id = _Id,
+%                 to_uid = ToUid,
+%                 type = MsgType,
+%                 payload = Payload
+%             } = P,
+%             ?assertEqual(?UID2, ToUid),
+%             ?assertEqual(normal, MsgType),
+%             #pb_feed_items{
+%                 items = [#pb_feed_item{item = Post}]
+%             } = Payload,
+%             ?assertEqual(?POST_ID1, Post#pb_post.id),
+%             ?assertEqual(?PAYLOAD1, Post#pb_post.payload),
+%             ok
+%         end),
+%     ok = model_feed:publish_post(?POST_ID1, ?UID1, base64:encode(?PAYLOAD1), empty, all, [?UID1], util:now_ms()),
+%     model_friends:add_friend(?UID1, ?UID2),
+%     mod_feed:add_friend(?UID1, ?SERVER, ?UID2, false),
+%     ?assertEqual(1, meck:num_calls(ejabberd_router, route, '_')),
+%     tutil:meck_finish(ejabberd_router),
+%     ok.
 
