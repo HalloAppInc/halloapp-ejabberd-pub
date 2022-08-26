@@ -10,6 +10,8 @@
 -ifndef(FRIEND_SCORES).
 -define(FRIEND_SCORES, 1).
 
+-define(CLOSE_FRIEND_THRESHOLD, 2500).
+
 -define(SHARED_GROUP_MULT, 1000).
 -define(COMMENT_MULT, 250).
 -define(POST_SEEN_MULT, 1).

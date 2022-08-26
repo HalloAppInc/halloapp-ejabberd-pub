@@ -13,6 +13,8 @@
 -include("packets.hrl").
 -include("time.hrl").
 -include("contacts.hrl").
+-include("friend_scoring.hrl").
+-include("ha_types.hrl").
 
 -ifdef(TEST).
 -export([
@@ -458,8 +460,8 @@ normalize_and_insert_contacts(UserId, _Server, Contacts, SyncId) ->
     {ok, OldReverseContactList} = model_contacts:get_contact_uids(UserPhone),
     {ok, BlockedUids} = model_privacy:get_blocked_uids2(UserId),
     {ok, BlockedByUids} = model_privacy:get_blocked_by_uids2(UserId),
-    {ok, OldFriendUids} = model_friends:get_friends(UserId),
-    OldFriendUidSet = sets:from_list(OldFriendUids),
+    {ok, OldFriendUidScores} = model_friends:get_friend_scores(UserId),
+    OldFriendUidSet = sets:from_list(maps:keys(OldFriendUidScores)),
     %% TODO(murali@): remove if unused.
     _OldContactSet = sets:from_list(OldContactList),
     OldReverseContactSet = sets:from_list(OldReverseContactList),
@@ -476,7 +478,7 @@ normalize_and_insert_contacts(UserId, _Server, Contacts, SyncId) ->
     ?INFO("Timetaken:obtain_user_ids: ~w us", [Time3 - Time2]),
 
     %% Obtain potential_friends for unregistered contacts.
-    UnRegisteredContacts2 = obtain_potential_friends(UserId, UnRegisteredContacts1),
+    UnRegisteredContacts2 = obtain_potential_friends(UserId, OldFriendUidScores, UnRegisteredContacts1),
     Time4 = os:system_time(microsecond),
     ?INFO("Timetaken:obtain_potential_friends: ~w us", [Time4 - Time3]),
 
@@ -564,20 +566,34 @@ obtain_user_ids(NormContacts) ->
 
 
 %% Sets potential friends for un-registered contacts.
--spec obtain_potential_friends(Uid :: binary(), UnRegisteredContacts :: [pb_contact()]) -> [pb_contact()].
-obtain_potential_friends(_Uid, UnRegisteredContacts) ->
+-spec obtain_potential_friends(Uid :: uid(), CloseFriendUidSet :: sets:set(uid()), 
+        UnRegisteredContacts :: [pb_contact()]) -> [pb_contact()].
+obtain_potential_friends(_Uid, FriendUidScores, UnRegisteredContacts) ->
+    CloseFriendUidSet = maps:fold(
+        fun (Ouid, Score, Acc) when Score > ?CLOSE_FRIEND_THRESHOLD ->
+                sets:add_element(Ouid, Acc);
+            (_Ouid, _Score, Acc) ->
+                Acc
+        end,
+        sets:new(),
+        FriendUidScores),
     ContactPhones = extract_normalized(UnRegisteredContacts),
     PhoneToInvitersMap = model_invites:get_inviters_list(ContactPhones),
-    PhoneToContactsMap = model_contacts:get_contacts_uids_size(ContactPhones),
+    {ok, PhoneToContactsMap} = model_contacts:get_contact_uids(ContactPhones),
     lists:map(
         fun(#pb_contact{normalized = ContactPhone} = Contact) ->
             NumInviters = length(maps:get(ContactPhone, PhoneToInvitersMap, [])),
-            NumPotentialFriends = maps:get(ContactPhone, PhoneToContactsMap, 0),
+            PotentialFriends = sets:from_list(maps:get(ContactPhone, PhoneToContactsMap, [])),
+            NumPotentialFriends = sets:size(PotentialFriends),
+            NumPotentialCloseFriends = sets:size(sets:intersection(CloseFriendUidSet, PotentialFriends)),
             case NumInviters >= ?MAX_INVITERS of
                 %% Dont share potential friends info if the number is already invited by more than MAX_INVITERS.
                 true -> Contact;
                 %% TODO(murali@): change this when we switch to contact hashing.
-                false -> Contact#pb_contact{num_potential_friends = NumPotentialFriends}
+                false -> Contact#pb_contact{
+                    num_potential_friends = NumPotentialFriends, 
+                    num_potential_close_friends = NumPotentialCloseFriends
+                }
             end
         end, UnRegisteredContacts).
 
