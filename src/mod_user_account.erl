@@ -136,7 +136,8 @@ log_delete_account(Account, Reason, Feedback) ->
         num_uid_contacts => NumUidContacts,
         num_friends => NumFriends,
         reason => Reason,
-        feedback => Feedback
+        feedback => Feedback,
+        uid => Uid
     }),
     stat:count("HA/account", "delete", 1, [{cc, CC}, {platform, Platform}]).
 
