@@ -171,7 +171,7 @@ request_invite(FromUid, ToPhoneNum) ->
                 InvStr -> InvStr
             end,
             InviteStringId = mod_invites:get_invite_string_id(InviteString),
-            ha_events:log_event("server.invite_sent",
+            ha_events:log_event(<<"server.invite_sent">>,
                 #{
                     uid => FromUid,
                     phone => ToPhoneNum,
