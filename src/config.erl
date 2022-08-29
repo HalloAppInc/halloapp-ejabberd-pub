@@ -37,7 +37,7 @@
 -define(SENTRY_DSN_SECRET_NAME, <<"sentry_dsn">>).
 
 
--type hallo_env() :: prod | localhost | test | github.
+-type hallo_env() :: prod | localhost | test | github | stress | docker.
 
 -spec get_hallo_env() -> hallo_env().
 get_hallo_env() ->
@@ -74,7 +74,7 @@ get_noise_secret_name() ->
     end.
 
 
--spec get_sentry_dsn() -> string().
+-spec get_sentry_dsn() -> binary().
 get_sentry_dsn() ->
     %% Can not use mod_aws to fetch the secret, since mod_aws might not be started.
     base64:decode(util_aws:get_secret(?SENTRY_DSN_SECRET_NAME)).
@@ -116,7 +116,6 @@ get_default_log_level() ->
         prod -> 4;
         github -> 4;
         stress -> 4;
-        docker -> 4;
-        _ -> 4
+        docker -> 4
     end.
 
