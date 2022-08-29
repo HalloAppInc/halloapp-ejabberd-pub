@@ -66,7 +66,7 @@ send_sms(Phone, _Code, LangId, _UserAgent) ->
                         [Phone, RequestId]),
                     {ok, #gateway_response{
                         gateway_id = RequestId,
-                        response = ResBody}}
+                        response = util:to_binary(ResBody)}}
             end;
         {ok, {{_, HttpStatus, _}, _ResHeaders, _ResBody}}->
             ?ERROR("Sending SMS failed Phone:~p, HTTPCode: ~p, response ~p",
@@ -83,7 +83,7 @@ send_sms(Phone, _Code, LangId, _UserAgent) ->
 send_voice_call(_Phone, _Code, _LangId, _UserAgent) ->
     {error, voice_call_fail, retry}.
 
--spec decode_response(ResBody :: iolist()) -> integer().
+-spec decode_response(ResBody :: iolist()) -> {ok, binary()} | {error, bad_format} | {error, binary(), binary()}.
 decode_response(ResBody) ->
     Json = jiffy:decode(ResBody, [return_maps]),
     Status = maps:get(<<"status">>, Json, <<"-1">>),

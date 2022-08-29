@@ -141,10 +141,7 @@ normalized_status(_) ->
 get_api_key() ->
     mod_aws:get_secret_value(<<"Infobip">>, <<"api_key">>).
 
--spec compose_body(Phone, Message) -> Body when
-    Phone :: phone(),
-    Message :: string(),
-    Body :: iodata().
+-spec compose_body(Phone :: phone(), Message :: binary()) -> Body :: string().
 compose_body(Phone, Message) ->
     PlusPhone = "+" ++ binary_to_list(Phone),
     jiffy:encode(#{

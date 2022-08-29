@@ -160,10 +160,7 @@ get_auth_token() ->
 %% `from` and `mo` weren't found in the actual documentation.
 %% https://stackoverflow.com/questions/36584831/clickatell-http-api-send-message-fails-with-routing-error-status-9
 %% `callback` = `7` indicates to clickatell to return all 7 parameters in the callback
--spec compose_body(Phone, Message) -> Body when
-    Phone :: phone(),
-    Message :: string(),
-    Body :: string().
+-spec compose_body(Phone :: phone(), Message :: binary()) -> Body :: string().
 compose_body(Phone, Message) ->
     Unicode = unicode:characters_to_binary(Message, unicode, utf16),
     Text = str:to_hexlist(Unicode),

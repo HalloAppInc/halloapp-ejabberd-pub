@@ -15,7 +15,7 @@
 
 
 -spec get_gateway_lang(LangId :: binary(), GatewayLangMap :: #{},
-        DefaultLangId :: iolist()) -> iolist().
+        DefaultLangId :: iolist() | binary()) -> iolist() | binary().
 get_gateway_lang(LangId, GatewayLangMap, DefaultLangId) ->
     case maps:get(LangId, GatewayLangMap, DefaultLangId) of
         DefaultLangId ->

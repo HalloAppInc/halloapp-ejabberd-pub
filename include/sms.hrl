@@ -12,6 +12,7 @@
 -define(SMS_HRL, true).
 
 -include("time.hrl").
+-include("ha_types.hrl").
 
 -define(ANDROID_DEBUG_HASH, <<"/TwOjtaTNFA">>).
 -define(ANDROID_RELEASE_HASH, <<"05IyxZs5b3I">>).
@@ -21,18 +22,18 @@
 -type status() :: accepted | queued | sending | sent | delivered | undelivered | failed | canceled | unknown.
 
 -record(gateway_response, {
-    gateway :: atom(),
-    method :: sms | voice_call,
-    gateway_id :: binary(),
-    status :: status(),
-    response :: binary(),
-    price :: float(),
-    currency :: binary(),
-    verified  :: boolean(),
-    attempt_id :: binary(),
-    attempt_ts :: non_neg_integer(),
-    lang_id :: binary(),
-    valid :: boolean()
+    gateway :: maybe(atom()),
+    method :: maybe(sms | voice_call),
+    gateway_id :: maybe(binary()),
+    status :: maybe(status()),
+    response :: maybe(binary()),
+    price :: maybe(float()),
+    currency :: maybe(binary()),
+    verified  :: maybe(boolean()),
+    attempt_id :: maybe(binary()),
+    attempt_ts :: maybe(non_neg_integer()),
+    lang_id :: maybe(binary()),
+    valid :: maybe(boolean())
 }).
 
 -type gateway_response()  :: #gateway_response{}.
@@ -40,11 +41,11 @@
 -record(verification_info,
 {
     attempt_id :: binary(),
-    gateway :: atom(),
+    gateway :: binary(),
     code :: binary(),
     sid :: binary(),
     ts :: non_neg_integer(),
-    status :: status(),
+    status :: binary(),
     valid :: boolean()
 }).
 

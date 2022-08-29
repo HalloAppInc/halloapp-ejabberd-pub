@@ -97,7 +97,7 @@ send_voice_call(Phone, Code, LangId, _UserAgent) ->
     sending_helper(Phone, FinalMsg, TwilioLangId, ?BASE_VOICE_URL(AccountSid), fun compose_voice_body/3, "Voice Call").
 
 
--spec sending_helper(Phone :: phone(), Msg :: string(), TwilioLangId :: binary(), BaseUrl :: string(),
+-spec sending_helper(Phone :: phone(), Msg :: string() | binary(), TwilioLangId :: string(), BaseUrl :: string(),
     ComposeBodyFn :: term(), Purpose :: string()) -> {ok, gateway_response()} | {error, atom(), atom()}.
 sending_helper(Phone, Msg, TwilioLangId, BaseUrl, ComposeBodyFn, Purpose) ->
     ?INFO("Phone: ~s Msg: ~p Purpose: ~s", [Phone, Msg, Purpose]),
@@ -127,7 +127,7 @@ sending_helper(Phone, Msg, TwilioLangId, BaseUrl, ComposeBodyFn, Purpose) ->
                     %% TODO: hardcoding params here is not great.
                     Id = util:random_str(20),
                     Status = queued,
-                    {ok, #gateway_response{gateway_id = Id, status = Status, response = ResBody}};
+                    {ok, #gateway_response{gateway_id = Id, status = Status, response = util:to_binary(ResBody)}};
                 {?INVALID_TO_PHONE_CODE, false} ->
                     ?INFO("Sending ~p failed, Phone: ~s Code ~p, response ~p (no_retry)", [Purpose, Phone, ErrCode, Response]),
                     {error, ErrMsg, no_retry};
@@ -205,7 +205,7 @@ fetch_tokens(false) ->
         binary_to_list(maps:get(<<"auth_token">>, Json))}.
 
 
--spec fetch_auth_headers(IsTest :: boolean()) -> string().
+-spec fetch_auth_headers(IsTest :: boolean()) -> [{string(),string()}].
 fetch_auth_headers(IsTest) ->
     {AccountSid, AuthToken} = fetch_tokens(IsTest),
     AuthStr = base64:encode_to_string(AccountSid ++ ":" ++ AuthToken),
@@ -221,7 +221,7 @@ encode_based_on_country(Phone, Msg) ->
 
 
 -spec compose_body(Phone :: phone(), Message :: string(),
-        TwilioLangId :: binary()) -> uri_string:uri_string().
+        TwilioLangId :: string()) -> uri_string:uri_string().
 compose_body(Phone, Message, _TwilioLangId) ->
     Message2 = encode_based_on_country(Phone, Message),
     PlusPhone = "+" ++ binary_to_list(Phone),
@@ -255,7 +255,7 @@ get_account_sid(IsTestNum) ->
         false -> ?PROD_ACCOUNT_SID
     end.
 
--spec get_from_phone(IsTestNum :: boolean()) -> phone().
+-spec get_from_phone(IsTestNum :: boolean()) -> phone() | string().
 get_from_phone(IsTestNum) ->
     case IsTestNum of
         true -> ?FROM_TEST_PHONE;
@@ -270,7 +270,7 @@ is_voice_lang_available(LangId) ->
 
 
 %% Doc: https://www.twilio.com/docs/voice/twiml/say#attributes-alice
--spec get_twilio_lang(LangId :: binary()) -> binary().
+-spec get_twilio_lang(LangId :: binary()) -> string().
 get_twilio_lang(LangId) ->
     TwilioLangMap = get_twilio_lang_map(),
     util_gateway:get_gateway_lang(LangId, TwilioLangMap, ?TWILIO_ENG_LANG_ID).

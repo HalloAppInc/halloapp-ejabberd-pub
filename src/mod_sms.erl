@@ -22,9 +22,9 @@
 -callback can_send_sms(CC :: binary()) -> boolean().
 -callback can_send_voice_call(CC :: binary()) -> boolean().
 -callback send_sms(Phone :: phone(), Code :: binary(), LangId :: binary(),
-        UserAgent :: binary()) -> {ok, gateway_response()} | {error, sms_fail}.
+        UserAgent :: binary()) -> {ok, gateway_response()} | {error, sms_fail, no_retry | retry}.
 -callback send_voice_call(Phone :: phone(), Code :: binary(), LangId :: binary(),
-        UserAgent :: binary()) -> {ok, gateway_response()} | {error, voice_call_fail}.
+        UserAgent :: binary()) -> {ok, gateway_response()} | {error, voice_call_fail | call_fail | tts_fail, no_retry | retry}.
 -callback send_feedback(Phone :: phone(), AllVerifyInfo :: list()) -> ok.
 -optional_callbacks([init/0]).
 
@@ -361,7 +361,7 @@ filter_gateways(CC, Method, GatewayList) ->
 
 -spec smart_send(OtpPhone :: phone(), Phone :: phone(), LangId :: binary(), UserAgent :: binary(),
         Method :: method(), CampaignId :: binary(), OldResponses :: [gateway_response()]) -> {ok, gateway_response()} |
-        {error, atom(), sms_fail} | {error, atom(), call_fail} | {error, atom(), voice_call_fail}.
+        {error, Gateway :: atom(), sms_fail | voice_call_fail | call_fail | tts_fail}.
 smart_send(OtpPhone, Phone, LangId, UserAgent, Method, CampaignId, OldResponses) ->
     CC = mod_libphonenumber:get_cc(OtpPhone),
 

@@ -185,7 +185,7 @@ fetch_tokens() ->
      binary_to_list(maps:get(<<"auth_token">>, Json))}.
 
 
--spec fetch_auth_headers() -> string().
+-spec fetch_auth_headers() -> [{string(), string()}].
 fetch_auth_headers() ->
     {AccountSid, AuthToken} = fetch_tokens(),
     AuthStr = base64:encode_to_string(AccountSid ++ ":" ++ AuthToken),

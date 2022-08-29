@@ -24,7 +24,7 @@
     is_hashcash_enabled/2
 ]).
 
--spec init_helper(GWOptions :: atom(), FromPhoneList :: [list()]) -> ok.
+-spec init_helper(GWOptions :: atom(), FromPhoneList :: [string()]) -> ok.
 init_helper(GWOptions, FromPhoneList) ->
     ets:new(GWOptions,
         [named_table, set, public, {write_concurrency, true}, {read_concurrency, true}]),
@@ -38,7 +38,7 @@ init_helper(GWOptions, FromPhoneList) ->
     ok.
 
 
--spec lookup_from_phone(GWOptions :: atom()) -> list().
+-spec lookup_from_phone(GWOptions :: atom()) -> string().
 lookup_from_phone(GWOptions) ->
     [{_, ListLength}] = ets:lookup(GWOptions, from_phone_list_length),
     PhoneIndex = ets:update_counter(GWOptions, from_phone_index, 1) rem ListLength,
@@ -86,12 +86,13 @@ get_response_code(ResBody) ->
 
 
 -spec get_sms_message(UserAgent :: binary(), Code :: binary(), LangId :: binary()) 
-        -> {Msg :: binary(), TranslatedLangId :: binary()}.
+        -> {MsgBin :: binary(), TranslatedLangId :: binary()}.
 get_sms_message(UserAgent, Code, LangId) ->
     {SmsMsgBin, TranslatedLangId} = mod_translate:translate(<<"server.sms.verification">>, LangId),
     AppHash = util_ua:get_app_hash(UserAgent),
     Msg = io_lib:format("~ts: ~s~n~n~n~s", [SmsMsgBin, Code, AppHash]),
-    {Msg, TranslatedLangId}.
+    MsgBin = util:to_binary(lists:flatten(Msg)),
+    {MsgBin, TranslatedLangId}.
 
 -spec is_google_request(Phone :: binary(), IP :: binary(), Protocol :: atom()) -> boolean().
 is_google_request(Phone, IP, Protocol) ->

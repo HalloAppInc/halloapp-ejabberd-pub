@@ -152,11 +152,7 @@ get_auth_token() ->
     ApiKey = mod_aws:get_secret_value(<<"Telesign">>, <<"api_key">>),
     util:to_list(base64:encode(CustomerId ++  ":" ++  ApiKey)).
     
--spec compose_body(Phone, Template, Code) -> Body when
-    Phone :: phone(),
-    Template :: string(),
-    Code :: string(),
-    Body :: uri_string:uri_string().
+-spec compose_body(Phone :: phone(), Template :: string(), Code :: binary()) -> Body :: uri_string:uri_string().
 compose_body(Phone, Template, Code) ->
     SenderId = get_sender_id(Phone),
     uri_string:compose_query([

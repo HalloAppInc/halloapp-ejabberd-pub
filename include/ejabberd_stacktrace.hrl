@@ -18,10 +18,5 @@
 %%%
 %%%----------------------------------------------------------------------
 
--ifdef(DEPRECATED_GET_STACKTRACE).
 -define(EX_RULE(Class, Reason, Stack), Class:Reason:Stack).
 -define(EX_STACK(Stack), Stack).
--else.
--define(EX_RULE(Class, Reason, _), Class:Reason).
--define(EX_STACK(_), erlang:get_stacktrace()).
--endif.

@@ -18,7 +18,6 @@
 -include("erlcloud_aws.hrl").
 -include("client_version.hrl").
 -include("proc.hrl").
--include("sms.hrl").
 
 -export([start_link/0]).
 %% gen_mod callbacks

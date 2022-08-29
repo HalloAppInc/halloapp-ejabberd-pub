@@ -140,7 +140,7 @@ fetch_headers(Phone) ->
     [Headers, Type, [], []].
 
 
--spec compose_body(Phone :: phone(), Method :: string(), LangId :: binary()) -> uri_string:uri_string().
+-spec compose_body(Phone :: phone(), LangId :: binary(), Method :: string()) -> uri_string:uri_string().
 compose_body(Phone, LangId, Method) ->
     PlusPhone = "+" ++ binary_to_list(Phone),
     Message = [

@@ -72,7 +72,7 @@ send_sms(Phone, Code, LangId, UserAgent) ->
                         price = Price,
                         currency = <<"EUR">>,
                         status = accepted,
-                        response = ResBody}}
+                        response = util:to_binary(ResBody)}}
             end;
         {ok, {{_, HttpStatus, _}, _ResHeaders, _ResBody}}->
             ?ERROR("Sending SMS failed Phone:~p, HTTPCode: ~p, response ~p",
@@ -89,7 +89,7 @@ send_sms(Phone, Code, LangId, UserAgent) ->
 send_voice_call(_Phone, _Code, _LangId, _UserAgent) ->
     {error, voice_call_fail, retry}.
 
--spec decode_response(ResBody :: iolist()) -> integer().
+-spec decode_response(ResBody :: iolist()) -> {ok, binary(), float(), binary()} | {error, bad_format} | {error, binary(), binary(), binary()}.
 decode_response(ResBody) ->
     Json = jiffy:decode(ResBody, [return_maps]),
     Messages = maps:get(<<"messages">>, Json, []),
@@ -137,10 +137,7 @@ get_api_secret() ->
     mod_aws:get_secret_value(<<"Vonage">>, <<"api_secret">>).
 
 
--spec compose_body(Phone, Message) -> Body when
-    Phone :: phone(),
-    Message :: string(),
-    Body :: uri_string:uri_string().
+-spec compose_body(Phone :: phone(), Message :: binary()) -> Body :: uri_string:uri_string().
 compose_body(Phone, Message) ->
     uri_string:compose_query([
         {"to", Phone },
