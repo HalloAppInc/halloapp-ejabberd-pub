@@ -785,11 +785,18 @@ format_contact_list(Uid) ->
     {ok, Friends} = model_friends:get_friends(Uid),
     PhoneToUidMap = model_phone:get_uids(ContactPhones),
     UidToNameMap = model_accounts:get_names(maps:values(PhoneToUidMap)),
-    PhoneToNumFriendsMap = maps:fold(
-        fun(K, V, Acc) ->
+    {PhoneToNumFriendsMap, PhoneToCreationDateMap, PhoneToLastActiveDateMap} = maps:fold(
+        fun(K, V, {Acc1, Acc2, Acc3}) ->
             {ok, Friends2} = model_friends:get_friends(V),
-            maps:put(K, length(Friends2), Acc)
-        end, #{}, PhoneToUidMap),
+            NewAcc1 = maps:put(K, length(Friends2), Acc1),
+            {ok, #account{creation_ts_ms = CreationTs, last_activity_ts_ms = LastActivityTs}} =
+                model_accounts:get_account(V),
+            {CreationDate, _CreationTime} = util:ms_to_datetime_string(CreationTs),
+            {LastActiveDate, _LastActiveTime} = util:ms_to_datetime_string(LastActivityTs),
+            NewAcc2 = maps:put(K, CreationDate, Acc2),
+            NewAcc3 = maps:put(K, LastActiveDate, Acc3),
+            {NewAcc1, NewAcc2, NewAcc3}
+        end, {#{}, #{}, #{}}, PhoneToUidMap),
     PhoneToNameMap = maps:map(fun(_P, U) -> maps:get(U, UidToNameMap) end, PhoneToUidMap),
     ContactList = [{
         case maps:get(CPhone, PhoneToUidMap, undefined) of      % Friend or Contact
@@ -803,9 +810,11 @@ format_contact_list(Uid) ->
         binary_to_integer(CPhone),                              % Phone,
         maps:get(CPhone, PhoneToUidMap, ""),                    % Uid,
         maps:get(CPhone, PhoneToNameMap, ""),                   % Name
-        maps:get(CPhone, PhoneToNumFriendsMap, 0)               % Num Friends
+        maps:get(CPhone, PhoneToNumFriendsMap, 0),              % Num Friends
+        maps:get(CPhone, PhoneToCreationDateMap, ""),           % Creation Date
+        maps:get(CPhone, PhoneToLastActiveDateMap, "")          % Last Active Date
     } || CPhone <- ContactPhones],
-    NumFriends = length([1 || {CorF, _P, _U, _N, _NF} <- ContactList, CorF =:= "F"]),
+    NumFriends = length([1 || {CorF, _P, U, _N, _NF, _CD, _LAD} <- ContactList, CorF =:= "F" andalso U =/= Uid]),
     {ok, ContactList, NumFriends}.
 
 
@@ -884,12 +893,13 @@ uid_info(Uid, Options) ->
             {ok, ContactList, NumFriends} = format_contact_list(Uid),
             ContactList2 = case lists:member(show_all_contacts, Options) of
                 true -> ContactList;
-                false -> lists:filter(fun({_, _, AUid, _, _}) -> AUid =/= "" end, ContactList)
+                false -> lists:filter(fun({_, _, AUid, _, _, _, _}) -> AUid =/= "" andalso AUid =/= Uid end, ContactList)
             end,
             io:format("Contact list (~p, ~p are friends):~n",
                 [length(ContactList2), NumFriends]),
-            [io:format("  ~s ~w ~s ~p ~s ~n", [CorF, CPhone, FUid, FNumFriends, FName]) ||
-                {CorF, CPhone, FUid, FName, FNumFriends} <- ContactList2],
+            [io:format("  ~s ~w ~s ~p ~s ~s ~s ~n",
+                [CorF, CPhone, FUid, FNumFriends, FCDate, FLADate, FName]) ||
+                {CorF, CPhone, FUid, FName, FNumFriends, FCDate, FLADate} <- ContactList2],
 
             Gids = model_groups:get_groups(Uid),
             io:format("Group list (~p):~n", [length(Gids)]),
