@@ -400,6 +400,7 @@ sec_to_ms(Seconds) when is_integer(Seconds) ->
 
 
 -spec check_and_convert_ms_to_sec(Timestamp :: integer()) -> integer().
+check_and_convert_ms_to_sec(Timestamp) when is_integer(Timestamp), Timestamp < 0 -> Timestamp;
 check_and_convert_ms_to_sec(Timestamp) when is_integer(Timestamp) ->
     case Timestamp of
         %% 1597095974000 is epoch timestamp in ms for august 10th 2020.
@@ -415,6 +416,7 @@ check_and_convert_ms_to_sec(Timestamp) when is_integer(Timestamp) ->
 
 
 -spec check_and_convert_sec_to_ms(Timestamp :: integer()) -> integer().
+check_and_convert_sec_to_ms(Timestamp) when is_integer(Timestamp), Timestamp < 0 -> Timestamp;
 check_and_convert_sec_to_ms(Timestamp) when is_integer(Timestamp) ->
     case Timestamp of
         %% 1029014873000 is epoch timestamp in ms for august 10th 2002.
