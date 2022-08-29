@@ -52,8 +52,8 @@ get_hallo_env() ->
             ?ERROR("Environment ~p not set! Defaulting to test", [?HALLO_ENV_NAME]),
             test;
         Else -> 
-            ?ERROR("Unexpected ~p value: ~p. Defaulting to prod", [?HALLO_ENV_NAME, Else]),
-            prod
+            ?ERROR("Unexpected ~p value: ~p. Defaulting to test", [?HALLO_ENV_NAME, Else]),
+            test
     end.
 
 
