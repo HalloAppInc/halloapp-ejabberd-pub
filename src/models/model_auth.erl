@@ -63,7 +63,7 @@ set_spub(Uid, SPub) ->
     ok.
 
 
--spec get_spub(Uid :: binary()) -> {ok, binary()} | {error, missing}.
+-spec get_spub(Uid :: binary()) -> {ok, s_pub()} | {error, missing}.
 get_spub(Uid) ->
     {ok, [SPub, TsMsBinary]} = q(["HMGET", spub_key(Uid),
         ?FIELD_S_PUB, ?FIELD_TIMESTAMP_MS]),

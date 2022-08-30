@@ -453,7 +453,7 @@ get_static_key_info(StaticKey) ->
     {ok, {util_redis:decode_int(Count), util_redis:decode_ts(Timestamp)}}.
 
 
--spec delete_static_key(StaticKey :: list()) -> ok  | {error, any()}.
+-spec delete_static_key(StaticKey :: binary()) -> ok  | {error, any()}.
 delete_static_key(StaticKey) ->
     Trunc = truncate_static_key(StaticKey),
     _Results = q(["DEL", remote_static_key(Trunc)]),

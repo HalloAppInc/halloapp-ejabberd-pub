@@ -42,8 +42,8 @@
     audience_type :: atom(),
     audience_list :: [uid()],
     ts_ms :: integer(),
-    gid :: binary(),
-    psa_tag :: binary()
+    gid :: maybe(binary()),
+    psa_tag :: maybe(binary())
 }).
 
 -type post() :: #post{}.

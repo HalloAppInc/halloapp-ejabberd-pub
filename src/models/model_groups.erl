@@ -63,6 +63,9 @@
     count_groups/1
 ]).
 
+-dialyzer({no_match, decode_member_type/1}).
+-dialyzer({no_match, encode_member_type/1}).
+
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
 -export([
@@ -275,7 +278,7 @@ get_group_count(Uid) ->
     maps:get(Uid, get_group_counts([Uid])).
 
 
--spec get_group_counts(Uids :: uid()) -> integer() | {error, any()}.
+-spec get_group_counts(Uids :: [uid()]) -> #{uid() => integer()} | {error, any()}.
 get_group_counts(Uids) ->
     Commands = lists:map(fun(Uid) -> ["SCARD", user_groups_key(Uid)] end, Uids),
     RedisResults = qmn(Commands),

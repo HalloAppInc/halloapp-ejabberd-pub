@@ -972,7 +972,7 @@ count_registrations(Slot) ->
             end,
     Count.
 
--spec count_registration_query(Slot :: non_neg_integer()) -> non_neg_integer().
+-spec count_registration_query(Slot :: non_neg_integer()) -> ecredis:redis_command().
 count_registration_query(Slot) ->
     ["GET", count_registrations_key_slot(Slot)].
 
@@ -991,7 +991,7 @@ count_accounts(Slot) ->
             end,
     Count.
 
--spec count_accounts_query(Slot :: non_neg_integer()) -> non_neg_integer().
+-spec count_accounts_query(Slot :: non_neg_integer()) -> ecredis:redis_command().
 count_accounts_query(Slot) ->
     ["GET", count_accounts_key_slot(Slot)].
 
@@ -1181,17 +1181,17 @@ cleanup_uids_to_delete_keys() ->
     ok.
 
 
--spec mark_inactive_uids_gen_start() -> bool.
+-spec mark_inactive_uids_gen_start() -> boolean().
 mark_inactive_uids_gen_start() ->
     mark_inactive_uids(?INACTIVE_UIDS_GEN_KEY).
 
 
--spec mark_inactive_uids_deletion_start() -> bool.
+-spec mark_inactive_uids_deletion_start() -> boolean().
 mark_inactive_uids_deletion_start() ->
     mark_inactive_uids(?INACTIVE_UIDS_DELETION_KEY).
 
 
--spec mark_inactive_uids_check_start() -> bool.
+-spec mark_inactive_uids_check_start() -> boolean().
 mark_inactive_uids_check_start() ->
     mark_inactive_uids(?INACTIVE_UIDS_CHECK_KEY).
 

@@ -22,7 +22,7 @@
     uid :: uid(),
     type :: member | admin,
     joined_ts_ms :: non_neg_integer(),
-    identity_key :: binary()
+    identity_key :: maybe(binary())
 }).
 
 -type group_member() :: #group_member{}.
@@ -35,7 +35,7 @@
     background :: binary(),
     creation_ts_ms :: integer(),
     members :: [group_member()],
-    audience_hash :: binary(),
+    audience_hash :: maybe(binary()),
     expiry_info :: expiry_info()
 }).
 
@@ -55,8 +55,8 @@
 
 -record(expiry_info, {
     expiry_type :: expiry_type(),
-    expires_in_seconds :: integer(),
-    expiry_timestamp :: integer()
+    expires_in_seconds :: maybe(integer()),
+    expiry_timestamp :: maybe(integer())
 }).
 
 -type expiry_type() :: expires_in_seconds | never | custom_date.

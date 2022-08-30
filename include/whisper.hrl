@@ -17,7 +17,7 @@
     uid :: binary(),
     identity_key :: binary(),
     signed_key :: binary(),
-    one_time_key :: binary(),
+    one_time_key :: maybe(binary()),
     timestamp_ms :: maybe(integer())
 }).
 

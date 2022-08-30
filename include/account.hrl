@@ -17,21 +17,21 @@
 -record(account,
 {
     uid :: binary(),
-    phone :: binary(),
-    name :: binary(),
+    phone :: maybe(binary()),
+    name :: maybe(binary()),
     creation_ts_ms :: integer(),
     last_registration_ts_ms :: integer(),
     signup_user_agent :: binary(),
     campaign_id :: binary(),
     client_version :: binary(),
-    last_activity_ts_ms :: integer() | undefined,
-    activity_status :: activity_status() | undefined,
-    lang_id :: binary() | undefined,
-    device :: binary() | undefined,
-    os_version :: binary() | undefined,
-    last_ipaddress :: binary() | undefined,
-    avatar_id :: binary() | undefined,
-    communities :: community_label() | undefined
+    last_activity_ts_ms :: maybe(integer()),
+    activity_status :: maybe(activity_status()),
+    lang_id :: maybe(binary()),
+    device :: maybe(binary()),
+    os_version :: maybe(binary()),
+    last_ipaddress :: maybe(binary()),
+    avatar_id :: maybe(binary()),
+    communities :: maybe(community_label())
 }).
 
 -type account() :: #account{}.
@@ -58,7 +58,7 @@
     timestamp_ms :: integer(),
     post_pref :: maybe(boolean()),
     comment_pref :: maybe(boolean()),
-    client_version :: binary(),
+    client_version :: maybe(binary()),
     lang_id :: binary()
 }).
 

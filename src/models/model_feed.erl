@@ -338,41 +338,42 @@ get_comment_data(PostId, CommentId, ParentId) ->
     [PostUid, PostPayload, PostTag, AudienceType, PostTsMs, IsPostDeletedBin] = Res1,
     AudienceList = Res2,
     [CommentPublisherUid, ParentCommentId, CommentPayload, CommentTsMs, IsCommentDeletedBin] = Res3,
-    Post = #post{
-        id = PostId,
-        uid = PostUid,
-        audience_type = decode_audience_type(AudienceType),
-        audience_list = AudienceList,
-        payload = PostPayload,
-        tag = decode_post_tag(PostTag),
-        ts_ms = util_redis:decode_ts(PostTsMs)
-    },
-    Comment = #comment{
-        id = CommentId,
-        post_id = PostId,
-        publisher_uid = CommentPublisherUid,
-        parent_id = util_redis:decode_maybe_binary(ParentCommentId),
-        payload = CommentPayload,
-        ts_ms = util_redis:decode_ts(CommentTsMs)
-    },
+    
     IsPostMissing = PostUid =:= undefined orelse util_redis:decode_boolean(IsPostDeletedBin, false),
     IsCommentMissing = CommentPublisherUid =:= undefined orelse
             util_redis:decode_boolean(IsCommentDeletedBin, false),
 
-    %% Fetch push data.
-    ParentPushList = sets:to_list(sets:from_list(get_comment_push_data(ParentId, PostId))),
+    {PostRet, PushRet} = case IsPostMissing of 
+        true -> {{error, missing}, {error, missing}};
+        false ->
+            Post = #post{
+                id = PostId,
+                uid = PostUid,
+                audience_type = decode_audience_type(AudienceType),
+                audience_list = AudienceList,
+                payload = PostPayload,
+                tag = decode_post_tag(PostTag),
+                ts_ms = util_redis:decode_ts(PostTsMs)
+            },
+            %% Fetch push data.
+            ParentPushList = lists:usort(get_comment_push_data(ParentId, PostId)),
+            {{ok, Post}, {ok, ParentPushList}}
+    end,
+    CommentRet = case IsCommentMissing of
+        true -> {error, missing};
+        false ->
+            Comment = #comment{
+                id = CommentId,
+                post_id = PostId,
+                publisher_uid = CommentPublisherUid,
+                parent_id = util_redis:decode_maybe_binary(ParentCommentId),
+                payload = CommentPayload,
+                ts_ms = util_redis:decode_ts(CommentTsMs)
+            },
+            {ok, Comment}
+    end,
 
-    if
-        IsPostMissing andalso IsCommentMissing ->
-            {{error, missing}, {error, missing}, {error, missing}};
-        not IsPostMissing andalso IsCommentMissing ->
-            {{ok, Post}, {error, missing}, {ok, ParentPushList}};
-        IsPostMissing andalso not IsCommentMissing ->
-            ?ERROR("Invalid internal state: postid: ~p, commentid: ~p", [PostId, CommentId]),
-            {{error, missing}, {error, missing}, {error, missing}};
-        true ->
-            {{ok, Post}, {ok, Comment}, {ok, ParentPushList}}
-    end.
+    {PostRet, CommentRet, PushRet}.
 
 
 %% Returns a list of uids to send a push notification for when replying to commentId on postId.
@@ -548,7 +549,7 @@ get_group_feed_posts(PostIds) ->
     get_posts(PostIds, FilterFun).
 
 
--spec get_posts(PostIds :: [binary()], FilterFun :: fun()) -> [{binary(), post()}].
+-spec get_posts(PostIds :: [binary()], FilterFun :: fun()) -> [post()].
 get_posts(PostIds, FilterFun) ->
     Results = lists:map(
         fun (PostId) ->

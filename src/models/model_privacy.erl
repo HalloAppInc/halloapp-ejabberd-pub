@@ -97,6 +97,9 @@
     is_except_phone/2
 ]).
 
+-dialyzer({no_match, block_uids2/2}).
+-dialyzer({no_match, unblock_uids2/2}).
+
 -define(FIELD_PRIVACY_LIST_TYPE, <<"plt">>).
 -define(USER_VAL, <<"">>).
 

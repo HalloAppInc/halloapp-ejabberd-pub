@@ -43,7 +43,7 @@
 %%====================================================================
 
 
--spec set_session(Uid :: uid(), Session :: session()) -> {ok, maybe(pid())}.
+-spec set_session(Uid :: uid(), Session :: session()) -> ok.
 set_session(Uid, Session) ->
     SBin = term_to_binary(Session),
     SID = Session#session.sid,
@@ -65,7 +65,7 @@ get_sessions(Uid) ->
     lists:map(fun binary_to_term/1, SessionsBin).
 
 
--spec get_session(Uid :: binary(), SID :: term()) -> session().
+-spec get_session(Uid :: binary(), SID :: term()) -> {ok, session()} | {error, any()}.
 get_session(Uid, SID) ->
     SIDKey = term_to_binary(SID),
     case q(["HGET", sessions_key(Uid), SIDKey]) of
@@ -90,7 +90,7 @@ get_passive_sessions(Uid) ->
         end, get_sessions(Uid)).
 
 
--spec set_static_key_session(StaticKey :: binary(), Session :: session()) -> {ok, maybe(pid())}.
+-spec set_static_key_session(StaticKey :: binary(), Session :: session()) -> ok.
 set_static_key_session(StaticKey, Session) ->
     SBin = term_to_binary(Session),
     SID = Session#session.sid,

@@ -214,7 +214,7 @@ get_all_user_messages(Uid) ->
 
 
 -spec get_user_messages(Uid :: uid(), MinOrderId :: integer(),
-        Limit :: maybe(integer())) -> {ok, [maybe(offline_message())]} | {error, any()}.
+        Limit :: maybe(integer())) -> {ok, boolean(), [maybe(offline_message())]} | {error, any()}.
 get_user_messages(Uid, MinOrderId, Limit) ->
     Part1 = ["ZRANGEBYSCORE", message_queue_key(Uid), MinOrderId, "+inf"],
     Part2 = case Limit of

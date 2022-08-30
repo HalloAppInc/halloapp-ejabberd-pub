@@ -113,7 +113,7 @@ remove_all_friends(Uid) ->
 %% Friend Scoring API
 %%====================================================================
 
--spec get_friend_scores(uid()) -> #{uid() => integer()} | {error, any()}.
+-spec get_friend_scores(uid()) -> {ok, #{uid() => integer()}} | {error, any()}.
 get_friend_scores(Uid) ->
     UidKey = key(Uid),
     {ok, Res} = q(["HGETALL", UidKey]),
@@ -161,7 +161,7 @@ get_friend_recommendations(Uids) ->
     get_friend_recommendations(Uids, 0).
 
 
--spec get_friend_recommendations(uid(), pos_integer()) -> [uid()] | #{uid() => [uid()]}| {error, any()}.
+-spec get_friend_recommendations(uid(), non_neg_integer()) -> [uid()] | #{uid() => [uid()]}| {error, any()}.
 get_friend_recommendations(Uids, NumRecs) when is_list(Uids) ->
     Commands = lists:map(
         fun (Uid) ->
