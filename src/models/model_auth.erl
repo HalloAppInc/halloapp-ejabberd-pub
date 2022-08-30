@@ -35,6 +35,7 @@
     delete_static_key/2,
     get_static_keys/1,
     get_static_key_uid/1,
+    static_key_search/1,
     add_static_key_code_attempt/2,
     get_static_key_code_attempts/2
 ]).
@@ -134,6 +135,25 @@ get_static_key_uid(StaticKey) ->
     RevStaticKey = reverse_static_key_key(StaticKey),
     q(["HGET", RevStaticKey, ?FIELD_STATIC_KEY_UID]).
 
+%% for `ejabberdctl static_key_info`
+-spec static_key_search(binary()) -> [{binary(), uid()}].
+static_key_search(RevStaticKeyPrefix) ->
+    FormattedRevStaticKeyPrefix = util:to_binary([?REVERSE_STATIC_KEY_KEY, "{", RevStaticKeyPrefix, "*"]),
+    static_key_search(<<"0">>, FormattedRevStaticKeyPrefix).
+
+-spec static_key_search(binary(), binary()) -> [{binary(), uid()}].
+static_key_search(Cursor, RevStaticKeyPrefix) ->
+    case q(["SCAN", Cursor, "MATCH", RevStaticKeyPrefix, "COUNT", "500"]) of
+        {ok, [<<"0">>, _]} -> [];
+        {ok, [NewCursor, []]} -> static_key_search(NewCursor, RevStaticKeyPrefix);
+        {ok, [_, Results]} ->
+            lists:map(
+                fun(RevStaticKey) ->
+                    {ok, Uid} = q(["HGET", RevStaticKey, ?FIELD_STATIC_KEY_UID]),
+                    {RevStaticKey, Uid}
+                end,
+                Results)
+    end.
 
 -spec add_static_key_code_attempt(StaticKey :: binary(), Timestamp :: integer()) -> integer().
 add_static_key_code_attempt(StaticKey, Timestamp) ->

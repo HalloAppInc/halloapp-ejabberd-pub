@@ -60,6 +60,7 @@
     phone_info_with_all_contacts/1,
     group_info/1,
     session_info/1,
+    static_key_info/1,
     get_sms_codes/1,
     send_invite/2,
     reset_sms_backoff/1,
@@ -378,6 +379,12 @@ get_commands_spec() ->
         args_desc = ["Account UID"],
         args_example = [<<"1000000024384563984">>],
         args=[{uid, binary}], result = {res, rescode}},
+    #ejabberd_commands{name = static_key_info, tags = [server],
+        desc = "Get uid(s) associated with a noise registration key or a noise reg key prefix",
+        module = ?MODULE, function = static_key_info,
+        args_desc = ["Static key or static key prefix"],
+        args_example = [<<"Q+v8tggW+WDPMmBN9vPoBvyDl5V4vd3o5FG0v7/qH+1=">>],
+        args=[{key, binary}], result = {res, rescode}},
     #ejabberd_commands{name = get_sms_codes, tags = [server],
         desc = "Get SMS registration code for phone number",
         module = ?MODULE, function = get_sms_codes,
@@ -982,6 +989,18 @@ session_info(Uid) ->
                 Sessions)
     end,
     ok.
+
+
+static_key_info(Key) ->
+    case model_auth:static_key_search(Key) of
+        [] -> io:format("No results~n", []);
+        Results ->
+            lists:foreach(
+                fun({ResultKey, Uid}) ->
+                    io:format("~s: ~s~n", [ResultKey, Uid])
+                end,
+                Results)
+    end.
 
 
 reset_sms_backoff(Phone) ->
