@@ -234,15 +234,14 @@ process_msg(_Msg, State) ->
     ?ERROR("Invalid packet received", []),
     {#pb_ha_error{reason = <<"invalid_packet">>}, State}.
 
--spec add_key_to_session(StaticKey :: binary(), Sid :: term(), IP :: binary()) -> ok.
+-spec add_key_to_session(StaticKey :: binary(), Sid :: term(), IP :: binary()) -> ok | {error, any()}.
 add_key_to_session(StaticKey, Sid, IP) ->
     close_current_sessions_static_key(StaticKey),
     ?INFO("Static Key: ~p, sid: ~p, ip: ~p", [base64:encode(StaticKey), Sid, IP]),
     %% TODO(vipin): Add uid, sid, resource, mode and info -- which includes clientVersion/ip.
     %% TODO(vipin): Add hooks.
     Session = #session{sid = Sid, info = [{ip, IP}]},
-    ok = model_session:set_static_key_session(StaticKey, Session),
-    ok.
+    model_session:set_static_key_session(StaticKey, Session).
 
 -spec close_current_sessions_static_key(StaticKey :: binary()) -> ok.
 close_current_sessions_static_key(StaticKey) ->
@@ -274,7 +273,7 @@ close_all_sessions(StaticKey) ->
             delete_key_from_session(StaticKey, Sid)
         end, SessionsList).
  
- -spec delete_key_from_session(StaticKey :: binary(), Sid :: binary()) -> ok.
+ -spec delete_key_from_session(StaticKey :: binary(), Sid :: term()) -> ok.
 delete_key_from_session(StaticKey, Sid) ->
     ?INFO("Static Key: ~s, sid: ~p", [base64:encode(StaticKey), Sid]),
     Session = #session{sid = Sid},

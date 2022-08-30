@@ -200,7 +200,7 @@ send_request_internal(Body, State) ->
     end.
 
 
--spec compose_body(MetricsList :: [], TimestampMs :: integer(), MachineName :: binary()) -> binary().
+-spec compose_body(MetricsList :: list(), TimestampMs :: integer(), MachineName :: binary()) -> binary().
 compose_body(MetricsList, TimestampMs, MachineName) ->
     Data = lists:filtermap(
             fun(MetricKeyAndValue) ->
@@ -245,7 +245,7 @@ compose_tags(Dimensions, MachineName) ->
     end.
 
 
--spec check_and_alert(State :: #{}) -> ok.
+-spec check_and_alert(State :: #{?FAILED_ATTEMPTS := integer()}) -> ok.
 check_and_alert(#{?FAILED_ATTEMPTS := FailedAttempts}) ->
     case FailedAttempts >= ?FAILED_ATTEMPTS_THRESHOLD of
         false -> ok;

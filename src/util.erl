@@ -520,7 +520,7 @@ get_shard(Node) ->
 -spec get_stest_shard_num() -> non_neg_integer().
 get_stest_shard_num() -> ?STEST_SHARD_NUM.
 
--spec get_payload_type(Packet :: stanza()) -> atom.
+-spec get_payload_type(Packet :: stanza()) -> atom().
 get_payload_type(#pb_iq{} = Pkt) -> pb:get_payload_type(Pkt);
 get_payload_type(#pb_msg{} = Pkt) -> pb:get_payload_type(Pkt);
 get_payload_type(_) -> undefined.
@@ -557,7 +557,7 @@ set_timestamp(#pb_msg{payload = #pb_saved_receipt{} = SavedReceipt} = Msg, T) ->
 set_timestamp(Packet, _T) -> Packet.
 
 
--spec get_protocol({inet:address(), inet:port_number()}) -> ipv4 | ipv6.
+-spec get_protocol({inet:address(), any()}) -> ipv4 | ipv6.
 get_protocol({{_, _, _, _}, _}) ->
     ipv4;
 get_protocol({{0, 0, 0, 0, 0, _, _, _}, _}) ->

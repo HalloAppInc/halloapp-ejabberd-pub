@@ -87,7 +87,7 @@ is_prod_env() ->
 
 -type host() :: string().
 -type service() :: {term(), host(), port()}.
--spec get_service(string()) -> {ok, service()} | {error, any()}.
+-spec get_service(atom()) -> {ok, service()}.
 get_service(Name) ->
     case {get_hallo_env(), Name} of
         {localhost, Name} -> {Name, "127.0.0.1", 30001};
@@ -105,7 +105,7 @@ get_service(Name) ->
         {prod, redis_groups} -> {redis_groups, "redis-groups.zsin4n.clustercfg.use1.cache.amazonaws.com", 6379};
         {prod, redis_feed} -> {redis_feed, "redisfeed.zsin4n.clustercfg.use1.cache.amazonaws.com", 6379};
         {prod, redis_sessions} -> {redis_sessions, "redis-sessions.zsin4n.clustercfg.use1.cache.amazonaws.com", 6379};
-        _Else -> {error, service_not_found}
+        _Else -> erlang:error({nonexistent, Name})
   end.
 
 -spec get_default_log_level() -> ejabberd_logger:loglevel().

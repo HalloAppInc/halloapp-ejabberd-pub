@@ -24,8 +24,8 @@
 stress_upload_server(NumClients, NumRequestsPerClient, Options) ->
     spawn_clients(NumClients, NumClients, NumRequestsPerClient, Options, os:system_time(millisecond)).
 
--spec spawn_clients(TotalClients :: integer(), RemainingClients :: integer(), Options :: map(),
-        NumRequestsPerClient :: integer(), StartTime :: integer()) -> ok.
+-spec spawn_clients(TotalClients :: integer(), RemainingClients :: integer(), 
+        NumRequestsPerClient :: integer(), Options :: map(), StartTime :: integer()) -> ok.
 spawn_clients(TotalClients, 0, NumRequestsPerClient, _Options, StartTime) ->
     wait_for(TotalClients),
     TimeTaken = os:system_time(millisecond) - StartTime,

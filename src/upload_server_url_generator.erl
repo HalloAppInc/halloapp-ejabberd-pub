@@ -49,7 +49,8 @@ init(UploadHosts, UploadPort) ->
 -spec close() -> ok.
 close() ->
     ?INFO("~p", [close]),
-    persistent_term:erase({?MODULE, upload_hosts}).
+    persistent_term:erase({?MODULE, upload_hosts}),
+    ok.
 
 
 %% Generates url for Http patch, returns {Key, PatchUrl} via the callback.

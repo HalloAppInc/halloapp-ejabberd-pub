@@ -15,6 +15,12 @@
 -include("logger.hrl").
 
 
+-dialyzer({nowarn_function, parse_territories/1}). % dialyzer doesn't know that the XML is well-formed.
+-dialyzer({no_unused, parse_attributes_for_length/2}).
+-dialyzer({no_unused, parse_attributes/2}).
+-dialyzer({no_unused, parse_content/3}).
+-dialyzer({no_unused, get_pattern_and_lengths/2}).
+
 %% API
 -export([parse_xml_file/1]).
 

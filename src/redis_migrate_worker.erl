@@ -67,7 +67,7 @@ iterate(Name) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
--spec init(Job :: #{}) -> {ok, any()}.
+-spec init(Job :: map()) -> {ok, map()}.
 init(#{redis_host := RedisHost, redis_port := RedisPort, interval := Interval,
         dry_run := DryRun, scan_count := ScanCount, params := Params} = Job) ->
     ?INFO("Migration started: pid: ~p, Job: ~p", [self(), Job]),

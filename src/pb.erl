@@ -33,7 +33,7 @@
 
 
 
--spec get_to(pb_packet()) -> binary().
+-spec get_to(stanza()) -> binary().
 get_to(#pb_iq{to_uid = ToUid}) -> ToUid;
 get_to(#pb_msg{to_uid = ToUid}) -> ToUid;
 get_to(#pb_presence{to_uid = ToUid}) -> ToUid;
@@ -41,7 +41,7 @@ get_to(#pb_chat_state{to_uid = ToUid}) -> ToUid;
 get_to(#pb_ack{to_uid = ToUid}) -> ToUid.
 
 
--spec get_from(pb_packet()) -> binary().
+-spec get_from(stanza()) -> binary().
 get_from(#pb_iq{from_uid = FromUid}) -> FromUid;
 get_from(#pb_msg{from_uid = FromUid}) -> FromUid;
 get_from(#pb_presence{from_uid = FromUid}) -> FromUid;
@@ -49,7 +49,7 @@ get_from(#pb_chat_state{from_uid = FromUid}) -> FromUid;
 get_from(#pb_ack{from_uid = FromUid}) -> FromUid.
 
 
--spec set_to(pb_packet(), binary()) -> pb_packet().
+-spec set_to(stanza(), binary()) -> stanza().
 set_to(#pb_iq{} = Pkt, ToUid) -> Pkt#pb_iq{to_uid = ToUid};
 set_to(#pb_msg{} = Pkt, ToUid) -> Pkt#pb_msg{to_uid = ToUid};
 set_to(#pb_presence{} = Pkt, ToUid) -> Pkt#pb_presence{to_uid = ToUid};
@@ -57,7 +57,7 @@ set_to(#pb_chat_state{} = Pkt, ToUid) -> Pkt#pb_chat_state{to_uid = ToUid};
 set_to(#pb_ack{} = Pkt, ToUid) -> Pkt#pb_ack{to_uid = ToUid}.
 
 
--spec set_from(pb_packet(), binary()) -> pb_packet().
+-spec set_from(stanza(), binary()) -> stanza().
 set_from(#pb_iq{} = Pkt, FromUid) -> Pkt#pb_iq{from_uid = FromUid};
 set_from(#pb_msg{} = Pkt, FromUid) -> Pkt#pb_msg{from_uid = FromUid};
 set_from(#pb_presence{} = Pkt, FromUid) -> Pkt#pb_presence{from_uid = FromUid};
@@ -65,11 +65,11 @@ set_from(#pb_chat_state{} = Pkt, FromUid) -> Pkt#pb_chat_state{from_uid = FromUi
 set_from(#pb_ack{} = Pkt, FromUid) -> Pkt#pb_ack{from_uid = FromUid}.
 
 
--spec set_to_from(pb_packet(), binary(), binary()) -> pb_packet().
+-spec set_to_from(stanza(), binary(), binary()) -> stanza().
 set_to_from(Pkt, ToUid, FromUid) -> set_from(set_to(Pkt, ToUid), FromUid).
 
 
--spec get_type(pb_packet()) -> atom().
+-spec get_type(stanza()) -> atom().
 get_type(#pb_iq{type = Type}) -> Type;
 get_type(#pb_msg{type = Type}) -> Type;
 get_type(#pb_presence{type = Type}) -> Type;
@@ -77,7 +77,7 @@ get_type(#pb_chat_state{type = Type}) -> Type;
 get_type(#pb_ack{}) -> undefined.
 
 
--spec get_id(pb_packet()) -> undefined | binary().
+-spec get_id(stanza()) -> undefined | binary().
 get_id(#pb_iq{id = Id}) -> Id;
 get_id(#pb_msg{id = Id}) -> Id;
 get_id(#pb_presence{id = Id}) -> Id;
@@ -85,7 +85,7 @@ get_id(#pb_chat_state{}) -> undefined;
 get_id(#pb_ack{id = Id}) -> Id.
 
 
--spec set_id(pb_packet(), binary()) -> pb_packet().
+-spec set_id(stanza(), binary()) -> stanza().
 set_id(#pb_iq{} = Pkt, Id) -> Pkt#pb_iq{id = Id};
 set_id(#pb_msg{} = Pkt, Id) -> Pkt#pb_msg{id = Id};
 set_id(#pb_presence{} = Pkt, Id) -> Pkt#pb_presence{id = Id};
@@ -102,7 +102,7 @@ is_pb_packet(#pb_ack{}) -> true;
 is_pb_packet(_) -> false.
 
 
--spec get_packet_type(Packet :: stanza()) -> atom.
+-spec get_packet_type(Packet :: stanza()) -> atom().
 get_packet_type(#pb_iq{}) -> pb_iq;
 get_packet_type(#pb_msg{}) -> pb_msg;
 get_packet_type(#pb_presence{}) -> pb_presence;
@@ -110,7 +110,7 @@ get_packet_type(#pb_chat_state{}) -> pb_chat_state;
 get_packet_type(#pb_ack{}) -> pb_ack.
 
 
--spec get_payload_type(Packet :: stanza()) -> atom.
+-spec get_payload_type(Packet :: stanza()) -> maybe(atom()).
 get_payload_type(#pb_iq{payload = undefined}) -> undefined;
 get_payload_type(#pb_msg{payload = undefined}) -> undefined;
 get_payload_type(#pb_iq{payload = Payload}) -> util:to_atom(element(1, Payload));

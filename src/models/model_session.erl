@@ -90,13 +90,15 @@ get_passive_sessions(Uid) ->
         end, get_sessions(Uid)).
 
 
--spec set_static_key_session(StaticKey :: binary(), Session :: session()) -> ok.
+-spec set_static_key_session(StaticKey :: binary(), Session :: session()) -> ok | {error, any()}.
 set_static_key_session(StaticKey, Session) ->
     SBin = term_to_binary(Session),
     SID = Session#session.sid,
     SIDKey = term_to_binary(SID),
-    {ok, _} = q(["HSET", static_key_sessions_key(StaticKey), SIDKey, SBin]),
-    ok.
+    case q(["HSET", static_key_sessions_key(StaticKey), SIDKey, SBin]) of
+        {ok, _} -> ok;
+        Error -> Error
+    end.
 
 
 -spec del_static_key_session(StaticKey :: binary(), Session :: session()) -> ok.

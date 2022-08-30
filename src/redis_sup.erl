@@ -32,7 +32,7 @@
 %%%===================================================================
 
 %% @doc Starts the supervisor
--spec(start_link() -> {ok, Pid :: pid()} | ignore | {error, Reason :: term()}).
+-spec start_link() -> {ok, Pid :: pid()} | ignore.
 start_link() ->
     Result = supervisor:start_link({local, ?SERVER}, ?MODULE, []),
     %% start child processes for all the clusters.
@@ -48,11 +48,7 @@ start_link() ->
 %% this function is called by the new process to find out about
 %% restart strategy, maximum restart frequency and child
 %% specifications.
--spec(init(Args :: term()) ->
-    {ok, {SupFlags :: {RestartStrategy :: supervisor:strategy(),
-        MaxR :: non_neg_integer(), MaxT :: non_neg_integer()},
-        [ChildSpec :: supervisor:child_spec()]}}
-    | ignore | {error, Reason :: term()}).
+-spec init(Args :: []) -> {ok, {SupFlags :: supervisor:sup_flags(), [ChildSpec :: supervisor:child_spec()]}}.
 init([]) ->
     % this is safety check of the environment we are running in
     ok = check_environment(),

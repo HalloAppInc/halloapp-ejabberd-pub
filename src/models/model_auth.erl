@@ -130,7 +130,7 @@ get_static_keys(Uid) ->
     ListKey = static_key_key(Uid),
     q(["SMEMBERS", ListKey]).
 
--spec get_static_key_uid(StaticKey :: binary()) -> {ok, binary()}.
+-spec get_static_key_uid(StaticKey :: binary()) -> {ok, maybe(binary())}.
 get_static_key_uid(StaticKey) ->
     RevStaticKey = reverse_static_key_key(StaticKey),
     q(["HGET", RevStaticKey, ?FIELD_STATIC_KEY_UID]).

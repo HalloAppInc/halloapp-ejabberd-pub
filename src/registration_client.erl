@@ -114,7 +114,7 @@ register(Phone, Code, Name, Options) ->
     {ok, Response2}.
 
 
--spec hashcash_register(Name :: binary(), Phone :: binary(), Options :: map()) -> ok.
+-spec hashcash_register(Name :: binary(), Phone :: binary(), Options :: map()) -> ok | {error, any()}.
 hashcash_register(Name, Phone, Options) ->
     setup(),
     KeyPair = ha_enoise:generate_signature_keypair(),

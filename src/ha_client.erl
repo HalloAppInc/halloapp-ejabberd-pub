@@ -204,7 +204,7 @@ recv_all_nb(Client, Messages) ->
     end.
 
 % Gets the next received message or waits for one. Blocking API.
--spec recv(Client :: pid()) -> pb_packet().
+-spec recv(Client :: pid()) -> stanza().
 recv(Client) ->
     gen_server:call(Client, {recv}).
 

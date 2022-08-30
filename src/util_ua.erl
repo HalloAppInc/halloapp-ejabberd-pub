@@ -76,7 +76,7 @@ is_valid_ua(UserAgent) ->
     is_android(UserAgent) orelse is_ios(UserAgent).
 
 
--spec re_match(iodata(), any()) -> {match | nomatch}.
+-spec re_match(iodata(), any()) -> match | nomatch.
 re_match(Subject, RE) ->
     re:run(Subject, RE, [{capture, none}]).
 

@@ -20,7 +20,7 @@
 
 
 % Updates key counter map for respective key pattern (complete list in redis_keys)
--spec process_keys(Key :: binary(), State :: map()) -> map().
+-spec process_keys(Key :: binary(), State :: map()) -> {ok | stop, map()}.
 process_keys(Key, State) ->
     ?INFO("Key: ~p", [Key]),
     NumProcessedKeys = maps:get(num_processed_keys, State, 0),

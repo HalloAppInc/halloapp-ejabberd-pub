@@ -44,7 +44,8 @@ init(Region, Bucket, PutHost, GetHost) ->
 -spec close() -> ok.
 close() ->
     ?INFO("~p", [close]),
-    internal_close().
+    internal_close(),
+    ok.
 
 
 %% Generates signed url for Http put, returns {Key, SignedUrl}.

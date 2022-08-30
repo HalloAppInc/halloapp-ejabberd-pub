@@ -114,7 +114,7 @@ get_recent_score(VarName, IsNew) ->
     end.
 
 
--spec get_gwcc_atom_safe(Gateway :: atom(), CC :: atom()) -> GatewayCC :: atom().
+-spec get_gwcc_atom_safe(Gateway :: atom(), CC :: binary()) -> GatewayCC :: atom().
 get_gwcc_atom_safe(Gateway, CC) ->
     GatewayCC = case get_gwcc_atom(Gateway, CC) of
         {ok, GWCC} -> GWCC;
@@ -241,8 +241,7 @@ process_attempt_score(Phone, AttemptId, IncrementMap, IsNew) ->
     IncrementMap2.
 
 
--spec process_scoring_datum(Phone :: phone(), AttemptId :: binary(), IncrementMap :: map(), IsNew :: boolean()) -> 
-        {UsedGateway :: boolean(), Gateway :: atom(), UsedCC :: boolean(), GatewayCC :: atom()}.
+-spec process_scoring_datum(Phone :: phone(), AttemptId :: binary(), IncrementMap :: map(), IsNew :: boolean()) -> map().
 process_scoring_datum(Phone, AttemptId, IncrementMap, IsNew) ->
     CC = mod_libphonenumber:get_cc(Phone),
     SMSResponse = model_phone:get_verification_attempt_summary(Phone, AttemptId),
@@ -341,7 +340,7 @@ inc_sms_stats(TimeWindow, VariableType, Variable, CountType) ->
 
 
 -spec should_inc(VariableType :: atom(), VariableName :: atom(),
-        IncrementMap :: map()) -> tuple().
+        IncrementMap :: map()) -> boolean().
 should_inc(_, _, #{must_inc := true}) -> true;
 
 % checks if the variable needs more data and if the increment has been used yet

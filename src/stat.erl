@@ -114,14 +114,14 @@ count(Namespace, Metric, Value, Tags) when is_list(Metric) ->
     gen_server:cast(?PROC(), {count, Namespace, Metric, Value, Tags}).
 
 
--spec gauge(Namespace :: string(), Metric :: string(), Value :: integer()) -> ok.
+-spec gauge(Namespace :: string(), Metric :: string(), Value :: number()) -> ok.
 gauge(Namespace, Metric, Value) ->
     gauge(Namespace, Metric, Value, []).
 
 
 % Used for metrics that can go up or down, like number of groups.
 % When new call is made for the same metric new value is stored.
--spec gauge(Namespace :: string(), Metric :: string(), Value :: integer(), Tags :: [tag()]) -> ok.
+-spec gauge(Namespace :: string(), Metric :: string(), Value :: number(), Tags :: [tag()]) -> ok.
 gauge(Namespace, Metric, Value, Tags) when is_atom(Metric) ->
     ?WARNING("Metric is supposed to be list: ~p ~p", [Metric, Namespace]),
     gauge(Namespace, atom_to_list(Metric), Value, Tags);
@@ -142,7 +142,8 @@ trigger_send() ->
 % TODO: this logic should move to new module mod_counters
 -spec trigger_count_users() -> ok.
 trigger_count_users() ->
-    spawn(?MODULE, compute_counts, []).
+    spawn(?MODULE, compute_counts, []),
+    ok.
 
 -spec trigger_count_sessions() -> ok.
 trigger_count_sessions() ->
@@ -154,24 +155,29 @@ trigger_count_sessions() ->
 
 -spec trigger_count_users_by_version() -> ok.
 trigger_count_users_by_version() ->
-    spawn(?MODULE, compute_counts_by_version, []).
+    spawn(?MODULE, compute_counts_by_version, []),
+    ok.
 
 -spec trigger_count_users_by_os_version() -> ok.
 trigger_count_users_by_os_version() ->
-    spawn(?MODULE, compute_counts_by_os_version, []).
+    spawn(?MODULE, compute_counts_by_os_version, []),
+    ok.
 
 -spec trigger_count_users_by_langid() -> ok.
 trigger_count_users_by_langid() ->
-    spawn(?MODULE, compute_counts_by_langid, []).
+    spawn(?MODULE, compute_counts_by_langid, []),
+    ok.
 
 -spec trigger_check_sms_reg(TimeInterval :: atom()) -> ok.
 trigger_check_sms_reg(TimeInterval) ->
-    spawn(stat_sms, check_sms_reg, [TimeInterval]).
+    spawn(stat_sms, check_sms_reg, [TimeInterval]),
+    ok.
 
 % TODO: this logic should move to new module mod_active_users
 -spec trigger_zset_cleanup() -> ok.
 trigger_zset_cleanup() ->
-    _Pid = spawn(model_active_users, cleanup, []).
+    _Pid = spawn(model_active_users, cleanup, []),
+    ok.
 
 compute_counts() ->
     Start = util:now_ms(),
@@ -492,12 +498,12 @@ update_state(Key, DataPoint, State, Action) ->
 
 
 % make sure tags are strings
--spec fix_tags(Tags :: [tag()]) -> [tag()].
+-spec fix_tags(Tags :: [tag()]) -> [{string(), string()}].
 fix_tags(Tags) ->
     lists:sort([fix_tag(T) || T <- Tags]).
 
 
--spec fix_tag(Tag :: tag()) -> tag().
+-spec fix_tag(Tag :: tag()) -> {string(), string()}.
 fix_tag({Name, Value})  ->
     {fix_tag_name(Name), fix_tag_value(Value)}.
 
