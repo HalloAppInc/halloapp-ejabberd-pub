@@ -60,7 +60,7 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
             ?WARNING("Uid: ~s, received invalid client mode: ~p", [Uid, Mode]),
             {pb:make_error(IQ, util:err(invalid_login_mode)), State};
         true ->
-            ok = ejabberd_sm:activate_session(Uid, SID),
+            ok = ejabberd_sm:check_and_activate_session(Uid, SID),
             {pb:make_iq_result(IQ), State}
     end;
 process_local_iq(#pb_iq{} = IQ, State) ->
