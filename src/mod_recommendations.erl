@@ -7,6 +7,8 @@
 -module(mod_recommendations).
 -author('vipin').
 
+-behaviour(gen_mod).
+
 -include("logger.hrl").
 -include("ha_types.hrl").
 -include("athena_query.hrl").
@@ -17,6 +19,8 @@
 % -define(SCAN_SIZE, 2500).
 -define(DEFAULT_NUM_OUIDS, 10).
 
+%% gen_mod API.
+-export([start/2, stop/1, reload/3, mod_options/1, depends/2]).
 
 -export([
     generate_friend_recos/3,
@@ -31,6 +35,54 @@
     score_all_friends/1
 ]).
 
+%% -------------------------------------------- %%
+%% gen_mod API functions
+%% --------------------------------------------	%%
+start(_Host, _Opts) ->
+    ?INFO("starting", []),
+    case util:is_machine_stest() of
+        true -> schedule();
+        false -> ok
+    end,
+    ok.
+
+-spec schedule() -> ok.
+schedule() ->
+    % Runs weekly on Mondays at 3pm PST
+    erlcron:cron(do_friend_scoring, {
+        {weekly, mon, {10, pm}},
+        {?MODULE, do_friend_scoring, []}
+    }).
+
+
+stop(_Host) ->
+    ?INFO("stopping", []),
+    case util:is_machine_stest() of
+        true -> unschedule();
+        false -> ok
+    end,
+    ok.
+
+-spec unschedule() -> ok.
+unschedule() ->
+    erlcron:cancel(do_friend_scoring).
+
+
+reload(_Host, _NewOpts, _OldOpts) ->
+    ok.
+
+
+depends(_Host, _Opts) ->
+    [].
+
+
+mod_options(_Host) ->
+    [].
+
+
+%% -------------------------------------------- %%
+%% Friend Recommendation API 
+%% --------------------------------------------	%%
 
 -spec generate_friend_recos(Uid :: uid(), Phone :: binary(), NumCommunityRecos :: non_neg_integer()) -> 
         {ok, [{string(), integer(), binary(), binary(), integer()}]}.
@@ -230,6 +282,10 @@ process_invite_recos(Query) ->
     ok.
 
 
+%% -------------------------------------------- %%
+%% Invite Recommendation API 
+%% --------------------------------------------	%%
+
 -spec generate_invite_recos(Uid :: uid(), Ouids :: [uid()]) -> [{phone(), [uid()]}].
 generate_invite_recos(Uid, Ouids) ->
     {ok, [MainContacts | OuidContactList]} = model_contacts:get_contacts([Uid | Ouids]),
@@ -413,13 +469,9 @@ print_shared_group_info(Uid, NumGroups, Friends, InfoList) ->
         InfoList).
 
 
-% extract_uid(BinKey) ->
-%     Result = re:run(BinKey, "^acc:{([0-9]+)}$", [global, {capture, all, binary}]),
-%     case Result of
-%         {match, [[_FullKey, Uid]]} ->
-%             Uid;
-%         _ -> <<"">>
-%     end.
+%% -------------------------------------------- %%
+%% Friend Scoring API 
+%% --------------------------------------------	%%
 
 -spec do_friend_scoring() -> ok.
 do_friend_scoring() ->
