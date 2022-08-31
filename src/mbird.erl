@@ -205,6 +205,7 @@ get_originator(CC) ->
         <<"AL">> -> ?HALLOAPP_SENDER_ID;
         <<"CD">> -> ?HALLOAPP_SENDER_ID;
         <<"CG">> -> ?HALLOAPP_SENDER_ID;
+        <<"ID">> -> ?HALLOAPP_SENDER_ID;
         <<"IR">> -> ?HALLOAPP_SENDER_ID;
         <<"MW">> -> ?HALLOAPP_SENDER_ID;
         <<"ML">> -> ?HALLOAPP_SENDER_ID;
