@@ -9,7 +9,7 @@
 -module(ejabberd_auth_tests).
 -author("josh").
 
--include_lib("eunit/include/eunit.hrl").
+-include_lib("tutil.hrl").
 -include("password.hrl").
 
 -define(UID, <<"1">>).
@@ -76,35 +76,35 @@ remove_user(_) ->
 
 
 ejabberd_auth_test_() ->
-    {foreach, fun setup/0, fun tutil:cleanup/1,
-        [fun check_spub/1,
+    % ! NOTE: This tutil:setup_foreach call is included to demonstrate usage of the tutil function,
+    % ! but the same functionality could be accomplished by simply having the pertinent functions end
+    % ! in _testset (as there is no special cleanup or control being passed, and the setup function
+    % ! is called setup/0). In fact, the auto-run magic calls this exact function with setup/0 and 
+    % ! the list of _testset functions to run them.
+    [tutil:setup_foreach(fun setup/0, [
+        fun check_spub/1,
         fun ha_try_register/1,
         fun try_enroll/1,
-        fun remove_user/1]}.
-
-
-check_and_register_test_() ->
-    {setup,
+        fun remove_user/1
+        ]),
+    tutil:setup_once(
         fun() ->
             tutil:combine_cleanup_info([
                 setup(),
                 tutil:setup([{meck, ejabberd_sm, kick_user, fun(_, _) -> 1 end}])
             ])
         end,
-        fun tutil:cleanup/1,
-        fun check_and_register/1}.
-
-
-user_exists_test_() ->
-    {setup,
+        fun check_and_register/1
+        ),
+    tutil:setup_once(
         fun() ->
             tutil:combine_cleanup_info([
                 setup(),
                 tutil:setup([{meck, ejabberd_router, is_my_host, fun(_) -> true end}])
             ])
         end,
-        fun tutil:cleanup/1,
-        fun user_exists/1}.
+        fun user_exists/1
+        )].
 
 %%====================================================================
 %% Internal functions

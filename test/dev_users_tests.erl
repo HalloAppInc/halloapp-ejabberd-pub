@@ -9,7 +9,7 @@
 -module(dev_users_tests).
 -author("josh").
 
--include_lib("eunit/include/eunit.hrl").
+-include_lib("tutil.hrl").
 
 -define(UID, <<"1">>).
 -define(PHONE, <<"16175280000">>).
@@ -21,13 +21,10 @@
 %% Tests
 %% ----------------------------------------------
 
-is_dev_uid(_) ->
+is_dev_uid_testset(_) ->
     [?_assert(dev_users:is_dev_uid(?DEV_UID)),
     ?_assert(dev_users:is_dev_uid(?TEST_UID)),
     ?_assertNot(dev_users:is_dev_uid(?UID))].
-
-dev_users_test_() ->
-    {setup, fun setup/0, fun tutil:cleanup/1, fun is_dev_uid/1}.
 
 %% ----------------------------------------------
 %% Internal functions

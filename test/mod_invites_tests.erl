@@ -8,7 +8,7 @@
 
 -include("invites.hrl").
 -include("packets.hrl").
--include_lib("eunit/include/eunit.hrl").
+-include("tutil.hrl").
 
 -define(UID1, <<"1">>).
 -define(PHONE1, <<"16505551111">>).
@@ -31,25 +31,10 @@
 %% Tests for IQ API
 %% --------------------------------------------	%%
 
-get_invites(_) ->
+get_invites_testset(_) ->
     Result = mod_invites:process_local_iq(create_get_iq(?UID1)),
     ExpNumInvites = ?INF_INVITES,
     check_invites_iq_correctness(Result, ExpNumInvites). % generates list of tests
-
-get_invites_error(_) ->
-    Actual = mod_invites:process_local_iq(create_get_iq(?UID1)),
-    Expected = #pb_iq{type = error, to_uid = ?UID1, payload =
-        #pb_error_stanza{reason = <<"no_account">>}
-    },
-    [?_assertEqual(Expected, Actual)].
-
-% tests no_account error
-send_invites_error1(_) ->
-    Actual = mod_invites:process_local_iq(create_invite_iq(?UID1)),
-    Expected = #pb_iq{type = error, to_uid = ?UID1, payload =
-        #pb_error_stanza{reason = <<"no_account">>}
-    },
-    [?_assertEqual(Expected, Actual)].
 
 %%% tests no_invites_left error
 %%send_invites_error2_test() ->
@@ -66,7 +51,7 @@ send_invites_error1(_) ->
 %%    ?assertEqual(Expected, get_invite_subel_list(Result)).
 
 % tests existing_user error
-send_invites_error3(_) ->
+send_invites_error3_testset(_) ->
     ok = model_accounts:create_account(?UID2, ?PHONE2, ?NAME2, ?USER_AGENT2),
     ok = model_phone:add_phone(?PHONE2, ?UID2),
     Actual = mod_invites:process_local_iq(create_invite_iq(?UID1)),
@@ -80,7 +65,7 @@ send_invites_error3(_) ->
     check_invites_iq_correctness(Actual, ?INF_INVITES)].
 
 % tests invalid_phone error
-send_invites_error4(_) ->
+send_invites_error4_testset(_) ->
     Result = mod_invites:process_local_iq(create_invite_iq(?UID1)),
     ExpNumInvites = ?INF_INVITES,
     Expected = [
@@ -93,7 +78,7 @@ send_invites_error4(_) ->
     check_invites_iq_correctness(Result, ExpNumInvites)].
 
 
-register_user_hook(_) ->
+register_user_hook_testset(_) ->
     InvsRem1 = mod_invites:get_invites_remaining(?UID1),
     mod_invites:request_invite(?UID1, ?PHONE2),
     InvsRem2 = mod_invites:get_invites_remaining(?UID1),
@@ -115,30 +100,37 @@ register_user_hook(_) ->
         ?_assertEqual(?MAX_NUM_INVITES, InvsRem6), ?_assertEqual(?INF_INVITES, InvsRem7),
         ?_assertEqual(?MAX_NUM_INVITES, InvsRem8), ?_assertEqual(?INF_INVITES, InvsRem9)].
 
+get_invites_error(_) ->
+    Actual = mod_invites:process_local_iq(create_get_iq(?UID1)),
+    Expected = #pb_iq{type = error, to_uid = ?UID1, payload =
+        #pb_error_stanza{reason = <<"no_account">>}
+    },
+    [?_assertEqual(Expected, Actual)].
+
+% tests no_account error
+send_invites_error1(_) ->
+    Actual = mod_invites:process_local_iq(create_invite_iq(?UID1)),
+    Expected = #pb_iq{type = error, to_uid = ?UID1, payload =
+        #pb_error_stanza{reason = <<"no_account">>}
+    },
+    [?_assertEqual(Expected, Actual)].
+
 iq_test_() ->
-    [
-        {foreach, fun setup/0, fun tutil:cleanup/1, [
-            fun get_invites/1,
-            fun send_invites_error3/1,
-            fun send_invites_error4/1,
-            fun register_user_hook/1
-        ]},
-        {foreach, fun setup_redis_only/0, fun tutil:cleanup/1, [
-            fun get_invites_error/1,
-            fun send_invites_error1/1
-        ]}
-    ].
+    tutil:setup_foreach(fun setup_redis_only/0, [
+          fun get_invites_error/1,
+          fun send_invites_error1/1  
+    ]).
 
 %% -------------------------------------------- %%
 %% Tests for API functions
 %% --------------------------------------------	%%
 
 % tests setting the invite limit for the first time (i.e., a user that has not yet sent an invite)
-reset_invs_for_first_time(_) ->
+reset_invs_for_first_time_testset(_) ->
     [?_assertEqual(?MAX_NUM_INVITES, mod_invites:get_invites_remaining(?UID1))].
 
 % tests that sending one invite will decrease the invites sent for that week by 1
-get_invites_remaining1(_) ->
+get_invites_remaining1_testset(_) ->
     InvsRemStart = mod_invites:get_invites_remaining(?UID1),
     InvsRem2Start = mod_invites:get_invites_remaining2(?UID1),
     InvReq = mod_invites:request_invite(?UID1, ?PHONE2),
@@ -160,7 +152,7 @@ time_until_refresh2_test() ->
     ?assertEqual(604800, mod_invites:get_time_until_refresh(1593907200)).
 
 % tests the existing_user error of the request_invite function
-request_invite_error1(_) ->
+request_invite_error1_testset(_) ->
     ok = model_accounts:create_account(?UID2, ?PHONE2, ?NAME2, ?USER_AGENT2),
     ok = model_phone:add_phone(?PHONE2, ?UID2),
     InvReq = mod_invites:request_invite(?UID1, ?PHONE2),
@@ -169,7 +161,7 @@ request_invite_error1(_) ->
     ?_assertEqual(?MAX_NUM_INVITES, InvRem)].
 
 % tests the no_invites_left error of the request_invite function
-request_invite_error2(_) ->
+request_invite_error2_testset(_) ->
     [mod_invites:request_invite(?UID1, integer_to_binary(Phone)) ||
         Phone <- lists:seq(16175289000, 16175289000 + ?MAX_NUM_INVITES)],
     InvReq = mod_invites:request_invite(?UID1, ?PHONE2),
@@ -186,7 +178,7 @@ request_invite_error2(_) ->
     ?_assertEqual(?INF_INVITES, InvRem2End)].
 
 % tests that a duplicate invite will not decrease invite limit
-request_invite_error3(_) ->
+request_invite_error3_testset(_) ->
     InvRemStart = mod_invites:get_invites_remaining(?UID1),
     InvRem2Start = mod_invites:get_invites_remaining2(?UID1),
     InvReq = mod_invites:request_invite(?UID1, ?PHONE2),
@@ -204,16 +196,8 @@ request_invite_error3(_) ->
     ?_assertEqual(?MAX_NUM_INVITES, InvRemEnd),
     ?_assertEqual(?INF_INVITES, InvRem2End)].
 
-% tests that a test number in production will not decrease invite limit
-request_invite_error4(_) ->
-    InvRemStart = mod_invites:get_invites_remaining(?UID1),
-    InvReq = mod_invites:request_invite(?UID1, ?TEST_PHONE1),
-    InvRemEnd = mod_invites:get_invites_remaining(?UID1),
-    [?_assertEqual(?MAX_NUM_INVITES, InvRemStart),
-    ?_assertEqual({?TEST_PHONE1, ok, undefined}, InvReq),
-    ?_assertEqual(?MAX_NUM_INVITES, InvRemEnd)].
 
-get_inviters_list(_) ->
+get_inviters_list_testset(_) ->
     #{} = model_invites:get_inviters_list([]),
     ok = model_invites:record_invite(?UID1, ?PHONE2, 1),
     ok = model_invites:record_invite(?UID1, ?PHONE3, 1),
@@ -229,18 +213,19 @@ get_inviters_list(_) ->
     [?_assertEqual(sets:from_list(Phone2Uids), sets:from_list([?UID1])),
     ?_assertEqual(sets:from_list(Phone3Uids), sets:from_list([?UID1, ?UID2]))].
 
+
+% tests that a test number in production will not decrease invite limit
+request_invite_error4(_) ->
+    InvRemStart = mod_invites:get_invites_remaining(?UID1),
+    InvReq = mod_invites:request_invite(?UID1, ?TEST_PHONE1),
+    InvRemEnd = mod_invites:get_invites_remaining(?UID1),
+    [?_assertEqual(?MAX_NUM_INVITES, InvRemStart),
+    ?_assertEqual({?TEST_PHONE1, ok, undefined}, InvReq),
+    ?_assertEqual(?MAX_NUM_INVITES, InvRemEnd)].
+
+
 api_test_() ->
-    [
-        {foreach, fun setup/0, fun tutil:cleanup/1, [
-            fun reset_invs_for_first_time/1,
-            fun get_invites_remaining1/1,
-            fun request_invite_error1/1,
-            fun request_invite_error2/1,
-            fun request_invite_error3/1,
-            fun get_inviters_list/1
-        ]},
-        {setup, fun setup_with_meck/0, fun tutil:cleanup/1, fun request_invite_error4/1}
-    ].
+    tutil:setup_once(fun setup_with_meck/0, fun request_invite_error4/1).
 
 %% -------------------------------------------- %%
 %% Tests for invite strings
@@ -260,11 +245,10 @@ invite_string_id(_) ->
         mod_invites:lookup_invite_string(mod_invites:get_invite_string_id(InvStr)))].
 
 invite_strings_test_() ->
-    {setup, fun setup_invite_strings/0, fun tutil:cleanup/1,
-        fun(CleanupInfo) ->
-            [get_invite_strings(CleanupInfo),
-            invite_string_id(CleanupInfo)]
-        end}.
+    tutil:setup_once(fun setup_invite_strings/0, [
+        fun get_invite_strings/1,
+        fun invite_string_id/1
+    ]).
 
 %% --------------------------------------------	%%
 %% Tests for internal functions
