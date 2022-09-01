@@ -88,7 +88,7 @@ route(Packet) ->
 -spec bounce_resource_packet(stanza()) -> ok | stop.
 bounce_resource_packet(Packet) ->
     ?ERROR("Invalid packet received: ~p", [Packet]),
-    Err = util:err(item_not_found),
+    Err = util:err(invalid_packet),
     ErrorPacket = pb:make_error(Packet, Err),
     ejabberd_router:route(ErrorPacket),
     stop.
