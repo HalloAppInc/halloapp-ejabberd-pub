@@ -15,6 +15,8 @@
 -include("offline_message.hrl").
 -include ("push_message.hrl").
 
+-dialyzer({no_match, check_version_rules/3}).
+
 %% gen_mod API
 -export([start/2, stop/1, reload/3, depends/2, mod_options/1]).
 
@@ -142,7 +144,7 @@ check_content_version_rules(Platform, ClientVersion, PayloadType, Message) ->
 %% In the future - when rules are different we can have specific functions for the additional rules.
 %% TODO(murali@): split this rules into separate functions for offline and push.
 -spec check_version_rules(Platform :: ios | android,
-        ClientVersion :: binary(), ContentType :: atom()) -> boolean().
+        ClientVersion :: maybe(binary()), ContentType :: atom()) -> boolean().
 
 %% TODO(murali@): we have several accounts with invalid client_version,
 %% revisit in 2 months on 05-03-2021 after deleting some inactive accounts.

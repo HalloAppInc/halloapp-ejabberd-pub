@@ -17,7 +17,7 @@
 ]).
 
 
--spec lookup(IP :: list()) -> binary().
+-spec lookup(IP :: binary() | string()) -> binary().
 lookup(IP) ->
     try
         Result = locus:lookup(geodb, IP),

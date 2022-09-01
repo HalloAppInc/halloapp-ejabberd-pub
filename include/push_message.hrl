@@ -13,13 +13,13 @@
 -record(push_message_item, {
     id :: binary(),
     uid :: binary(),
-    message :: message(),
+    message :: message() | binary(),
     timestamp_ms :: integer(),
     retry_ms :: integer(),
     push_info :: push_info(),
     push_type = silent :: alert | silent,
     content_type = undefined :: atom(),
-    apns_id :: binary()
+    apns_id :: maybe(binary())
 }).
 
 -type push_message_item() :: #push_message_item{}.
@@ -27,13 +27,13 @@
 %% TODO(murali@): Store this pending/retry list info in ets tables/redis and keep the state simple.
 -record(worker_push_state, {
     host :: binary(),
-    conn :: pid(),
+    conn :: maybe(pid()),
     mon :: reference(),
-    dev_conn :: pid(),
+    dev_conn :: maybe(pid()),
     dev_mon :: reference(),
-    voip_conn :: pid(),
+    voip_conn :: maybe(pid()),
     voip_mon :: reference(),
-    voip_dev_conn :: pid(),
+    voip_dev_conn :: maybe(pid()),
     voip_dev_mon :: reference(),
     noise_static_key :: binary(),
     noise_certificate :: binary(),

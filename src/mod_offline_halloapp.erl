@@ -322,8 +322,8 @@ c2s_session_closed(State) ->
     State.
 
 
--spec offline_queue_check(Uid :: binary(), Server :: binary(),
-    LastMsgOrderId :: integer(), RetryCount :: integer(), LeftOverMsgIds :: [binary()]) -> ok.
+-spec offline_queue_check(State :: state(), Uid :: binary(),
+    LastMsgOrderId :: integer(), RetryCount :: integer(), LeftOverMsgIds :: [binary()]) -> state().
 offline_queue_check(#{client_version := ClientVersion} = State, Uid,
         LastMsgOrderId, RetryCount, LeftOverMsgIds) when RetryCount >= ?MAX_OFFLINE_CHECK_RETRIES ->
     ?INFO("Uid: ~s", [Uid]),
@@ -432,7 +432,7 @@ check_offline_queue(#{offline_queue_params := #{window := Window,
 
 
 -spec route_offline_messages(UserId :: binary(), Server :: binary(),
-        LastMsgOrderId :: integer(), State :: state()) -> ok.
+        LastMsgOrderId :: integer(), State :: state()) -> state().
 route_offline_messages(UserId, Server, LastMsgOrderId, State) ->
     ?INFO("Uid: ~s start", [UserId]),
     {ok, _, OfflineMessages} = model_messages:get_user_messages(UserId, LastMsgOrderId, undefined),
@@ -545,7 +545,7 @@ schedule_offline_queue_check(UserId, NewLastMsgOrderId, RetryCount, LeftOverMsgI
     ok.
 
 
--spec send_end_of_queue_marker(UserId :: binary()) -> {MsgId :: binary(), QueueTrimmed :: boolean}.
+-spec send_end_of_queue_marker(UserId :: binary()) -> {MsgId :: binary(), QueueTrimmed :: boolean()}.
 send_end_of_queue_marker(UserId) ->
     {ok, QueueTrimmed} = model_messages:is_queue_trimmed(UserId),
     MsgId = util_id:new_msg_id(),
@@ -640,7 +640,7 @@ cleanup_offline_queue(Uid, ClientVersion) ->
     end.
 
 
--spec mark_sent_and_increment_retry_counts(UserId :: uid, OfflineMsgs :: [maybe(offline_message())]) -> ok.
+-spec mark_sent_and_increment_retry_counts(UserId :: uid(), OfflineMsgs :: [maybe(offline_message())]) -> ok.
 mark_sent_and_increment_retry_counts(UserId, OfflineMsgs) ->
     MsgIds = lists:filtermap(
         fun (undefined) -> false;

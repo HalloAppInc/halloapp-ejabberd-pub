@@ -23,6 +23,7 @@
 -author('murali').
 -behaviour(gen_mod).
 
+-include("ha_types.hrl").
 -include("logger.hrl").
 -include("packets.hrl").
 -include("account.hrl").
@@ -71,7 +72,7 @@ reload(_Host, _NewOpts, _OldOpts) ->
 %% register_user sets some default undefined activity for the user until they login.
 %% TODO: figure out how to get resource/user agent here
 -spec register_user(User :: binary(), Server :: binary(), Phone :: binary(), CampaignId :: binary()) ->
-        {ok, any()} | {error, any()}.
+        ok | {error, any()}.
 register_user(User, Server, _Phone, _CampaignId) ->
     Status = undefined,
     TimestampMs = util:now_ms(),
@@ -156,8 +157,8 @@ store_and_broadcast_presence(User, Server, Resource, available) ->
     broadcast_presence(User, Server, undefined, available).
 
 
--spec store_user_activity(User :: binary(), Server :: binary(), TimestampMs :: integer(),
-        Resource :: binary() | undefined, Status :: undefined | activity_status()) -> {ok, any()} | {error, any()}.
+-spec store_user_activity(User :: binary(), Server :: binary(), Resource :: maybe(binary()),
+        TimestampMs :: integer(), Status :: maybe(activity_status())) -> ok | {error, any()}.
 store_user_activity(User, _Server, Resource, TimestampMs, Status) ->
     ?INFO("Uid: ~s, tsms: ~p, Status: ~p", [User, TimestampMs, Status]),
     ha_events:log_user_event(User, app_opened),
@@ -166,7 +167,7 @@ store_user_activity(User, _Server, Resource, TimestampMs, Status) ->
 
 
 -spec broadcast_presence(User :: binary(), Server :: binary(),
-        TimestampMs :: undefined | integer(), Status :: undefined | activity_status()) -> ok.
+        TimestampMs :: maybe(integer()), Status :: maybe(activity_status())) -> ok.
 broadcast_presence(User, _Server, TimestampMs, Status) ->
     LastSeen = case TimestampMs of
         undefined -> undefined;
@@ -188,7 +189,7 @@ route_multiple(BroadcastUIDs, Packet) ->
 
 
 -spec check_and_probe_contacts_presence(User :: binary(), Server :: binary(),
-        Status :: undefined | activity_status()) -> ok.
+        Status :: maybe(activity_status())) -> ok.
 check_and_probe_contacts_presence(User, Server, available) ->
     SubscribedUids = mod_presence_subscription:get_subscribed_uids(User),
     lists:foreach(fun(Ouid) ->

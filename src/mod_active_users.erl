@@ -9,6 +9,7 @@
 -module(mod_active_users).
 -author("josh").
 
+-include("ha_types.hrl").
 -include("active_users.hrl").
 -include("logger.hrl").
 -include("time.hrl").
@@ -86,7 +87,7 @@ compute_counts() ->
     ok.
 
 
--spec update_last_activity(Uid :: binary(), TimestampMs :: integer(), Resource :: binary()) -> ok.
+-spec update_last_activity(Uid :: binary(), TimestampMs :: integer(), Resource :: maybe(binary())) -> ok.
 update_last_activity(Uid, TimestampMs, Resource) ->
     UserAgent = util_ua:resource_to_client_type(Resource),
     Keys = [model_active_users:get_active_users_key(Uid)],

@@ -8,6 +8,8 @@
 %%%-------------------------------------------------------------------
 -author("nikola").
 
+-include("ha_types.hrl").
+
 -ifndef(PASSWORD_HRL).
 -define(PASSWORD_HRL, 1).
 
@@ -21,7 +23,7 @@
 
 -record(s_pub, {
     uid :: binary(),
-    s_pub :: binary(),
+    s_pub :: maybe(binary()),
     ts_ms :: integer()
 }).
 

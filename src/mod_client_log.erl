@@ -86,7 +86,7 @@ process_local_iq(#pb_iq{type = set, from_uid = Uid, payload = #pb_client_log{eve
 process_local_iq(#pb_iq{} = IQ, _State) ->
     pb:make_error(IQ, util:err(bad_request)).
 
--spec process_client_count_log_st(Uid :: maybe(uid()) | undefined, ClientLogSt :: pb_client_log(),
+-spec process_client_count_log_st(Uid :: maybe(uid()), ClientLogSt :: pb_client_log(),
         Platform :: maybe(client_type())) -> ok | error.
 process_client_count_log_st(Uid, ClientLogsSt, Platform) ->
     ServerDims = [{"platform", atom_to_list(Platform)}],
@@ -103,7 +103,7 @@ process_client_count_log_st(Uid, ClientLogsSt, Platform) ->
     end.
 
 
--spec process_counts(Uid :: uid(), Counts :: [pb_count()], ServerDims :: stat:tags()) -> [result()].
+-spec process_counts(Uid :: maybe(uid()), Counts :: [pb_count()], ServerDims :: stat:tags()) -> [result()].
 process_counts(Uid, Counts, ServerDims) ->
     lists:map(
         fun (C) ->
@@ -113,7 +113,7 @@ process_counts(Uid, Counts, ServerDims) ->
 
 % TODO: validate the number of dims is < 6
 % TODO: validate the name and value of each dimension
--spec process_count(Uid :: uid(), Counts :: pb_count(), ServerTags :: stat:tags()) -> result() .
+-spec process_count(Uid :: maybe(uid()), Counts :: pb_count(), ServerTags :: stat:tags()) -> result() .
 process_count(Uid, #pb_count{namespace = Namespace, metric = Metric, count = Count, dims = DimsSt} = PbCount,
         ServerTags) ->
     try

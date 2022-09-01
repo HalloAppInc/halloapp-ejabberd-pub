@@ -31,9 +31,10 @@
 %% API
 -export([push_message/1]).
 
+
 -define(REFRESH_TIME_MS, (60 * ?MINUTES_MS)).          %% 60 minutes.
--define(HTTP_TIMEOUT_MS, (60 * ?SECONDS)).             %% 10 seconds.
--define(HTTP_CONNECT_TIMEOUT_MS, (60 * ?SECONDS)).     %% 10 seconds.
+-define(HTTP_TIMEOUT_MS, (60 * ?SECONDS)).             %% 60 seconds.
+-define(HTTP_CONNECT_TIMEOUT_MS, (60 * ?SECONDS)).     %% 60 seconds.
 
 -define(HUAWEI_URL_PREFIX, <<"https://push-api.cloud.huawei.com/v1/">>).
 -define(HUAWEI_URL_SUFFIX, <<"/messages:send">>).
@@ -138,7 +139,7 @@ handle_info(Request, State) ->
 %% Ref: https://developer.huawei.com/consumer/en/doc/development/HMSCore-Guides/oauth2-0000001212610981#section128682386159
 %%====================================================================
 
--spec load_access_token(State :: #{}) -> #{}.
+-spec load_access_token(State :: map()) -> map().
 load_access_token(State) ->
     ?DEBUG("huawei reload_access_token"),
     cancel_token_timer(State),
@@ -152,7 +153,7 @@ load_access_token(State) ->
     }.
 
 
--spec get_access_token() -> {ok, #{}} | {error, any()}.
+-spec get_access_token() -> {ok, jiffy:json_value()} | {error, any()}.
 get_access_token() ->
     URL = "https://oauth-login.cloud.huawei.com/oauth2/v3/token",
     ContentType = "application/x-www-form-urlencoded",
@@ -185,7 +186,7 @@ get_client_secret() ->
 %% Ref: https://developer.huawei.com/consumer/en/doc/development/HMSCore-Guides/android-server-dev-0000001050040110 
 %%====================================================================
 
--spec push_message_item(PushMessageItem :: push_message_item(), #{}) -> #{}.
+-spec push_message_item(PushMessageItem :: push_message_item(), map()) -> map().
 push_message_item(PushMessageItem, #{auth_token := AuthToken, url := Url, pending_map := PendingMap} = State) ->
     PushMetadata = push_util:parse_metadata(PushMessageItem#push_message_item.message),
     Id = PushMessageItem#push_message_item.id,
@@ -223,7 +224,7 @@ push_message_item(PushMessageItem, #{auth_token := AuthToken, url := Url, pendin
     end.
 
 
--spec extract_android_map(PushMessageItem :: push_message_item(), PushMetadata :: push_metadata()) -> #{}.
+-spec extract_android_map(PushMessageItem :: push_message_item(), PushMetadata :: push_metadata()) -> map().
 extract_android_map(PushMessageItem, PushMetadata) ->
     AndroidMap = case PushMetadata#push_metadata.push_type of
         direct_alert ->
@@ -259,8 +260,8 @@ extract_android_map(PushMessageItem, PushMetadata) ->
 %%====================================================================
 
 -spec handle_huawei_response({Id ::reference(), Response :: term()},
-        PushMessageItem :: push_message_item(), State :: #{}) -> State :: #{}.
-handle_huawei_response({_Id, Response}, PushMessageItem, #{host := Host} = State) ->
+        PushMessageItem :: push_message_item(), State :: map()) -> State :: map().
+handle_huawei_response({_Id, Response}, PushMessageItem, #{host := _Host} = State) ->
     Id = PushMessageItem#push_message_item.id,
     Uid = PushMessageItem#push_message_item.uid,
     Version = PushMessageItem#push_message_item.push_info#push_info.client_version,
@@ -328,7 +329,7 @@ parse_response(Body) ->
     end.
 
 
--spec remove_push_token(Uid :: binary(), Server :: binary()) -> ok.
-remove_push_token(Uid, Server) ->
-    mod_push_tokens:remove_huawei_token(Uid, Server).
+% -spec remove_push_token(Uid :: binary(), Server :: binary()) -> ok.
+% remove_push_token(Uid, Server) ->
+%     mod_push_tokens:remove_huawei_token(Uid, Server).
 

@@ -51,7 +51,7 @@ mod_options(_Host) ->
 %% hooks.
 %%====================================================================
 
--spec process_local_iq(IQ :: iq(), State :: #{}) -> iq().
+-spec process_local_iq(IQ :: iq(), State :: map()) -> {iq(), map()}.
 process_local_iq(#pb_iq{from_uid = Uid, type = set,
         payload = #pb_client_mode{mode = Mode}} = IQ, #{sid := SID} = State) ->
     ?INFO("Uid: ~s, set-iq for client_mode, mode: ~p", [Uid, Mode]),

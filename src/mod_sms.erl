@@ -575,7 +575,7 @@ get_new_gw_stats(ChooseFrom, CC) ->
 %% Tries to retieve country-specific gateway score. If insufficient data (nan),
 %% returns global gateway score instead. If unable to retrieve that as well, 
 %% returns default gateway score as a last resort.
--spec get_gwcc_score(Gateway :: atom(), CC :: atom()) -> Score :: integer().
+-spec get_gwcc_score(Gateway :: atom(), CC :: binary()) -> Score :: integer().
 get_gwcc_score(Gateway, CC) ->
     GatewayCC = stat_sms:get_gwcc_atom_safe(Gateway, CC),
     case model_gw_score:get_aggregate_score(GatewayCC) of

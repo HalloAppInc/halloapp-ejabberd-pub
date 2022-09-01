@@ -41,7 +41,7 @@ get_to(#pb_chat_state{to_uid = ToUid}) -> ToUid;
 get_to(#pb_ack{to_uid = ToUid}) -> ToUid.
 
 
--spec get_from(stanza()) -> binary().
+-spec get_from(stanza()) -> maybe(binary()).
 get_from(#pb_iq{from_uid = FromUid}) -> FromUid;
 get_from(#pb_msg{from_uid = FromUid}) -> FromUid;
 get_from(#pb_presence{from_uid = FromUid}) -> FromUid;
@@ -77,7 +77,7 @@ get_type(#pb_chat_state{type = Type}) -> Type;
 get_type(#pb_ack{}) -> undefined.
 
 
--spec get_id(stanza()) -> undefined | binary().
+-spec get_id(stanza()) -> maybe(binary()).
 get_id(#pb_iq{id = Id}) -> Id;
 get_id(#pb_msg{id = Id}) -> Id;
 get_id(#pb_presence{id = Id}) -> Id;

@@ -24,6 +24,8 @@
 -include("ha_types.hrl").
 -include("packets.hrl").
 
+-dialyzer({no_match, process_local_iq/1}).
+
 -define(MIN_OTP_KEY_COUNT, 15).
 -define(STAT_NS, "HA/whisper").
 
@@ -232,7 +234,7 @@ remove_user(Uid, _Server) ->
     model_whisper_keys:remove_all_keys(Uid).
 
 
--spec c2s_session_opened(State :: #{}) -> #{}.
+-spec c2s_session_opened(State :: map()) -> map().
 c2s_session_opened(#{user := Uid} = State) ->
     %% TODO: add tests for this first and then remove the check here.
     case config:is_testing_env() of

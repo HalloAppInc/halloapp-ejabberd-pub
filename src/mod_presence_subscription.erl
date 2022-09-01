@@ -74,7 +74,7 @@ reload(_Host, _NewOpts, _OldOpts) ->
 %%====================================================================
 
 -spec re_register_user(Uid :: binary(), Server :: binary(),
-        Phone :: binary(), CampaignId :: binary()) -> {ok, any()} | {error, any()}.
+        Phone :: binary(), CampaignId :: binary()) -> ok.
 re_register_user(Uid, _Server, _Phone, _CampaignId) ->
     presence_unsubscribe_all(Uid).
 
@@ -85,7 +85,7 @@ remove_user(Uid, _Server) ->
 
 
 -spec unset_presence_hook(Uid :: binary(), Mode :: atom(),
-        Resource :: binary(), Reason :: atom()) -> {ok, any()} | {error, any()}.
+        Resource :: binary(), Reason :: atom()) -> ok.
 %% passive connections should not affect your presence behavior.
 unset_presence_hook(_Uid, passive, _Resource, _Reason) -> ok;
 unset_presence_hook(Uid, active, _Resource, _Reason) ->
@@ -99,7 +99,7 @@ presence_unsubscribe_all(Uid) ->
 
 
 -spec presence_subs_hook(User :: binary(), Server :: binary(),
-        Presence :: presence()) -> {ok, any()} | {error, any()}.
+        Presence :: presence()) -> ok | ignore.
 presence_subs_hook(User, Server, #pb_presence{uid = Uid, to_uid = ToUid, type = Type}) ->
     FinalToUid = case {Uid, ToUid} of
         {_, <<>>} ->
@@ -147,7 +147,7 @@ subscribe(User, Contact) ->
     model_accounts:presence_subscribe(User, Contact).
 
 
--spec unsubscribe(User :: binary(), Contact :: binary()) -> {ok, any()} | {error, any()}.
+-spec unsubscribe(User :: binary(), Contact :: binary()) -> ok.
 unsubscribe(User, Contact) ->
     ?INFO("Uid: ~s, Contact: ~s", [User, Contact]),
     model_accounts:presence_unsubscribe(User, Contact).

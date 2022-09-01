@@ -292,7 +292,7 @@ get_load_balancer_hosts() -> [
 
 get_all_hosts() ->
     IpsAndPorts = mod_aws:get_ejabberd_machines(),
-    lists:concat([IpsAndPorts, get_load_balancer_hosts()]).
+    IpsAndPorts ++ get_load_balancer_hosts().
 
 
 get_uid() ->

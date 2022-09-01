@@ -499,7 +499,7 @@ retry_function(Retries, Opts) ->
         timeout => Timeout * ?GOLDEN_RATIO
     }.
 
--spec handle_pushed_message(StatusCode :: integer(), ApnsId :: binary() | undefined, State :: push_state()) -> push_state().
+-spec handle_pushed_message(StatusCode :: integer(), ApnsId :: binary() | undefined, State :: worker_push_state()) -> ok.
 % Status code 429, >= 500 triggers a retry, do not handle times yet
 handle_pushed_message(StatusCode, _ApnsId, _State) when StatusCode =:= 429; StatusCode >= 500 ->
     ok;
@@ -520,7 +520,7 @@ handle_pushed_message(_StatusCode, ApnsId, #worker_push_state{pending_map = Pend
 
 
 -spec handle_apns_response(StatusCode :: integer(), ApnsId :: binary() | undefined,
-        State :: push_state()) -> push_state().
+        State :: worker_push_state()) -> worker_push_state().
 handle_apns_response(_, undefined, State) ->
     %% This should never happen, since apns always responds with the apns-id.
     ?ERROR("unexpected response from apns!!", []),

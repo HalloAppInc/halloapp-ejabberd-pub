@@ -61,7 +61,8 @@ stop(_Host) ->
 -spec unschedule() -> ok.
 unschedule() ->
     erlcron:cancel(dump_accounts),
-    erlcron:cancel(weekly_retention).
+    erlcron:cancel(weekly_retention),
+    ok.
 
 
 reload(_Host, _NewOpts, _OldOpts) ->

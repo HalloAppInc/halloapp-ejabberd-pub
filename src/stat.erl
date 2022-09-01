@@ -55,7 +55,7 @@
 ]).
 
 -type tag_value() :: atom() | string() | binary().
--type tag() :: {Name :: atom(), Value :: tag_value()}.
+-type tag() :: {Name :: tag_value(), Value :: tag_value()}.
 -type tags() :: [tag()].
 
 -define(SMS_REG_CHECK_INCREMENTS, 1).

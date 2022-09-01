@@ -46,7 +46,7 @@
 -define(TTL_IP_ADDRESS, 86400).
 
 
--spec add_ip_address(IPAddress :: list(), Timestamp :: integer()) -> ok  | {error, any()}.
+-spec add_ip_address(IPAddress :: binary(), Timestamp :: integer()) -> ok  | {error, any()}.
 add_ip_address(IPAddress, Timestamp) ->
     IPBin = util:to_binary(IPAddress),
     _Results = q([
@@ -59,7 +59,7 @@ add_ip_address(IPAddress, Timestamp) ->
     ok.
 
 
--spec get_ip_address_info(IPAddress :: list()) -> {ok, {maybe(integer()), maybe(integer())}}  | {error, any()}.
+-spec get_ip_address_info(IPAddress :: binary()) -> {ok, {maybe(integer()), maybe(integer())}}  | {error, any()}.
 get_ip_address_info(IPAddress) ->
     IPBin = util:to_binary(IPAddress),
     {ok, [Count, Timestamp]} = q(["HMGET", ip_key(IPBin), ?FIELD_COUNT, ?FIELD_TIMESTAMP]),
@@ -67,7 +67,7 @@ get_ip_address_info(IPAddress) ->
     {ok, {util_redis:decode_int(Count), util_redis:decode_ts(Timestamp)}}.
 
 
--spec delete_ip_address(IPAddress :: list()) -> ok  | {error, any()}.
+-spec delete_ip_address(IPAddress :: binary()) -> ok  | {error, any()}.
 delete_ip_address(IPAddress) ->
     IPBin = util:to_binary(IPAddress),
     _Results = q(["DEL", ip_key(IPBin)]),
@@ -75,7 +75,7 @@ delete_ip_address(IPAddress) ->
 
 
 %% TODO: Improve this to work with multiple blocklists eventually.
--spec is_ip_blocked(IPAddress :: list()) -> {true, maybe(integer())} | false.
+-spec is_ip_blocked(IPAddress :: binary()) -> {true, maybe(integer())} | false.
 is_ip_blocked(IPAddress) ->
     BlockIPKey = block_ip_key(IPAddress),
     [{ok, Res1}, {ok, Res2}] = qp([
@@ -89,27 +89,27 @@ is_ip_blocked(IPAddress) ->
 
 %% FieldType refers to the blocklist name we got the ip from.
 %% One ipaddress could belong to multiple of these types.
--spec add_blocked_ip_address(IPAddress :: list(), FieldType :: binary()) -> ok | {error, any()}.
+-spec add_blocked_ip_address(IPAddress :: binary(), FieldType :: binary()) -> ok | {error, any()}.
 add_blocked_ip_address(IPAddress, FieldType) ->
     BlockIPKey = block_ip_key(IPAddress),
     {ok, _Res} = q(["HSET", BlockIPKey, FieldType, <<"1">>]),
     ok.
 
 
--spec remove_blocked_ip_address(IPAddress :: list()) -> ok | {error, any()}.
+-spec remove_blocked_ip_address(IPAddress :: binary()) -> ok | {error, any()}.
 remove_blocked_ip_address(IPAddress) ->
     BlockIPKey = block_ip_key(IPAddress),
     {ok, _Res} = q(["DEL", BlockIPKey]),
     ok.
 
--spec record_blocked_ip_address(IPAddress :: list(), Timestamp :: integer()) -> ok | {error, any()}.
+-spec record_blocked_ip_address(IPAddress :: binary(), Timestamp :: integer()) -> ok | {error, any()}.
 record_blocked_ip_address(IPAddress, Timestamp) ->
     BlockIPKey = block_ip_key(IPAddress),
     {ok, _Res} = q(["HSET", BlockIPKey, ?FIELD_TIMESTAMP, util:to_binary(Timestamp)]),
     ok.
 
 
--spec clear_blocked_ip_address(IPAddress :: list()) -> ok | {error, any()}.
+-spec clear_blocked_ip_address(IPAddress :: binary()) -> ok | {error, any()}.
 clear_blocked_ip_address(IPAddress) ->
     BlockIPKey = block_ip_key(IPAddress),
     {ok, _Res} = q(["HDEL", BlockIPKey, ?FIELD_TIMESTAMP]),
@@ -152,7 +152,7 @@ ip_key(IPBin) ->
 
 
 
--spec block_ip_key(IPAddress :: list()) -> binary().
+-spec block_ip_key(IPAddress :: binary()) -> binary().
 block_ip_key(IPAddress) ->
     IPBin = util:to_binary(IPAddress),
     <<?BLOCK_IP_KEY/binary, "{", IPBin/binary, "}">>.

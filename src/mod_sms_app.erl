@@ -126,7 +126,7 @@ send_sms(Phone, Code, LangId, UserAgent) ->
         UserAgent :: binary()) -> {ok, gateway_response()} | {error, voice_call_fail, retry | no_retry}.
 send_voice_call(_Phone, _Code, _LangId, _UserAgent) ->
     %voice calls (if doable) will be implemented almost identically to sms
-    {error, sms_fail, no_retry}.
+    {error, voice_call_fail, no_retry}.
 
 
 -spec send_feedback(Phone :: phone(), AllVerifyInfo :: list()) -> ok.
@@ -179,8 +179,6 @@ handle_call(stop, _From, State) ->
 
 %% send sms callback
 handle_call({send_sms, OtpInfo}, _From, State) ->
-    #{to_phone := _Phone, code := _Code, lang_id := _LangId, user_agent := _UserAgent,
-        method := _Method, used_phones := _UsedPhones} = OtpInfo,
     case send_sms_internal(OtpInfo, State) of
         {error, Reason, NewState} ->
             {reply, {error, Reason, retry}, NewState};
@@ -299,7 +297,7 @@ send_sms_internal(OtpInfo, State) ->
         {ok, FromPhone} ->
             CurrentPhoneUsageMap = State#state.phone_usage,
             NumTriesFromPhone = maps:get(FromPhone, CurrentPhoneUsageMap, 0),
-            FromUid = model_phone:get_uid(FromPhone),
+            {ok, FromUid} = model_phone:get_uid(FromPhone),
             UUID = util_id:new_long_id(),
             GatewayId = <<FromPhone/binary, "/", UUID/binary>>,
 
@@ -308,10 +306,10 @@ send_sms_internal(OtpInfo, State) ->
                 phone = Phone,
                 content = Msg
             },
-            NewOtpInfo = OtpInfo#{
-                used_phones => [FromPhone | UsedPhones],
-                from_phone => FromPhone,
-                gateway_id => GatewayId
+            NewOtpInfo = OtpInfo#otp_info{
+                used_phones = [FromPhone | UsedPhones],
+                from_phone = FromPhone,
+                gateway_id = GatewayId
             },
             IQ = #pb_iq{
                 to_uid = FromUid,
@@ -324,7 +322,7 @@ send_sms_internal(OtpInfo, State) ->
             Response = #gateway_response{
                 % gateway_id notes which phone but is also unique
                 gateway_id = GatewayId,
-                status = <<"requested">>,
+                status = sending,
                 response = undefined
             },
             NewPhoneUsageMap = CurrentPhoneUsageMap#{FromPhone => NumTriesFromPhone + 1},
@@ -350,9 +348,9 @@ pick_from_phone(UsedPhones, AllPhones) ->
             end
         end, TryPhones),
     case OnlinePhones of
-        [_H | _] ->
+        [] -> {error, no_device_available};
+        _ ->
             WhichIdx = rand:uniform(length(OnlinePhones)),
-            {ok, lists:nth(WhichIdx, OnlinePhones)};
-        [] -> {error, no_device_available}
+            {ok, lists:nth(WhichIdx, OnlinePhones)}
     end.
 

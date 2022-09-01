@@ -122,8 +122,6 @@ process_psa_tag(PSATag) ->
 
 is_client_version_ok(missing) ->
     false;
-is_client_version_ok(undefined) ->
-    false;
 is_client_version_ok(UserAgent) ->
     %% TODO(vipin): Add iOS when ~ is not shown for psa moments.
     (util_ua:is_android(UserAgent) andalso
@@ -165,7 +163,7 @@ maybe_send_psa_moment(Uid, PSATag) ->
     end, PostStanzas),
     ok.
 
--spec convert_post_to_feeditem(post()) -> pb_post().
+-spec convert_post_to_feeditem(post()) -> #pb_feed_item{}.
 convert_post_to_feeditem(#post{id = PostId, uid = Uid, payload = PayloadBase64, ts_ms = TimestampMs, audience_type = AudienceType, tag = Tag, psa_tag = PSATag}) ->
     #pb_feed_item{
         action = publish,

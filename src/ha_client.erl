@@ -64,11 +64,11 @@
 -record(state, {
     socket :: gen_tcp:socket(),
     % Queue of decoded pb messages received
-    recv_q :: list(),
+    recv_q :: queue:queue(),
     state = auth :: register | auth | connected,
     recv_buf = <<>> :: binary(),
     options :: options(),
-    noise_socket :: noise_socket(),
+    noise_socket :: maybe(noise_socket()),
     iq_id :: binary()
 }).
 
@@ -80,8 +80,9 @@
     resource => binary(),
     version => binary(),
     host => string(),
-    port => string(),
+    port => integer(),
     mode => atom(),
+    monitor => boolean(),
     _ => _
 }.
 
@@ -279,12 +280,12 @@ send_recv(Client, Packet) ->
 
 
 % send pb_auth_request message
--spec login(Client :: pid(), Uid :: uid(), Keypair :: keypair()) -> ok.
+-spec login(Client :: pid(), Uid :: uid(), Keypair :: keypair()) -> #pb_auth_result{}.
 login(Client, Uid, Keypair) ->
     gen_server:call(Client, {login, Uid, Keypair}).
 
 
--spec connect_and_send(Pkt :: stanza(), Keypair :: keypair(), Options :: map()) -> ok.
+-spec connect_and_send(Pkt :: stanza(), Keypair :: keypair(), Options :: map()) -> {ok, pid(), #pb_register_response{}} | {error, any()}.
 connect_and_send(Pkt, Keypair, Options) ->
     {ok, C} = case maps:get(monitor, Options, false) of
         true ->
@@ -303,11 +304,11 @@ connect_and_send(Pkt, Keypair, Options) ->
     end.
 
 
--spec send_iq(Client :: pid(), Type :: atom(), Payload :: term()) -> iq().
+-spec send_iq(Client :: pid(), Type :: atom(), Payload :: term()) -> #pb_packet{}.
 send_iq(Client, Type, Payload) ->
     send_iq(Client, next_id(Client), Type, Payload).
 
--spec send_iq(Client :: pid(), Id :: any(), Type :: atom(), Payload :: term()) -> iq().
+-spec send_iq(Client :: pid(), Id :: any(), Type :: atom(), Payload :: term()) -> #pb_packet{}.
 send_iq(Client, Id, Type, Payload) ->
     Packet = #pb_packet{
         stanza = #pb_iq{
@@ -360,10 +361,7 @@ terminate(_Reason, State) ->
 
 handle_call({send, Message}, _From, State) ->
     NoiseSocket = State#state.noise_socket,
-    {Result, NoiseSocket2} = case send_internal(NoiseSocket, Message) of
-        {ok, NoiseSocket1} -> {ok, NoiseSocket1};
-        Error -> {Error, NoiseSocket}
-    end,
+    {Result, NoiseSocket2} = send_internal(NoiseSocket, Message),
     {reply, Result, State#state{noise_socket = NoiseSocket2}};
 
 

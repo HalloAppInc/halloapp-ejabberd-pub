@@ -274,7 +274,7 @@ check_blocked(FromUid, ToUid, Packet, Dir) ->
 
 %% TODO(murali@): counts for switching privacy modes will involve another redis call.
 -spec update_privacy_type(Uid :: binary(), Type :: atom(),
-        HashValue :: binary(), UidEls :: list(binary())) -> ok | {error, any(), any()}.
+        HashValue :: binary(), UidEls :: list(binary())) -> ok | {error, any(), any()} | {error, any()}.
 update_privacy_type(Uid, all = Type, _HashValue, []) ->
     set_privacy_type(Uid, Type),
     stat:count(?STAT_PRIVACY, "all"),
@@ -298,7 +298,7 @@ update_privacy_type(_Uid, _, _, _) ->
 
 %% for phone-based privacy lists.
 -spec update_privacy_type2(Uid :: binary(), Type :: atom(),
-        HashValue :: binary(), PhoneEls :: list(binary())) -> ok | {error, any(), any()}.
+        HashValue :: binary(), PhoneEls :: list(binary())) -> ok | {error, any(), any()} | {error, any()}.
 update_privacy_type2(Uid, all = Type, _HashValue, []) ->
     set_privacy_type(Uid, Type),
     stat:count(?STAT_PRIVACY, "all_phones"),
@@ -334,7 +334,7 @@ get_privacy_type(Uid) ->
 
 
 -spec update_privacy_list(Uid :: binary(), Type :: atom(),
-        ClientHashValue :: binary(), UidEls :: list(pb_uid_element())) -> ok.
+        ClientHashValue :: binary(), UidEls :: list(pb_uid_element())) -> ok | {error, any(), any()}.
 update_privacy_list(Uid, Type, ClientHashValue, UidEls) ->
     {DeleteUidsList, AddUidsList} = lists:partition(
             fun(#pb_uid_element{action = T}) ->
@@ -361,7 +361,7 @@ update_privacy_list(Uid, Type, ClientHashValue, UidEls) ->
 
 %% for phone-based privacy lists.
 -spec update_privacy_list2(Uid :: binary(), Type :: atom(),
-        ClientHashValue :: binary(), PhoneEls :: list(phone_el())) -> ok.
+        ClientHashValue :: binary(), PhoneEls :: list(phone_el())) -> ok | {error, any(), any()} | {error, any()}.
 update_privacy_list2(Uid, Type, ClientHashValue, PhoneEls) ->
     {DeletePhonesList, AddPhonesList} = lists:partition(
             fun(#pb_phone_element{action = T}) ->

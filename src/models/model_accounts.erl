@@ -524,7 +524,7 @@ set_client_version(Uid, Version) ->
     ok.
 
 
--spec get_client_version(Uid :: uid()) -> {ok, binary()} | {error, missing}.
+-spec get_client_version(Uid :: uid()) -> {ok, maybe(binary())} | {error, missing}.
 get_client_version(Uid) ->
     {ok, Res} = q(["HGET", account_key(Uid), ?FIELD_CLIENT_VERSION]),
     case Res of
@@ -877,13 +877,13 @@ get_last_connection_time(Uid) ->
 
 
 -spec set_last_activity(Uid :: uid(), TimestampMs :: integer(),
-        ActivityStatus :: activity_status()) -> ok.
+        ActivityStatus :: maybe(activity_status())) -> ok | {error, any()}.
 set_last_activity(Uid, TimestampMs, ActivityStatus) ->
-    {ok, _Res1} = q(
+    Res = q(
             ["HMSET", account_key(Uid),
             ?FIELD_LAST_ACTIVITY, integer_to_binary(TimestampMs),
             ?FIELD_ACTIVITY_STATUS, util:to_binary(ActivityStatus)]),
-    ok.
+    util_redis:verify_ok(Res).
 
 
 -spec get_last_activity(Uid :: uid()) -> {ok, activity()} | {error, missing}.

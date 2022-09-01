@@ -122,7 +122,8 @@ format_translation(Translation, [Arg | RestArgs]) ->
 
 
 %% Looks up translation for Token in the ets table using LangId.
--spec lookup_translation(Token :: binary(), OriginalLangId :: binary()) -> Translation :: binary().
+-spec lookup_translation(Token :: binary(), OriginalLangId :: binary()) 
+    -> {Translation :: binary(), LangId :: binary()}.
 lookup_translation(Token, OriginalLangId) ->
     %% Recast LangId for some cases.
     LangId = recast_langid(OriginalLangId),

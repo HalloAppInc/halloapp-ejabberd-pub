@@ -81,7 +81,7 @@ re_match(Subject, RE) ->
     re:run(Subject, RE, [{capture, none}]).
 
 % TODO: maybe rename client_type to platform everywhere
--spec resource_to_client_type(Resource :: binary()) -> client_type() | undefined.
+-spec resource_to_client_type(Resource :: maybe(binary())) -> maybe(client_type()).
 resource_to_client_type(Resource) ->
     case Resource of
         <<"android">> -> android;

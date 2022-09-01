@@ -105,10 +105,10 @@ mod_options(_Host) ->
 %%%   API                                                                                      %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
--type share_history_result() :: {uid, share_history, ok | no_account | not_member}.
+-type share_history_result() :: {uid(), add, ok | no_account | not_member}.
 -type share_history_results() :: [share_history_result()].
 
--type modify_member_result() :: {uid(), add | remove,
+-type modify_member_result() :: {uid(), add | remove | leave | join,
         ok | no_account | max_group_size | max_group_count | already_member | already_not_member}.
 -type modify_member_results() :: [modify_member_result()].
 -type modify_admin_result() :: {uid(), promote | demote, ok | no_member}.
@@ -121,7 +121,7 @@ mod_options(_Host) ->
 create_group(Uid, GroupName) ->
     create_group(Uid, GroupName, #pb_expiry_info{expiry_type = expires_in_seconds, expires_in_seconds = ?DEFAULT_GROUP_EXPIRY}).
 
--spec create_group(Uid :: uid(), GroupName :: binary(), GroupExpiry :: expiry_info()) ->
+-spec create_group(Uid :: uid(), GroupName :: binary(), GroupExpiry :: #pb_expiry_info{}) ->
         {ok, group()} | {error, invalid_name} | {error, max_group_count}.
 create_group(Uid, GroupName, GroupExpiry) ->
     ?INFO("Uid: ~s GroupName: ~s, GroupExpiry", [Uid, GroupName, GroupExpiry]),
@@ -133,7 +133,7 @@ create_group(Uid, GroupName, GroupExpiry) ->
     end.
 
 
--spec create_group(Uid :: uid(), GroupName :: binary(), GroupExpiry :: expiry_info(), MemberUids :: [uid()])
+-spec create_group(Uid :: uid(), GroupName :: binary(), GroupExpiry :: #pb_expiry_info{}, MemberUids :: [uid()])
             -> {ok, group(), modify_member_results()} | {error, any()}.
 create_group(Uid, GroupName, GroupExpiry, MemberUids) ->
     case create_group_internal(Uid, GroupName, GroupExpiry) of
@@ -192,7 +192,7 @@ modify_members(Gid, Uid, Changes) ->
 
 
 -spec modify_members(Gid :: gid(), Uid :: uid(), Changes :: [{uid(), add | remove}],
-    PBHistoryResend :: pb_history_resend()) -> {ok, modify_member_results()} | {error, not_admin}.
+    PBHistoryResend :: maybe(pb_history_resend())) -> {ok, modify_member_results()} | {error, not_admin}.
 modify_members(Gid, Uid, Changes, PBHistoryResend) ->
     case model_groups:is_admin(Gid, Uid) of
         false -> {error, not_admin};
@@ -221,7 +221,7 @@ modify_members(Gid, Uid, Changes, PBHistoryResend) ->
 
 
 -spec share_history(Gid :: gid(), Uid :: uid(), UidsToShare :: [uid()],
-    PBHistoryResend :: pb_history_resend()) -> {ok, share_history_results()} | {error, not_admin}.
+    PBHistoryResend :: maybe(pb_history_resend())) -> {ok, share_history_results()} | {error, not_admin}.
 share_history(Gid, Uid, UidsToShare, PBHistoryResend) ->
     case model_groups:is_admin(Gid, Uid) of
         false -> {error, not_admin};
@@ -368,7 +368,7 @@ get_member_identity_keys_unsafe(Group) ->
 
 
 -spec check_audience_hash(
-      IQAudienceHash :: binary(), GroupAudienceHash :: binary(),
+      IQAudienceHash :: maybe(binary()), GroupAudienceHash :: binary(),
       Gid :: gid(), Uid :: uid(), Action :: atom()) -> boolean().
 %% TODO: add tests.
 check_audience_hash(undefined, _GroupAudienceHash, _Gid, _Uid, _Action) -> true;
@@ -411,7 +411,7 @@ check_audience_hash(IQAudienceHash, GroupAudienceHash, Gid, Uid, Action) ->
     end.
 
 
--spec compute_and_set_audience_hash(CurrentHash :: binary(), Gid :: gid(), Uid :: uid()) -> binary() | no_return().
+-spec compute_and_set_audience_hash(CurrentHash :: maybe(binary()), Gid :: gid(), Uid :: uid()) -> binary() | no_return().
 compute_and_set_audience_hash(CurrentHash, Gid, Uid) ->
     case CurrentHash of
         undefined ->
@@ -485,7 +485,7 @@ set_name(Gid, Uid, Name) ->
     end.
 
 
--spec set_expiry(Gid :: gid(), Uid :: uid(), GroupExpiry :: expiry_info()) -> ok | {error, not_admin}.
+-spec set_expiry(Gid :: gid(), Uid :: uid(), GroupExpiry :: #pb_expiry_info{}) -> ok | {error, not_admin}.
 set_expiry(Gid, Uid, GroupExpiry) ->
     ?INFO("Gid: ~s Uid: ~s GroupExpiry: |~s|", [Gid, Uid, GroupExpiry]),
     case model_groups:is_admin(Gid, Uid) of
@@ -793,7 +793,7 @@ create_group_internal(Uid, GroupName, GroupExpiry) ->
     end.
 
 
--spec validate_expiry_info(GroupExpiry :: expiry_info()) -> {expiry_type(), integer()} | {error, atom()}.
+-spec validate_expiry_info(GroupExpiry :: maybe(#pb_expiry_info{})) -> {expiry_type(), integer()} | {error, atom()}.
 validate_expiry_info(undefined) -> {ok, {expires_in_seconds, ?DEFAULT_GROUP_EXPIRY}};
 validate_expiry_info(GroupExpiry) ->
     ExpiryType = GroupExpiry#pb_expiry_info.expiry_type,
@@ -1342,7 +1342,7 @@ is_user_group_count_exceeded(Uid) ->
     maps:get(Uid, is_user_group_counts_exceeded([Uid])).
 
 
--spec is_user_group_counts_exceeded(Uid :: uid()) -> [boolean()].
+-spec is_user_group_counts_exceeded(Uid :: [uid()]) -> #{uid() => boolean()}.
 is_user_group_counts_exceeded(Uids) ->
     UserGroupCounts = model_groups:get_group_counts(Uids),
     maps:map(fun(_Uid, GroupCount) -> GroupCount + 1 > ?MAX_GROUP_COUNT end, UserGroupCounts).

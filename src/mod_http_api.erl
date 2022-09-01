@@ -91,18 +91,9 @@ depends(_Host, _Opts) ->
 
 extract_auth(#request{auth = HTTPAuth, ip = {IP, _}, opts = Opts}) ->
     Info = case HTTPAuth of
-	       {SJID, Pass} ->
-		   try jid:decode(SJID) of
-		       #jid{luser = User, lserver = Server} ->
-			   case ejabberd_auth:check_password(User, Pass) of
-			       true ->
-				   #{usr => {User, Server, <<"">>}, caller_server => Server};
-			       false ->
-				   {error, invalid_auth}
-			   end
-		   catch _:{bad_jid, _} ->
-		       {error, invalid_auth}
-		   end;
+	       {_SJID, _Pass} ->
+                % Password checker got removed: TODO fix?
+                {error, invalid_auth};
 	       {oauth, _Token, _} ->
                % TODO: format this file
                {error, no_oauth};
@@ -177,8 +168,6 @@ perform_call(Command, Args, Req, Version) ->
     case catch binary_to_existing_atom(Command, utf8) of
 	Call when is_atom(Call) ->
 	    case extract_auth(Req) of
-		{error, expired} -> invalid_token_response();
-		{error, not_found} -> invalid_token_response();
 		{error, invalid_auth} -> unauthorized_response();
 		Auth when is_map(Auth) ->
 		    Result = handle(Call, Auth, Args, Version),
@@ -472,8 +461,8 @@ format_error_result(_ErrorAtom, Code, Msg) ->
 unauthorized_response() ->
     json_error(401, 10, <<"You are not authorized to call this command.">>).
 
-invalid_token_response() ->
-    json_error(401, 10, <<"Oauth Token is invalid or expired.">>).
+% invalid_token_response() ->
+%     json_error(401, 10, <<"Oauth Token is invalid or expired.">>).
 
 %% outofscope_response() ->
 %%     json_error(401, 11, <<"Token does not grant usage to command required scope.">>).

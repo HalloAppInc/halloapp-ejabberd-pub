@@ -109,21 +109,21 @@ delete_spub(Uid) ->
     ok.
 
 %% TODO(vipin): Delete the mapping from Uid to StaticKey if not needed.
--spec authenticate_static_key(Uid :: uid(), StaticKey :: binary()) -> ok.
+-spec authenticate_static_key(Uid :: uid(), StaticKey :: binary()) -> ok | {error, any()}.
 authenticate_static_key(Uid, StaticKey) ->
     ListKey = static_key_key(Uid),
     RevStaticKey = reverse_static_key_key(StaticKey),
-    _Results = qmn([["SADD", ListKey, StaticKey],
+    Results = qmn([["SADD", ListKey, StaticKey],
                     ["HSET", RevStaticKey, ?FIELD_STATIC_KEY_UID, Uid] ]),  
-    ok.
+    util_redis:verify_ok(Results).
 
--spec delete_static_key(Uid :: uid(), StaticKey :: binary()) -> ok.
+-spec delete_static_key(Uid :: uid(), StaticKey :: binary()) -> ok | {error, any()}.
 delete_static_key(Uid, StaticKey) ->
     ListKey = static_key_key(Uid),
     RevStaticKey = reverse_static_key_key(StaticKey),
-    _Results = qmn([["SREM", ListKey, StaticKey],
-                    ["HDEL", RevStaticKey, ?FIELD_STATIC_KEY_UID]]),  
-    ok.
+    Results = qmn([["SREM", ListKey, StaticKey],
+                    ["HDEL", RevStaticKey, ?FIELD_STATIC_KEY_UID]]),
+    util_redis:verify_ok(Results).
 
 -spec get_static_keys(Uid :: uid()) -> {ok, [binary()]}.
 get_static_keys(Uid) ->

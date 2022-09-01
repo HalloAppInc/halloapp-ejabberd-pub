@@ -226,7 +226,7 @@ user_send_packet({Packet, #{jid := JID, sid := SID, mode := Mode} = C2SState}) -
     start_ping(JID#jid.lserver, SessionInfo),
     {Packet, C2SState}.
 
--spec user_session_activated(C2SState :: halloapp_c2s:state(), Uid :: binary(), SID :: sid()) -> state().
+-spec user_session_activated(C2SState :: halloapp_c2s:state(), Uid :: binary(), SID :: sid()) -> halloapp_c2s:state().
 user_session_activated(#{jid := JID, sid := SID, mode := Mode} = C2SState, Uid, SID) ->
     ?INFO("Uid: ~p, SID: ~p", [Uid, SID]),
     SessionInfo = #session_info{

@@ -94,7 +94,7 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
 %%====================================================================
 
 -spec store_share_post(Uid :: uid(), PostBlob :: binary(), ExpireIn :: integer(),
-    OgTagInfo :: #pb_og_tag_info{}, Iter :: integer())
+    OgTagInfo :: maybe(#pb_og_tag_info{}), Iter :: integer())
         -> {ok, binary()} | {error, any()}.
 store_share_post(_Uid, _PostBlob, _ExpireIn, _OgTagInfo, Iter) when Iter > ?MAX_STORE_ITERATION ->
     {error, non_uniq_post_id};

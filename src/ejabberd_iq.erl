@@ -36,6 +36,7 @@
 
 -include("logger.hrl").
 -include("packets.hrl").
+-include("ha_types.hrl").
 -include("ejabberd_stacktrace.hrl").
 
 -record(state, {expire = infinity :: timeout()}).
@@ -56,7 +57,7 @@ route(#pb_iq{type = T} = IQ, Proc, Ctx, Timeout) when T == set; T == get ->
 route(#pb_iq{type = T} = IQ, UserPid, Proc, Ctx, Timeout) when T == set; T == get ->
     do_route(IQ, UserPid, Proc, Ctx, Timeout).
 
--spec do_route(iq(), pid(), atom() | pid(), term(), non_neg_integer()) -> ok.
+-spec do_route(iq(), maybe(pid()), atom() | pid(), term(), non_neg_integer()) -> ok.
 do_route(IQ, UserPid, Proc, Ctx, Timeout) ->
     Expire = current_time() + Timeout,
     Id = util_id:new_short_id(),

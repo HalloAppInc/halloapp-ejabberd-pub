@@ -45,7 +45,7 @@
     gid :: gid(),
     name :: binary(),
     description :: binary(),
-    avatar :: binary(),
+    avatar :: maybe(binary()),
     background :: binary(),
     audience_hash :: binary(),
     expiry_info :: expiry_info()

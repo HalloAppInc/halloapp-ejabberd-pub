@@ -142,7 +142,7 @@ process(Path, Request) ->
     ?INFO("404 Not Found: path: ~p, r:~p", [Path, Request]),
     util_http:return_404().
 
--spec process_hashcash_request(Data :: string(), IP :: string(), Headers :: list()) -> http_response().
+-spec process_hashcash_request(Data :: binary(), IP :: inet:ip_address(), Headers :: list()) -> http_response().
 process_hashcash_request(Data, IP, Headers) ->
     try
         ?DEBUG("Data:~p", [Data]),
@@ -160,7 +160,7 @@ process_hashcash_request(Data, IP, Headers) ->
             util_http:return_500()
     end.
 
--spec process_otp_request_dummy(Data :: string(), IP :: string(), Headers :: list()) -> http_response().
+-spec process_otp_request_dummy(Data :: binary(), IP :: inet:ip_address(), Headers :: list()) -> http_response().
 process_otp_request_dummy(Data, IP, Headers) ->
     % Fake version of previous functionality - always returns 200 OK.
     % Hopefully, will help to confuse spammers.
@@ -182,12 +182,12 @@ process_otp_request_dummy(Data, IP, Headers) ->
     Phone = normalize_by_version(RawPhone, UserAgent),
     return_dropped(Phone, 30, MethodBin).
 
--spec process_hashcash_request(RequestData :: #{}) -> {ok, binary()}.
+-spec process_hashcash_request(RequestData :: map()) -> {ok, binary()}.
 process_hashcash_request(#{cc := CC, ip := ClientIP}) ->
     Challenge = create_hashcash_challenge(CC, ClientIP),
     {ok, Challenge}.
 
--spec create_hashcash_challenge(CC :: binary(), IP :: binary()) -> binary().
+-spec create_hashcash_challenge(CC :: binary(), IP :: inet:ip_address()) -> binary().
 create_hashcash_challenge(_CC, _IP) ->
     Challenge = util_hashcash:construct_challenge(get_hashcash_difficulty(), ?HASHCASH_EXPIRE_IN), 
     ok = model_phone:add_hashcash_challenge(Challenge),
@@ -199,7 +199,7 @@ get_hashcash_difficulty() ->
         _ -> ?DEV_HASHCASH_DIFFICULTY
     end.
 
--spec process_otp_request(RequestData :: #{}) ->
+-spec process_otp_request(RequestData :: map()) ->
     {ok, integer()} | {error, retried_too_soon, integer()} | {error, any()}.
 process_otp_request(#{raw_phone := RawPhone, lang_id := LangId, ua := UserAgent, method := MethodBin,
         ip := ClientIP, raw_data := RawData,
@@ -312,7 +312,7 @@ process_otp_request(#{raw_phone := RawPhone, lang_id := LangId, ua := UserAgent,
     end.
 
 %% TODO (murali@): using a map is not great. try to use the original record itself.
--spec process_register_request(RequestData :: #{}) -> {ok, #{}} | {error, any()}.
+-spec process_register_request(RequestData :: map()) -> {ok, map()} | {error, any()}.
 process_register_request(#{raw_phone := RawPhone, name := Name, ua := UserAgent, code := Code,
         ip := ClientIP, group_invite_token := GroupInviteToken, s_ed_pub := SEdPubB64,
         signed_phrase := SignedPhraseB64, id_key := IdentityKeyB64, sd_key := SignedKeyB64,
@@ -413,7 +413,7 @@ process_register_request(#{raw_phone := RawPhone, name := Name, ua := UserAgent,
     end.
 
 
--spec log_register_error(ErrorType :: atom | string()) -> ok.
+-spec log_register_error(ErrorType :: atom() | string()) -> ok.
 log_register_error(ErrorType) ->
     stat:count("HA/account", "register_errors", 1,
         [{error, ErrorType}]),
@@ -603,7 +603,7 @@ check_hashcash_solution_throw_error(HashcashSolution, HashcashSolutionTimeTakenM
             error(Reason)
     end.
 
--spec check_hashcash_solution(HashcashSolution :: binary(), HashcashSolutionTimeTakenMs :: binary())
+-spec check_hashcash_solution(HashcashSolution :: binary(), HashcashSolutionTimeTakenMs :: integer())
       -> ok | {error, atom()}.
 check_hashcash_solution(HashcashSolution, HashcashSolutionTimeTakenMs) ->
     ?INFO("Hashcash solution took: ~p ms", [HashcashSolutionTimeTakenMs]),

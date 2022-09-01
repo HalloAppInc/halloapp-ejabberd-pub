@@ -107,7 +107,7 @@ process_local_iq(#pb_iq{from_uid = Uid, type = get,
     end.
 
 
--spec generate_s3_urls() -> {GetUrl :: binary(), PutUrl :: binary()}.
+-spec generate_s3_urls() -> {GetUrl :: string(), PutUrl :: string()}.
 generate_s3_urls() ->
     {Key, PutUrl} = s3_signed_url_generator:make_signed_url(604800),
     %% Url to read content with max expiry.
@@ -133,10 +133,11 @@ process_patch_url_result(IQ, PatchResult) ->
     ?INFO("Uid: ~p, MediaUrl: ~p", [IQResult#pb_iq.to_uid, MediaUrl]),
     %% All of the logic to generate resumable urls is running on the c2s process.
     %% So use self pid as the destination.
-    halloapp_c2s:route(self(), {route, IQResult}).
+    halloapp_c2s:route(self(), {route, IQResult}),
+    ok.
     
 
--spec generate_resumable_urls(Size :: binary(), IQ :: iq()) -> ok.
+-spec generate_resumable_urls(Size :: integer(), IQ :: iq()) -> ok.
 generate_resumable_urls(Size, IQ) ->
     %% Generate the patch url. Send in details of what needs to be called when
     %% patch url is available.

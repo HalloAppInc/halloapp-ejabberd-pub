@@ -28,7 +28,8 @@
     encode_b64/1,
     decode_b64/1,
     parse_zrange_with_scores/1,
-    run_qmn/2
+    run_qmn/2,
+    verify_ok/1
 ]).
 
 
@@ -117,3 +118,10 @@ run_qmn(Client, Commands) ->
     lists:foreach(fun(Response) -> {ok, _} = Response end, Responses),
     Responses.
 
+
+-spec verify_ok(Result :: {error, any()} | term() | [{error, any()} | term()]) -> ok | {error, any()}.
+verify_ok([]) -> ok;
+verify_ok([{error, _Reason} = Err | _Rest]) -> Err;
+verify_ok([_Okay | Rest]) -> verify_ok(Rest);
+verify_ok({error, _Reason} = Err) -> Err;
+verify_ok(_Success) -> ok.

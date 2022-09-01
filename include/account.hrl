@@ -52,14 +52,14 @@
 {
     uid :: binary(),
     os :: binary(),
-    token :: binary(),
-    voip_token :: binary(),
-    huawei_token :: binary(),
+    token :: maybe(binary()),
+    voip_token :: maybe(binary()),
+    huawei_token :: maybe(binary()),
     timestamp_ms :: integer(),
     post_pref :: maybe(boolean()),
     comment_pref :: maybe(boolean()),
     client_version :: maybe(binary()),
-    lang_id :: binary()
+    lang_id :: maybe(binary())
 }).
 
 -type push_info() :: #push_info{}.

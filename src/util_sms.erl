@@ -24,7 +24,7 @@
     is_hashcash_enabled/2
 ]).
 
--spec init_helper(GWOptions :: atom(), FromPhoneList :: [string()]) -> ok.
+-spec init_helper(GWOptions :: atom(), FromPhoneList :: [string() | binary()]) -> ok.
 init_helper(GWOptions, FromPhoneList) ->
     ets:new(GWOptions,
         [named_table, set, public, {write_concurrency, true}, {read_concurrency, true}]),
@@ -38,7 +38,7 @@ init_helper(GWOptions, FromPhoneList) ->
     ok.
 
 
--spec lookup_from_phone(GWOptions :: atom()) -> string().
+-spec lookup_from_phone(GWOptions :: atom()) -> string() | binary().
 lookup_from_phone(GWOptions) ->
     [{_, ListLength}] = ets:lookup(GWOptions, from_phone_list_length),
     PhoneIndex = ets:update_counter(GWOptions, from_phone_index, 1) rem ListLength,

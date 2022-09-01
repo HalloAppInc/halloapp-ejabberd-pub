@@ -47,7 +47,7 @@ return_500() ->
         jiffy:encode({[{result, <<"Internal Server Error">>}]})}.
 
 
--spec get_header(Header :: atom(), Headers :: list()) -> maybe(binary()).
+-spec get_header(Header :: atom() | binary(), Headers :: list()) -> maybe(binary()).
 get_header(Header, Headers) ->
     case lists:keyfind(Header, 1, Headers) of
         false -> undefined;

@@ -378,7 +378,7 @@ promote_admins(Gid, Uids) ->
     [promote_admin(Gid, Uid) || Uid <- Uids].
 
 
--spec demote_admin(Gid :: gid(), Uid :: uid()) -> {ok, boolean()}.
+-spec demote_admin(Gid :: gid(), Uid :: uid()) -> {ok, true | not_member | not_admin}.
 demote_admin(Gid, Uid) ->
     {ok, MemberValue} = q(["HGET", members_key(Gid), Uid]),
     case MemberValue of

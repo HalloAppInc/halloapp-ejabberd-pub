@@ -126,7 +126,8 @@ handle_info(Request, State) ->
 % 1. tracking if a push is successfully sent (push_response)
 % 2. tracking if a push caused the clients to log on (push_wakeup)
 -spec push_monitor(Uid :: binary(), Status :: success | failure, Platform :: ios | android,
-            AndroidData :: [], IosData :: [], PushCheckType :: push_wakeup | push_response) -> #{}.
+            AndroidData :: list(), IosData :: list(), PushCheckType :: push_wakeup | push_response)
+             -> {AndroidData2 :: list(), IosData2 :: list()}.
 push_monitor(Uid, Status, Platform, AndroidData, IosData, PushCheckType) ->
     UidWithStatusCode = case Status of
         failure -> {Uid, 0};

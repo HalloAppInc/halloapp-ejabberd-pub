@@ -43,20 +43,18 @@
 %%====================================================================
 
 
--spec set_session(Uid :: uid(), Session :: session()) -> ok.
+-spec set_session(Uid :: uid(), Session :: session()) -> ok | {error, any()}.
 set_session(Uid, Session) ->
     SBin = term_to_binary(Session),
     SID = Session#session.sid,
     SIDKey = term_to_binary(SID),
-    {ok, _} = q(["HSET", sessions_key(Uid), SIDKey, SBin]),
-    ok.
+    util_redis:verify_ok(q(["HSET", sessions_key(Uid), SIDKey, SBin])).
 
 
--spec del_session(Uid :: uid(), Session :: session()) -> ok.
+-spec del_session(Uid :: uid(), Session :: session()) -> ok | {error, any()}.
 del_session(Uid, Session) ->
     SID = Session#session.sid,
-    {ok, _} = q(["HDEL", sessions_key(Uid), term_to_binary(SID)]),
-    ok.
+    util_redis:verify_ok(q(["HDEL", sessions_key(Uid), term_to_binary(SID)])).
 
 
 -spec get_sessions(Uid :: binary()) -> [session()].

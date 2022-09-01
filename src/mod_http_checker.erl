@@ -210,7 +210,7 @@ get_static_urls() -> [
 
 get_all_ips() ->
     IpsFromUrl = lists:map(fun({Name, Url}) -> {Name, get_ip_from_url(Url)} end, get_static_urls()),
-    lists:concat([IpsFromUrl, mod_aws:get_ejabberd_machines()]).
+    IpsFromUrl ++ mod_aws:get_ejabberd_machines().
 
 
 get_all_urls() ->

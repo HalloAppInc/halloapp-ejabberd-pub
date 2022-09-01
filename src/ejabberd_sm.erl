@@ -206,7 +206,7 @@ bounce_sm_packet({warn, Packet} = Acc) ->
     FromJid = pb:get_from(Packet),
     ToJid = pb:get_to(Packet),
     ?WARNING("FromUid: ~p, ToUid: ~p, packet: ~p",
-            [FromJid#jid.luser, ToJid#jid.luser, Packet]),
+            [FromJid, ToJid, Packet]),
     {stop, Acc};
 bounce_sm_packet({_, Packet} = Acc) ->
     FromUid = pb:get_from(Packet),
@@ -286,7 +286,7 @@ get_session_sids(User, Server, Resource) ->
     [SID || #session{sid = SID} <- Sessions].
 
 
--spec dirty_get_my_sessions_list() -> [#session{}].
+-spec dirty_get_my_sessions_list() -> [SessionsAsLists :: list()].
 dirty_get_my_sessions_list() ->
     ets:match(?SM_LOCAL, '$1').
 
@@ -299,8 +299,8 @@ config_reloaded() ->
 -spec is_user_online(User :: binary()) -> boolean().
 is_user_online(User) ->
     case get_active_sessions(User, util:get_host()) of
-        {ok, []} -> false;
-        {ok, _} -> true
+        [] -> false;
+        _ -> true
     end.
 
 %%====================================================================
@@ -491,13 +491,12 @@ get_passive_sessions(LUser, LServer, LResource) ->
 %%%%% db related functions
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
--spec db_set_session(Session :: session()) -> ok.
+-spec db_set_session(Session :: session()) -> ok | {error, any()}.
 db_set_session(Session) ->
     {Uid, _Server} = Session#session.us,
-    ok = model_session:set_session(Uid, Session),
-    ok.
+    model_session:set_session(Uid, Session).
 
--spec db_delete_session(Session :: session()) -> ok.
+-spec db_delete_session(Session :: session()) -> ok | {error, any()}.
 db_delete_session(Session) ->
     {Uid, _Server} = Session#session.us,
     model_session:del_session(Uid, Session).
@@ -539,21 +538,21 @@ check_and_activate_session(Uid, SID) ->
     Server = util:get_host(),
     %% Fetch current active sessions and close if necessary.
     case get_active_sessions(Uid, Server) of
-        {ok, []} ->
+        [] ->
             %% No active sessions found.
             ?INFO("No active sessions found for Uid: ~s", [Uid]),
             activate_passive_session(Uid, SID);
-        {ok, [#session{sid = SID, mode = active}]} ->
+        [#session{sid = SID, mode = active}] ->
             %% Session is already active. Nothing to do here.
             ?WARNING("Uid: ~s, user session is already active.", [Uid]);
-        {ok, [Session]} ->
+        [Session] ->
             %% Some other active session is found in db.
             %% Close that session and activate existing passive session.
             {_, Pid} = Session#session.sid,
             ?INFO("Sending replaced to session: ~p, Uid: ~p", [Session#session.sid, Uid]),
             halloapp_c2s:route(Pid, replaced),
             activate_passive_session(Uid, SID);
-        {ok, Sessions} ->
+        Sessions ->
             ?CRITICAL("Should never happen: multiple active sessions found, Uid: ~p", [Uid]),
             lists:foreach(
                 fun(#session{sid = {_, Pid}} = Session) ->
@@ -650,15 +649,9 @@ do_route(To, Term) ->
 -spec do_route(stanza()) -> any().
 do_route(#pb_msg{} = Packet) ->
     route_message(Packet);
-do_route(#pb_iq{to_uid = <<"">>, type = T} = Packet) ->
+do_route(#pb_iq{to_uid = <<"">>} = Packet) ->
     Server = util:get_host(),
-    if
-        T == set; T == get ->
-            ?DEBUG("Processing IQ : ~p", [Packet]),
-            gen_iq_handler:handle(?MODULE, Packet);
-        true ->
-            ejabberd_hooks:run_fold(bounce_sm_packet, Server, {pass, Packet}, [])
-    end;
+    ejabberd_hooks:run_fold(bounce_sm_packet, Server, {pass, Packet}, []);
 do_route(Packet) ->
     ?DEBUG("Processing packet: ~p", [Packet]),
     LUser = pb:get_to(Packet),
@@ -967,7 +960,7 @@ get_commands_spec() ->
 -spec connected_users() -> [binary()].
 
 connected_users() ->
-    Uids = [Uid || #session{us = {Uid, _}} <- dirty_get_my_sessions_list()],
+    Uids = [Uid || [Uid | _Ignore] <- dirty_get_my_sessions_list()],
     lists:sort(Uids).
 
 connected_users_number() ->

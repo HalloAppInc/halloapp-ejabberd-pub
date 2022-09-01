@@ -16,6 +16,8 @@
 -author('murali').
 -behaviour(gen_mod).
 
+-dialyzer({no_match, log_delivered/1}).
+
 -include("logger.hrl").
 -include("packets.hrl").
 -include("ha_types.hrl").

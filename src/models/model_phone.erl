@@ -391,8 +391,7 @@ delete_phone(Phone) ->
 
 -spec get_uid(Phone :: phone()) -> {ok, maybe(binary())} | {error, any()}.
 get_uid(Phone) ->
-    {ok, Res} = q(["GET" , phone_key(Phone)]),
-    {ok, Res}.
+    q(["GET" , phone_key(Phone)]).
 
 
 -spec get_uids(Phones :: [binary()]) -> map() | {error, any()}.

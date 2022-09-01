@@ -280,7 +280,7 @@ check_alive(Id, Node) ->
         orelse check_slow_connection(Id, Node, StateHistory).
 
 
--spec check_slow_connection(Id :: atom(), Node :: rnode(), StateHistory :: [proc_state()]) -> boolean().
+-spec check_slow_connection(Id :: atom(), Node :: rnode() | none, StateHistory :: [proc_state()]) -> boolean().
 check_slow_connection(Id, Node, StateHistory) ->
     case util_monitor:check_slow(StateHistory) of
         {false, _} -> false;
@@ -333,7 +333,7 @@ check_can_x(Id, Node, StateHistory, Type) ->
     end.
 
 
--spec check_consecutive_connect_fails(Id :: atom(), Node :: rnode(), StateHistory :: [proc_state()]) -> boolean().
+-spec check_consecutive_connect_fails(Id :: atom(), Node :: rnode() | none, StateHistory :: [proc_state()]) -> boolean().
 check_consecutive_connect_fails(Id, Node, StateHistory) ->
     case util_monitor:check_consecutive_fails(StateHistory) of
         false -> false;

@@ -144,7 +144,7 @@ get_retry_count(Uid, MsgId) ->
     {ok, Res}.
 
 
--spec get_message(Uid :: uid(), MsgId :: binary()) -> {ok, offline_message()} | {error, any()}.
+-spec get_message(Uid :: uid(), MsgId :: binary()) -> {ok, maybe(offline_message())} | {error, any()}.
 get_message(Uid, MsgId) ->
     Result = q(["HGETALL", message_key(Uid, MsgId)]),
     OfflineMessage = parse_result({MsgId, Result}),

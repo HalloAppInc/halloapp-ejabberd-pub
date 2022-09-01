@@ -493,7 +493,7 @@ store_blob(Blob) ->
     {ok, Key, EncBlob} = util_crypto:encrypt_blob(Blob, 15, ?SHARE_POST_HKDF_INFO),
     ok = model_accounts:create_account(?SOME_USERID, ?SOME_PHONE, ?SOME_USERNAME, ?SOME_USER_AGENT),
     ok = model_accounts:set_avatar_id(?SOME_USERID, ?SOME_AVATAR_ID),
-    {ok, BlobId} = mod_external_share_post:store_share_post(?SOME_USERID, EncBlob, 4 * ?WEEKS, 1),
+    {ok, BlobId} = mod_external_share_post:store_share_post(?SOME_USERID, EncBlob, 4 * ?WEEKS, undefined, 1),
     ?INFO("Stored Text Blob, id: ~s, key: ~s", [BlobId, base64url:encode(Key)]).
 
 construct_text_post() ->
