@@ -210,7 +210,9 @@ get_client_based_props(PropMap, ios, ClientVersion) ->
     %% Enable group encryption on latest ios build.
     Result4 = util_ua:is_version_less_than(ClientVersion, <<"HalloApp/iOS1.21.279">>),
     PropMap4 = maps:update(use_cleartext_group_feed, Result4, PropMap3),
-    PropMap4;
+    Result5 = util_ua:is_version_greater_than(ClientVersion, <<"HalloApp/iOS1.22.290">>),
+    PropMap5 = maps:update(new_chat_ui, Result5, PropMap4),
+    PropMap5;
 
 get_client_based_props(PropMap, undefined, _) ->
     maps:update(groups, false, PropMap).
