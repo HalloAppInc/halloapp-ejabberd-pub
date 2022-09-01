@@ -28,10 +28,6 @@
     is_friend/2,
     set_friends/2,
     remove_all_friends/1,
-    get_friend_recommendations/1,
-    get_friend_recommendations/2,
-    set_friend_recommendations/1,
-    set_friend_recommendations/2,
     get_friend_scores/1,
     set_friend_scores/2
 ]).
@@ -150,63 +146,6 @@ set_friend_scores(Uid, ScoreMap) ->
     end,
     ok.
 
-%%====================================================================
-%% Recommendations API
-%%====================================================================
-
-
--spec get_friend_recommendations(uid() | [uid()]) -> [uid()] | #{uid() => [uid()]}| {error, any()}.
-get_friend_recommendations(Uids) -> 
-    % if not specified, get all recs
-    get_friend_recommendations(Uids, 0).
-
-
--spec get_friend_recommendations(uid(), non_neg_integer()) -> [uid()] | #{uid() => [uid()]}| {error, any()}.
-get_friend_recommendations(Uids, NumRecs) when is_list(Uids) ->
-    Commands = lists:map(
-        fun (Uid) ->
-            ["LRANGE", recommendation_key(Uid), 0, NumRecs-1]
-        end,
-        Uids),
-    Res = qmn(Commands),
-    Result = lists:foldl(
-        fun({Uid, {ok, Recommendations}}, Acc) ->
-            case Recommendations of
-                undefined -> Acc;
-                _ -> Acc#{Uid => Recommendations}
-            end
-        end, #{}, lists:zip(Uids, Res)),
-    Result;
-
-get_friend_recommendations(Uid, NumRecs) ->
-    {ok, Res} = q(["LRANGE", recommendation_key(Uid), 0, NumRecs-1]),
-    Res.
-
-
--spec set_friend_recommendations([{uid(), [uid()]}]) -> ok | {error, any()}.
-set_friend_recommendations(UidRecTupleList) ->
-    % Recommendations are stored as a list 
-    % QUESTION: Should this just convert the list to binary and store it in a hash instead?
-    Commands = lists:foldl(
-        fun ({Uid, []}, Acc) ->
-                ClearCommand = ["DEL", recommendation_key(Uid)],
-                [ClearCommand | Acc];
-            ({Uid, Recommendations}, Acc) ->
-                ClearCommand = ["DEL", recommendation_key(Uid)],
-                PushCommand = ["RPUSH", recommendation_key(Uid)] ++ Recommendations,
-                [ClearCommand | [PushCommand | Acc]]
-        end,
-        [],
-        UidRecTupleList),
-    _Res = qmn(Commands),
-    ok.
-
--spec set_friend_recommendations(uid(), [uid()]) -> ok | {error, any()}.
-set_friend_recommendations(Uid, Recommendations) ->
-    {ok, _} = q(["DEL", recommendation_key(Uid)]),
-    {ok, _} = q(["RPUSH", recommendation_key(Uid)] ++ Recommendations),
-    ok.
-
 
 q(Command) -> ecredis:q(ecredis_friends, Command).
 qmn(Commands) -> ecredis:qmn(ecredis_friends, Commands).
@@ -215,11 +154,6 @@ qmn(Commands) -> ecredis:qmn(ecredis_friends, Commands).
 -spec key(Uid :: uid()) -> binary().
 key(Uid) ->
     <<?FRIENDS_KEY/binary, <<"{">>/binary, Uid/binary, <<"}">>/binary>>.
-
--spec recommendation_key(Uid :: uid()) -> binary().
-recommendation_key(Uid) ->
-    <<?FRIEND_RECOMMENDATION_KEY/binary, <<"{">>/binary, Uid/binary, <<"}">>/binary>>.
-
 
 -spec get_connection() -> Pid::pid().
 get_connection() ->

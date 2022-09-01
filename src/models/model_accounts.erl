@@ -154,11 +154,6 @@
     count_psa_tagged_uids/1,
     cleanup_psa_tagged_uids/1,
     mark_psa_post_sent/2,
-    get_community_label/1,
-    get_top_community/1,
-    get_num_communities/1,
-    set_community_label/2,
-    set_community_labels/1,
     get_node_list/0,
     scan/3
 ]).
@@ -195,7 +190,6 @@
 -define(FIELD_HUAWEI_TOKEN, <<"ht">>).
 -define(FIELD_DEVICE, <<"dvc">>).
 -define(FIELD_OS_VERSION, <<"osv">>).
--define(FIELD_COMMUNITY, <<"cm">>). % Label for community detection -- updated by mod_communities
 
 %% Field to capture creation of list with inactive uids and their deletion.
 -define(FIELD_INACTIVE_UIDS_STATUS, <<"ius">>).
@@ -588,8 +582,7 @@ get_account(Uid) ->
                     device = maps:get(?FIELD_DEVICE, M, undefined),
                     os_version = maps:get(?FIELD_OS_VERSION, M, undefined),
                     last_ipaddress = util:to_list(maps:get(?FIELD_LAST_IPADDRESS, M, undefined)),
-                    avatar_id = maps:get(?FIELD_AVATAR_ID, M, undefined),
-                    communities = maps:get(?FIELD_COMMUNITY, M, undefined)
+                    avatar_id = maps:get(?FIELD_AVATAR_ID, M, undefined)
                 },
             {ok, Account}
     end.
@@ -1263,58 +1256,6 @@ get_marketing_tags(Uid) ->
     ListKey = marketing_tag_key(Uid),
     {ok, Res} = q(["ZREVRANGEBYSCORE", ListKey, "+inf", integer_to_binary(OldTs), "WITHSCORES"]),
     {ok, util_redis:parse_zrange_with_scores(Res)}.
-
-
-%%====================================================================
-%% Community Detection API
-%%====================================================================
-
-
--spec get_community_label(Uid :: uid()) -> maybe(community_label())  | {error, any()}.
-get_community_label(Uid) ->
-    {ok, Res} = q(["HGET", account_key(Uid), ?FIELD_COMMUNITY]),
-    case Res of
-        undefined -> undefined;    
-        _ -> binary_to_term(Res)
-    end.
-
-
--spec get_top_community(Uid :: uid()) -> maybe(uid()) | {error, any()}.
-get_top_community(Uid) ->
-    Res = get_community_label(Uid),
-    case Res of
-        undefined -> undefined;
-        Label -> 
-            LabelList = maps:to_list(Label),
-            SortedLabel = lists:keysort(2, LabelList),
-            {CommunityId, _Score} = lists:last(SortedLabel),
-            CommunityId
-    end.
-
-
--spec get_num_communities(Uid :: uid()) -> non_neg_integer() | {error, any()}.
-get_num_communities(Uid) ->
-    Res = get_community_label(Uid),
-    case Res of
-        undefined -> 0;
-        Label ->
-            maps:size(Label)
-    end.
-
--spec set_community_label(Uid :: uid(), NewLabel :: community_label()) -> ok  | {error, any()}.
-set_community_label(Uid, NewLabel) ->
-    {ok, _Res} = q(["HSET", account_key(Uid), ?FIELD_COMMUNITY, term_to_binary(NewLabel)]),
-    ok.
-
-
--spec set_community_labels(UidLabelTuples :: [{uid(), community_label()}]) -> ok | {error, any()}.
-set_community_labels(UidLabelTuples) ->
-    Commands = lists:map(fun ({Uid, NewLabel}) -> 
-            ["HSET", account_key(Uid), ?FIELD_COMMUNITY, term_to_binary(NewLabel)] 
-        end, 
-        UidLabelTuples),
-    qmn(Commands),
-    ok.
 
 
 -spec scan(Node :: node(), Cursor :: non_neg_integer(), Count :: pos_integer()) -> {non_neg_integer(), [uid()]} | {error, any()}.

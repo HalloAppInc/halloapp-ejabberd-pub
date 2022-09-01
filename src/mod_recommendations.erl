@@ -23,7 +23,7 @@
 -export([start/2, stop/1, reload/3, mod_options/1, depends/2]).
 
 -export([
-    generate_friend_recos/3,
+    generate_friend_recos/2,
     invite_recos/2,
     invite_recos/3,
     process_invite_recos/1,
@@ -84,9 +84,9 @@ mod_options(_Host) ->
 %% Friend Recommendation API 
 %% --------------------------------------------	%%
 
--spec generate_friend_recos(Uid :: uid(), Phone :: binary(), NumCommunityRecos :: non_neg_integer()) -> 
+-spec generate_friend_recos(Uid :: uid(), Phone :: binary()) -> 
         {ok, [{string(), integer(), binary(), binary(), integer()}]}.
-generate_friend_recos(Uid, Phone, NumCommunityRecos) ->
+generate_friend_recos(Uid, Phone) ->
     %% Get list of users that have Phone in their list of contacts.
     {ok, ReverseUids} = model_contacts:get_contact_uids(Phone),
     ReversePhones = model_accounts:get_phones(ReverseUids),
@@ -94,16 +94,11 @@ generate_friend_recos(Uid, Phone, NumCommunityRecos) ->
     %% Get Uid's list of contacts.
     {ok, ContactPhones} = model_contacts:get_contacts(Uid),
 
-    % Get Uid's community-based recommendation list (Currently just getting whole list)
-    CommunityUids = lists:sublist(model_friends:get_friend_recommendations(Uid), NumCommunityRecos),
-    CommunityPhones = model_accounts:get_phones(CommunityUids),
-
     %% Combined list of three represents potential list of friends.
     ContactPhones2 =
         sets:to_list(sets:union([
             sets:from_list(ContactPhones), 
-            sets:from_list(ReversePhones), 
-            sets:from_list(CommunityPhones)
+            sets:from_list(ReversePhones)
         ])),
     ContactPhones3 = [Phone2 || Phone2 <- ContactPhones2, Phone2 =/= undefined],
     PhoneToUidMap = model_phone:get_uids(ContactPhones3),

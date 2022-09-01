@@ -12,7 +12,6 @@
 -define(ACCOUNT_HRL, 1).
 
 -include("ha_types.hrl").
--include("community.hrl").
 
 -record(account,
 {
@@ -30,8 +29,7 @@
     device :: maybe(binary()),
     os_version :: maybe(binary()),
     last_ipaddress :: maybe(binary()),
-    avatar_id :: maybe(binary()),
-    communities :: maybe(community_label())
+    avatar_id :: maybe(binary())
 }).
 
 -type account() :: #account{}.

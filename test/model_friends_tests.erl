@@ -128,27 +128,6 @@ remove_all_friends_test() ->
   ?assertEqual(false, model_friends:is_friend(?UID2, ?UID1)).
 
 
-set_get_friend_recommendations_test() ->
-  setup(),
-  ?assertEqual([], model_friends:get_friend_recommendations(?UID1)),
-  ?assertEqual(ok, model_friends:set_friend_recommendations(?UID1, [?UID2, ?UID3])),
-  ?assertEqual([?UID2, ?UID3], model_friends:get_friend_recommendations(?UID1)),
-  ?assertEqual([?UID2], model_friends:get_friend_recommendations(?UID1, 1)).
-
-
-set_get_friend_recommendations_multi_test() ->
-  setup(),
-  Uids = [?UID1, ?UID2, ?UID3],
-  UidRecList = [{?UID1, [?UID2, ?UID3]}, {?UID2, [?UID3]}],
-  ?assertEqual(
-    #{?UID1 => [], ?UID2 => [], ?UID3 => []}, 
-    model_friends:get_friend_recommendations(Uids)),
-  ?assertEqual(ok, model_friends:set_friend_recommendations(UidRecList)),
-  ?assertEqual(
-    #{?UID1 => [?UID2, ?UID3], ?UID2 => [?UID3], ?UID3 => []}, 
-    model_friends:get_friend_recommendations(Uids)).
-
-
 set_get_friend_scores(_) ->
   FriendScoreMap = #{?UID2 => 2, ?UID3 => 3},
   {ok, EmptyScores} = model_friends:get_friend_scores(?UID1),
