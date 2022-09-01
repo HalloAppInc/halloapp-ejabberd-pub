@@ -492,7 +492,7 @@ err(Reason) ->
     #pb_error_stanza{reason = util:to_binary(Reason)}.
 
 
--spec ms_to_datetime_string(Ms :: non_neg_integer()) -> {string(), string()}.
+-spec ms_to_datetime_string(Ms :: maybe(non_neg_integer())) -> {string(), string()}.
 ms_to_datetime_string(Ms) ->
     case Ms of
         undefined -> {"unknown date", "unknown time"};

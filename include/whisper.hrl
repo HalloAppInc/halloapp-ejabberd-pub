@@ -15,8 +15,8 @@
 
 -record(user_whisper_key_set, {
     uid :: binary(),
-    identity_key :: binary(),
-    signed_key :: binary(),
+    identity_key :: maybe(binary()),
+    signed_key :: maybe(binary()),
     one_time_key :: maybe(binary()),
     timestamp_ms :: maybe(integer())
 }).

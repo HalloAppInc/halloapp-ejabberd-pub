@@ -25,7 +25,7 @@
 -type item_process_fun() :: fun((integer()) -> boolean()).
 
 -spec process_file_list(
-    FileName :: string(), ProcessFun :: item_process_fun(), MaxToProcess :: integer()) -> ok.
+    FileName :: string(), ProcessFun :: item_process_fun(), MaxToProcess :: integer()) -> integer().
 process_file_list(FileName, ProcessFun, MaxToProcess) ->
     {ok, Res} = file:read_file(FileName),
     Res2 = binary:split(Res, [<<"\n">>], [global]),

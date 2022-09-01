@@ -202,7 +202,7 @@ count_sync_contacts(Uid, Sid) ->
     {ok, binary_to_integer(Res)}.
 
 
--spec get_contact_uids(Contact :: binary()) -> {ok, [binary()]} | {error, any()}.
+-spec get_contact_uids(Contact :: binary() | [binary()]) -> {ok, [binary()] | map()} | {error, any()}.
 get_contact_uids(Contacts) when is_list(Contacts) -> 
     Commands = lists:map(
         fun (Contact) ->

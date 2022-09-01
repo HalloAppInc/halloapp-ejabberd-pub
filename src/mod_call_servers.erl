@@ -221,7 +221,7 @@ get_ha_turn_server(Host, Port) ->
     }.
 
 
--spec get_cloudflare_servers() -> {list(#pb_stun_server{}), list(#pb_turn_server{})}.
+-spec get_cloudflare_servers() -> {ok, {list(#pb_stun_server{}), list(#pb_turn_server{})}} | {error, any()}.
 get_cloudflare_servers() ->
     try
         Data = jiffy:encode(#{ <<"data">> => #{ <<"lifetime">> => ?RESPONSE_LIFETIME }}),
@@ -254,7 +254,7 @@ get_cloudflare_servers() ->
     end.
 
 
--spec fetch_cloudflare_headers() -> string().
+-spec fetch_cloudflare_headers() -> list().
 fetch_cloudflare_headers() ->
     [
         {"Content-Type", "application/json"},

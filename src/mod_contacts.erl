@@ -566,7 +566,7 @@ obtain_user_ids(NormContacts) ->
 
 
 %% Sets potential friends for un-registered contacts.
--spec obtain_potential_friends(Uid :: uid(), CloseFriendUidSet :: sets:set(uid()), 
+-spec obtain_potential_friends(Uid :: uid(), CloseFriendUidSet :: #{uid() => integer()}, 
         UnRegisteredContacts :: [pb_contact()]) -> [pb_contact()].
 obtain_potential_friends(_Uid, FriendUidScores, UnRegisteredContacts) ->
     CloseFriendUidSet = maps:fold(
@@ -744,7 +744,7 @@ remove_contacts_and_notify(UserId, UserPhone, ContactPhones, ReverseContactSet, 
 %% Delete all associated info with the contact and the user.
 -spec remove_contact_and_notify(UserId :: binary(), UserPhone :: binary(),
         ContactPhone :: binary(), ReverseContactSet :: sets:set(binary()),
-        IsAccountDeleted :: boolean()) -> {ok, any()} | {error, any()}.
+        IsAccountDeleted :: boolean()) -> ok.
 remove_contact_and_notify(UserId, _UserPhone, ContactPhone, ReverseContactSet, IsAccountDeleted) ->
     Server = util:get_host(),
     {ok, ContactId} = model_phone:get_uid(ContactPhone),

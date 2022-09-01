@@ -229,8 +229,9 @@ build_random_password(Reason) ->
     RandomString = p1_rand:get_string(),
     <<"BANNED_ACCOUNT--", Date/binary, "--", RandomString/binary, "--", Reason/binary>>.
 
-set_password_auth(User, _Server, Password) ->
-    ok = ejabberd_auth:set_password(User, Password).
+set_password_auth(_User, _Server, _Password) ->
+    %TODO: maybe set spub key or something instead. Evaluate if we use this file!
+    ok.
 
 prepare_reason([]) ->
     <<"Kicked by administrator">>;

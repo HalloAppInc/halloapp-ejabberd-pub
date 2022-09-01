@@ -234,7 +234,7 @@ cancel_token_timer(_) ->
 
 
 -spec handle_fcm_response({RequestId :: reference(), Response :: term()},
-        PushMessageItem :: push_message_item(), State :: #{}) -> State :: #{}.
+        PushMessageItem :: push_message_item(), State :: map()) -> State :: map().
 handle_fcm_response({_RequestId, Response}, PushMessageItem, #{host := ServerHost} = State) ->
     Id = PushMessageItem#push_message_item.id,
     Uid = PushMessageItem#push_message_item.uid,
@@ -264,14 +264,8 @@ handle_fcm_response({_RequestId, Response}, PushMessageItem, #{host := ServerHos
                             content_type => ContentType, cc => CC});
                 {error, Reason, FcmId} ->
                     stat:count("HA/push", ?FCM, 1, [{"result", "failure"}]),
-                    case Reason =:= not_registered orelse Reason =:= invalid_registration of
-                        true ->
-                            ?INFO("Push failed: User Error, Uid:~s, token: ~p, reason: ~p, FcmId: ~p",
-                                [Uid, binary:part(Token, 0, 10), Reason, FcmId]);
-                        false ->
-                            ?ERROR("Push failed: Server Error, Uid:~s, token: ~p, reason: ~p, FcmId: ~p",
-                                [Uid, binary:part(Token, 0, 10), Reason, FcmId])
-                    end,
+                    ?ERROR("Push failed: Server Error, Uid:~s, token: ~p, reason: ~p, FcmId: ~p",
+                        [Uid, binary:part(Token, 0, 10), Reason, FcmId]),
                     % remove_push_token(Uid, ServerHost),
                     mod_android_push:pushed_message(PushMessageItem, failure)
             end,
@@ -307,7 +301,7 @@ handle_fcm_response({_RequestId, Response}, PushMessageItem, #{host := ServerHos
 
 
 %% Parses response of the request to check if everything worked successfully.
--spec parse_response(binary()) -> {ok, string()} | {error, any(), string()}.
+-spec parse_response(binary()) -> {ok, string()} | {error, any(), any()}.
 parse_response(ResponseBody) ->
     {JsonData} = jiffy:decode(ResponseBody),
     Name = proplists:get_value(<<"name">>, JsonData, undefined),
@@ -322,7 +316,7 @@ parse_response(ResponseBody) ->
     end.
 
 
--spec remove_push_token(Uid :: binary(), Server :: binary()) -> ok.
-remove_push_token(Uid, Server) ->
-    mod_push_tokens:remove_android_token(Uid, Server).
+% -spec remove_push_token(Uid :: binary(), Server :: binary()) -> ok.
+% remove_push_token(Uid, Server) ->
+%     mod_push_tokens:remove_android_token(Uid, Server).
 

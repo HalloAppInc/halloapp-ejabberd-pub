@@ -229,7 +229,7 @@ backup_redis(RedisId) ->
                 set_last_backup_time(RedisId, BackupStartTime),
                 %% Schedule backup deletion after 11 minutes. AWS recommends deleting
                 %% snapshot > 10 mins after creating it.
-                erlcron:at(660, {?MODULE, delete_elasticache_backups, [RedisId]}),
+                erlcron:cron({{once, 660}, {?MODULE, delete_elasticache_backups, [RedisId]}}),
                 stat:count("HA/backups", "successful_backups", 1,
                         [{redis, RedisId}, {storage_time, Folder}]);
             Status ->
@@ -459,7 +459,7 @@ wait_until_backup_is_available(BackupName, Retries) ->
 
 %% @doc Get all S3 objects that begin with Prefix. Used to get objects within
 %%   specific folders in S3.
--spec get_objects_with_prefix(Prefix :: string()) -> proplists:proplist().
+-spec get_objects_with_prefix(Prefix :: string()) -> [proplists:proplist()].
 get_objects_with_prefix(Prefix) ->
     ?INFO("Getting objects with prefix ~p", [Prefix]),
     Options = [{prefix, Prefix}],
@@ -538,7 +538,8 @@ get_last_backup_time(RedisId) ->
 set_last_backup_time(RedisId, BackupStartTime) ->
     RedisMetadataPath = RedisId ++ ?METADATA_EXTENSION,
     JsonBinary = jiffy:encode(#{?LAST_BACKUP_START_KEY => BackupStartTime}),
-    erlcloud_s3:put_object(?BACKUP_BUCKET, RedisMetadataPath, JsonBinary).
+    erlcloud_s3:put_object(?BACKUP_BUCKET, RedisMetadataPath, JsonBinary),
+    ok.
 
 
 -spec get_redis_ids() -> [string()].
@@ -568,7 +569,7 @@ make_path(Components) ->
     util:join_strings(Components, "/").
 
 
--spec humanize_time(Time :: integer()) -> string().
+-spec humanize_time(Time :: integer()) -> {Days :: integer(), Hours :: integer(), Minutes :: integer(), Seconds :: integer()}.
 humanize_time(Time) ->
     Days = Time div ?DAYS,
     Time2 = Time rem ?DAYS,

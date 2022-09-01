@@ -174,7 +174,7 @@ add_members(Gid, Uid, MemberUids) ->
 
 
 -spec share_history(Gid :: gid(), Uid :: uid(), MemberUids :: [uid()])
-            -> {ok, share_history_results()} | {error, not_admin}.
+            -> {ok, share_history_results()} | {error, any()}.
 share_history(Gid, Uid, UidsToShare) ->
     share_history(Gid, Uid, UidsToShare, undefined).
 
@@ -186,13 +186,13 @@ remove_members(Gid, Uid, MemberUids) ->
 
 
 -spec modify_members(Gid :: gid(), Uid :: uid(), Changes :: [{uid(), add | remove}])
-            -> {ok, modify_member_results()} | {error, not_admin}.
+            -> {ok, modify_member_results()} | {error, any()}.
 modify_members(Gid, Uid, Changes) ->
     modify_members(Gid, Uid, Changes, undefined).
 
 
 -spec modify_members(Gid :: gid(), Uid :: uid(), Changes :: [{uid(), add | remove}],
-    PBHistoryResend :: maybe(pb_history_resend())) -> {ok, modify_member_results()} | {error, not_admin}.
+    PBHistoryResend :: maybe(pb_history_resend())) -> {ok, modify_member_results()} | {error, any()}.
 modify_members(Gid, Uid, Changes, PBHistoryResend) ->
     case model_groups:is_admin(Gid, Uid) of
         false -> {error, not_admin};
@@ -221,7 +221,7 @@ modify_members(Gid, Uid, Changes, PBHistoryResend) ->
 
 
 -spec share_history(Gid :: gid(), Uid :: uid(), UidsToShare :: [uid()],
-    PBHistoryResend :: maybe(pb_history_resend())) -> {ok, share_history_results()} | {error, not_admin}.
+    PBHistoryResend :: maybe(pb_history_resend())) -> {ok, share_history_results()} | {error, any()}.
 share_history(Gid, Uid, UidsToShare, PBHistoryResend) ->
     case model_groups:is_admin(Gid, Uid) of
         false -> {error, not_admin};
@@ -569,7 +569,7 @@ delete_avatar(Gid, Uid) ->
     end.
 
 -spec set_background(Gid :: gid(), Uid :: uid(), Background :: binary()) ->
-    {ok, Background :: binary(), GroupName :: binary()} | {error, not_member} | {error | background_too_large}.
+    {ok, Background :: binary()} | {error, not_member} | {error , background_too_large}.
 set_background(Gid, Uid, Background) ->
     ?INFO("Gid: ~s Uid: ~s setting background to ~s", [Gid, Uid, Background]),
     IsTooLong = case Background of
@@ -793,7 +793,7 @@ create_group_internal(Uid, GroupName, GroupExpiry) ->
     end.
 
 
--spec validate_expiry_info(GroupExpiry :: maybe(#pb_expiry_info{})) -> {expiry_type(), integer()} | {error, atom()}.
+-spec validate_expiry_info(GroupExpiry :: maybe(#pb_expiry_info{})) -> {ok, {expiry_type(), integer()}} | {error, atom()}.
 validate_expiry_info(undefined) -> {ok, {expires_in_seconds, ?DEFAULT_GROUP_EXPIRY}};
 validate_expiry_info(GroupExpiry) ->
     ExpiryType = GroupExpiry#pb_expiry_info.expiry_type,

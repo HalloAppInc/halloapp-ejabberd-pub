@@ -1217,7 +1217,7 @@ get_export(Uid) ->
             {ok, util_redis:decode_ts(StartTsBin), ExportId, TTL}
     end.
 
--spec start_export(Uid :: uid(), ExportId :: string()) -> {ok, Ts :: integer()} | {error, already_started}.
+-spec start_export(Uid :: uid(), ExportId :: binary()) -> {ok, Ts :: integer()} | {error, already_started}.
 start_export(Uid, ExportId) ->
     Ts = util:now(),
     {ok, TTL} = q(["TTL", export_data_key(Uid)]),

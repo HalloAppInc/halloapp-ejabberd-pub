@@ -412,7 +412,7 @@ retract_comment(Gid, Uid, CommentId, PostId, GroupFeedSt) ->
 
 
 -spec resend_history(Gid :: gid(), Uid :: uid(), HistoryResendSt :: pb_history_resend())
-        -> {ok, pb_group_feed_item()} | {error, atom()}.
+        -> {ok, pb_history_resend()} | {error, atom()}.
 resend_history(Gid, Uid, HistoryResendSt) ->
     ?INFO("Gid: ~s Uid: ~s", [Gid, Uid]),
     case model_groups:is_admin(Gid, Uid) of
@@ -434,8 +434,8 @@ resend_history(Gid, Uid, HistoryResendSt) ->
 
 
 -spec resend_history_unsafe(GroupInfo :: group_info(), Uid :: uid(),
-        HistoryResendSt :: pb_group_feed_item())
-            -> {ok, pb_group_feed_item()} | {error, atom()}.
+        HistoryResendSt :: pb_history_resend())
+            -> {ok, pb_history_resend()} | {error, atom()}.
 resend_history_unsafe(GroupInfo, Uid, HistoryResendSt) ->
     Gid = GroupInfo#group_info.gid,
     AudienceList = model_groups:get_member_uids(Gid),
@@ -624,7 +624,7 @@ filter_group_feed_items(_Uid, Items) ->
     {FilteredPosts, FilteredComments}.
 
 
--spec convert_posts_to_sharedgroupfeeditem(post()) -> pb_post().
+-spec convert_posts_to_sharedgroupfeeditem(post()) -> pb_group_feed_item().
 convert_posts_to_sharedgroupfeeditem(#post{id = PostId, uid = Uid, payload = PayloadBase64, ts_ms = TimestampMs}) ->
     #pb_group_feed_item{
         action = share,
@@ -638,7 +638,7 @@ convert_posts_to_sharedgroupfeeditem(#post{id = PostId, uid = Uid, payload = Pay
     }.
 
 
--spec convert_comments_to_sharedgroupfeeditem(comment()) -> pb_comment().
+-spec convert_comments_to_sharedgroupfeeditem(comment()) -> pb_group_feed_item().
 convert_comments_to_sharedgroupfeeditem(#comment{id = CommentId, post_id = PostId, publisher_uid = PublisherUid,
         parent_id = ParentId, payload = PayloadBase64, ts_ms = TimestampMs}) ->
     #pb_group_feed_item{

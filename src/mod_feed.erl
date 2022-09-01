@@ -14,6 +14,9 @@
 -include("logger.hrl").
 -include("feed.hrl").
 
+-dialyzer({no_match, make_pb_feed_post/7}).
+-dialyzer({no_match, broadcast_event/5}).
+
 -define(NS_FEED, <<"halloapp:feed">>).
 
 %% gen_mod API.
@@ -510,7 +513,7 @@ process_share_posts(_Uid, _Server, SharePostSt) ->
 
 -spec make_pb_feed_post(Action :: action_type(), PostId :: binary(),
         Uid :: uid(), PayloadBase64 :: binary(), EncPayload :: binary(),
-        FeedAudienceType :: 'pb_audience.Type', TimestampMs :: integer()) -> pb_feed_item().
+        FeedAudienceType :: maybe('pb_audience.Type'), TimestampMs :: integer()) -> pb_feed_item().
 make_pb_feed_post(Action, PostId, Uid, PayloadBase64, EncPayload, FeedAudienceType, TimestampMs) ->
     PbAudience = case FeedAudienceType of
         undefined -> undefined;
@@ -587,7 +590,7 @@ make_pb_feed_comment(Action, CommentId, PostId, ParentCommentId, PublisherUid, H
 
 -spec broadcast_event(Uid :: uid(), FeedAudienceSet :: set(),
         PushSet :: set(), ResultStanza :: pb_feed_item(),
-        StateBundles :: [pb_sender_state_bundle()]) -> ok.
+        StateBundles :: maybe([pb_sender_state_bundle()])) -> ok.
 broadcast_event(Uid, FeedAudienceSet, PushSet, ResultStanza, StateBundles) ->
     BroadcastUids = sets:to_list(sets:del_element(Uid, FeedAudienceSet)),
     StateBundlesMap = case StateBundles of
@@ -764,7 +767,7 @@ get_feed_audience_set(Action, Uid, AudienceList) ->
     sets:add_element(Uid, FinalAudienceSet).
 
 
--spec convert_posts_to_feed_items(post()) -> pb_post().
+-spec convert_posts_to_feed_items(post()) -> pb_feed_item().
 convert_posts_to_feed_items(#post{id = PostId, uid = Uid, payload = PayloadBase64, ts_ms = TimestampMs}) ->
     Post = #pb_post{
         id = PostId,
@@ -778,7 +781,7 @@ convert_posts_to_feed_items(#post{id = PostId, uid = Uid, payload = PayloadBase6
         item = Post
     }.
 
--spec convert_comments_to_feed_items(comment()) -> pb_comment().
+-spec convert_comments_to_feed_items(comment()) -> pb_feed_item().
 convert_comments_to_feed_items(#comment{id = CommentId, post_id = PostId, publisher_uid = PublisherUid,
         parent_id = ParentId, payload = PayloadBase64, ts_ms = TimestampMs}) ->
     Comment = #pb_comment{

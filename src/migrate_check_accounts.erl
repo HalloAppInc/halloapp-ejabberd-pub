@@ -394,8 +394,8 @@ set_login_run(Key, State) ->
                 _ ->
                     case DryRun of
                         false ->
-                            Result = model_auth:set_login(Uid),
-                            ?INFO("Uid: ~s, Result: ~p", [Uid, Result]);
+                            Result1 = model_auth:set_login(Uid),
+                            ?INFO("Uid: ~s, Result: ~p", [Uid, Result1]);
                         true ->
                             ?INFO("Uid: ~s, will login status")
                     end

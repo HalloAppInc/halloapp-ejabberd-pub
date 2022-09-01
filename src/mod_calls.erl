@@ -59,9 +59,9 @@ mod_options(_Host) -> [].
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 -spec get_call_servers(CallId :: binary(), Uid :: uid(), PeerUid :: uid(), CallType :: 'CallType'())
-        -> {ok, {list(pb_stun_server()), list(pb_turn_server())}}.
+        -> {list(pb_stun_server()), list(pb_turn_server())}.
 get_call_servers(CallId, Uid, PeerUid, CallType) ->
-    % Nothing fency for now.
+    % Nothing fancy for now.
     stat:count("HA/call", "get_call_servers"),
     mod_call_servers:get_stun_turn_servers(CallId, Uid, PeerUid, CallType).
 

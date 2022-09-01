@@ -44,7 +44,7 @@
 -record(group_info, {
     gid :: gid(),
     name :: binary(),
-    description :: binary(),
+    description :: maybe(binary()),
     avatar :: maybe(binary()),
     background :: binary(),
     audience_hash :: binary(),

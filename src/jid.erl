@@ -24,6 +24,8 @@
 
 -module(jid).
 
+-dialyzer({no_match, decode/1}). % better just to leave this as-is.
+
 %% API
 -export([start/0,
 	 make/1,

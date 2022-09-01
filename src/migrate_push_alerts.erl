@@ -90,7 +90,7 @@ trigger_marketing_alert_pt(Key, State) ->
 
 %% redis_migrate:start_migration("log_account_info", redis_accounts, {migrate_push_alerts, log_account_info}, [{execute, sequential}, {scan_count, 500}, {dry_run, true}, {params, {cc_not_ok, sets:from_list([<<"IR">>, <<"IN">>, <<"US">>, <<"BR">>, <<"RU">>, <<"PT">>, <<"ES">>, <<"ID">>, <<"MX">>, <<"CU">>])}}]).
 
--spec log_account_info(Key :: string(), State :: map()) -> ok.
+-spec log_account_info(Key :: string(), State :: map()) -> map().
 log_account_info(Key, State) ->
     {IsCCOkFun, CCSet} = get_cc_params(State),
     Result = re:run(Key, "^acc:{([0-9]+)}$", [global, {capture, all, binary}]),

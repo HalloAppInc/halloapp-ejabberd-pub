@@ -157,7 +157,7 @@ monitor_auth_state(#state{authq = AuthQueue} = State) ->
     NewState = case did_recent_logins_fail(AuthList) of
         true ->
             ?CRITICAL("Too many login failures in the last ~p attemps", [?LOGIN_THRESHOLD_N]),
-            ok = ejabberd_monitor:send_alert(<<"login_failure">>, <<"AuthService">>,
+            ok = alerts:send_alert(<<"login_failure">>, <<"AuthService">>,
                     <<"critical">>, ?AUTH_ALERT_MESSAGE),
             State#state{is_auth_service_normal = false};
         false -> State

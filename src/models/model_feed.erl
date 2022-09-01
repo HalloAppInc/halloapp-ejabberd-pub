@@ -176,11 +176,14 @@ is_post_owner(PostId, Uid) ->
     {ok, Result}.
 
 
--spec get_post_tag(PostId :: binary()) -> {ok, post_tag()}.
+-spec get_post_tag(PostId :: binary()) -> {ok, post_tag()} | {error, any()}.
 get_post_tag(PostId) ->
-    {ok, PostTag} = q(["HGET", post_key(PostId), ?FIELD_TAG]),
-    Result = decode_post_tag(PostTag),
-    {ok, Result}.
+    case q(["HGET", post_key(PostId), ?FIELD_TAG]) of
+        {ok, PostTag} ->
+            Result = decode_post_tag(PostTag),
+            {ok, Result};
+        Error -> Error
+    end.
 
 
 %% We should do the check if Uid is the owner of PostId.
@@ -326,8 +329,8 @@ get_post_and_its_comments(PostId) when is_binary(PostId) ->
 
 %% We dont check if the given ParentId here is correct or not.
 %% We only use it to fetch the PushList of uids.
--spec get_comment_data(PostId :: binary(), CommentId :: binary(),
-        ParentId :: binary()) -> {{ok, feed_item()}, {ok, feed_item()}, {ok, [binary()]}} | {error, any()}.
+-spec get_comment_data(PostId :: binary(), CommentId :: binary(),ParentId :: maybe(binary())) ->
+    {{ok, feed_item()} | {error, any()}, {ok, feed_item()} | {error, any()}, {ok, [binary()]}} | {error, any()}.
 get_comment_data(PostId, CommentId, ParentId) ->
     [{ok, Res1}, {ok, Res2}, {ok, Res3}] = qp([
         ["HMGET", post_key(PostId), ?FIELD_UID, ?FIELD_PAYLOAD, ?FIELD_TAG,
@@ -377,7 +380,7 @@ get_comment_data(PostId, CommentId, ParentId) ->
 
 
 %% Returns a list of uids to send a push notification for when replying to commentId on postId.
--spec get_comment_push_data(CommentId :: binary(), PostId :: binary()) -> [binary()].
+-spec get_comment_push_data(CommentId :: maybe(binary()), PostId :: binary()) -> [binary()].
 get_comment_push_data(undefined, PostId) ->
     {ok, PostUid} = q(["HGET", post_key(PostId), ?FIELD_UID]),
     [PostUid];
@@ -598,10 +601,9 @@ store_external_share_post(BlobId, Payload, ExpireIn) ->
 
 -spec delete_external_share_post(BlobId :: uid()) -> ok | {error, any()}.
 delete_external_share_post(BlobId) ->
-    _Results = q(["DEL", external_share_post_key(BlobId)]),
-    ok.
+    util_redis:verify_ok(q(["DEL", external_share_post_key(BlobId)])).
 
--spec get_external_share_post(BlobId :: uid()) -> {ok, binary()} | {error, any()}.
+-spec get_external_share_post(BlobId :: uid()) -> {ok, maybe(binary())} | {error, any()}.
 get_external_share_post(BlobId) ->
     {ok, Payload} = q(["GET", external_share_post_key(BlobId)]),
     {ok, Payload}.

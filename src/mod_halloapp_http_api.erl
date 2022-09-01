@@ -187,7 +187,7 @@ process_hashcash_request(#{cc := CC, ip := ClientIP}) ->
     Challenge = create_hashcash_challenge(CC, ClientIP),
     {ok, Challenge}.
 
--spec create_hashcash_challenge(CC :: binary(), IP :: inet:ip_address()) -> binary().
+-spec create_hashcash_challenge(_CC :: any(), _IP :: any()) -> binary().
 create_hashcash_challenge(_CC, _IP) ->
     Challenge = util_hashcash:construct_challenge(get_hashcash_difficulty(), ?HASHCASH_EXPIRE_IN), 
     ok = model_phone:add_hashcash_challenge(Challenge),
@@ -217,13 +217,8 @@ process_otp_request(#{raw_phone := RawPhone, lang_id := LangId, ua := UserAgent,
         ?INFO("Phone: ~s, UserAgent: ~s, Campaign Id: ~s", [Phone, UserAgent, CampaignId]),
         case otp_checker:check(Phone, ClientIP, UserAgent, Method, Protocol, RemoteStaticKey) of
             ok ->
-                case request_otp(Phone, LangId, UserAgent, Method, CampaignId) of
-                    {ok, RetryAfterSecs} ->
-                        {ok, Phone, RetryAfterSecs};
-                    {error, retried_too_soon, RetryAfterSecs} ->
-                        log_request_otp_error(retried_too_soon, MethodBin, RawPhone, UserAgent, ClientIP, Protocol),
-                        {error, retried_too_soon, Phone, RetryAfterSecs}
-                end;
+                {ok, RetryAfterSecs} = request_otp(Phone, LangId, UserAgent, Method, CampaignId),
+                {ok, Phone, RetryAfterSecs};
             {error, retried_too_soon, RetryAfterSecs} ->
                 log_request_otp_error(retried_too_soon, MethodBin, RawPhone, UserAgent, ClientIP, Protocol),
                 {error, retried_too_soon, Phone, RetryAfterSecs};
@@ -467,11 +462,7 @@ request_otp(Phone, LangId, UserAgent, Method, CampaignId) ->
         {ok, _} = Ret -> Ret;
         {error, Reason} ->
             ?ERROR("could not send otp Reason: ~p Phone: ~p, cc: ~p", [Reason, Phone, CountryCode]),
-            error(Reason);
-        {error, Reason, RetryTs} = Error->
-            ?INFO("could not send otp Reason: ~p Ts: ~p Phone: ~p, cc: ~p",
-                [Reason, RetryTs, Phone, CountryCode]),
-            Error
+            error(Reason)
     end.
 
 -spec check_hashcash(UserAgent :: binary(), Solution :: binary(), TimeTakenMs :: integer()) -> ok | no_return().

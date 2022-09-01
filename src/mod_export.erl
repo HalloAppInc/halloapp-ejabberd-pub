@@ -132,7 +132,7 @@ start_export(Uid) ->
     {ok, Ts}.
 
 
--spec export_data(Uid :: uid()) -> ok.
+-spec export_data(Uid :: uid()) -> map().
 export_data(Uid) ->
     {ok, Acc} = model_accounts:get_account(Uid),
 

@@ -79,7 +79,7 @@ send_group_message(#pb_msg{id = MsgId, from_uid = Uid, type = groupchat,
     ?INFO("Gid: ~s, Uid: ~s", [Gid, Uid]),
     case mod_groups:send_retract_message(MsgId, Gid, Uid, GroupChatRetractSt) of
         {error, Reason} ->
-            ErrorMsg = pb:make_error(Msg, pb:err(Reason)),
+            ErrorMsg = pb:make_error(Msg, util:err(Reason)),
             ejabberd_router:route(ErrorMsg);
         {ok, _Ts} ->
             ok
@@ -211,7 +211,7 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
 
 
 -spec process_create_group(IQ :: iq(), Uid :: uid(),
-        Name :: binary(), Expiry :: expiry_info(), ReqGroupSt :: pb_group_stanza()) -> iq().
+        Name :: binary(), Expiry :: pb_expiry_info(), ReqGroupSt :: pb_group_stanza()) -> iq().
 process_create_group(IQ, Uid, Name, Expiry, ReqGroupSt) ->
     ?INFO("create_group Uid: ~s Name: |~s| Expiry: ~s Group: ~p", [Uid, Name, Expiry, ReqGroupSt]),
     MemberUids = [M#pb_group_member.uid || M <- ReqGroupSt#pb_group_stanza.members],
@@ -257,14 +257,9 @@ process_modify_members(IQ, Gid, Uid, ReqGroupSt) ->
     PBHistoryResend = ReqGroupSt#pb_group_stanza.history_resend,
     ?INFO("modify_members Gid: ~s Uid: ~s Changes: ~p", [Gid, Uid, Changes]),
     case mod_groups:modify_members(Gid, Uid, Changes, PBHistoryResend) of
-        {error, not_admin} ->
-            pb:make_error(IQ, util:err(not_admin));
-        {error, bad_request} ->
-            pb:make_error(IQ, util:err(bad_request));
-        {error, audience_hash_mismatch} ->
-            pb:make_error(IQ, util:err(audience_hash_mismatch));
+        {error, Reason} ->
+            pb:make_error(IQ, util:err(Reason));
         {ok, ModifyResults} ->
-
             ResultMemberSt = lists:map(
                 fun ({Ouid, Action, Result}) ->
                     make_member_st(Ouid, Result, member, Action)
@@ -288,12 +283,8 @@ process_share_history(IQ, Gid, Uid, ReqGroupSt) ->
     PBHistoryResend = ReqGroupSt#pb_group_stanza.history_resend,
     ?INFO("share_history Gid: ~s Uid: ~s UidsToShare: ~p", [Gid, Uid, UidsToShare]),
     case mod_groups:share_history(Gid, Uid, UidsToShare, PBHistoryResend) of
-        {error, not_admin} ->
-            pb:make_error(IQ, util:err(not_admin));
-        {error, bad_request} ->
-            pb:make_error(IQ, util:err(bad_request));
-        {error, audience_hash_mismatch} ->
-            pb:make_error(IQ, util:err(audience_hash_mismatch));
+        {error, Reason} ->
+            pb:make_error(IQ, util:err(Reason));
         {ok, ShareHistoryResults} ->
             ResultMemberSt = lists:map(
                 fun ({Ouid, Action, Result}) ->
@@ -390,12 +381,10 @@ process_set_name(IQ, Gid, Uid, Name) ->
     end.
 
 
--spec process_set_expiry(IQ :: iq(), Gid :: gid(), Uid :: uid(), Expiry :: expiry_info()) -> iq().
+-spec process_set_expiry(IQ :: iq(), Gid :: gid(), Uid :: uid(), Expiry :: pb_expiry_info()) -> iq().
 process_set_expiry(IQ, Gid, Uid, Expiry) ->
     ?INFO("set_expiry Gid: ~s Uid: ~s Expiry: |~p|", [Gid, Uid, Expiry]),
     case mod_groups:set_expiry(Gid, Uid, Expiry) of
-        {error, not_admin} ->
-            pb:make_error(IQ, util:err(not_admin));
         {error, Reason} ->
             pb:make_error(IQ, util:err(Reason));
         ok ->

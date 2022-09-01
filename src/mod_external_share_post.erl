@@ -142,8 +142,7 @@ delete_share_post(Uid, BlobId) ->
     IsDev = dev_users:is_dev_uid(Uid),
     stat:count("HA/share_post", "delete"),
     stat:count("HA/share_post_by_dev", "delete", 1, [{is_dev, IsDev}]),
-    ok = model_feed:delete_external_share_post(BlobId),
-    ok.
+    model_feed:delete_external_share_post(BlobId).
 
 -spec get_share_post(BlobId :: binary()) -> {ok, pb_external_share_post_container()} | {error, any()}.
 get_share_post(BlobId) ->
