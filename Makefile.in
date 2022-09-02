@@ -134,7 +134,7 @@ xref: all
 	$(REBAR) xref
 
 hooks: all
-	tools/hook_deps.sh ebin
+	tools/hook_deps.sh $(DEPSDIR)/ejabberd/ebin
 
 options: all
 	tools/opt_types.sh ejabberd_option ebin
