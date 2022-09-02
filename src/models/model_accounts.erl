@@ -832,7 +832,7 @@ get_deleted_account(Uid) ->
                 signup_user_agent = UserAgent,
                 campaign_id = CampaignId,
                 client_version = ClientVersion,
-                last_activity_ts_ms = util:to_integer(LastActivity),
+                last_activity_ts_ms = util:to_integer_maybe(LastActivity),
                 activity_status = ActivityStatus,
                 device = Device,
                 os_version = Os
