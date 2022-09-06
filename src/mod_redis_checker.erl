@@ -130,8 +130,11 @@ handle_call(Request, From, State) ->
 
 
 handle_cast(check_redises, State) ->
+    ?INFO("Checking states", []),
     State2 = check_states(State),
+    ?INFO("Checking redises", []),
     State3 = check_redises(State2),
+    ?INFO("Checks complete", []),
     {noreply, State3};
 
 handle_cast({ping, Id, Ts, From}, State) ->
