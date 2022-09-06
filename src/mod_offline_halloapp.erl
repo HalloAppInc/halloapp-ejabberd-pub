@@ -261,32 +261,31 @@ fix_group_feed_packet(#pb_msg{id = MsgId, to_uid = ToUid,
     OldExpiryTimestamp = Payload#pb_group_feed_item.expiry_timestamp,
     ExpiryTimestampMilliSec = util:check_and_convert_sec_to_ms(OldExpiryTimestamp),
     ExpiryTimestampSec = util:check_and_convert_ms_to_sec(OldExpiryTimestamp),
-    case util_ua:is_android(ClientVersion) of
+    NewExpiryTimestamp = case util_ua:is_android(ClientVersion) of
         true ->
             case util_ua:is_version_greater_than(ClientVersion, <<"HalloApp/Android1.3.2">>) of
                 true ->
-                    %% Send seconds to latest version.
-                    NewPayload = Payload#pb_group_feed_item{
-                        expiry_timestamp = ExpiryTimestampSec
-                    },
-                    ?INFO("Uid: ~s MsgId: ~s updated timestamp: ~p old: ~p in payload", [ToUid, MsgId, ExpiryTimestampSec, OldExpiryTimestamp]),
-                    Msg#pb_msg{payload = NewPayload};
+                    case util_ua:is_version_less_than(ClientVersion, <<"HalloApp/Android1.4.3">>)
+                            and OldExpiryTimestamp =:= -1 of
+                        true ->
+                            %% expiry of -1 should never expire
+                            %% set expiry to Sep 1 2032 on affected versions
+                            1977609600;
+                        false ->
+                            %% Send seconds to latest version.
+                            ExpiryTimestampSec
+                    end;
                 false ->
                     %% Send milliseconds to older versions.
-                    NewPayload = Payload#pb_group_feed_item{
-                        expiry_timestamp = ExpiryTimestampMilliSec
-                    },
-                    ?INFO("Uid: ~s MsgId: ~s updated timestamp: ~p old: ~p in payload", [ToUid, MsgId, ExpiryTimestampMilliSec, OldExpiryTimestamp]),
-                    Msg#pb_msg{payload = NewPayload}
+                    ExpiryTimestampMilliSec
             end;
         false ->
             %% Send seconds to all ios.
-            NewPayload = Payload#pb_group_feed_item{
-                expiry_timestamp = ExpiryTimestampSec
-            },
-            ?INFO("Uid: ~s MsgId: ~s updated timestamp: ~p old: ~p in payload", [ToUid, MsgId, ExpiryTimestampSec, OldExpiryTimestamp]),
-            Msg#pb_msg{payload = NewPayload}
-    end;
+            ExpiryTimestampSec
+    end,
+    NewPayload = Payload#pb_group_feed_item{expiry_timestamp = NewExpiryTimestamp},
+    ?INFO("Uid: ~s MsgId: ~s updated timestamp: ~p old: ~p in payload", [ToUid, MsgId, NewExpiryTimestamp, OldExpiryTimestamp]),
+    Msg#pb_msg{payload = NewPayload};
 fix_group_feed_packet(Msg) -> Msg.
 
 
