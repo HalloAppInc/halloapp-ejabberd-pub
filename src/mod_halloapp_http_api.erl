@@ -475,21 +475,6 @@ check_hashcash(UserAgent, Solution, TimeTakenMs) ->
             ?INFO("hashcash solution: ~p, Time taken: ~pms, Response: ~p",
                 [Solution, TimeTakenMs, HashcashResponse])
     end.
- 
-% We currently don't use SMS app.
-% -spec check_ua(binary(), phone()) -> ok | no_return().
-% check_ua(UserAgent, Phone) ->
-%     case mod_sms_app:is_sms_app(Phone) of
-%         true ->
-%             %% force sms_app clients to be android
-%             case util_ua:is_android(UserAgent) of
-%                 true -> ok;
-%                 false ->
-%                     ?ERROR("SMSApp must be Android, got:~p", [UserAgent]),
-%                     error(bad_user_agent)
-%             end;
-%         false -> check_ua(UserAgent)
-%     end.
 
 
 -spec check_ua(binary()) -> ok | no_return().

@@ -169,7 +169,6 @@ modules:
   mod_props: {}
   mod_feed: {}
   mod_sms: {}
-  mod_sms_app: {}
   mod_user_session: {}
   mod_contacts: {}
   mod_names: {}

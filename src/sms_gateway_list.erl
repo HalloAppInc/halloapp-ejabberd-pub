@@ -24,8 +24,7 @@
     vonage_verify,
     infobip,
     telesign,
-    clickatell,
-    mod_sms_app
+    clickatell
 ]).
 
 
