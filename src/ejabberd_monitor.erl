@@ -40,6 +40,7 @@
     get_registered_name/1,
     monitor_atoms/0,
     monitor_c2s_heap_size/0,
+    monitor_process_count/0,
     check_iam_role/1
 ]).
 
@@ -133,13 +134,14 @@ init([]) ->
     ?INFO("Start: ~p", [?MONITOR_GEN_SERVER]),
     {ok, TRef} = timer:apply_interval(?PING_INTERVAL_MS, ?MODULE, ping_procs, []),
     {ok, TRef2} = timer:apply_interval(?ATOM_CHECK_INTERVAL_MS, ?MODULE, monitor_atoms, []),
-    {ok, TRef3} = timer:apply_interval(?C2S_SIZE_CHECK_INTERVAL_MS, ?MODULE, monitor_c2s_heap_size, []),
+    {ok, TRef3} = timer:apply_interval(?PROCESS_COUNT_CHECK_INTERVAL_MS, ?MODULE, monitor_process_count, []),
+    {ok, TRef4} = timer:apply_interval(?C2S_SIZE_CHECK_INTERVAL_MS, ?MODULE, monitor_c2s_heap_size, []),
     {ok, Config} = erlcloud_aws:auto_config(),
-    {ok, TRef4} = timer:apply_interval(?IAM_CHECK_INTERVAL_MS, ?MODULE, check_iam_role, [Config]),
+    {ok, TRef5} = timer:apply_interval(?IAM_CHECK_INTERVAL_MS, ?MODULE, check_iam_role, [Config]),
     ets:new(?MONITOR_TABLE, [named_table, public]),
     ejabberd_hooks:add(node_up, ?MODULE, node_up, 10),
     {ok, #state{monitors = #{}, active_pings = #{}, gen_servers = [],
-        trefs = [TRef, TRef2, TRef3, TRef4]}}.
+        trefs = [TRef, TRef2, TRef3, TRef4, TRef5]}}.
 
 
 terminate(_Reason, #state{trefs = TRefs} = _State) ->
@@ -314,6 +316,28 @@ monitor_atoms() ->
     end,
     stat:gauge(?NS, "atom_count_num", AtomCount),
     stat:gauge(?NS, "atom_count_percent", PercentUsed),
+    ok.
+
+
+monitor_process_count() ->
+    ProcessCount = erlang:system_info(process_count),
+    MaxProcessCount = erlang:system_info(process_limit),
+    PercentUsed = util:to_float(io_lib:format("~.2f", [ProcessCount / MaxProcessCount * 100])),
+    case PercentUsed of
+        Percent when Percent < 45 ->
+            ?INFO("Process count: ~p, roughly ~p% of the max limit", [ProcessCount, PercentUsed]);
+        Percent when Percent < 65 ->
+            ?WARNING("Process count: ~p, roughly ~p% of the max limit", [ProcessCount, PercentUsed]);
+        Percent when Percent < 85 ->
+            ?ERROR("Process count: ~p, roughly ~p% of the max limit", [ProcessCount, PercentUsed]);
+        _ ->
+            Host = util:get_machine_name(),
+            BinPercent = util:to_binary(PercentUsed),
+            Msg = <<Host/binary, " has used ", BinPercent/binary, " of the process limit">>,
+            alerts:send_alert(<<Host/binary, " is approaching process limit">>, Host, <<"critical">>, Msg)
+    end,
+    stat:gauge(?NS, "process_count_num", ProcessCount),
+    stat:gauge(?NS, "process_count_percent", PercentUsed),
     ok.
 
 
