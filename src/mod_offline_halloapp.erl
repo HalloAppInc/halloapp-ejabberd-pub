@@ -266,7 +266,7 @@ fix_group_feed_packet(#pb_msg{id = MsgId, to_uid = ToUid,
             case util_ua:is_version_greater_than(ClientVersion, <<"HalloApp/Android1.3.2">>) of
                 true ->
                     case util_ua:is_version_less_than(ClientVersion, <<"HalloApp/Android1.4.3">>)
-                            and OldExpiryTimestamp =:= -1 of
+                            andalso OldExpiryTimestamp =:= -1 of
                         true ->
                             %% expiry of -1 should never expire
                             %% set expiry to Sep 1 2032 on affected versions
