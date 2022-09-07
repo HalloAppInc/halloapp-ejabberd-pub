@@ -291,18 +291,18 @@ handle_huawei_response({_Id, Response}, PushMessageItem, #{host := _Host} = Stat
                     % remove_push_token(Uid, Host)
             end,
             State;
-        {{_, 401, _}, _, Body} ->
+        {{_, 401, _}, _, _Body} ->
             stat:count("HA/push", ?HUAWEI, 1, [{"result", "huawei_error"}]),
             ?ERROR("Push failed, Uid: ~s, Token: ~p, expired auth token, Response: ~p", [Uid, TokenPart, Response]),
             mod_android_push:retry_message_item(PushMessageItem),
             NewState = load_access_token(State),
             NewState;
-        {{_, 404, _}, _, Body} ->
+        {{_, 404, _}, _, _Body} ->
             stat:count("HA/push", ?HUAWEI, 1, [{"result", "failure"}]),
             ?ERROR("Push failed, Uid: ~s, Token: ~p, incorrect request url, Response: ~p", [Uid, TokenPart, Response]),
             % remove_push_token(Uid, Host),
             State;
-        {_, _, Body} ->
+        {_, _, _Body} ->
             stat:count("HA/push", ?HUAWEI, 1, [{"result", "failure"}]),
             ?ERROR("Push failed, Uid:~s, token: ~p, non-recoverable Huawei Response: ~p", [Uid, TokenPart, Response]),
             % remove_push_token(Uid, Host),

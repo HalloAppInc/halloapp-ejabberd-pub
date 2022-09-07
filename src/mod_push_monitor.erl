@@ -173,13 +173,13 @@ check_error_rate(Data, Platform, PushCheckType) ->
     % throw appropriate msg based on error rate and amount of sample pushes
     case ErrorRate of
         Rate when Rate >= ?ALERT_RATE andalso Length > ?MIN_SAMPLE ->
-            Host = util:get_machine_name(),
-            BinPercent = util:to_binary(ErrorRate),
-            BinPlatform = util:to_binary(Platform),
-            BinLength = util:to_binary(Length),
-            BinCheckType = util:to_binary(PushCheckType),
-            Msg = <<Host/binary, ": ", BinPlatform/binary, " has ", BinCheckType/binary, " error rate of ",
-                BinPercent/binary, "% from ", BinLength/binary, " total pushes, latest uid: ", Uid/binary>>,
+%%            Host = util:get_machine_name(),
+%%            BinPercent = util:to_binary(ErrorRate),
+%%            BinPlatform = util:to_binary(Platform),
+%%            BinLength = util:to_binary(Length),
+%%            BinCheckType = util:to_binary(PushCheckType),
+%%            Msg = <<Host/binary, ": ", BinPlatform/binary, " has ", BinCheckType/binary, " error rate of ",
+%%                BinPercent/binary, "% from ", BinLength/binary, " total pushes, latest uid: ", Uid/binary>>,
             ok;
             % TODO: murali@: investigate too many alerts, fix and then enable this.
             % alerts:send_alert(<<Host/binary, " has high ", BinCheckType/binary, " error rate.">>, Host, <<"critical">>, Msg);

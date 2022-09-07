@@ -235,7 +235,7 @@ cancel_token_timer(_) ->
 
 -spec handle_fcm_response({RequestId :: reference(), Response :: term()},
         PushMessageItem :: push_message_item(), State :: map()) -> State :: map().
-handle_fcm_response({_RequestId, Response}, PushMessageItem, #{host := ServerHost} = State) ->
+handle_fcm_response({_RequestId, Response}, PushMessageItem, #{host := _ServerHost} = State) ->
     Id = PushMessageItem#push_message_item.id,
     Uid = PushMessageItem#push_message_item.uid,
     Version = PushMessageItem#push_message_item.push_info#push_info.client_version,
