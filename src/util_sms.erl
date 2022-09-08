@@ -86,13 +86,12 @@ get_response_code(ResBody) ->
 
 
 -spec get_sms_message(UserAgent :: binary(), Code :: binary(), LangId :: binary()) 
-        -> {MsgBin :: binary(), TranslatedLangId :: binary()}.
+        -> {Msg :: io_lib:chars(), TranslatedLangId :: binary()}.
 get_sms_message(UserAgent, Code, LangId) ->
     {SmsMsgBin, TranslatedLangId} = mod_translate:translate(<<"server.sms.verification">>, LangId),
     AppHash = util_ua:get_app_hash(UserAgent),
     Msg = io_lib:format("~ts: ~s~n~n~n~s", [SmsMsgBin, Code, AppHash]),
-    MsgBin = util:to_binary(lists:flatten(Msg)),
-    {MsgBin, TranslatedLangId}.
+    {Msg, TranslatedLangId}.
 
 -spec is_google_request(Phone :: binary(), IP :: binary(), Protocol :: atom()) -> boolean().
 is_google_request(Phone, IP, Protocol) ->

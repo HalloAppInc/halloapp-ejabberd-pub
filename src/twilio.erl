@@ -212,7 +212,7 @@ fetch_auth_headers(IsTest) ->
     [{"Authorization", "Basic " ++ AuthStr}].
 
 
--spec encode_based_on_country(Phone :: phone(), Msg :: string()) -> string().
+-spec encode_based_on_country(Phone :: phone(), Msg :: io_lib:chars()) -> string().
 encode_based_on_country(Phone, Msg) ->
     case mod_libphonenumber:get_cc(Phone) of
         <<"CN">> -> "【 HALLOAPP】" ++ Msg;
@@ -220,7 +220,7 @@ encode_based_on_country(Phone, Msg) ->
     end.
 
 
--spec compose_body(Phone :: phone(), Message :: string(),
+-spec compose_body(Phone :: phone(), Message :: io_lib:chars(),
         TwilioLangId :: string()) -> uri_string:uri_string().
 compose_body(Phone, Message, _TwilioLangId) ->
     Message2 = encode_based_on_country(Phone, Message),

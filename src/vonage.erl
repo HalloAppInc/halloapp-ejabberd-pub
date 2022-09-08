@@ -137,7 +137,7 @@ get_api_secret() ->
     mod_aws:get_secret_value(<<"Vonage">>, <<"api_secret">>).
 
 
--spec compose_body(Phone :: phone(), Message :: binary()) -> Body :: uri_string:uri_string().
+-spec compose_body(Phone :: phone(), Message :: io_lib:chars()) -> Body :: uri_string:uri_string().
 compose_body(Phone, Message) ->
     uri_string:compose_query([
         {"to", Phone },

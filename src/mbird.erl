@@ -183,7 +183,7 @@ get_access_key(true) ->
 get_access_key(false) ->
     mod_aws:get_secret_value(<<"MBird">>, <<"access_key">>).
 
--spec compose_body(Phone :: phone(), Message :: binary()) -> Body :: uri_string:uri_string().
+-spec compose_body(Phone :: phone(), Message :: io_lib:chars()) -> Body :: uri_string:uri_string().
 compose_body(Phone, Message) ->
     PlusPhone = "+" ++ binary_to_list(Phone),
     CC = mod_libphonenumber:get_cc(Phone),
