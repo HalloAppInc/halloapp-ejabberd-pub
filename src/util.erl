@@ -533,6 +533,9 @@ get_payload_type(_) -> undefined.
 set_timestamp(#pb_msg{payload = #pb_group_chat{} = GroupChat} = Msg, T) ->
     Msg#pb_msg{payload = GroupChat#pb_group_chat{timestamp = T}};
 
+set_timestamp(#pb_msg{payload = #pb_group_chat_stanza{} = GroupChatStanza} = Msg, T) ->
+    Msg#pb_msg{payload = GroupChatStanza#pb_group_chat_stanza{timestamp = T}};
+
 set_timestamp(#pb_msg{payload = #pb_chat_stanza{} = Chat} = Msg, T) ->
     Msg#pb_msg{payload = Chat#pb_chat_stanza{timestamp = T}};
 

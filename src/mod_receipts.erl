@@ -52,8 +52,8 @@ reload(_Host, _NewOpts, _OldOpts) ->
 -spec user_ack_packet(Ack :: ack(), OfflineMessage :: offline_message()) -> ok.
 user_ack_packet(#pb_ack{id = Id, from_uid = FromUid}, #offline_message{content_type = ContentType,
         from_uid = MsgFromId, thread_id = ThreadId, message = Message})
-        when ContentType =:= chat; ContentType =:= group_chat;
-        ContentType =:= pb_chat_stanza; ContentType =:= pb_group_chat ->
+        when ContentType =:= chat; ContentType =:= group_chat; ContentType =:= pb_chat_stanza;
+        ContentType =:= pb_group_chat_stanza; ContentType =:= pb_group_chat ->
     ?INFO("Uid: ~s, Id: ~p, ContentType: ~p", [FromUid, Id, ContentType]),
     case enif_protobuf:decode(Message, pb_packet) of
         {error, DecodeReason} ->
@@ -101,6 +101,8 @@ log_delivered(group_chat) ->
     stat:count("HA/group_im_receipts", "delivered");
 log_delivered(pb_group_chat) ->
     stat:count("HA/group_im_receipts", "delivered");
+log_delivered(pb_group_chat_stanza) ->
+    stat:count("HA/group_im_receipts", "delivered");
 log_delivered(_) -> ok.
 
 
@@ -109,6 +111,7 @@ log_delivered(_) -> ok.
 get_thread_id(#pb_msg{payload = Payload}) ->
     case Payload of
         #pb_group_chat{gid = Gid} -> Gid;
+        #pb_group_chat_stanza{gid = Gid} -> Gid;
         _ -> undefined
     end.
 

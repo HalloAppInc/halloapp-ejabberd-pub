@@ -38,6 +38,12 @@ parse_metadata(#pb_msg{payload = Payload} = Message) when is_record(Payload, pb_
         content_type = pb:get_payload_type(Message)
     };
 
+parse_metadata(#pb_msg{payload = Payload} = Message) when is_record(Payload, pb_group_chat_stanza) ->
+    #push_metadata{
+        content_id = pb:get_content_id(Message),
+        content_type = pb:get_payload_type(Message)
+    };
+
 parse_metadata(#pb_msg{payload = Payload} = Message) when is_record(Payload, pb_group_chat_retract) ->
     #push_metadata{
         content_id = pb:get_content_id(Message),

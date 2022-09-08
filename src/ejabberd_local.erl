@@ -71,6 +71,7 @@ route(Packet) ->
     ?DEBUG("Local route:~p", [Packet]),
     Type = pb:get_type(Packet),
     ToUid = pb:get_to(Packet),
+    Payload = pb:get_payload_type(Packet),
     Server = util:get_host(),
     if
         ToUid =/= <<"">> ->
@@ -79,6 +80,12 @@ route(Packet) ->
             gen_iq_handler:handle(?MODULE, Packet);
         Type =:= result orelse Type =:= error ->
             ok;
+        is_record(Packet, pb_msg), Payload =:= pb_group_chat ->
+            ejabberd_hooks:run(group_message, Server, [Packet]);
+        is_record(Packet, pb_msg), Payload =:= pb_group_chat_stanza ->
+            ejabberd_hooks:run(group_message, Server, [Packet]);
+        is_record(Packet, pb_msg), Payload =:= pb_group_chat_retract ->
+            ejabberd_hooks:run(group_message, Server, [Packet]);
         is_record(Packet, pb_msg), Type =:= groupchat ->
             ejabberd_hooks:run(group_message, Server, [Packet]);
         true ->

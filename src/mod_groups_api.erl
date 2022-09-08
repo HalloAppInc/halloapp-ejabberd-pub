@@ -75,6 +75,19 @@ send_group_message(#pb_msg{id = MsgId, from_uid = Uid, type = groupchat,
     ok;
 
 send_group_message(#pb_msg{id = MsgId, from_uid = Uid, type = groupchat,
+        payload = #pb_group_chat_stanza{gid = Gid} = GroupChatStanza} = Msg) ->
+    ?INFO("Gid: ~s, Uid: ~s", [Gid, Uid]),
+    MessagePayload = GroupChatStanza#pb_group_chat_stanza.payload,
+    case mod_groups:send_group_chat_message(MsgId, Gid, Uid, MessagePayload) of
+        {error, Reason} ->
+            ErrorMsg = pb:make_error(Msg, util:err(Reason)),
+            ejabberd_router:route(ErrorMsg);
+        {ok, _Ts} ->
+            ok
+    end,
+    ok;
+
+send_group_message(#pb_msg{id = MsgId, from_uid = Uid, type = groupchat,
         payload = #pb_group_chat_retract{gid = Gid} = GroupChatRetractSt} = Msg) ->
     ?INFO("Gid: ~s, Uid: ~s", [Gid, Uid]),
     case mod_groups:send_retract_message(MsgId, Gid, Uid, GroupChatRetractSt) of

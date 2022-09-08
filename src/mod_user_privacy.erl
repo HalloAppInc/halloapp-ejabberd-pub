@@ -230,6 +230,7 @@ is_payload_always_allowed(pb_screenshot_receipt) -> true;
 is_payload_always_allowed(pb_group_stanza) -> true;
 %% group chat stanzas.
 is_payload_always_allowed(pb_group_chat) -> true;
+is_payload_always_allowed(pb_group_chat_stanza) -> true;
 is_payload_always_allowed(pb_groupchat_retract) -> true;
 %% group feed stanzas.
 is_payload_always_allowed(pb_group_feed_item) -> true;

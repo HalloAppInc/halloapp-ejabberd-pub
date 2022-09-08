@@ -48,6 +48,7 @@
     set_background/3,
     delete_avatar/2,
     send_chat_message/4,
+    send_group_chat_message/4,
     broadcast_packet/3,
     send_retract_message/4,
     get_all_group_members/1,
@@ -617,6 +618,71 @@ send_chat_message(MsgId, Gid, Uid, MessagePayload) ->
             ejabberd_hooks:run(user_send_group_im, Server, [Gid, Uid, MsgId, ReceiverUids]),
             broadcast_packet(Uid, ReceiverUids, Packet),
             {ok, Ts}
+    end.
+
+
+-spec send_group_chat_message(MsgId :: binary(), Gid :: gid(), Uid :: uid(),
+        MessagePayload :: pb_group_chat_stanza()) -> {ok, integer()} | {error, atom()}.
+send_group_chat_message(MsgId, Gid, Uid, GroupChatStanza) ->
+    ?INFO("Gid: ~s Uid: ~s", [Gid, Uid]),
+    case model_groups:check_member(Gid, Uid) of
+        false ->
+            %% also possible the group does not exists
+            {error, not_member};
+        true ->
+            %% TODO: add audience_hash to group stanza itself.
+            GroupInfo = model_groups:get_group_info(Gid),
+            IsHashMatch = check_audience_hash(
+                GroupChatStanza#pb_group_chat_stanza.audience_hash,
+                GroupInfo#group_info.audience_hash,
+                Gid, Uid, group_chat),
+            case IsHashMatch of
+                false -> {error, audience_hash_mismatch};
+                true ->
+                    Timestamp = util:now(),
+                    %% Fetch Group info.
+                    Group = model_groups:get_group(Gid),
+                    GroupMembers = Group#group.members,
+                    MemberUids = [Member#group_member.uid || Member <- GroupMembers],
+                    {ok, SenderPhone} = model_accounts:get_phone(Uid),
+                    {ok, SenderName} = model_accounts:get_name(Uid),
+                    %% Fetch senderStateBundles map
+                    StateBundles = GroupChatStanza#pb_group_chat_stanza.sender_state_bundles,
+                    StateBundlesMap = case StateBundles of
+                        undefined -> #{};
+                        _ -> lists:foldl(
+                                fun(StateBundle, Acc) ->
+                                    Uid2 = StateBundle#pb_sender_state_bundle.uid,
+                                    SenderState = StateBundle#pb_sender_state_bundle.sender_state,
+                                    Acc#{Uid2 => SenderState}
+                                end, #{}, StateBundles)
+                    end,
+
+                    BroadcastUids = lists:delete(Uid, MemberUids),
+                    %% Fetch appropriate senderStateBundle and broadcast this packet.
+                    lists:foldl(
+                        fun(ToUid, Acc) ->
+                            GroupChatStanza1 = GroupChatStanza#pb_group_chat_stanza{
+                                sender_phone = SenderPhone,
+                                sender_name = SenderName,
+                                audience_hash = undefined,
+                                sender_state_bundles = [],
+                                sender_state = maps:get(ToUid, StateBundlesMap, undefined)
+                            },
+                            AccBin = integer_to_binary(Acc),
+                            NewId = <<MsgId/binary, "-", AccBin/binary>>,
+                            Packet = #pb_msg{
+                                id = NewId,
+                                type = groupchat,
+                                payload = GroupChatStanza1,
+                                from_uid = Uid,
+                                to_uid = ToUid
+                            },
+                            ejabberd_router:route(Packet),
+                            Acc + 1
+                        end, 0, BroadcastUids),
+                    {ok, Timestamp}
+            end
     end.
 
 

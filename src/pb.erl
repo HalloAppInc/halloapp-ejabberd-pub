@@ -122,6 +122,7 @@ get_payload_type(_) -> undefined.
 get_content_id(#pb_msg{id = Id, payload = #pb_chat_stanza{}}) -> Id;
 get_content_id(#pb_msg{payload = #pb_chat_retract{} = Payload}) -> Payload#pb_chat_retract.id;
 get_content_id(#pb_msg{id = Id, payload = #pb_group_chat{}}) -> Id;
+get_content_id(#pb_msg{id = Id, payload = #pb_group_chat_stanza{}}) -> Id;
 get_content_id(#pb_msg{payload = #pb_group_chat_retract{id = Id}}) -> Id;
 get_content_id(#pb_msg{id = Id, payload = #pb_contact_hash{}}) -> Id;
 get_content_id(#pb_msg{payload = #pb_contact_list{contacts = Contacts}}) ->
