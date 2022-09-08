@@ -18,6 +18,9 @@
 -include("packets.hrl").
 -include("ha_enoise.hrl").
 
+-dialyzer({no_match, connect_and_login/3}).
+-dialyzer({no_match, connect_and_send/3}).
+
 -type stanza() :: pb_packet() | pb_auth_request() | pb_register_request() | pb_auth_result() | pb_register_response().
 -type keypair() :: enoise:noise_keypair().
 

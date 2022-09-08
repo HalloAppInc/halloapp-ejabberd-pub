@@ -86,8 +86,8 @@ is_prod_env() ->
 
 
 -type host() :: string().
--type service() :: {term(), host(), port()}.
--spec get_service(atom()) -> {ok, service()}.
+-type service() :: {term(), host(), integer()}.
+-spec get_service(atom()) -> service().
 get_service(Name) ->
     case {get_hallo_env(), Name} of
         {localhost, Name} -> {Name, "127.0.0.1", 30001};

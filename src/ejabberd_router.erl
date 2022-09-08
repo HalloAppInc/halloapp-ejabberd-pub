@@ -44,7 +44,6 @@
     register_route/3,
     register_route/4,
     host_of_route/1,
-    process_iq/1,
     unregister_route/1,
     unregister_route/2,
     get_all_routes/0,
@@ -221,11 +220,6 @@ is_my_host(Domain) ->
         Host -> true;
         _ -> false
     end.
-
-
--spec process_iq(iq()) -> any().
-process_iq(IQ) ->
-    gen_iq_handler:handle(IQ).
 
 
 -spec config_reloaded() -> ok.

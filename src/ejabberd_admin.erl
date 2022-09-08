@@ -601,7 +601,7 @@ update_code_paths() ->
         LoadedLibs = lists:foldl(
             fun(LibDir, Acc) ->
                 [Package | _] = string:split(LibDir, <<"-">>),
-                true = code:replace_path(Package, ?CURRENT_LIB_PATH ++ LibDir),
+                true = code:replace_path(util:to_atom(Package), ?CURRENT_LIB_PATH ++ LibDir),
                 [Package | Acc]
             end, [], AllLibDirs),
 
@@ -1033,7 +1033,7 @@ send_ios_push(Uid, PushType, Payload) ->
         false ->
             io:format("Invalid uid: ~s", [Uid]);
         true ->
-            PushInfo = mod_push_tokens:get_push_info(Uid, Server),
+            {ok, PushInfo} = model_accounts:get_push_info(Uid),
             if
                 PushInfo#push_info.token =:= undefined ->
                     io:format("Invalid push token: ~s", [Uid]);

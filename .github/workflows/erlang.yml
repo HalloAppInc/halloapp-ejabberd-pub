@@ -28,6 +28,8 @@ jobs:
       run: make
     - name: Install ejabberd
       run: sudo make install
+    - name: Run Dialyzer
+      run: ./rebar3 dialyzer
     - name: Run unit tests
       run: ./rebar3 eunit || ./rebar3 eunit
       env:

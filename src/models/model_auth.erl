@@ -60,8 +60,7 @@ set_spub(Uid, SPub) ->
             ?FIELD_S_PUB, SPub,
             ?FIELD_TIMESTAMP_MS, integer_to_binary(TimestampMs)]
     ],
-    {ok, [_DelResult, <<"2">>]} = multi_exec(Commands),
-    ok.
+    util_redis:verify_ok(multi_exec(Commands)).
 
 
 -spec get_spub(Uid :: binary()) -> {ok, s_pub()} | {error, missing}.

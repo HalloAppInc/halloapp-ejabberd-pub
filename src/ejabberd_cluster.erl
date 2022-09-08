@@ -133,8 +133,8 @@ join_until(UntilTsMs) ->
         RedisNodes),
     Nodes = get_nodes(),
     ?INFO("Nodes: ~p RedisNodes: ~p", [Nodes, RedisNodes]),
-    case Nodes of
-        [] ->
+    case length(Nodes) =:= length(RedisNodes) of
+        false ->
             ?ERROR("Failed to join the cluster, retrying in ~p seconds",
                 [?CLUSTER_JOIN_RETRY_INTERVAL]),
             timer:sleep(?CLUSTER_JOIN_RETRY_INTERVAL),
@@ -151,7 +151,7 @@ join_until(UntilTsMs) ->
 
                     {error, join_failed}
             end;
-        _ -> ok
+        true -> ok
     end.
 
 

@@ -53,11 +53,10 @@ check_spub(Uid, SPub) ->
 
 
 -spec set_spub(binary(), binary()) -> ok |
-        {error, db_failure | not_allowed | invalid_jid}.
+        {error, any()}.
 set_spub(Uid, SPub) ->
     ?INFO("uid:~s", [Uid]),
-    model_auth:set_spub(Uid, SPub),
-    ok.
+    model_auth:set_spub(Uid, SPub).
 
 
 check_and_register(Phone, Host, SPub, Name, UserAgent, CampaignId) ->
@@ -76,7 +75,7 @@ check_and_register(Phone, Host, SPub, Name, UserAgent, CampaignId) ->
     end.
 
 
--spec try_enroll(Phone :: binary(), Passcode :: binary(), CampaignId :: binary()) -> {ok, binary()}.
+-spec try_enroll(Phone :: binary(), Passcode :: binary(), CampaignId :: binary()) -> {ok, binary(), integer()}.
 try_enroll(Phone, Passcode, CampaignId) ->
     ?INFO("phone:~s code:~s", [Phone, Passcode]),
     {ok, AttemptId, Timestamp} = model_phone:add_sms_code2(Phone, Passcode, CampaignId),
@@ -150,8 +149,10 @@ ha_try_register(Phone, Cred, Name, UserAgent, CampaignId) ->
     {ok, Uid} = util_uid:generate_uid(),
     ok = model_accounts:create_account(Uid, Phone, Name, UserAgent, CampaignId),
     ok = model_phone:add_phone(Phone, Uid),
-    ok = set_spub(Uid, Cred),
-    {ok, Cred, Uid}.
+    case set_spub(Uid, Cred) of
+        ok ->{ok, Cred, Uid};
+        Err -> Err
+    end.
 
 
 -spec ha_remove_user(Uid :: binary()) -> ok.

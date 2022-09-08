@@ -71,7 +71,7 @@ remove_iq_handler(Component, Host, NS) ->
     ets:delete(Component, {Host, NS}),
     ok.
 
--spec handle(state(), iq()) -> state().
+-spec handle(state() | atom(), iq()) -> state().
 handle(State, #pb_iq{to_uid = ToUid} = IQ) ->
     Component = case ToUid of
         <<"">> -> ejabberd_local;
@@ -79,7 +79,7 @@ handle(State, #pb_iq{to_uid = ToUid} = IQ) ->
     end,
     handle(State, Component, IQ).
 
--spec handle(state(), component(), iq()) -> state().
+-spec handle(state() | atom(), component(), iq()) -> state().
 %% TODO(murali@): cleanup and have a simpler module after the transition.
 handle(State, _, #pb_iq{type = T, payload = undefined} = Packet)
         when T == get; T == set ->

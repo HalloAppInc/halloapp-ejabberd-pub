@@ -71,12 +71,12 @@ node_up(Node, _InfoList) ->
     Args = [{global, ejabberd_monitor:get_registered_name(Node)}],
     {ok, _TRef} = timer:apply_after(15 * ?SECONDS_MS, ?MODULE, monitor, Args).
 
--spec monitor(Proc :: atom() | pid()) -> ok.
+-spec monitor(Proc :: atom() | pid() | {global, atom()}) -> ok.
 monitor(Proc) ->
     gen_server:cast(?MONITOR_GEN_SERVER, {monitor, Proc}),
     ok.
 
--spec get_state_history(Mod :: atom()) -> list(proc_state()).
+-spec get_state_history(Mod :: atom() | {global, atom()}) -> list(proc_state()).
 get_state_history(Mod) ->
     util_monitor:get_state_history(?MONITOR_TABLE, Mod).
 

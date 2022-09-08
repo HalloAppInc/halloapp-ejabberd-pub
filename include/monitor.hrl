@@ -31,7 +31,7 @@
 -record(state, {
     monitors :: maps:map(),
     active_pings :: maps:map(),
-    gen_servers :: [atom()],
+    gen_servers :: [atom() | {global, atom()}],
     trefs :: [timer:tref()]
 }).
 

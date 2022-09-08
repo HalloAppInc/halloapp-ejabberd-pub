@@ -54,7 +54,7 @@
     compute_counts/0
 ]).
 
--type tag_value() :: atom() | string() | binary().
+-type tag_value() :: atom() | string() | binary() | integer().
 -type tag() :: {Name :: tag_value(), Value :: tag_value()}.
 -type tags() :: [tag()].
 
@@ -101,12 +101,12 @@ count(Namespace, Metric) ->
     ok.
 
 
--spec count(Namespace :: string(), Metric :: string(), Value :: integer()) -> ok.
+-spec count(Namespace :: string(), Metric :: string(), Value :: number()) -> ok.
 count(Namespace, Metric, Value) ->
     count(Namespace, Metric, Value, []).
 
 
--spec count(Namespace :: string(), Metric :: string(), Value :: integer(), Tags :: [tag()]) -> ok.
+-spec count(Namespace :: string(), Metric :: string(), Value :: number(), Tags :: [tag()]) -> ok.
 count(Namespace, Metric, Value, Tags) when is_atom(Metric) ->
     ?WARNING("Metric is supposed to be list: ~p ~p", [Metric, Namespace]),
     count(Namespace, atom_to_list(Metric), Value, Tags);

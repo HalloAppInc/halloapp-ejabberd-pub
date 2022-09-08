@@ -286,7 +286,7 @@ get_session_sids(User, Server, Resource) ->
     [SID || #session{sid = SID} <- Sessions].
 
 
--spec dirty_get_my_sessions_list() -> [SessionsAsLists :: list()].
+-spec dirty_get_my_sessions_list() -> [[#session{}]].
 dirty_get_my_sessions_list() ->
     ets:match(?SM_LOCAL, '$1').
 
@@ -434,10 +434,8 @@ set_session(#session{sid = Sid, us = {LUser, _LServer}} = Session) ->
 
 -spec get_sessions(binary(), binary()) -> [#session{}].
 get_sessions(LUser, _LServer) ->
-    case db_get_sessions(LUser) of
-        {ok, Ss} -> delete_dead(Ss);
-        _ -> []
-    end.
+    {ok, Ss} = db_get_sessions(LUser),
+    delete_dead(Ss).
 
 -spec get_sessions(binary(), binary(), binary()) -> [#session{}].
 get_sessions(LUser, LServer, <<"">>) ->
@@ -453,10 +451,8 @@ get_sessions(LUser, LServer, LResource) ->
 
 -spec get_active_sessions(binary(), binary()) -> [#session{}].
 get_active_sessions(LUser, _LServer) ->
-    case db_get_active_sessions(LUser) of
-        {ok, Ss} -> delete_dead(Ss);
-        _ -> []
-    end.
+    {ok, Ss} = db_get_active_sessions(LUser),
+    delete_dead(Ss).
 
 
 -spec get_active_sessions(binary(), binary(), binary()) -> [#session{}].
@@ -473,10 +469,8 @@ get_active_sessions(LUser, LServer, LResource) ->
 
 -spec get_passive_sessions(binary(), binary()) -> [#session{}].
 get_passive_sessions(LUser, _LServer) ->
-    case db_get_passive_sessions(LUser) of
-        {ok, Ss} -> delete_dead(Ss);
-        _ -> []
-    end.
+    {ok, Ss} = db_get_passive_sessions(LUser),
+    delete_dead(Ss).
 
 
 -spec get_passive_sessions(binary(), binary(), binary()) -> [#session{}].
@@ -960,7 +954,7 @@ get_commands_spec() ->
 -spec connected_users() -> [binary()].
 
 connected_users() ->
-    Uids = [Uid || [Uid | _Ignore] <- dirty_get_my_sessions_list()],
+    Uids = [Uid || [#session{usr = Uid}] <- dirty_get_my_sessions_list()],
     lists:sort(Uids).
 
 connected_users_number() ->

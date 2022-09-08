@@ -19,7 +19,7 @@
 %%%----------------------------------------------------------------------
 
 -type aterm() :: {atom(), atype()}.
--type atype() :: integer | string | binary |
+-type atype() :: integer | string | binary | modules_list |
                  {tuple, [aterm()]} | {list, aterm()}.
 -type rterm() :: {atom(), rtype()}.
 -type rtype() :: integer | string | atom |

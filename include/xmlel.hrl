@@ -28,8 +28,8 @@
     children = [] :: [xmlel() | cdata()]
 }).
 
--type(cdata() :: {xmlcdata, CData::binary()}).
+-type(cdata() :: {xmlcdata, CData:: binary() | string()}).
 
--type(attr() :: {Name::binary(), Value::binary()}).
+-type(attr() :: {Name::binary(), Value:: binary() | string()}).
 
 -type(xmlel() :: #xmlel{}).

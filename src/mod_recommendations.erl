@@ -65,7 +65,8 @@ stop(_Host) ->
 
 -spec unschedule() -> ok.
 unschedule() ->
-    erlcron:cancel(do_friend_scoring).
+    erlcron:cancel(do_friend_scoring),
+    ok.
 
 
 reload(_Host, _NewOpts, _OldOpts) ->

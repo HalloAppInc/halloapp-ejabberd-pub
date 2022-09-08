@@ -49,6 +49,8 @@
     cleanup_offline_queue/2    % DEBUG
 ]).
 
+-dialyzer({nowarn_function, fix_group_feed_packet/1}). %dialyzer gets confused by record construction here.
+
 
 %%%===================================================================
 %%% gen_mod API

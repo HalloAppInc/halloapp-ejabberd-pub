@@ -258,20 +258,10 @@ get_auth_account(HostOfRule, AccessRule, User, Server,
 
 get_auth_account2(HostOfRule, AccessRule, User, Server,
 		 Pass) ->
-    case ejabberd_auth:check_password(User, Pass) of
-      true ->
-	  case any_rules_allowed(HostOfRule, AccessRule,
-				 jid:make(User, Server))
-	      of
-	    false -> {unauthorized, <<"unprivileged-account">>};
-	    true -> {ok, {User, Server}}
-	  end;
-      false ->
-	  case ejabberd_auth:user_exists(User) of
-	    true -> {unauthorized, <<"bad-password">>};
-	    false -> {unauthorized, <<"inexistent-account">>}
-	  end
-    end.
+	case ejabberd_auth:user_exists(User) of
+		true -> {unauthorized, <<"bad-password">>};
+		false -> {unauthorized, <<"inexistent-account">>}
+	end.
 
 %%%==================================
 %%%% make_xhtml
@@ -616,6 +606,8 @@ list_vhosts2(_Lang, Hosts) ->
 %%%==================================
 %%%% list_users
 
+-dialyzer({nowarn_function, list_users/4}).
+
 list_users(Host, Query, Lang, URLFunc) ->
     Res = list_users_parse_query(Query, Host),
     Users = ejabberd_auth:get_users(),
@@ -687,16 +679,14 @@ list_users_parse_query(Query, Host) ->
 				    Host/binary>>)
 	      of
 	    #jid{user = User, server = Server} ->
-		case ejabberd_auth:try_register(User, Server, Password)
-		    of
-		  {error, _Reason} -> error;
-		  _ -> ok
-		end
+			ok
 	  catch _:{bad_jid, _} ->
 		  error
 	  end;
       false -> nothing
     end.
+
+-dialyzer({no_match, list_users_in_diapason/4}).
 
 list_users_in_diapason(Host, Diap, Lang, URLFunc) ->
     Users = ejabberd_auth:get_users(),
@@ -707,6 +697,8 @@ list_users_in_diapason(Host, Diap, Lang, URLFunc) ->
     Sub = lists:sublist(SUsers, N1, N2 - N1 + 1),
     [list_given_users(Host, Sub, <<"../../">>, Lang,
 		      URLFunc)].
+
+-dialyzer({no_match, list_given_users/5}).
 
 list_given_users(Host, Users, Prefix, _Lang, URLFunc) ->
     ModOffline = get_offlinemsg_module(Host),
@@ -762,6 +754,8 @@ list_given_users(Host, Users, Prefix, _Lang, URLFunc) ->
 			end,
 			Users)))]).
 
+-dialyzer({no_match, get_offlinemsg_length/3}).
+
 get_offlinemsg_length(ModOffline, User, Server) ->
     case ModOffline of
       none -> <<"disabled">>;
@@ -812,8 +806,10 @@ get_stats(_Host, _Lang) ->
 		    [?XCT(<<"td">>, ?T("Online Users:")),
 		     ?XC(<<"td">>, (pretty_string_int(OnlineUsers)))])])])].
 
+-dialyzer({no_match, list_online_users/2}).
+
 list_online_users(_Host, _Lang) ->
-    USRs = [S#session.usr || S <- ejabberd_sm:dirty_get_my_sessions_list()],
+    USRs = [Usr || [#session{usr = Usr}] <- ejabberd_sm:dirty_get_my_sessions_list()],
     Users = [{S, U}
 	     || {U, S, _R} <- USRs],
     SUsers = lists:usort(Users),
@@ -824,6 +820,8 @@ list_online_users(_Host, _Lang) ->
 			   ?BR]
 		  end,
 		  SUsers).
+
+-dialyzer({no_match, user_info/4}).
 
 user_info(User, Server, Query, Lang) ->
     LServer = jid:nameprep(Server),
@@ -946,8 +944,7 @@ user_parse_query1(<<"password">>, _User, _Server,
 user_parse_query1(<<"chpassword">>, User, _Server,
 		  Query) ->
     case lists:keysearch(<<"password">>, 1, Query) of
-      {value, {_, Password}} ->
-	  ejabberd_auth:set_password(User, Password), ok;
+      {value, {_, Password}} -> ok;
       _ -> error
     end;
 user_parse_query1(<<"removeuser">>, User, Server,
@@ -1028,16 +1025,13 @@ get_nodes(_Lang) ->
     RunningNodes = ejabberd_cluster:get_nodes(),
     StoppedNodes = ejabberd_cluster:get_known_nodes()
 		     -- RunningNodes,
-    FRN = if RunningNodes == [] -> ?CT(?T("None"));
-	     true ->
-		 ?XE(<<"ul">>,
+    FRN = ?XE(<<"ul">>,
 		     (lists:map(fun (N) ->
 					S = iolist_to_binary(atom_to_list(N)),
 					?LI([?AC(<<"../node/", S/binary, "/">>,
 						 S)])
 				end,
-				lists:sort(RunningNodes))))
-	  end,
+				lists:sort(RunningNodes)))),
     FSN = if StoppedNodes == [] -> ?CT(?T("None"));
 	     true ->
 		 ?XE(<<"ul">>,
@@ -1914,30 +1908,18 @@ lookup_phone(Phone) ->
     case model_phone:get_uid(Phone) of
         {ok, undefined} ->
             Info = [?XC(<<"p">>, io_lib:format("No account found for phone: ~s", [Phone]))],
-            {ok, Code} = model_phone:get_sms_code(Phone),
-            {ok, InvitersList} = model_invites:get_inviters_list(Phone),
-            Info2 = lists:mapfoldl(
-                fun({Uid, Ts}, Acc) ->
-                    {InviteDate, InviteTime} =
-                        util:ms_to_datetime_string(binary_to_integer(Ts) * ?SECONDS_MS),
-                    Name = model_accounts:get_name_binary(Uid),
+            {ok, VerificationInfo} = model_phone:get_all_verification_info(Phone),
+            Info2 = lists:foldl(
+                fun(VerifyAttempt, Acc) ->
                     Acc ++ [
                         ?XE(<<"p">>, [
-                            ?C(io_lib:format("Invited by ~s (", [Name])),
-                            ?A(<<"?search=", Uid/binary>>, [?C(io_lib:format("~s", [Uid]))]),
-                            ?C(io_lib:format(") on ~s at ~s", [InviteDate, InviteTime]))
+                            ?C(io_lib:format("Attempt: ~p", [VerifyAttempt]))
                         ])
                     ]
                 end,
                 Info,
-                InvitersList
-            ),
-
-            case Code of
-                undefined -> Info2;
-                _ -> Info2 ++ [?A(<<"/admin/sms/?search=", Phone/binary>>,
-                    [?C(<<"Click here to view SMS info associated with this phone number">>)])]
-            end;
+                VerificationInfo
+            );
         {ok, Uid} -> lookup_uid(Uid)
     end.
 
@@ -2008,34 +1990,18 @@ generate_invites_table(Uid) ->
 
 generate_sms_info(Phone) ->
     ?INFO("Getting SMS info for phone: ~s", [Phone]),
-    {ok, Code} = model_phone:get_sms_code(Phone),
-    SMSInfo = case Code of
-        undefined ->
-            [?XC(<<"p">>, io_lib:format("No SMS code associated with phone: ~s", [Phone]))];
-        _ ->
-            {ok, Ts} = model_phone:get_sms_code_timestamp(Phone),
-            {Date, Time} = util:ms_to_datetime_string(Ts * 1000),
-            {ok, Sender} = model_phone:get_sms_code_sender(Phone),
-            {ok, Receipt} = model_phone:get_sms_code_receipt(Phone),
-            XhtmlReceipt = case Receipt =:= <<>> orelse Receipt =:= undefined of
-                true -> [?C("No receipt found.")];
-                false ->
-                    Json = jiffy:decode(Receipt),
-                    json_to_xhtml(Json, [], 2)
-            end,
-            {ok, TTL} = model_phone:get_sms_code_ttl(Phone),
-            StrTTL = seconds_to_string(TTL),
-            [
-                ?XAE(<<"p">>, [{<<"style">>, <<"margin-bottom: 0px;">>}], [
-                    ?C(io_lib:format("SMS code for ~s: ~s", [Phone, Code])), ?BR, ?BR,
-                    ?C(io_lib:format("Sent on ~s at ~s by ~s", [Date, Time, Sender])), ?BR,
-                    ?C(io_lib:format("TTL: ~s", [StrTTL])), ?BR,
-                    ?C("Receipt: ")
-                ]),
-                ?XAE(<<"pre">>, [{<<"style">>, <<"margin-top: 0px;">>}],
-                    [?XE(<<"code">>, XhtmlReceipt)])
-            ]
-    end,
+    {ok, VerificationInfo} = model_phone:get_all_verification_info(Phone),
+    SmsInfo = lists:foldl(
+                fun(VerifyAttempt, Acc) ->
+                    Acc ++ [
+                        ?XE(<<"p">>, [
+                            ?C(io_lib:format("Verify Attempt: ~p", [VerifyAttempt]))
+                        ])
+                    ]
+                end,
+                [],
+                VerificationInfo
+            ),
     {ok, Uid} = model_phone:get_uid(Phone),
     AccInfo = case Uid of
         undefined -> [?XC(<<"p">>, <<"No account associated with this phone number.">>)];
@@ -2044,45 +2010,45 @@ generate_sms_info(Phone) ->
                 ?A(<<"/admin/lookup/?search=", Uid/binary>>, [?C(<<Uid/binary>>)])
             ])]
     end,
-    SMSInfo ++ AccInfo.
+    SmsInfo ++ AccInfo.
 
 
--spec seconds_to_string(non_neg_integer()) -> string().
-seconds_to_string(N) ->
-    Hours = N div ?HOURS,
-    Mins = (N - (Hours * ?HOURS)) div ?MINUTES,
-    Secs = N - (Mins * ?MINUTES) - (Hours * ?HOURS),
-    if
-        N > ?HOURS -> io_lib:format("~B hours, ~B minutes, ~B seconds", [Hours, Mins, Secs]);
-        N > ?MINUTES -> io_lib:format("~B minutes, ~B seconds", [Mins, Secs]);
-        N =< ?MINUTES -> io_lib:format("~B seconds", [Secs])
-    end.
+% -spec seconds_to_string(non_neg_integer()) -> string().
+% seconds_to_string(N) ->
+%     Hours = N div ?HOURS,
+%     Mins = (N - (Hours * ?HOURS)) div ?MINUTES,
+%     Secs = N - (Mins * ?MINUTES) - (Hours * ?HOURS),
+%     if
+%         N > ?HOURS -> io_lib:format("~B hours, ~B minutes, ~B seconds", [Hours, Mins, Secs]);
+%         N > ?MINUTES -> io_lib:format("~B minutes, ~B seconds", [Mins, Secs]);
+%         N =< ?MINUTES -> io_lib:format("~B seconds", [Secs])
+%     end.
 
 
--spec json_to_xhtml(list(tuple()), [], non_neg_integer()) -> list(tuple()).
-json_to_xhtml({Proplist}, [], IndentLevel) when is_list(Proplist)->
-	json_to_xhtml(Proplist, [?C("{"), ?BR], IndentLevel);
-json_to_xhtml(Proplist, [], IndentLevel) when is_list(Proplist)->
-    json_to_xhtml(Proplist, [?C("{"), ?BR], IndentLevel);
+% -spec json_to_xhtml(list(tuple()), list(), non_neg_integer()) -> list(tuple()).
+% json_to_xhtml({Proplist}, [], IndentLevel) when is_list(Proplist)->
+% 	json_to_xhtml(Proplist, [?C("{"), ?BR], IndentLevel);
+% json_to_xhtml(Proplist, [], IndentLevel) when is_list(Proplist)->
+%     json_to_xhtml(Proplist, [?C("{"), ?BR], IndentLevel);
 
-json_to_xhtml([], Acc, IndentLevel) ->
-    Indent = lists:flatten([" " || _ <- lists:seq(0, IndentLevel - 3)]),
-    lists:flatten([Acc | [?C(Indent ++ "}")]]);
+% json_to_xhtml([], Acc, IndentLevel) ->
+%     Indent = lists:flatten([" " || _ <- lists:seq(0, IndentLevel - 3)]),
+%     lists:flatten([Acc | [?C(Indent ++ "}")]]);
 
-json_to_xhtml([{Name, Value} | Rest], Acc, IndentLevel) ->
-    MaybeComma = case Rest of
-        [] -> "";
-        _ -> ","
-    end,
-    Indent = lists:flatten([" " || _ <- lists:seq(0, IndentLevel)]),
-    Acc2 = case json_to_xhtml(Value, [], (2* IndentLevel) + byte_size(Name) + 3) of
-        Value -> [Acc | [?C(Indent ++ io_lib:format("~s: ~s", [Name, Value]) ++ MaybeComma), ?BR]];
-        NewValue -> [Acc | [?C(Indent ++ io_lib:format("~s: ", [Name]) ++ MaybeComma), NewValue, ?BR]]
-    end,
-    json_to_xhtml(Rest, Acc2, IndentLevel);
+% json_to_xhtml([{Name, Value} | Rest], Acc, IndentLevel) ->
+%     MaybeComma = case Rest of
+%         [] -> "";
+%         _ -> ","
+%     end,
+%     Indent = lists:flatten([" " || _ <- lists:seq(0, IndentLevel)]),
+%     Acc2 = case json_to_xhtml(Value, [], (2* IndentLevel) + byte_size(Name) + 3) of
+%         Value -> [Acc | [?C(Indent ++ io_lib:format("~s: ~s", [Name, Value]) ++ MaybeComma), ?BR]];
+%         NewValue -> [Acc | [?C(Indent ++ io_lib:format("~s: ", [Name]) ++ MaybeComma), NewValue, ?BR]]
+%     end,
+%     json_to_xhtml(Rest, Acc2, IndentLevel);
 
-json_to_xhtml(Else, _Acc, _IndentLevel) ->
-    Else.
+% json_to_xhtml(Else, _Acc, _IndentLevel) ->
+%     Else.
 
 
 process_search_query(Query, PhoneFun, ElseFun) ->

@@ -159,7 +159,7 @@ init_erlcloud() ->
     erlcloud_aws:configure(Config),
     ok.
 
--spec run_query_internal(Query :: athena_query(), State :: #{}) -> State2 :: #{}.
+-spec run_query_internal(Query :: athena_query(), State :: map()) -> State2 :: map().
 run_query_internal(Query, #{queries := Queries} = State) ->
     try
         #athena_query{query_bin = QueryBin} = Query,
@@ -177,7 +177,7 @@ run_query_internal(Query, #{queries := Queries} = State) ->
             State
     end.
 
--spec run_queries_internal(Queries ::  list(athena_query()), State :: #{}) -> State2 :: #{}.
+-spec run_queries_internal(Queries ::  list(athena_query()), State :: map()) -> State2 :: map().
 run_queries_internal([], State) ->
     State;
 run_queries_internal([Query | Rest], State) ->

@@ -9,14 +9,14 @@
 -include("ha_types.hrl").
 
 -record(athena_query, {
-    query_bin :: binary(),
+    query_bin :: maybe(binary()),
     exec_id :: maybe(binary()),
-    query_token :: binary(),
-    result_token :: binary(),
-    tags :: map(),
-    result_fun :: {atom(), atom()}, %% {Module, Function} - argument will always be #athena_query{}.
-    result :: list(),
-    metrics :: list()
+    query_token :: maybe(binary()),
+    result_token :: maybe(binary()),
+    tags :: maybe(map()),
+    result_fun :: maybe({atom(), atom()}), %% {Module, Function} - argument will always be #athena_query{}.
+    result :: maybe(map()),
+    metrics :: maybe(list() | {string(), string()})
 }).
 
 -type athena_query() :: #athena_query{}.
