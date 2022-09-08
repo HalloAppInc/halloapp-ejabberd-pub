@@ -20,8 +20,8 @@
 %% API
 -export([
     create_group/2,
-    create_group/4,
     create_group/5,
+    create_group/6,
     delete_group/1,
     delete_empty_group/1,
     group_exists/1,
@@ -82,6 +82,7 @@
 %%====================================================================
 
 -define(FIELD_NAME, <<"na">>).
+-define(FIELD_GROUP_TYPE, <<"gt">>).
 -define(FIELD_EXPIRY_TYPE, <<"exy">>).
 -define(FIELD_EXPIRY_TIMESTAMP, <<"ext">>).
 -define(FIELD_DESCRIPTION, <<"de">>).
@@ -95,24 +96,25 @@
 
 -spec create_group(Uid :: uid(), Name :: binary()) -> {ok, Gid :: gid()}.
 create_group(Uid, Name) ->
-    create_group(Uid, Name, expires_in_seconds, ?DEFAULT_GROUP_EXPIRY_SEC, util:now_ms()).
+    create_group(Uid, Name, feed, expires_in_seconds, ?DEFAULT_GROUP_EXPIRY_SEC, util:now_ms()).
 
 
--spec create_group(Uid :: uid(), Name :: binary(),
+-spec create_group(Uid :: uid(), Name :: binary(), GroupType :: group_type(),
     ExpiryType :: expiry_type(), ExpiryTimestamp :: integer()) -> {ok, Gid :: gid()}.
-create_group(Uid, Name, ExpiryType, ExpiryTimestamp) ->
-    create_group(Uid, Name, ExpiryType, ExpiryTimestamp, util:now_ms()).
+create_group(Uid, Name, GroupType, ExpiryType, ExpiryTimestamp) ->
+    create_group(Uid, Name, GroupType, ExpiryType, ExpiryTimestamp, util:now_ms()).
 
 
--spec create_group(Uid :: uid(), Name :: binary(),
+-spec create_group(Uid :: uid(), Name :: binary(), GroupType :: group_type(),
     ExpiryType :: expiry_type(), ExpiryTimestamp :: integer(), Ts :: integer()) -> {ok, Gid :: gid()}.
-create_group(Uid, Name, ExpiryType, ExpiryTimestamp, Ts) ->
+create_group(Uid, Name, GroupType, ExpiryType, ExpiryTimestamp, Ts) ->
     Gid = util_id:generate_gid(),
     MemberValue = encode_member_value(admin, util:now_ms(), Uid),
     [{ok, _}, {ok, _}, {ok, _}] = qp([
         ["HSET",
             group_key(Gid),
             ?FIELD_NAME, Name,
+            ?FIELD_GROUP_TYPE, encode_group_type(GroupType),
             ?FIELD_EXPIRY_TYPE, encode_expiry_type(ExpiryType),
             ?FIELD_EXPIRY_TIMESTAMP, integer_to_binary(ExpiryTimestamp),
             ?FIELD_CREATION_TIME, integer_to_binary(Ts),
@@ -196,6 +198,7 @@ get_group(Gid) ->
             MembersMap = util:list_to_map(MembersData),
             Members = decode_members(Gid, MembersMap),
             ExpiryInfo = extract_expiry_info(GroupMap),
+            GroupType = decode_group_type(maps:get(?FIELD_GROUP_TYPE, GroupMap, <<"f">>)),
             #group{
                 gid = Gid,
                 name = maps:get(?FIELD_NAME, GroupMap, undefined),
@@ -205,6 +208,7 @@ get_group(Gid) ->
                     maps:get(?FIELD_CREATION_TIME, GroupMap, undefined)),
                 members = lists:sort(fun member_compare/2, Members),
                 background = maps:get(?FIELD_BACKGROUND, GroupMap, undefined),
+                group_type = GroupType,
                 expiry_info = ExpiryInfo
             }
     end.
@@ -218,6 +222,7 @@ get_group_info(Gid) ->
         _ ->
             GroupMap = util:list_to_map(GroupData),
             ExpiryInfo = extract_expiry_info(GroupMap),
+            GroupType = decode_group_type(maps:get(?FIELD_GROUP_TYPE, GroupMap, <<"f">>)),
             #group_info{
                 gid = Gid,
                 name = maps:get(?FIELD_NAME, GroupMap, undefined),
@@ -225,6 +230,7 @@ get_group_info(Gid) ->
                 avatar = maps:get(?FIELD_AVATAR_ID, GroupMap, undefined),
                 background = maps:get(?FIELD_BACKGROUND, GroupMap, undefined),
                 audience_hash = maps:get(?FIELD_AUDIENCE_HASH, GroupMap, undefined),
+                group_type = GroupType,
                 expiry_info = ExpiryInfo
             }
     end.
@@ -621,6 +627,16 @@ decode_expiry_type(<<"sec">>) -> expires_in_seconds;
 decode_expiry_type(<<"date">>) -> custom_date;
 decode_expiry_type(<<"never">>) -> never;
 decode_expiry_type(_) -> expires_in_seconds.
+
+
+encode_group_type(feed) -> <<"f">>;
+encode_group_type(chat) -> <<"c">>;
+encode_group_type(_) -> <<"f">>.
+
+
+decode_group_type(<<"f">>) -> feed;
+decode_group_type(<<"c">>) -> chat;
+decode_group_type(_) -> feed.
 
 
 -spec decode_members(Gid :: gid(), MembersMap :: map()) -> [group_member()].

@@ -23,8 +23,8 @@
 
 -export([
     create_group/2,
-    create_group/3,
     create_group/4,
+    create_group/5,
     delete_group/2,
     add_members/3,
     remove_members/3,
@@ -119,13 +119,13 @@ mod_options(_Host) ->
 -spec create_group(Uid :: uid(), GroupName :: binary()) ->
         {ok, group()} | {error, invalid_name} | {error, max_group_count}.
 create_group(Uid, GroupName) ->
-    create_group(Uid, GroupName, #pb_expiry_info{expiry_type = expires_in_seconds, expires_in_seconds = ?DEFAULT_GROUP_EXPIRY}).
+    create_group(Uid, GroupName, feed, #pb_expiry_info{expiry_type = expires_in_seconds, expires_in_seconds = ?DEFAULT_GROUP_EXPIRY}).
 
--spec create_group(Uid :: uid(), GroupName :: binary(), GroupExpiry :: #pb_expiry_info{}) ->
+-spec create_group(Uid :: uid(), GroupName :: binary(), GroupType :: group_type(), GroupExpiry :: #pb_expiry_info{}) ->
         {ok, group()} | {error, invalid_name} | {error, max_group_count}.
-create_group(Uid, GroupName, GroupExpiry) ->
-    ?INFO("Uid: ~s GroupName: ~s, GroupExpiry", [Uid, GroupName, GroupExpiry]),
-    case create_group_internal(Uid, GroupName, GroupExpiry) of
+create_group(Uid, GroupName, GroupType, GroupExpiry) ->
+    ?INFO("Uid: ~s GroupName: ~s, GroupType: ~s, GroupExpiry: ~s", [Uid, GroupName, GroupType, GroupExpiry]),
+    case create_group_internal(Uid, GroupName, GroupType, GroupExpiry) of
         {error, Reason} -> {error, Reason};
         {ok, Gid} ->
             Group = model_groups:get_group(Gid),
@@ -133,14 +133,15 @@ create_group(Uid, GroupName, GroupExpiry) ->
     end.
 
 
--spec create_group(Uid :: uid(), GroupName :: binary(), GroupExpiry :: #pb_expiry_info{}, MemberUids :: [uid()])
+-spec create_group(Uid :: uid(), GroupName :: binary(), GroupType :: group_type(),
+            GroupExpiry :: #pb_expiry_info{}, MemberUids :: [uid()])
             -> {ok, group(), modify_member_results()} | {error, any()}.
-create_group(Uid, GroupName, GroupExpiry, MemberUids) ->
-    case create_group_internal(Uid, GroupName, GroupExpiry) of
+create_group(Uid, GroupName, GroupType, GroupExpiry, MemberUids) ->
+    case create_group_internal(Uid, GroupName, GroupType, GroupExpiry) of
         {error, Reason} -> {error, Reason};
         {ok, Gid} ->
-            ?INFO("Gid: ~s Uid: ~s initializing with Members ~p GroupExpiry: ~p",
-                [Gid, Uid, MemberUids, GroupExpiry]),
+            ?INFO("Gid: ~s Uid: ~s initializing with Members ~p GroupType: ~p GroupExpiry: ~p",
+                [Gid, Uid, MemberUids, GroupType, GroupExpiry]),
             Results = add_members_unsafe(Gid, Uid, MemberUids),
 
             Group = model_groups:get_group(Gid),
@@ -765,7 +766,7 @@ join_with_invite_link(Uid, Link) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-create_group_internal(Uid, GroupName, GroupExpiry) ->
+create_group_internal(Uid, GroupName, GroupType, GroupExpiry) ->
     case is_user_group_count_exceeded(Uid) of
         true ->
             {error, max_group_count};
@@ -776,12 +777,13 @@ create_group_internal(Uid, GroupName, GroupExpiry) ->
                     case validate_expiry_info(GroupExpiry) of
                         {error, Reason} -> {error, Reason};
                         {ok, {ExpiryType, ExpiryTimestamp}} ->
-                            {ok, Gid} = model_groups:create_group(Uid, LGroupName, ExpiryType, ExpiryTimestamp),
-                            ?INFO("group created Gid: ~s Uid: ~s GroupName: |~s|, GroupExpiry: ~s",
-                                [Gid, Uid, LGroupName, GroupExpiry]),
+                            {ok, Gid} = model_groups:create_group(Uid, LGroupName, GroupType, ExpiryType, ExpiryTimestamp),
+                            ?INFO("group created Gid: ~s Uid: ~s GroupName: |~s|, GroupType: ~p GroupExpiry: ~s",
+                                [Gid, Uid, LGroupName, GroupType, GroupExpiry]),
                             stat:count(?STAT_NS, "create"),
                             stat:count(?STAT_NS, "create_by_dev", 1, [{is_dev, dev_users:is_dev_uid(Uid)}]),
                             stat:count(?STAT_NS, "set_expiry", 1, [{"expiry_type", util:to_list(ExpiryType)}]),
+                            stat:count(?STAT_NS, "create_by_type", 1, [{"type", util:to_list(GroupType)}]),
                             case ExpiryType of
                                 expires_in_seconds ->
                                     stat:count(?STAT_NS, "set_expiry_ts", 1, [{"expiry_ts", util:to_list(ExpiryTimestamp)}]);
@@ -1182,6 +1184,7 @@ broadcast_update(Group, Uid, Event, Results, NamesMap, HistoryResendMap) ->
                 members = MembersSt,
                 description = Description,
                 expiry_info = make_pb_expiry_info(Group#group.expiry_info),
+                group_type = Group#group.group_type,
                 history_resend = maps:get(ToUid, HistoryResendMap, undefined)
             },
             AccBin = integer_to_binary(Acc),
@@ -1222,6 +1225,7 @@ broadcast_group_info(Group, NamesMap, NewlyAddedMembers) ->
                 avatar_id = Group#group.avatar,
                 background = Group#group.background,
                 expiry_info = make_pb_expiry_info(Group#group.expiry_info),
+                group_type = Group#group.group_type,
                 action = get,
                 members = MembersStanza,
                 description = Group#group.description

@@ -36,6 +36,7 @@
     creation_ts_ms :: integer(),
     members :: [group_member()],
     audience_hash :: maybe(binary()),
+    group_type :: group_type(),
     expiry_info :: expiry_info()
 }).
 
@@ -48,6 +49,7 @@
     avatar :: maybe(binary()),
     background :: binary(),
     audience_hash :: binary(),
+    group_type :: group_type(),
     expiry_info :: expiry_info()
 }).
 
@@ -58,6 +60,8 @@
     expires_in_seconds :: maybe(integer()),
     expiry_timestamp :: maybe(integer())
 }).
+
+-type group_type() :: feed | chat.
 
 -type expiry_type() :: expires_in_seconds | never | custom_date.
 -type expiry_info() :: #expiry_info{}.

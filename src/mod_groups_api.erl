@@ -215,8 +215,9 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
 process_create_group(IQ, Uid, Name, Expiry, ReqGroupSt) ->
     ?INFO("create_group Uid: ~s Name: |~s| Expiry: ~s Group: ~p", [Uid, Name, Expiry, ReqGroupSt]),
     MemberUids = [M#pb_group_member.uid || M <- ReqGroupSt#pb_group_stanza.members],
+    GroupType = ReqGroupSt#pb_group_stanza.group_type,
 
-    {ok, Group, Results} = mod_groups:create_group(Uid, Name, Expiry, MemberUids),
+    {ok, Group, Results} = mod_groups:create_group(Uid, Name, GroupType, Expiry, MemberUids),
 
     MembersSt = lists:map(
         fun ({MemberUid, add, Result}) ->
@@ -232,6 +233,7 @@ process_create_group(IQ, Uid, Name, Expiry, ReqGroupSt) ->
         gid = Group#group.gid,
         name = Group#group.name,
         expiry_info = make_pb_expiry_info(Group#group.expiry_info),
+        group_type = Group#group.group_type,
         action = create,
         members = MembersSt
     },
@@ -573,7 +575,8 @@ group_info_to_group_st(GroupInfo) ->
         name = GroupInfo#group_info.name,
         description = GroupInfo#group_info.description,
         avatar_id = GroupInfo#group_info.avatar,
-        background = GroupInfo#group_info.background
+        background = GroupInfo#group_info.background,
+        group_type = GroupInfo#group_info.group_type
     }.
 
 
@@ -585,7 +588,8 @@ group_info_to_group_st_with_expiry(GroupInfo) ->
         description = GroupInfo#group_info.description,
         avatar_id = GroupInfo#group_info.avatar,
         background = GroupInfo#group_info.background,
-        expiry_info = make_pb_expiry_info(GroupInfo#group_info.expiry_info)
+        expiry_info = make_pb_expiry_info(GroupInfo#group_info.expiry_info),
+        group_type = GroupInfo#group_info.group_type
     }.
 
 
@@ -604,6 +608,7 @@ make_group_st(Group, Action) ->
         avatar_id = Group#group.avatar,
         background = Group#group.background,
         expiry_info = make_pb_expiry_info(Group#group.expiry_info),
+        group_type = Group#group.group_type,
         members = make_members_st(Group#group.members),
         audience_hash = Group#group.audience_hash
     }.

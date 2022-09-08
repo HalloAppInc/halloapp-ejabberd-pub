@@ -269,11 +269,12 @@ create_empty_group_test() ->
         expiry_info = #pb_expiry_info{
             expiry_type = expires_in_seconds,
             expires_in_seconds = 2592000
-        }
+        },
+        group_type = feed
     } = GroupSt,
     ?assertEqual(true, model_groups:group_exists(Gid)),
     ?assertEqual(
-        {ok, #group_info{gid = Gid, name = ?GROUP_NAME1,
+        {ok, #group_info{gid = Gid, name = ?GROUP_NAME1, group_type = feed,
             expiry_info = #expiry_info{expiry_type = expires_in_seconds, expires_in_seconds = 2592000}}},
         mod_groups:get_group_info(Gid, ?UID1)),
 %%    ?debugVal(IQRes),
