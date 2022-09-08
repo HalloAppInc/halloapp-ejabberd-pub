@@ -218,7 +218,9 @@ get_client_based_props(PropMap, ios, ClientVersion) ->
     PropMap5 = maps:update(new_chat_ui, Result5, PropMap4),
     Result6 = util_ua:is_version_greater_than(ClientVersion, <<"HalloApp/iOS1.23.292">>),
     PropMap6 = maps:update(group_expiry, Result6, PropMap5),
-    PropMap6;
+    Result7 = util_ua:is_version_greater_than(ClientVersion, <<"HalloApp/iOS1.22.290">>),
+    PropMap7 = maps:update(pre_answer_calls, Result7, PropMap6),
+    PropMap7;
 
 get_client_based_props(PropMap, undefined, _) ->
     maps:update(groups, false, PropMap).
