@@ -67,7 +67,9 @@ request_sms(Phone, Options) ->
         host => maps:get(host, Options, "localhost"), 
         port => 5208, 
         state => register},
-    {ok, _Client, ActualResponse} = ha_client:connect_and_send(RegisterRequestPkt, ClientKeyPair, ConnectOptions),
+    {ok, Client, ActualResponse} = ha_client:connect_and_send(RegisterRequestPkt, ClientKeyPair, ConnectOptions),
+
+    ha_client:stop(Client),
 
     {ok, ActualResponse#pb_register_response.response}.
 
@@ -109,6 +111,8 @@ register(Phone, Code, Name, Options) ->
     ok = ha_client:send(Client, enif_protobuf:encode(VerifyOtpRequestPkt)),
     ActualResponse2 = ha_client:recv(Client),
 
+    ha_client:stop(Client),
+
     %% Return result
     Response2 = ActualResponse2#pb_register_response.response,
     case maps:get(return_keypair, Options, false) of
@@ -133,7 +137,7 @@ hashcash_register(Name, Phone, Options) ->
     case ha_client:connect_and_send(HashcashRequestPkt, ClientKeyPair, ClientOptions) of
         {error, _} = Error -> Error;
         {ok, Pid, Resp1} ->
-            case Resp1 of
+            Result = case Resp1 of
                 #pb_register_response{response = #pb_hashcash_response{hashcash_challenge = Challenge}} ->
                 % ask for an otp request for the test number
                 {ok, RegisterRequestPkt} = compose_otp_noise_request(Phone, #{challenge => Challenge}),
@@ -159,7 +163,9 @@ hashcash_register(Name, Phone, Options) ->
                     BadResp -> {error, {bad_otp_response, BadResp}} 
                 end;
                 BadResp -> {error, {bad_hashcash_response, BadResp}}
-            end
+            end,
+            ha_client:stop(Pid),
+            Result
     end.
 
 -spec compose_hashcash_noise_request() -> {ok, pb_register_request()}.
