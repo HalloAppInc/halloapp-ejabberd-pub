@@ -142,13 +142,14 @@ send(#{lserver := LServer} = State, Pkt) ->
         {Pkt1, State1} -> halloapp_stream_in:send(State1, Pkt1)
     end.
 
+-dialyzer({no_return, send_error/2}).
 
--spec send_error(state(), binary()) -> state().
+-spec send_error(state(), atom()) -> state().
 send_error(State, Err) ->
     halloapp_stream_in:send_error(State, Err).
 
 
--spec route(pid(), term()) -> boolean().
+-spec route(pid() | state(), term()) -> boolean().
 route(Pid, Term) when is_pid(Pid) ->
     ejabberd_cluster:send(Pid, Term);
 route(#{owner := Owner} = State, Term) when Owner =:= self() ->
@@ -330,8 +331,9 @@ noise_options(#{lserver := _LServer, noise_options := DefaultOpts}) ->
 
 
 check_password_fun(_Mech, #{lserver := _LServer}) ->
-    fun(U, _AuthzId, P) ->
-        ejabberd_auth:check_password(U, P)
+    fun(_U, _AuthzId, _P) ->
+        %TODO: check if this is still getting called into & fix.
+        false
     end.
 
 
@@ -592,6 +594,8 @@ check_privacy_then_route(State, Pkt)
             end
     end.
 
+%% TODO change when we address the others in verify_incoming_packet_to below.
+-dialyzer({no_match, verify_incoming_packet/2}).
 
 -spec verify_incoming_packet(state(), stanza()) -> allow | deny.
 verify_incoming_packet(State, Pkt) ->

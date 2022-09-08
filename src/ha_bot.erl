@@ -52,11 +52,11 @@
 -record(state, {
     bot_name :: atom(),
     parent_pid :: pid(),
-    phone :: phone(),
-    uid :: uid(),
-    keypair :: tuple(),
-    name :: binary(),
-    c :: pid(),  % pid of the ha_client
+    phone :: maybe(phone()),
+    uid :: maybe(uid()),
+    keypair :: maybe(tuple()),
+    name :: maybe(binary()),
+    c :: maybe(pid()),  % pid of the ha_client
     conf = #{} :: map(),
     tref :: timer:tref(),
     tref_stats :: timer:tref(),
@@ -226,11 +226,13 @@ do_register(Phone, #state{conf = Conf} = State) ->
     ?assert(util:is_test_number(Phone)),
     Options = #{
         host => maps:get(http_host, Conf),
-        port => maps:get(http_port, Conf)
+        port => maps:get(http_port, Conf),
+        return_keypair => true
     },
     {ok, _Res} = registration_client:request_sms(Phone, Options),
     Name = gen_random_name(),
-    {ok, Uid, KeyPair, _Resp} = registration_client:register(Phone, <<"111111">>, Name, Options),
+    {ok, Resp, KeyPair} = registration_client:register(Phone, <<"111111">>, Name, Options),
+    Uid = Resp#pb_verify_otp_response.uid,
     State2 = State#state{
         phone = Phone,
         uid = Uid,
@@ -404,7 +406,6 @@ action_post({{PostSize, NumRecepients}, State}) ->
     % because some other bot registers with the same number
     Response = ha_client:send_iq(C, set, FeedItem),
     case Response of
-        {error, closed} -> do_disconnect(State2);
         _ ->
             #pb_iq{
                 type = Type,

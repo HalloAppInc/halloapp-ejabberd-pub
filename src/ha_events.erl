@@ -223,7 +223,7 @@ upload_file_to_s3(Filename, SourceServer) ->
 make_s3_date_str(Year, Month, Date) ->
     "year=" ++ Year ++ "/" ++ "month=" ++ Month ++ "/" ++ "date=" ++ Date.
 
--spec make_object_key(SourceServer :: string(), Filename :: string()) -> string().
+-spec make_object_key(SourceServer :: binary(), Filename :: string()) -> string().
 make_object_key(SourceServer, Filename) ->
     % e.g. logs/event_logs/client.upload_timing.2021.01.20 on local machine
     % becomes client.upload_timing/year=2021/month=01/date=20/s-test.json on S3 later

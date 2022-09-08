@@ -200,7 +200,7 @@ get_hashcash_difficulty() ->
     end.
 
 -spec process_otp_request(RequestData :: map()) ->
-    {ok, integer()} | {error, retried_too_soon, integer()} | {error, any()}.
+    {ok, phone(), integer()} | {error, retried_too_soon | dropped, phone(), integer()} | {error, any()}.
 process_otp_request(#{raw_phone := RawPhone, lang_id := LangId, ua := UserAgent, method := MethodBin,
         ip := ClientIP, raw_data := RawData,
         protocol := Protocol} = RequestData) ->

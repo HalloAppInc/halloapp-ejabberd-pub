@@ -81,10 +81,12 @@
 
 -type stanza() :: iq() | message() | ack() | presence() | chat_state().
 -type stream_state() :: accepting | wait_for_authentication | established | disconnected.
--type stop_reason() :: {stream, reset | {in | out, pb_ha_error()}} |
+-type stop_reason() :: {stream, reset | {in | out, pb_ha_error() | pb_packet() | pb_auth_result()}} |
                {tls, inet:posix() | atom() | binary()} |
                {socket, inet:posix() | atom()} |
-               internal_failure.
+               {noise, atom() | binary()} |
+               internal_failure | shutdown | idle_connection | noise_error | un_authenticated | 
+               service_unavailable | binary() | session_replaced | session_kicked | server_error.
 -type noreply() :: {noreply, state(), timeout()}.
 -type next_state() :: noreply() | {stop, term(), state()}.
 
@@ -104,7 +106,7 @@
 -callback handle_recv(binary(), pb_packet() | {error, term()}, state()) -> state().
 -callback handle_timeout(state()) -> state().
 -callback check_password_fun(xmpp_sasl:mechanism(), state()) -> fun().
--callback bind(binary(), state()) -> {ok, state()} | {error, any(), state()}.
+-callback bind({atom(), binary()}, state()) -> {ok, state()} | {error, any(), state()}.
 -callback get_client_version_ttl(binary(), state()) -> integer().
 -callback tls_options(state()) -> [proplists:property()].
 -callback noise_options(state()) -> [proplists:property()].
@@ -303,6 +305,7 @@ handle_call(Call, From, State) ->
         catch _:{?MODULE, undef} -> State
         end).
 
+-dialyzer({no_fail_call, handle_info/2}).
 
 -spec handle_info(term(), state()) -> next_state().
 handle_info({'$gen_event', closed}, State) ->
@@ -556,7 +559,7 @@ process_stream_end(Reason, State) ->
     end.
 
 
--spec process_element(stanza(), state()) -> state().
+-spec process_element(stanza() | pb_auth_request() | pb_ha_error(), state()) -> state().
 process_element(Pkt, #{stream_state := StateName} = State) ->
     FinalState = case Pkt of
         #pb_auth_request{} when StateName == wait_for_authentication ->
@@ -574,14 +577,10 @@ process_element(Pkt, #{stream_state := StateName} = State) ->
 
 -spec process_authenticated_packet(stanza(), state()) -> state().
 process_authenticated_packet(Pkt, State) ->
-    case set_from_to(Pkt, State) of
-        {ok, Pkt1} ->
-            try callback(handle_authenticated_packet, Pkt1, State)
-            catch _:{?MODULE, undef} ->
-                process_stream_end(service_unavailable, State)
-            end;
-        {error, Err} ->
-            process_stream_end(Err, State)
+    {ok, Pkt1} = set_from_to(Pkt, State),
+    try callback(handle_authenticated_packet, Pkt1, State)
+    catch _:{?MODULE, undef} ->
+        process_stream_end(service_unavailable, State)
     end.
 
 
@@ -639,7 +638,7 @@ process_auth_request(#pb_auth_request{uid = Uid, pwd = Pwd, client_mode = Client
     do_process_auth_request(State1, Uid, PasswordResult).
 
 %%TODO: End of August 2021- cleanup the fields in auth_result function.
--spec do_process_auth_request(state(), uid(), boolean()) -> state().
+-spec do_process_auth_request(state(), maybe(uid()), boolean()) -> state() | no_return().
 do_process_auth_request(State1, Uid, AuthResult) ->
     ClientVersion = maps:get(client_version, State1, undefined),
     Resource = maps:get(resource, State1, undefined),
@@ -745,7 +744,7 @@ set_from_to(Pkt, #{user := U} = _State) ->
     end.
 
 
--spec send_pkt(state(), stanza()) -> state().
+-spec send_pkt(state(), stanza() | pb_auth_result()) -> state().
 send_pkt(State, PktToSend) ->
     Pkt = case PktToSend of
         #pb_auth_result{} -> PktToSend;
@@ -775,13 +774,9 @@ send_pkt(State, PktToSend) ->
     case Result of
         _ when is_record(PktToSend, pb_ha_error) ->
             process_stream_end({stream, {out, Pkt}}, State2);
-        ok ->
-            State2;
         {ok, noise, _} ->
             State2;
         {ok, fast_tls} ->
-            State2;
-        {ok, none} ->
             State2;
         {error, _Why} ->
             % Queue process_stream_end instead of calling it directly,
@@ -824,6 +819,7 @@ send_error(#{user := Uid} = State, Err) ->
     socket_send(State, BinPkt),
     process_stream_end(Err, State).
 
+-dialyzer({no_match, socket_send/2}).
 
 -spec socket_send(state(), binary()) ->
         {ok, noise, halloapp_socket:socket()} | {ok, fast_tls} | {ok, gen_tcp} | {error, inet:posix()}.
@@ -838,7 +834,7 @@ socket_send(_, _) ->
     {error, closed}.
 
 
--spec encode_packet(SocketState :: socket_state(), Pkt :: pb_packet())
+-spec encode_packet(State :: state(), Pkt :: pb_packet())
             -> {ok, binary()} | {error, pb_encode_error}.
 encode_packet(#{socket := #socket_state{socket_type = SocketType, sockmod = _SockMod}}, Pkt) ->
     case enif_protobuf:encode(Pkt) of

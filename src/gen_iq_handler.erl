@@ -106,7 +106,7 @@ handle(State, _, #pb_iq{type = T}) when T == result; T == error ->
     State.
 
 
--spec process_iq(binary(), atom(), atom(), integer(), iq(), state()) -> {iq(), state()}.
+-spec process_iq(binary(), atom(), atom(), integer(), iq(), state()) -> {ignore | iq(), state()}.
 process_iq(_Host, Module, Function, NumArgs, IQ, State) ->
     try process_iq(Module, Function, NumArgs, IQ, State)
     catch ?EX_RULE(Class, Reason, St) ->

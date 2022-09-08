@@ -71,7 +71,7 @@ request_sms(Phone, Options) ->
 
     {ok, ActualResponse#pb_register_response.response}.
 
--spec register(Phone :: phone(), Code :: binary(), Name :: binary(), Options :: map()) -> {ok, pb_register_response}.
+-spec register(Phone :: phone(), Code :: binary(), Name :: binary(), Options :: map()) -> {ok, pb_verify_otp_response()} | {ok, pb_verify_otp_response(), #kp{}}.
 register(Phone, Code, Name, Options) ->
     setup(),
     %% Compose RequestOtp
@@ -111,7 +111,10 @@ register(Phone, Code, Name, Options) ->
 
     %% Return result
     Response2 = ActualResponse2#pb_register_response.response,
-    {ok, Response2}.
+    case maps:get(return_keypair, Options, false) of
+        false -> {ok, Response2};
+        true -> {ok, Response2, ClientKeyPair}
+    end.
 
 
 -spec hashcash_register(Name :: binary(), Phone :: binary(), Options :: map()) -> ok | {error, any()}.

@@ -114,7 +114,7 @@ handle_cast({ping, Id, Ts, From}, State) ->
                 false -> ok
             end,
             util_monitor:send_ack(self(), From, {ack, Id, Ts, self()});
-        _ -> ?WARNING("Unexpected state: ~p", [maps:get(State, state)])
+        _ -> ?WARNING("Unexpected state: ~p", [maps:get(state, State)])
     end,
     {noreply, State};
 handle_cast(Msg, State) ->

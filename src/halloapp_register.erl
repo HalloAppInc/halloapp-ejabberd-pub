@@ -29,7 +29,7 @@
 -type stop_reason() :: atom().
 -type noreply() :: {noreply, state(), timeout()}.
 -type next_state() :: noreply() | {stop, term(), state()}.
--type state() :: #{}.
+-type state() :: map().
 -export_type([state/0]).
 
 %% If the client is idle for longer than 2 minutes: we terminate the connection.
@@ -270,6 +270,8 @@ terminate(_Reason, State) ->
 %%% Internal functions
 %%%===================================================================
 
+-dialyzer({no_fail_call, process_element/2}).
+
 -spec process_element(stanza(), state()) -> state().
 process_element(#pb_register_request{request = #pb_hashcash_request{} = HashcashRequest},
         #{ip := ClientIP} = State) ->
@@ -450,6 +452,7 @@ noreply(#{stream_timeout_ms := TimeoutMs} = State) ->
 is_disconnected(#{stream_state := StreamState}) ->
     StreamState =:= disconnected.
 
+-dialyzer({no_fail_call, process_stream_end/2}).
 
 -spec process_stream_end(stop_reason(), state()) -> state().
 process_stream_end(_Reason, #{stream_state := disconnected} = State) ->
