@@ -162,7 +162,7 @@ get_auth_token() ->
 %% `callback` = `7` indicates to clickatell to return all 7 parameters in the callback
 -spec compose_body(Phone :: phone(), Message :: binary()) -> Body :: string().
 compose_body(Phone, Message) ->
-    Unicode = unicode:characters_to_binary(Message, unicode, utf16),
+    Unicode = unicode:characters_to_binary(Message, latin1, utf16),
     Text = str:to_hexlist(Unicode),
     Mp = #{
        <<"to">> => [Phone],
@@ -172,7 +172,7 @@ compose_body(Phone, Message) ->
        <<"callback">> => <<"7">>,
        <<"unicode">> => <<"1">>
     },
-    jiffy:encode(Mp).
+    jiffy:encode(Mp, [force_utf8]).
 
 -spec get_originator(Phone :: phone()) -> string().
 get_originator(Phone) ->

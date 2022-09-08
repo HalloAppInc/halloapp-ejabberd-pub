@@ -160,7 +160,7 @@ compose_body(Phone, Template, Code) ->
         {"sender_id", SenderId},
         {"verify_code", Code},
         {"template", Template}
-    ], [{encoding, unicode}]).
+    ], [{encoding, utf8}]).
 
 % TODO: Implement if sending feedback back to gateway
 -spec send_feedback(Phone :: phone(), AllVerifyInfo :: list()) -> ok.

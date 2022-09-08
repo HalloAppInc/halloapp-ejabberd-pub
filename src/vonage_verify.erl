@@ -119,7 +119,7 @@ compose_body(Phone, LangId) ->
         {"brand", "HalloApp"},
         {"code_length", "6"},
         {"lg", get_verify_lang(LangId)}
-    ], [{encoding, unicode}]).
+    ], [{encoding, utf8}]).
 
 
 % TODO: Implement if sending feedback back to gateway
@@ -187,7 +187,7 @@ compose_verify_code_body(Code, Sid) -> uri_string:compose_query([
         {"api_key", get_api_key()},
         {"api_secret", get_api_secret()},
         {"code", Code}
-    ], [{encoding, unicode}]).
+    ], [{encoding, utf8}]).
 
 
 -spec decode_verify_response(ResBody :: iolist()) -> ok | {error, atom()}.

@@ -146,7 +146,7 @@ compose_body(Phone, Message) ->
         {"type", "unicode"},
         {"api_key", get_api_key()},
         {"api_secret", get_api_secret()}
-    ], [{encoding, unicode}]).
+    ], [{encoding, utf8}]).
 
 -spec get_originator() -> string().
 get_originator() ->
