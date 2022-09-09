@@ -119,10 +119,24 @@ get_member_uids_test(_) ->
     ?_assertEqual(sets:from_list([?UID1, ?UID2, ?UID3]), sets:from_list(G1UidList)), 
     ?_assertEqual(sets:from_list([?UID1, ?UID2, ?UID4]), sets:from_list(G2UidList))].
 
-membership_test_() ->
+get_groups_size_test(_) ->
+    {ok, Gid} = model_groups:create_group(?UID1, ?GROUP_NAME1),
+    {ok, true} = model_groups:add_member(Gid, ?UID2, ?UID1),
+    {ok, true} = model_groups:add_member(Gid, ?UID3, ?UID1),
+    G1Size = model_groups:get_group_size(Gid),
+
+    {ok, Gid2} = model_groups:create_group(?UID2, ?GROUP_NAME2),
+    [true, true, true] = model_groups:add_members(Gid2, [?UID1, ?UID3, ?UID4], ?UID2),
+    G2Size = model_groups:get_group_size(Gid2),
+    #{Gid := G1Size1, Gid2 := G2Size1} = model_groups:get_group_size([Gid, Gid2]),
+
+    [?_assertEqual(G1Size, G1Size1), 
+    ?_assertEqual(G2Size, G2Size1)].
+
+mmembership_test_() ->
     [
         {foreach, fun fixture_setup/0, fun tutil:cleanup/1, [
-            fun get_member_uids_test/1
+            fun get_member_uids_test/1, fun get_groups_size_test/1
         ]}
     ].
 

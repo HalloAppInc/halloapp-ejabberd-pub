@@ -179,7 +179,22 @@ get_member_uids(Gid) ->
     Members.
 
 
--spec get_group_size(Gid :: gid()) -> non_neg_integer().
+-spec get_group_size(Gid :: gid() | list(gid())) -> non_neg_integer() | #{gid() => non_neg_integer()}.
+get_group_size(Gids) when is_list(Gids)->
+    Commands = lists:map(fun (Gid) -> 
+            ["HLEN", members_key(Gid)] 
+        end, 
+        Gids),
+    Res = qmn(Commands),
+    MembersCountMap = lists:foldl(
+        fun({Gid, {ok, Cnt}}, Acc) ->
+            case Cnt of
+                undefined -> Acc;
+                _ -> Acc#{Gid => binary_to_integer(Cnt)}
+            end
+        end, #{}, lists:zip(Gids, Res)),
+    MembersCountMap;
+
 get_group_size(Gid) ->
     {ok, Res} = q(["HLEN", members_key(Gid)]),
     binary_to_integer(Res).

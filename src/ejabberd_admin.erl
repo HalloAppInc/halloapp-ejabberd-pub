@@ -909,7 +909,11 @@ uid_info(Uid, Options) ->
                 {CorF, CPhone, FUid, FName, FNumFriends, FCDate, FLADate} <- ContactList2],
 
             Gids = model_groups:get_groups(Uid),
-            io:format("Group list (~p):~n", [length(Gids)]),
+            GidMaxSize = case Gids of
+                [] -> 0;
+                _ -> lists:max(maps:values(model_groups:get_group_size(Gids)))
+            end,
+            io:format("Group list (~p, max membership: ~p):~n", [length(Gids), GidMaxSize]),
             lists:foreach(fun(Gid) ->
                 {GName, GSize} = case (model_groups:get_group_info(Gid)) of
                     #group_info{} = G -> {G#group_info.name, model_groups:get_group_size(Gid)};
