@@ -222,7 +222,8 @@ get_client_based_props(PropMap, ios, ClientVersion) ->
     PropMap6 = maps:update(group_expiry, Result6, PropMap5),
     Result7 = util_ua:is_version_greater_than(ClientVersion, <<"HalloApp/iOS1.22.290">>),
     PropMap7 = maps:update(pre_answer_calls, Result7, PropMap6),
-    PropMap7;
+    PropMap8 = maps:update(streaming_sending_enabled, true, PropMap7),
+    PropMap8;
 
 get_client_based_props(PropMap, undefined, _) ->
     maps:update(groups, false, PropMap).
