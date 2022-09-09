@@ -10,6 +10,7 @@
 -include("packets.hrl").
 -include("logger.hrl").
 -include("contacts.hrl").
+-include("tutil.hrl").
 
 -include_lib("eunit/include/eunit.hrl").
 
@@ -44,23 +45,15 @@
 
 
 setup() ->
-    tutil:setup(),
-    stringprep:start(),
     gen_iq_handler:start(ejabberd_local),
     ejabberd_hooks:start_link(),
-    ha_redis:start(),
     mod_libphonenumber:start(undefined, []),
     mod_contacts:stop(?SERVER),
     mod_contacts:start(?SERVER, []),
-    clear(),
-    ok.
-
-
-clear() ->
-    tutil:cleardb(redis_contacts),
-    tutil:cleardb(redis_friends),
-    tutil:cleardb(redis_accounts),
-    tutil:cleardb(redis_phone).
+    tutil:setup([
+        {start, stringprep},
+        {redis, [redis_accounts, redis_contacts, redis_friends, redis_phone]}
+    ]).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -314,6 +307,28 @@ finish_sync_test() ->
     ExpectedFriends = [?UID2],
     ?assertEqual(ExpectedFriends, ActualFriends),
     ok.
+
+obtain_potential_friends_testset() ->
+    setup_accounts([
+        [?UID1, ?PHONE1, ?NAME1, ?UA1],
+        [?UID2, ?PHONE2, ?NAME2, ?UA2]]),
+
+    insert_contacts(?UID2, [?PHONE1, ?PHONE3]),
+    insert_contacts(?UID1, [?PHONE2, ?PHONE3]),
+
+    Phone3Contact = #pb_contact{
+        raw = ?PHONE3,
+        normalized = ?PHONE3
+    },
+
+    Result1 = mod_contacts:obtain_potential_friends(?UID1, #{?UID2 => 0}, [Phone3Contact]),
+
+    Result2 = mod_contacts:obtain_potential_friends(?UID1, #{?UID2 => 10000}, [Phone3Contact]),
+    
+    [
+        ?_assertEqual([Phone3Contact#pb_contact{num_potential_close_friends = 0, num_potential_friends = 2}], Result1),
+        ?_assertEqual([Phone3Contact#pb_contact{num_potential_close_friends = 1, num_potential_friends = 2}], Result2)
+    ].
 
 
 block_uids_test() ->
