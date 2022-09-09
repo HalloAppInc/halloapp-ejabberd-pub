@@ -140,7 +140,8 @@ get_props(Uid, ClientVersion) ->
         background_upload => false,   %% Enables background upload on ios clients.
         aggressive_invite_screen => false,  %% Indicates to the client to show invite screen
         contact_sharing => false,  %% Enables clients to share contacts on chat
-        close_friends_recos => false %% Should invite recommendations be sorted based on number of close friends
+        close_friends_recos => false, %% Should invite recommendations be sorted based on number of close friends
+        location_sharing => false
     },
     PropMap2 = get_uid_based_props(PropMap1, Uid),
     ClientType = util_ua:get_client_type(ClientVersion),
@@ -180,7 +181,8 @@ get_uid_based_props(PropMap, Uid) ->
             PropMap19 = maps:update(aggressive_invite_screen, true, PropMap18),
             PropMap20 = maps:update(contact_sharing, true, PropMap19),
             PropMap21 = maps:update(close_friends_recos, true, PropMap20),
-            PropMap21
+            PropMap22 = maps:update(location_sharing, true, PropMap21),
+            PropMap22
     end,
     apply_uid_prop_overrides(Uid, ResPropMap).
 
