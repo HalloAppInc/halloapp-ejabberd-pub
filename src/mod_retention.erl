@@ -117,8 +117,8 @@ dump_account(Uid) ->
                 ActiveFriends = maps:fold(
                     fun(K, V, Acc) ->
                         case ((CurTsMs - V) > ?NUM_INACTIVE_DAYS * ?DAYS_MS) of
-                            true -> Acc ++ [K];
-                            false -> Acc
+                            false -> Acc ++ [K];
+                            true -> Acc
                         end
                     end, [], FriendLastActivity),
                 {ok, MarketingTags} = model_accounts:get_marketing_tags(Uid),
