@@ -9,6 +9,8 @@
 -include("account.hrl").
 -include("athena_query.hrl").
 
+-define(NUM_INACTIVE_DAYS, 31).
+
 %% gen_mod API.
 -export([start/2, stop/1, reload/3, mod_options/1, depends/2]).
 
@@ -110,6 +112,15 @@ dump_account(Uid) ->
             {ok, Account} ->
                 {ok, Friends} = model_friends:get_friends(Uid),
                 RealFriends = model_accounts:filter_nonexisting_uids(lists:delete(Uid, Friends)),
+                FriendLastActivity = model_accounts:get_last_activity_ts_ms(RealFriends),
+                CurTsMs = util:now_ms(),
+                ActiveFriends = maps:fold(
+                    fun(K, V, Acc) ->
+                        case ((CurTsMs - V) > ?NUM_INACTIVE_DAYS * ?DAYS_MS) of
+                            true -> Acc ++ [K];
+                            false -> Acc
+                        end
+                    end, [], FriendLastActivity),
                 {ok, MarketingTags} = model_accounts:get_marketing_tags(Uid),
                 LatestTag = case MarketingTags of
                     [] -> none;
@@ -128,6 +139,8 @@ dump_account(Uid) ->
                     [] -> 0;
                     CountList -> lists:max(CountList)
                 end,
+                NumActiveFriends = length(ActiveFriends),
+                NumGroups = model_groups:get_group_count(Uid),
                 CC = mod_libphonenumber:get_cc(Account#account.phone),
                 ha_events:log_event(<<"server.accounts">>, #{
                     uid => Account#account.uid,
@@ -141,6 +154,7 @@ dump_account(Uid) ->
                     num_contacts => NumContacts,
                     num_uid_contacts => NumUidContacts,
                     num_friends => NumFriends,
+                    num_active_friends => NumActiveFriends,
                     friends => RealFriends,
                     num_groups => NumGroups,
                     max_group_membership => MaxGroupMemberShip,
