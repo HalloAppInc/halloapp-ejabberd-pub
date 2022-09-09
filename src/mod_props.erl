@@ -198,7 +198,7 @@ get_client_based_props(PropMap, android, ClientVersion) ->
     PropMap4 = maps:update(streaming_sending_enabled, true, PropMap3),
     Result4 = util_ua:is_version_less_than(ClientVersion, <<"HalloApp/Android1.3.6">>),
     PropMap5 = maps:update(use_cleartext_group_feed, Result4, PropMap4),
-    Result5 = util_ua:is_version_greater_than(ClientVersion, <<"HalloApp/Android1.4.3">>),
+    Result5 = util_ua:is_version_greater_than(ClientVersion, <<"HalloApp/Android1.4.5">>),
     PropMap6 = maps:update(group_expiry, Result5, PropMap5),
     PropMap6;
 
