@@ -12,42 +12,56 @@
 -include_lib("eunit/include/eunit.hrl").
 
 
-generate_uid_test() ->
+test_generate_uid(_) ->
     {ok, Uid} = util_uid:generate_uid(),
-    ?assertEqual(19, byte_size(Uid)),
     X = re:run(Uid, "1000000000[0-9]{9}"),
-    ?assertEqual({match, [{0, 19}]}, X),
-    ok.
+    {inparallel, [
+        ?_assertEqual(19, byte_size(Uid)),
+        ?_assertEqual({match, [{0, 19}]}, X)
+    ]}.
 
-generate_uid_shard_region_test() ->
+test_generate_uid_shard_region(_) ->
     {ok, Uid} = util_uid:generate_uid(2, 42),
     X = re:run(Uid, "2000000042[0-9]{9}"),
-    ?assertEqual({match, [{0, 19}]}, X),
-    ok.
+    [?_assertEqual({match, [{0, 19}]}, X)].
 
-generate_uid_invalid_region_test() ->
-    ?assertEqual({error, invalid_region}, util_uid:generate_uid(20, 100)),
-    ?assertEqual({error, invalid_region}, util_uid:generate_uid("foo", 100)),
-    ?assertEqual({error, invalid_region}, util_uid:generate_uid(foo, 100)),
-    ?assertEqual({error, invalid_region}, util_uid:generate_uid(0, 100)),
-    ok.
+test_generate_uid_invalid_region(_) ->
+    {inparallel, [
+        ?_assertEqual({error, invalid_region}, util_uid:generate_uid(20, 100)),
+        ?_assertEqual({error, invalid_region}, util_uid:generate_uid("foo", 100)),
+        ?_assertEqual({error, invalid_region}, util_uid:generate_uid(foo, 100)),
+        ?_assertEqual({error, invalid_region}, util_uid:generate_uid(0, 100))
+    ]}.
 
-generate_uid_invalid_shard_test() ->
-    ?assertEqual({error, invalid_shard}, util_uid:generate_uid(1, 1000000)),
-    ?assertEqual({error, invalid_shard}, util_uid:generate_uid(1, "foo")),
-    ?assertEqual({error, invalid_shard}, util_uid:generate_uid(1, -1)),
-    ok.
+test_generate_uid_invalid_shard(_) ->
+    {inparallel, [
+        ?_assertEqual({error, invalid_shard}, util_uid:generate_uid(1, 1000000)),
+        ?_assertEqual({error, invalid_shard}, util_uid:generate_uid(1, "foo")),
+        ?_assertEqual({error, invalid_shard}, util_uid:generate_uid(1, -1))
+    ]}.
 
-uid_size_test() ->
-    ?assertEqual(19, util_uid:uid_size()).
+uid_size_test(_) ->
+    [?_assertEqual(19, util_uid:uid_size())].
 
 
-looks_like_uid_test() ->
+test_looks_like_uid(_) ->
     {ok, FreshUid} = util_uid:generate_uid(),
-    ?assert(util_uid:looks_like_uid(FreshUid)),
-    ?assert(util_uid:looks_like_uid(<<"1000000000000000001">>)), 
-    ?assertNot(util_uid:looks_like_uid(<<"10000000000000000001">>)), % too long
-    ?assertNot(util_uid:looks_like_uid(<<"0">>)), %too short
-    ?assertNot(util_uid:looks_like_uid("string")), % wrong type
-    ok.
+    {inparallel, [
+        ?_assert(util_uid:looks_like_uid(FreshUid)),
+        ?_assert(util_uid:looks_like_uid(<<"1000000000000000001">>)), 
+        ?_assertNot(util_uid:looks_like_uid(<<"10000000000000000001">>)), % too long
+        ?_assertNot(util_uid:looks_like_uid(<<"0">>)), %too short
+        ?_assertNot(util_uid:looks_like_uid("string")) % wrong type
+    ]}.
 
+do_util_uid_test_() ->
+    % Note, this is an unnecessary amount of complexity -- all of these test functions could just end
+    % in _test_() and work great. It's just nice to parallelize to make our tests go super fast
+    tutil:true_parallel([
+        fun test_generate_uid/1,
+        fun test_generate_uid_shard_region/1,
+        fun test_generate_uid_invalid_region/1,
+        fun test_generate_uid_invalid_shard/1,
+        fun uid_size_test/1,
+        fun test_looks_like_uid/1
+    ]).

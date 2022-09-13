@@ -11,8 +11,6 @@
 
 -include_lib("eunit/include/eunit.hrl").
 
-simple_test() ->
-    ?assert(true).
 
 get_ip_test() ->
     ?assertEqual("1.1.1.1",

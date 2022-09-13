@@ -15,6 +15,7 @@
 %% API
 -export([
     %% test management
+    %% setup/0 is implicitly exported – you can use it
     setup/1,
     setup_once/2,
     setup_once/3,

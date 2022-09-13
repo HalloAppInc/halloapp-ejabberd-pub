@@ -12,18 +12,21 @@
 -include_lib("eunit/include/eunit.hrl").
 
 
-% Disable these tests for now because AWS seems to have some ssl connection issues in the last few
-% days. For example running `aws --debug sts get-caller-identity` sometimes takes 25 secs.
+% Note: these tests were previously disabled because AWS had some ssl connection issues. If that 
+% happens again they may need to be disabled again.
+% For example running `aws --debug sts get-caller-identity` sometimes took 25 secs.
 
-%%get_arn_test() ->
-%%    Arn = util_aws:get_arn(),
-%%    ?assertNotEqual(undefined, Arn),
-%%    ?assertEqual(<<"arn">>, binary:part(Arn, {0, 3})),
-%%    ok.
-%%
-%%is_jabberd_iam_role_test() ->
-%%    Arn = util_aws:get_arn(),
-%%    ?assertNotEqual(undefined, Arn),
-%%    ?assertEqual(false, util_aws:is_jabber_iam_role(Arn)),
-%%    ok.
+get_arn_test_() ->
+    Arn = util_aws:get_arn(),
+    [
+        ?_assertNotEqual(undefined, Arn),
+        ?_assertEqual(<<"arn">>, binary:part(Arn, {0, 3}))
+    ].
+
+is_jabberd_iam_role_test_() ->
+    Arn = util_aws:get_arn(),
+    [
+        ?_assertNotEqual(undefined, Arn),
+        ?_assertNot(util_aws:is_jabber_iam_role(Arn))
+    ].
 
