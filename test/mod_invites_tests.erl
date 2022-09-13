@@ -31,7 +31,7 @@
 %% Tests for IQ API
 %% --------------------------------------------	%%
 
-get_invites_testset(_) ->
+get_invites_testparallel(_) ->
     Result = mod_invites:process_local_iq(create_get_iq(?UID1)),
     ExpNumInvites = ?INF_INVITES,
     check_invites_iq_correctness(Result, ExpNumInvites). % generates list of tests
@@ -51,7 +51,7 @@ get_invites_testset(_) ->
 %%    ?assertEqual(Expected, get_invite_subel_list(Result)).
 
 % tests existing_user error
-send_invites_error3_testset(_) ->
+send_invites_error3_testparallel(_) ->
     ok = model_accounts:create_account(?UID2, ?PHONE2, ?NAME2, ?USER_AGENT2),
     ok = model_phone:add_phone(?PHONE2, ?UID2),
     Actual = mod_invites:process_local_iq(create_invite_iq(?UID1)),
@@ -65,7 +65,7 @@ send_invites_error3_testset(_) ->
     check_invites_iq_correctness(Actual, ?INF_INVITES)].
 
 % tests invalid_phone error
-send_invites_error4_testset(_) ->
+send_invites_error4_testparallel(_) ->
     Result = mod_invites:process_local_iq(create_invite_iq(?UID1)),
     ExpNumInvites = ?INF_INVITES,
     Expected = [
@@ -78,7 +78,7 @@ send_invites_error4_testset(_) ->
     check_invites_iq_correctness(Result, ExpNumInvites)].
 
 
-register_user_hook_testset(_) ->
+register_user_hook_testparallel(_) ->
     InvsRem1 = mod_invites:get_invites_remaining(?UID1),
     mod_invites:request_invite(?UID1, ?PHONE2),
     InvsRem2 = mod_invites:get_invites_remaining(?UID1),

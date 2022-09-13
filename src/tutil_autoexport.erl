@@ -20,9 +20,10 @@
 -module(tutil_autoexport).
 -author('luke').
 
-%% This is also defined in include/tutil.hrl
+%% These are also defined in include/tutil.hrl
 -define(DEFAULT_TESTSET_SUFFIX, "_testset").
--define(DEFAULT_SETUP_FUN, "setup").
+-define(DEFAULT_PARALLEL_TESTSET_SUFFIX, "_testparallel").
+-define(DEFAULT_SETUP_FUN_NAME, "setup").
 
 -export([parse_transform/2]).
 
@@ -32,8 +33,13 @@ parse_transform(Forms, Options) ->
         Options,
         ?DEFAULT_TESTSET_SUFFIX
     ),
+    ParallelSuffix = proplists:get_value(
+        eunit_parallel_suffix,
+        Options,
+        ?DEFAULT_PARALLEL_TESTSET_SUFFIX
+    ),
     F = fun(Form, Set) ->
-        form(Form, Set, TestsetSuffix)
+        form(Form, Set, [TestsetSuffix, ParallelSuffix])
     end,
     Exports = sets:to_list(lists:foldl(F, sets:new(), Forms)),
     rewrite(Forms, Exports).
@@ -41,11 +47,11 @@ parse_transform(Forms, Options) ->
 
 %% This function basically iterates through all the functions in the module we're transforming and 
 %% returns a set of functions to export (in addition to any functions explicitly exported)
-form({function, _L, Name, Arity, _Cs}, S, TestsetSuffix) when Arity =:= 0 orelse Arity =:= 1 ->
+form({function, _L, Name, Arity, _Cs}, S, SuffixList) when Arity =:= 0 orelse Arity =:= 1 ->
     N = atom_to_list(Name),
 
-    % if the func ends in "_testset", add it to the export set
-    case lists:suffix(TestsetSuffix, N) of 
+    % if the func ends in any of our suffixes of interest, add it to the export set
+    case lists:any(fun (Suffix) -> lists:suffix(Suffix, N) end, SuffixList) of 
         true ->
             sets:add_element({Name, Arity}, S);
         false -> 

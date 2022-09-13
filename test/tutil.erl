@@ -22,10 +22,12 @@
     setup_foreach/2,
     setup_foreach/3,
     setup_foreach/4,
-    make_fixture/2,
-    make_fixture/3,
-    make_fixture/4,
-    make_fixture/5,
+    in_parallel/1,
+    in_parallel/2,
+    in_parallel/3,
+    true_parallel/1,
+    true_parallel/2,
+    true_parallel/3,
     cleanup/1,
     combine_cleanup_info/1,
     %% helpers
@@ -86,66 +88,64 @@ setup([], CleanupInfo) ->
 %% Run setup fun for each test
 -spec setup_foreach(setup_fun(), tests()) -> fixture().
 setup_foreach(SetupFun, Tests) ->
-    setup_foreach(SetupFun, fun cleanup/1, Tests).
+    setup_foreach(SetupFun, fun cleanup/1, Tests, inorder).
 
 -spec setup_foreach(setup_fun(), cleanup_fun(), tests()) -> fixture().
 setup_foreach(SetupFun, CleanupFun, Tests) ->
-    setup_foreach(SetupFun, CleanupFun, Tests, undefined).
+    setup_foreach(SetupFun, CleanupFun, Tests, inorder).
 
 -spec setup_foreach(setup_fun(), cleanup_fun(), tests(), control_type()) -> fixture().
-setup_foreach(SetupFun, CleanupFun, Tests, Control) ->
-    make_fixture(foreach, SetupFun, CleanupFun, Tests, Control).
+setup_foreach(SetupFun, CleanupFun, Tests, Control) when is_list(Tests) ->
+    {foreach, SetupFun, CleanupFun, wrap_foreach(Control, Tests)}.
 
 
 %% Run setup fun once for all tests
 -spec setup_once(setup_fun(), tests()) -> fixture().
 setup_once(SetupFun, Tests) ->
-    setup_once(SetupFun, fun cleanup/1, Tests).
+    setup_once(SetupFun, fun cleanup/1, Tests, inorder).
 
 -spec setup_once(setup_fun(), cleanup_fun(), tests()) -> fixture().
 setup_once(SetupFun, CleanupFun, Tests) ->
-    setup_once(SetupFun, CleanupFun, Tests, undefined).
+    setup_once(SetupFun, CleanupFun, Tests, inorder).
 
 -spec setup_once(setup_fun(), cleanup_fun(), tests(), control_type()) -> fixture().
-setup_once(SetupFun, CleanupFun, Tests, Control) ->
-    make_fixture(setup, SetupFun, CleanupFun, Tests, Control).
+setup_once(SetupFun, CleanupFun, Tests, Control) when is_list(Tests) ->
+    Instantiator = case Control of 
+        trueparallel -> control_wrapper(inparallel, inparallel, Tests);
+        _ -> control_wrapper(Control, inorder, Tests)
+    end,
+    {setup, SetupFun, CleanupFun, Instantiator};
+
+setup_once(SetupFun, CleanupFun, Test, Control) ->
+    setup_once(SetupFun, CleanupFun, [Test], Control).
 
 
-%% Recommended to use setup_once or setup_foreach instead of make_fixture
--spec make_fixture(fixture_type(), tests()) -> fixture().
-make_fixture(Type, Tests) ->
-    make_fixture(Type, fun setup/0, Tests).
+% Runs the specified tests in parallel, while preserving order within each testset
+% i.e. if _test_ returns [?_assert1, ?_assert2], ?_assert1 will always finish before ?_assert2 starts
+-spec in_parallel(tests()) -> fixture().
+in_parallel(Tests) ->
+    setup_once(fun setup/0, fun cleanup/1, Tests, inparallel).
 
--spec make_fixture(fixture_type(), setup_fun(), tests()) -> fixture().
-make_fixture(Type, SetupFun, Tests) ->
-    make_fixture(Type, SetupFun, fun cleanup/1, Tests).
+-spec in_parallel(setup_fun(), tests()) -> fixture().
+in_parallel(SetupFun, Tests) ->
+    setup_once(SetupFun, fun cleanup/1, Tests, inparallel).
 
--spec make_fixture(fixture_type(), setup_fun(), cleanup_fun(), tests()) -> fixture().
-make_fixture(Type, SetupFun, CleanupFun, Tests) ->
-    make_fixture(Type, SetupFun, CleanupFun, Tests, undefined).
+-spec in_parallel(setup_fun(), cleanup_fun(), tests()) -> fixture().
+in_parallel(SetupFun, CleanupFun, Tests) ->
+    setup_once(SetupFun, CleanupFun, Tests, inparallel).
 
--spec make_fixture(fixture_type(), setup_fun(), cleanup_fun(), tests(), maybe(control_type())) -> fixture().
-make_fixture(setup, SetupFun, CleanupFun, Tests, Control) when is_list(Tests) ->
-    {setup, SetupFun, CleanupFun,
-        fun(CleanupInfo) ->
-            control_wrapper(
-                Control,
-                lists:map(
-                    fun(Test) ->
-                        case is_function(Test) of
-                            true -> {inorder, Test(CleanupInfo)};
-                            false -> {inorder, Test}
-                        end
-                    end,
-                    Tests))
-        end};
 
-make_fixture(setup, SetupFun, CleanupFun, Test, Control) ->
-    {setup, SetupFun, CleanupFun, control_wrapper(Control, Test)};
+-spec true_parallel(tests()) -> fixture().
+true_parallel(Tests) ->
+    setup_once(fun setup/0, fun cleanup/1, Tests, trueparallel).
 
-make_fixture(foreach, SetupFun, CleanupFun, Tests, Control) ->
-    {foreach, SetupFun, CleanupFun, control_wrapper(Control, Tests)}.
+-spec true_parallel(setup_fun(), tests()) -> fixture().
+true_parallel(SetupFun, Tests) ->
+    setup_once(SetupFun, fun cleanup/1, Tests, trueparallel).
 
+-spec true_parallel(setup_fun(), cleanup_fun(), tests()) -> fixture().
+true_parallel(SetupFun, CleanupFun, Tests) ->
+    setup_once(SetupFun, CleanupFun, Tests, trueparallel).
 
 %% This function usually does not need to be explicitly called
 -spec cleanup(cleanup_info()) -> any().
@@ -243,13 +243,36 @@ init_module(Modules) ->
         Modules).
 
 
--spec control_wrapper(Control :: control_type(), Tests :: test_set()) -> fun((test_set()) -> test_set()).
+-spec wrap_foreach(control_type(), list(instantiator())) -> list(instantiator()).
+wrap_foreach(Control, Instantiators) ->
+    lists:map(
+        fun (I) ->
+            % add an anonymous func for each instantiator that wraps its results with Control
+            % if they aren't controlled already
+            fun (CleanupInfo) ->
+                control_wrapper(Control, I(CleanupInfo))
+            end
+        end,
+        Instantiators).
+
+
+-spec control_wrapper(control_type(), test_set()) -> control().
 control_wrapper(Control, Tests) ->
-    case Control of
-        undefined -> Tests;
-        inparallel -> {inparallel, lists:map(fun(T) -> {inorder, T} end, Tests)};
-        _ -> {Control, Tests}
+    case is_list(Tests) of
+        true -> {Control, Tests};
+        false -> Tests
     end.
+
+-spec control_wrapper(control_type(), control_type(), list(instantiator())) -> instantiator().
+control_wrapper(OuterControl, InnerControl, Instantiators) ->
+    fun (CleanupInfo) ->
+        {OuterControl, lists:map(
+            fun (I) -> 
+                control_wrapper(InnerControl, I(CleanupInfo))
+            end,
+            Instantiators)}
+    end.
+
 
 %%====================================================================
 %% Common test helpers
@@ -322,29 +345,57 @@ perf(N, SetupFun, F) ->
 run_testsets(Module) ->
     % Get a list of all functions in the specified module
     Functions = Module:module_info(functions),
-    Pattern = ?DEFAULT_TESTSET_SUFFIX,
+    OrderedPattern = ?DEFAULT_TESTSET_SUFFIX,
+    ParallelPattern = ?DEFAULT_PARALLEL_TESTSET_SUFFIX,
+
+    PatternList = [OrderedPattern, ParallelPattern],
+
     % Get all functions ending in "_testset"
-    TestFuns = lists:filter( 
-        fun ({Name, Arity}) when Arity =< 1 -> % allow for arity 0 or 1
+    {OrderedTestFuns, ParallelTestFuns} = lists:foldl( 
+        fun ({Name, Arity} = Fun, {OrdFuns, ParFuns} = Acc) when Arity =< 1 -> % allow for arity 0 or 1
                 NameStr = atom_to_list(Name),
-                lists:suffix(Pattern, NameStr);
-            ({_, _}) -> false
+                case lists:map(fun (Pat) -> lists:suffix(Pat, NameStr) end, PatternList) of 
+                    [true, false] -> {[Fun | OrdFuns], ParFuns};
+                    [false, true] -> {OrdFuns, [Fun | ParFuns]};
+                    _ -> Acc
+                end;
+            ({_, _}, Acc) -> Acc
         end,
+        {[],[]},
         Functions),
-    Setup = case lists:member({setup, 0}, Functions) of % Use the module's setup, if one is exported
+
+    SetupFun = case lists:member({setup, 0}, Functions) of % Use the module's setup, if one is exported
         true -> fun Module:setup/0;
         false -> fun tutil:setup/0
     end,
 
     % Wrap the testset functions in a fixture, and return it!
-    make_fixture(foreach, Setup, lists:map(
-        fun ({Name, 0}) ->
-                fun (_Arg) ->
-                    {inorder, Module:Name()}
-                end;
-            ({Name, 1}) ->
-                fun (Arg) ->
-                    {inorder, Module:Name(Arg)}
-                end
-        end,
-        TestFuns)).
+    OrderedFixture = setup_foreach(
+        SetupFun,
+        fun tutil:cleanup/1,
+        lists:map(
+            fun ({Name, 0}) ->
+                    fun (_Arg) ->
+                        Module:Name()
+                    end;
+                ({Name, 1}) ->
+                    fun Module:Name/1
+            end,
+            OrderedTestFuns),
+        inorder),
+        
+    ParallelFixture = setup_once(
+        SetupFun,
+        fun tutil:cleanup/1,
+        lists:map(
+            fun ({Name, 0}) ->
+                    fun (_Arg) ->
+                        Module:Name()
+                    end;
+                ({Name, 1}) ->
+                    fun Module:Name/1
+            end,
+            ParallelTestFuns),
+        inparallel),
+
+    [OrderedFixture, ParallelFixture].

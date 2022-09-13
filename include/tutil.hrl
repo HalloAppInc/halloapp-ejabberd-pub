@@ -16,7 +16,7 @@
 -type test() :: fun().
 -type test_set() :: [test_set() | test()] | control().
 -type tests() :: [test_set() | instantiator()].
--type control_type() :: inorder | parallel | spawn.
+-type control_type() :: inorder | inparallel | trueparallel | spawn.
 -type control() :: {control_type(), TS :: test_set()} |
     {timeout, Seconds :: number(), TS :: test_set()}.
 
@@ -50,7 +50,9 @@
 -define(assertOk(Expr), ?assertEqual(ok, Expr)).
 -define(_assertOk(Expr), ?_assertEqual(ok, Expr)).
 
-%% This is also defined in src/tutil_autoexport.erl
+%% These are also defined in src/tutil_autoexport.erl
 -define(DEFAULT_TESTSET_SUFFIX, "_testset").
+-define(DEFAULT_PARALLEL_TESTSET_SUFFIX, "_testparallel").
+-define(DEFAULT_SETUP_FUN_NAME, "setup").
 
 -endif.

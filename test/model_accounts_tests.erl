@@ -585,7 +585,7 @@ api_test_() ->
         fun check_account_exists/1,
         fun check_uid_to_delete/1
     ]),
-    tutil:setup_once(fun setup_accounts/0, fun tutil:cleanup/1, [
+    tutil:in_parallel(fun setup_accounts/0, fun tutil:cleanup/1, [
         fun get_signup_user_agent/1,
         fun get_last_registration_ts_ms/1,
         fun get_set_client_version/1,
@@ -608,7 +608,7 @@ api_test_() ->
         fun start_get_export/1,
         fun marketing_tag/1,
         fun psa_tag_test/1
-    ], inparallel)].
+    ])].
 
 
 setup() ->
