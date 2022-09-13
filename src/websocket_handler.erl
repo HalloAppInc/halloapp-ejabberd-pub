@@ -68,7 +68,8 @@ websocket_handle({binary, BinMsg}, State) ->
             {Pkt2, State2} = process_incoming_packet(Pkt#pb_packet.stanza, NewState),
             handle_response_packet(Pkt2, State2)
    end;
-websocket_handle(_Data, State) ->
+websocket_handle(Data, State) ->
+    ?INFO("Ignoring data: ~p", [Data]),
     {[], State}.
 
 handle_response_packet(Pkt, State) ->
@@ -92,7 +93,7 @@ websocket_info(replaced, State) ->
     ?INFO("Replaced info", []),
     {stop, State};
 websocket_info({timeout, _Ref, Msg}, State) ->
-    ?INFO("Timeout info, msg: ~p, state: ~p", [Msg, State]),
+    ?DEBUG("Timeout info, msg: ~p, state: ~p", [Msg, State]),
     NewState = maps:remove(tref, State),
     Pkt = #pb_packet{stanza = #pb_iq{payload = #pb_ping{}}},
     encode_and_send_packet(Pkt, NewState);
@@ -101,12 +102,21 @@ websocket_info({route, #pb_msg{payload = #pb_web_stanza{}} = Msg}, State) ->
     Pkt = #pb_packet{stanza = Msg},
     encode_and_send_packet(Pkt, State);
 websocket_info({route, #pb_iq{type = result, payload = #pb_upload_media{}} = Iq}, State) ->
-    ?DEBUG("Sending iq result: ~p, state: ~p", [Iq, State]),
+    ?WARNING("Shouldn't happen. Sending iq result: ~p, state: ~p", [Iq, State]),
     Pkt = #pb_packet{stanza = Iq},
     encode_and_send_packet(Pkt, State);
 websocket_info({route, Pkt}, State) ->
     ?ERROR("Dropping Pkt: ~p", [Pkt]),
     {[], State};
+websocket_info({route_pb, BinPkt}, State) ->
+    ?DEBUG("Bin msg: ~p", [BinPkt]),
+    case enif_protobuf:decode(BinPkt, pb_packet) of
+        {error, _} ->
+            ?ERROR("Failed to decode packet ~p", [BinPkt]),
+            {[], State};
+        #pb_packet{} ->
+            {[{binary, BinPkt}], State}
+    end;
 websocket_info(_Info, State) ->
     {[], State}.
 

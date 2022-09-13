@@ -73,13 +73,13 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
 
 -spec authenticate_key(Uid :: uid(), StaticKey :: binary()) -> ok | {error, any()}.
 authenticate_key(Uid, StaticKey) ->
-    ?INFO("Uid: ~s", [Uid]),
+    ?INFO("Uid: ~s, static_key: ~p", [Uid, base64:encode(StaticKey)]),
     %% close all known sessions for Uid.
     websocket_handler:close_current_sessions_uid(Uid),
     model_auth:authenticate_static_key(Uid, StaticKey).
 
 -spec remove_key(Uid :: uid(), StaticKey :: binary()) -> ok | {error, any()}.
 remove_key(Uid, StaticKey) ->
-    ?INFO("Uid: ~s", [Uid]),
+    ?INFO("Uid: ~s, static_key: ~p", [Uid, base64:encode(StaticKey)]),
     model_auth:delete_static_key(Uid, StaticKey).
 
