@@ -202,7 +202,9 @@ get_client_based_props(PropMap, android, ClientVersion) ->
     PropMap5 = maps:update(use_cleartext_group_feed, Result4, PropMap4),
     Result5 = util_ua:is_version_greater_than(ClientVersion, <<"HalloApp/Android1.4.5">>),
     PropMap6 = maps:update(group_expiry, Result5, PropMap5),
-    PropMap6;
+    Result6 = util_ua:is_version_less_than(ClientVersion, <<"HalloApp/Android1.5.1">>),
+    PropMap7 = maps:update(cleartext_group_feed, Result6, PropMap6),
+    PropMap7;
 
 get_client_based_props(PropMap, ios, ClientVersion) ->
     %% All ios versions starting v1.10.167
@@ -223,7 +225,9 @@ get_client_based_props(PropMap, ios, ClientVersion) ->
     Result7 = util_ua:is_version_greater_than(ClientVersion, <<"HalloApp/iOS1.22.290">>),
     PropMap7 = maps:update(pre_answer_calls, Result7, PropMap6),
     PropMap8 = maps:update(streaming_sending_enabled, true, PropMap7),
-    PropMap8;
+    Result8 = util_ua:is_version_less_than(ClientVersion, <<"HalloApp/iOS1.24.295">>),
+    PropMap9 = maps:update(cleartext_group_feed, Result8, PropMap8),
+    PropMap9;
 
 get_client_based_props(PropMap, undefined, _) ->
     maps:update(groups, false, PropMap).
