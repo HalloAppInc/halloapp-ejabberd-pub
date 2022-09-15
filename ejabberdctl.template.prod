@@ -105,7 +105,8 @@ export CONTRIB_MODULES_CONF_DIR
 export ERL_LIBS
 
 cleanup() {
-   echo "cleanup up"
+   echo "Cleanup"
+   reset
    # more final cleanup code could go here
 }
 
