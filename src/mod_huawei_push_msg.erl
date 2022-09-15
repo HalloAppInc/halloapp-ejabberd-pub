@@ -285,7 +285,7 @@ handle_huawei_response({_Id, Response}, PushMessageItem, #{host := _Host} = Stat
                     CC = mod_libphonenumber:get_cc(Phone),
                     ha_events:log_event(<<"server.push_sent">>, #{uid => Uid, push_id => ReqId,
                             platform => android, client_version => Version, push_type => silent,
-                            content_type => ContentType, cc => CC});
+                            push_api => huawei, content_type => ContentType, cc => CC});
                 {error, _} ->
                     stat:count("HA/push", ?HUAWEI, 1, [{"result", "failure"}])
                     % remove_push_token(Uid, Host)

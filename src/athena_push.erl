@@ -48,6 +48,7 @@ get_queries() ->
         push_latencies_cc(?IOS, QueryTimeMsBin, ?MIN_IOS_VERSION),
         push_latencies_platform(QueryTimeMsBin, ?MIN_ANDROID_VERSION)
     ].
+    %% TODO: Update these queries to use push_api here.
 
 
 %%====================================================================

@@ -261,7 +261,7 @@ handle_fcm_response({_RequestId, Response}, PushMessageItem, #{host := _ServerHo
                     mod_android_push:pushed_message(PushMessageItem, success),
                     ha_events:log_event(<<"server.push_sent">>, #{uid => Uid, push_id => FcmId,
                             platform => android, client_version => Version, push_type => silent,
-                            content_type => ContentType, cc => CC});
+                            push_api => fcm, content_type => ContentType, cc => CC});
                 {error, Reason, FcmId} ->
                     stat:count("HA/push", ?FCM, 1, [{"result", "failure"}]),
                     ?ERROR("Push failed: Server Error, Uid:~s, token: ~p, reason: ~p, FcmId: ~p",
