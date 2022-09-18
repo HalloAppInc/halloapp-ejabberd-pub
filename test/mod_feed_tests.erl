@@ -338,7 +338,8 @@ retract_non_existing_post_test() ->
     %% retracting a post that does not exist should give an error.
     RetractIQ = get_post_retract_iq(?POST_ID1, ?UID1),
     ResultIQ = mod_feed:process_local_iq(RetractIQ),
-    ExpectedResultIQ = get_error_iq_result(<<"invalid_post_id">>, ?UID1),
+    Timestamp = get_timestamp(ResultIQ),
+    ExpectedResultIQ = get_post_retract_iq_result(?POST_ID1, ?UID1, Timestamp),
     ?assertEqual(ExpectedResultIQ, ResultIQ),
     ok.
 

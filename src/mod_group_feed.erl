@@ -343,7 +343,13 @@ retract_post(Gid, Uid, PostId, GroupFeedSt) ->
         true ->
             case model_feed:get_post(PostId) of
                 {error, missing} ->
-                    {error, invalid_post_id};
+                    TimestampMs = util:now_ms(),
+                    GroupInfo = model_groups:get_group_info(Gid),
+                    {ok, SenderName} = model_accounts:get_name(Uid),
+                    NewGroupFeedSt = make_pb_group_feed_item(GroupInfo, Uid, SenderName,
+                            GroupFeedSt, util:ms_to_sec(TimestampMs)),
+                    ?INFO("Accept retract for missing post: ~p", [NewGroupFeedSt]),
+                    {ok, NewGroupFeedSt};
                 {ok, ExistingPost} ->
                     case ExistingPost#post.uid =:= Uid of
                         false -> {error, not_authorized};

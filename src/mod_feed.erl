@@ -422,7 +422,9 @@ retract_post(Uid, PostId) ->
     Action = retract,
     case model_feed:get_post(PostId) of
         {error, missing} ->
-            {error, invalid_post_id};
+            ?INFO("Accept retract for missing post: ~p", [PostId]),
+            TimestampMs = util:now_ms(),
+            {ok, TimestampMs};
         {ok, ExistingPost} ->
             case ExistingPost#post.uid =:= Uid of
                 false -> {error, not_authorized};
