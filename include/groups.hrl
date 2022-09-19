@@ -66,7 +66,7 @@
 -type expiry_type() :: expires_in_seconds | never | custom_date.
 -type expiry_info() :: #expiry_info{}.
 
--define(MAX_GROUP_SIZE, 50).
+-define(MAX_GROUP_SIZE, 100).
 -define(MAX_GROUP_COUNT, 1000).
 -define(SHA256, sha256).
 
