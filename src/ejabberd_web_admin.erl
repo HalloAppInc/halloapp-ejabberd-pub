@@ -256,8 +256,7 @@ get_auth_account(HostOfRule, AccessRule, User, Server,
 	false -> {unauthorized, <<"inexistent-host">>}
     end.
 
-get_auth_account2(HostOfRule, AccessRule, User, Server,
-		 Pass) ->
+get_auth_account2(_HostOfRule, _AccessRule, User, _Server, _Pass) ->
 	case ejabberd_auth:user_exists(User) of
 		true -> {unauthorized, <<"bad-password">>};
 		false -> {unauthorized, <<"inexistent-account">>}
@@ -673,12 +672,12 @@ list_users_parse_query(Query, Host) ->
       {value, _} ->
 	  {value, {_, Username}} =
 	      lists:keysearch(<<"newusername">>, 1, Query),
-	  {value, {_, Password}} =
+	  {value, {_, _Password}} =
 	      lists:keysearch(<<"newuserpassword">>, 1, Query),
 	  try jid:decode(<<Username/binary, "@",
 				    Host/binary>>)
 	      of
-	    #jid{user = User, server = Server} ->
+	    #jid{user = _User, server = _Server} ->
 			ok
 	  catch _:{bad_jid, _} ->
 		  error
@@ -941,10 +940,9 @@ user_parse_query(User, Server, Query) ->
 user_parse_query1(<<"password">>, _User, _Server,
 		  _Query) ->
     nothing;
-user_parse_query1(<<"chpassword">>, User, _Server,
-		  Query) ->
+user_parse_query1(<<"chpassword">>, _User, _Server, Query) ->
     case lists:keysearch(<<"password">>, 1, Query) of
-      {value, {_, Password}} -> ok;
+      {value, {_, _Password}} -> ok;
       _ -> error
     end;
 user_parse_query1(<<"removeuser">>, User, Server,
@@ -1909,7 +1907,7 @@ lookup_phone(Phone) ->
         {ok, undefined} ->
             Info = [?XC(<<"p">>, io_lib:format("No account found for phone: ~s", [Phone]))],
             {ok, VerificationInfo} = model_phone:get_all_verification_info(Phone),
-            Info2 = lists:foldl(
+            _Info2 = lists:foldl(
                 fun(VerifyAttempt, Acc) ->
                     Acc ++ [
                         ?XE(<<"p">>, [

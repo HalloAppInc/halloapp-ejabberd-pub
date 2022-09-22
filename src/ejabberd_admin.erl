@@ -1032,7 +1032,6 @@ get_full_sync_retry_time() ->
 
 %% TODO(murali@): add support for android as well.
 send_ios_push(Uid, PushType, Payload) ->
-    Server = util:get_host(),
     case ejabberd_auth:user_exists(Uid) of
         false ->
             io:format("Invalid uid: ~s", [Uid]);
