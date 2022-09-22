@@ -162,9 +162,10 @@ request_invite(FromUid, ToPhoneNum) ->
             model_invites:record_invite(FromUid, NormalizedPhone, NumInvitesLeft),
             ha_events:log_user_event(FromUid, invite_recorded),
             InviteStringMap = mod_invites:get_invite_strings(FromUid),
-            {ok, LangId0} = model_accounts:get_lang_id(FromUid),
-            LangId = mod_translate:recast_langid(LangId0),
-            InviteString = case maps:get(LangId, InviteStringMap, undefined) of
+            {ok, LangId1} = model_accounts:get_lang_id(FromUid),
+            LangId2 = mod_translate:recast_langid(LangId1),
+            LangId3 = util:remove_cc_from_langid(LangId2),
+            InviteString = case maps:get(LangId3, InviteStringMap, undefined) of
                 undefined ->
                     %% Fallback to english
                     maps:get(<<"en">>, InviteStringMap, "");
@@ -175,7 +176,7 @@ request_invite(FromUid, ToPhoneNum) ->
                 #{
                     uid => FromUid,
                     phone => ToPhoneNum,
-                    lang_id => LangId,
+                    lang_id => LangId2,
                     invite_string_id => InviteStringId
                 }),
             {ToPhoneNum, ok, undefined}

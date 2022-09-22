@@ -88,7 +88,8 @@
     map_intersect/2,
     map_intersect_with/3, 
     map_merge_with/3,
-    map_from_keys/2
+    map_from_keys/2,
+    remove_cc_from_langid/1
 ]).
 
 
@@ -723,4 +724,14 @@ map_from_keys(Keys, Value) ->
         end,
         #{},
         Keys).
+
+remove_cc_from_langid(RawLangId) when RawLangId =:= undefined ->
+    RawLangId;
+remove_cc_from_langid(RawLangId) ->
+    case binary:match(RawLangId, <<"-">>) of
+        nomatch -> RawLangId;
+        _ ->
+            [LangId, _CC] = binary:split(RawLangId, <<"-">>),
+            LangId
+    end.
 

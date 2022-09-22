@@ -141,6 +141,13 @@ test_normalize_scores(_) ->
             util:normalize_scores(#{a => 2, b => 3, c => 5}))
     ].
 
+test_remove_cc_from_langid(_) ->
+    [
+        ?_assertEqual(<<"en">>, util:remove_cc_from_langid(<<"en-US">>)),
+        ?_assertEqual(<<"pt">>, util:remove_cc_from_langid(<<"pt-BR">>)),
+        ?_assertEqual(<<"ar">>, util:remove_cc_from_langid(<<"ar">>))
+    ].
+
 
 do_util_test_() ->
     % Note, this is an unnecessary amount of complexity -- all of these test functions could just end
@@ -160,5 +167,6 @@ do_util_test_() ->
         fun test_to_list/1,
         fun test_to_list_maybe/1,
         fun test_list_to_map/1,
-        fun test_normalize_scores/1
+        fun test_normalize_scores/1,
+        fun test_remove_cc_from_langid/1
     ]).

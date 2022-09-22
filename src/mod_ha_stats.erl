@@ -358,6 +358,7 @@ register_user(Uid, _Server, Phone, CampaignId) ->
                     undefined
             end,
             LangId1 = mod_translate:recast_langid(LangId),
+            LangId2 = util:remove_cc_from_langid(LangId1),
             stat:count("HA/account", "registration_by_lang_id", 1,
                 [{lang_id, util:to_list(LangId1)}]),
             % get most recent inviter and track invite string used
@@ -366,8 +367,8 @@ register_user(Uid, _Server, Phone, CampaignId) ->
                     {ok, InviterList} = model_invites:get_inviters_list(Phone),
                     {RecentInviterUid, _Ts} = lists:nth(1, InviterList),
                     InviteStringsMap = mod_invites:get_invite_strings(RecentInviterUid),
-                    case maps:get(LangId1, InviteStringsMap, undefined) of
-                        undefined -> ?INFO("LangId not in InviteStringsMap: ~p", [LangId1]);
+                    case maps:get(LangId2, InviteStringsMap, undefined) of
+                        undefined -> ?INFO("LangId not in InviteStringsMap: ~p", [LangId2]);
                         InviteString ->
                             <<InvStrId:?INVITE_STRING_ID_SHA_HASH_LENGTH_BYTES/binary, _Rest/binary>> =
                                 crypto:hash(sha256, InviteString),
