@@ -365,6 +365,7 @@ message GroupStanza {
         CHAT = 1;
     }
     GroupType group_type = 13;
+    int64 max_group_size = 14; // If set, override the max_group_size prop value.
 }
 
 
@@ -862,6 +863,17 @@ message WebClientInfo {
     Result result = 3;
 }
 
+message ReportUserContent {
+  enum Type {
+    UNKNOWN_TYPE = 0;
+    USER = 1;
+    POST = 2;
+  }
+  Type type = 1;
+  int64 uid = 2 [ebin = true];
+  string content_id = 3;
+}
+
 message WebStanza {
     bytes static_key = 1;  // Used to identify the user. Must be set on every packet exchanged
                            // between mobile and web client.
@@ -886,6 +898,12 @@ message ContentMissing {
         HOME_FEED_COMMENT = 6;
         HISTORY_RESEND = 7;
         GROUP_HISTORY = 8;
+        CHAT_REACTION = 9;
+        GROUP_COMMENT_REACTION = 10;
+        GROUP_POST_REACTION = 11;
+        HOME_COMMENT_REACTION = 12;
+        HOME_POST_REACTION = 13;
+        GROUP_CHAT = 14;
     }
     ContentType content_type = 2;
     string sender_client_version = 3;  // ex: "HalloApp/Android0.127"
@@ -944,6 +962,7 @@ message Iq {
         ExternalSharePost external_share_post = 43;
         ExternalSharePostContainer external_share_post_container = 44;
         WebClientInfo web_client_info = 45;
+        ReportUserContent report_user_content = 46;
     }
     int64 to_uid = 29 [ebin = true];    // only for server use
     int64 from_uid = 30 [ebin = true];    // only for server use
@@ -1219,6 +1238,7 @@ message GroupFeedRerequest {
         HISTORY_RESEND = 3;
         POST_REACTION = 4;
         COMMENT_REACTION = 5;
+        MESSAGE = 6;
     }
     ContentType content_type = 4;
 }
@@ -1365,6 +1385,9 @@ message NoiseMessage {
 
         XX_FALLBACK_A = 5;  // (-> e ...) <- e, ee, s, es
         XX_FALLBACK_B = 6;  // -> s, se
+
+        KK_A = 7; // (-> s, <- s ...) -> e, es, ss
+        KK_B = 8; // <- e, ee, se
     }
     MessageType message_type = 1;
 

@@ -91,6 +91,7 @@ message ChatContext {
   string chat_reply_message_id = 3;
   int32 chat_reply_message_media_index = 4;
   string chat_reply_message_sender_id = 5;
+  uint32 forward_count = 6;
 }
 
 message PostContainer {
@@ -242,6 +243,8 @@ message EncryptedPayload {
 
 message Moment {
   Image image = 1;
+  Image selfie_image = 2;
+  bool selfie_leading = 3;
 }
 
 message VoiceNote {
