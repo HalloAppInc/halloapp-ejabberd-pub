@@ -669,8 +669,7 @@ send_group_chat_message(MsgId, Gid, Uid, GroupChatStanza) ->
                                 sender_state_bundles = [],
                                 sender_state = maps:get(ToUid, StateBundlesMap, undefined)
                             },
-                            AccBin = integer_to_binary(Acc),
-                            NewId = <<MsgId/binary, "-", AccBin/binary>>,
+                            NewId = MsgId,
                             Packet = #pb_msg{
                                 id = NewId,
                                 type = groupchat,
