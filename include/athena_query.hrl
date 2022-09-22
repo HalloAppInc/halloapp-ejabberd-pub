@@ -23,6 +23,9 @@
 
 -define(IOS, <<"ios">>).
 -define(ANDROID, <<"android">>).
+-define(APNS, <<"apns">>).
+-define(FCM, <<"fcm">>).
+-define(HUAWEI, <<"huawei">>).
 -define(ATHENA_DB, <<"default">>).
 -define(ATHENA_RESULT_S3_BUCKET, <<"s3://ha-athena-results">>).
 % maximum number of times that processing a given query will be attempted -- queries are checked 
