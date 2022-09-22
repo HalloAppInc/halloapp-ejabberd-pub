@@ -99,8 +99,6 @@ get_props(Uid, ClientVersion) ->
         group_sync_time => 1 * ?WEEKS, %% how often should clients sync group metadata
         max_video_bit_rate => 4000000, %% max_video_bit_rate set to 4Mbps.
         audio_note_bit_rate => 96000, %% audio_note_bit_rate set to 96Kbps.
-        voice_notes => false, %% enables voice notes in 1-1 messages on client.
-        media_comments => true,  %% enables media comments.
         cleartext_group_feed => true, %% whether client must send unencrypted content in group_feed.
         use_cleartext_group_feed => true, %% whether clients must rely on unencrypted content in group_feed.
         cleartext_home_feed => true, %% whether client must send unencrypted content in home_feed.
@@ -111,12 +109,9 @@ get_props(Uid, ClientVersion) ->
         streaming_upload_chunk_size =>  65536, %% size of media streaming upload chunk size, 64KB.
         streaming_initial_download_size => 5242880, %% size of intial download while media streaming, 5MB.
         streaming_sending_enabled => false, %% whether streaming is enabled.
-        flat_comments => true, %% whether clients display a flat comment structure similar to chat.
-        voice_posts => true, %% whether to enable voice posts.
         emoji_version => 2, %% emoji version for clients to use.
         call_hold => false, %% allow calls to be on hold
         call_rerequest => false, %% controls if clients will respond to call-rerequests and also wait for them
-        external_sharing => false, %% enables external sharing on clients
         group_max_for_showing_invite_sheet => 5, %% max members to show the invite link after group flow.
         draw_media => false,
         privacy_label => false,
@@ -124,7 +119,6 @@ get_props(Uid, ClientVersion) ->
         group_comments_notification => true, %% notifications for group comments by friends on group posts.
         home_feed_comment_notifications => false, %% notifications for home feed comments by friends.
         nse_runtime_sec => 17, %% ios-nse needs 3 secs to cleanup, we want our nse to run =< 20 secs.
-        moments => true,   %% clients are capable of sending moments.
         file_sharing => false,   %% clients are capable of sending files.
         invite_strings => mod_invites:get_invite_strings_bin(Uid), %% json string with invite text.
         new_chat_ui => false,   %% turn on new chat ui on ios.
@@ -163,8 +157,7 @@ get_uid_based_props(PropMap, Uid) ->
             PropMap1 = maps:update(dev, true, PropMap),
             PropMap2 = maps:update(streaming_sending_enabled, true, PropMap1),
             PropMap3 = maps:update(call_hold, true, PropMap2),
-            PropMap4 = maps:update(external_sharing, true, PropMap3),
-            PropMap5 = maps:update(draw_media, true, PropMap4),
+            PropMap5 = maps:update(draw_media, true, PropMap3),
             PropMap6 = maps:update(privacy_label, true, PropMap5),
             PropMap7 = maps:update(home_feed_comment_notifications, false, PropMap6),
             PropMap8 = maps:update(file_sharing, true, PropMap7),
@@ -190,14 +183,7 @@ get_uid_based_props(PropMap, Uid) ->
 -spec get_client_based_props(PropMap :: map(),
         ClientType :: atom(), ClientVersion :: binary()) -> map().
 get_client_based_props(PropMap, android, ClientVersion) ->
-    %% All android versions starting v0.197
-    Result1 = util_ua:is_version_greater_than(ClientVersion, <<"HalloApp/Android0.196">>),
-    PropMap1 = maps:update(voice_notes, Result1, PropMap),
-    Result2 = util_ua:is_version_greater_than(ClientVersion, <<"HalloApp/Android1.4">>),
-    PropMap2 = maps:update(voice_posts, Result2, PropMap1),
-    Result3 = util_ua:is_version_greater_than(ClientVersion, <<"HalloApp/Android1.31">>),
-    PropMap3 = maps:update(external_sharing, Result3, PropMap2),
-    PropMap4 = maps:update(streaming_sending_enabled, true, PropMap3),
+    PropMap4 = maps:update(streaming_sending_enabled, true, PropMap),
     Result4 = util_ua:is_version_less_than(ClientVersion, <<"HalloApp/Android1.3.6">>),
     PropMap5 = maps:update(use_cleartext_group_feed, Result4, PropMap4),
     Result5 = util_ua:is_version_greater_than(ClientVersion, <<"HalloApp/Android1.4.5">>),
@@ -207,14 +193,9 @@ get_client_based_props(PropMap, android, ClientVersion) ->
     PropMap7;
 
 get_client_based_props(PropMap, ios, ClientVersion) ->
-    %% All ios versions starting v1.10.167
-    Result = util_ua:is_version_greater_than(ClientVersion, <<"HalloApp/iOS1.10.166">>),
-    PropMap1 = maps:update(voice_notes, Result, PropMap),
-    Result2 = util_ua:is_version_greater_than(ClientVersion, <<"HalloApp/iOS1.16.237">>),
-    PropMap2 = maps:update(external_sharing, Result2, PropMap1),
     %% Enable groups grid on the latest version.
     Result3 = util_ua:is_version_greater_than(ClientVersion, <<"HalloApp/iOS1.21.279">>),
-    PropMap3 = maps:update(enable_groups_grid, Result3, PropMap2),
+    PropMap3 = maps:update(enable_groups_grid, Result3, PropMap),
     %% Enable group encryption on latest ios build.
     Result4 = util_ua:is_version_less_than(ClientVersion, <<"HalloApp/iOS1.21.279">>),
     PropMap4 = maps:update(use_cleartext_group_feed, Result4, PropMap3),
