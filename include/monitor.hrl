@@ -78,7 +78,14 @@
 -define(ATOM_CHECK_INTERVAL_MS, 1 * ?HOURS_MS).
 -define(ATOM_LIMIT, 1048576).
 
--define(PROCESS_COUNT_CHECK_INTERVAL_MS, 1 * ?MINUTES_MS).
+-define(PROCESS_COUNT_TABLE, monitor_proc_count_table).
+-define(PROCESS_RATE_CHECK_WINDOW, (60 * ?MINUTES_MS)).
+-define(PROCESS_PERCENT_DELTA_ALARM_THRESHOLD, 10).
+-define(PROCESS_COUNT_CHECK_INTERVAL_MS, (1 * ?MINUTES_MS)).
+-define(PROCESS_COUNT_OPTS, [
+        {ping_interval_ms, ?PROCESS_COUNT_CHECK_INTERVAL_MS},
+        {state_history_length_ms, ?PROCESS_RATE_CHECK_WINDOW}]).
+-define(PROCESS_COUNT_PERCENT_KEY, process_count_percent).
 
 -define(C2S_SIZE_CHECK_INTERVAL_MS, 1 * ?HOURS_MS).
 

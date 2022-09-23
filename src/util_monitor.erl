@@ -11,6 +11,7 @@
 
 -include("logger.hrl").
 -include("monitor.hrl").
+-include("ha_types.hrl").
 
 %% API
 -export([
@@ -22,7 +23,8 @@
     check_consecutive_fails/1,
     check_consecutive_fails/2,
     check_slow/1,
-    check_slow/2
+    check_slow/2,
+    get_previous_state/4
 ]).
 
 %%====================================================================
@@ -40,7 +42,7 @@ get_num_fails(StateList) ->
         StateList).
 
 
--spec get_state_history(Table :: ets:tab(), Key :: term()) -> list(proc_state()).
+-spec get_state_history(Table :: ets:tab(), Key :: term()) -> list(term()).
 get_state_history(Table, Key) ->
     case ets:lookup(Table, Key) of
         [] -> [];
@@ -48,11 +50,11 @@ get_state_history(Table, Key) ->
     end.
 
 
--spec record_state(Table :: ets:tab(), Key :: term(), State :: proc_state()) -> ok.
+-spec record_state(Table :: ets:tab(), Key :: term(), State :: term()) -> ok.
 record_state(Table, Key, State) ->
     record_state(Table, Key, State, []).
 
--spec record_state(Table :: ets:tab(), Key :: term(), State :: proc_state(), Opts :: opts()) -> ok.
+-spec record_state(Table :: ets:tab(), Key :: term(), State :: term(), Opts :: opts()) -> ok.
 record_state(Table, Key, State, Opts) ->
     OptMap = maps:from_list(Opts),
     PingInterval = maps:get(ping_interval_ms, OptMap, ?PING_INTERVAL_MS),
@@ -108,3 +110,14 @@ check_slow(StateHistory, Opts) ->
             {NumFails >= (0.5 * Window), round(NumFails / length(StateHistoryWindow) * 100)}
     end.
 
+
+-spec get_previous_state(Table :: ets:tab(), Key :: term(), TimeAgo :: pos_integer(), Opts :: opts()) -> maybe(term()).
+get_previous_state(Table, Key, TimeAgo, Opts) ->
+    OptMap = maps:from_list(Opts),
+    History = get_state_history(Table, Key),
+    PingInterval = maps:get(ping_interval_ms, OptMap, ?PING_INTERVAL_MS),
+    PrevStateIndex = TimeAgo div PingInterval,
+    case PrevStateIndex =< length(History) of
+        false -> undefined;
+        true -> lists:nth(PrevStateIndex, History)
+    end.

@@ -134,6 +134,7 @@ init([]) ->
     ?INFO("Start: ~p", [?MONITOR_GEN_SERVER]),
     {ok, TRef} = timer:apply_interval(?PING_INTERVAL_MS, ?MODULE, ping_procs, []),
     {ok, TRef2} = timer:apply_interval(?ATOM_CHECK_INTERVAL_MS, ?MODULE, monitor_atoms, []),
+    ets:new(?PROCESS_COUNT_TABLE, [named_table, public]),
     {ok, TRef3} = timer:apply_interval(?PROCESS_COUNT_CHECK_INTERVAL_MS, ?MODULE, monitor_process_count, []),
     {ok, TRef4} = timer:apply_interval(?C2S_SIZE_CHECK_INTERVAL_MS, ?MODULE, monitor_c2s_heap_size, []),
     {ok, Config} = erlcloud_aws:auto_config(),
@@ -150,6 +151,7 @@ terminate(_Reason, #state{trefs = TRefs} = _State) ->
         fun(TRef) -> timer:cancel(TRef) end,
         TRefs),
     ets:delete(?MONITOR_TABLE),
+    ets:delete(?PROCESS_COUNT_TABLE),
     ejabberd_hooks:delete(node_up, ?MODULE, node_up, 10),
     ok.
 
@@ -338,6 +340,23 @@ monitor_process_count() ->
     end,
     stat:gauge(?NS, "process_count_num", ProcessCount),
     stat:gauge(?NS, "process_count_percent", PercentUsed),
+
+    case util_monitor:get_previous_state(?PROCESS_COUNT_TABLE, ?PROCESS_COUNT_PERCENT_KEY, ?PROCESS_RATE_CHECK_WINDOW, ?PROCESS_COUNT_OPTS) of
+        undefined -> ok;
+        PercentThen ->
+            Delta = PercentUsed - PercentThen,
+            case Delta of
+                Okay when Okay < ?PROCESS_PERCENT_DELTA_ALARM_THRESHOLD -> ok;
+                LargeDelta ->
+                    Host1 = util:get_machine_name(),
+                    BinPercent1 = util:to_binary(io_lib:format("~.2f",[PercentUsed])),
+                    BinDelta = util:to_binary(io_lib:format("~.2f", [LargeDelta])),
+                    Msg1 = <<Host1/binary, " has seen a ", BinDelta/binary, "% increase in percentage to ",
+                        BinPercent1/binary, "% of the process limit">>,
+                    alerts:send_alert(<<Host1/binary, " has a high process creation rate.">>, Host1, <<"critical">>, Msg1)
+            end
+    end,
+    util_monitor:record_state(?PROCESS_COUNT_TABLE, ?PROCESS_COUNT_PERCENT_KEY, PercentUsed, ?PROCESS_COUNT_OPTS),
     ok.
 
 
