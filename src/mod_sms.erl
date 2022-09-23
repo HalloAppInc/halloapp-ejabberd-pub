@@ -56,7 +56,8 @@
     max_weight_selection/1,  %% for testing
     smart_send/7,  %% for testing
     generate_gateway_list/3,  %% for testing
-    send_otp_to_inviter/4  %% for testing
+    send_otp_to_inviter/4,  %% for testing
+    get_new_gw_stats/2
 ]).
 
 %%====================================================================
@@ -476,7 +477,7 @@ pick_gw_experimental(ChooseFrom, CC, IsFirstAttempt) ->
         true ->
                 % Sample randomly from all gateways some fraction of the time to keep test traffic.
                 ChooseFrom;
-         false ->
+        false ->
                 %% If given clickatell, twilio, twilio_verify, relevant gatways should return
                 %% twilio and twilio_verify. When choosing, we should choose one of
                 %% twilio, twilio_verify on random
@@ -569,7 +570,7 @@ get_new_gw_stats(ChooseFrom, CC) ->
            {Gateway, Stats}
         end, ChooseFrom),
     ScoreMap = maps:from_list(RetVal),
-    ?DEBUG("CC: ~p, Gateway Scores: ~p", [CC, ScoreMap]),
+    ?INFO("CC: ~p, Gateway Scores: ~p", [CC, ScoreMap]),
     ScoreMap.
 
 %% Tries to retieve country-specific gateway score. If insufficient data (nan),

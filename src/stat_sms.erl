@@ -567,10 +567,10 @@ check_possible_spam(_TimeWindow, _CC, _CountType, _TotalCount) ->
  relevant_gateways(GatewayScores) -> 
      Gateways = maps:keys(GatewayScores),
 
-     % Only choose from gateways that have been scored.
+     % Only choose from gateways that have been scored and have a reasonable score.
      SampledGateways = lists:filter(fun(GW) -> 
-         {_, Count} = maps:get(GW, GatewayScores), 
-         Count >= ?MIN_TEXTS_TO_SCORE_GW
+         {Score, Count} = maps:get(GW, GatewayScores), 
+         Count >= ?MIN_TEXTS_TO_SCORE_GW andalso Score >= (?MIN_SMS_CONVERSION_SCORE / 100)
      end, Gateways),
 
      % Select all gateways with enough samples that aren't worse than another gateway with enough samples.
