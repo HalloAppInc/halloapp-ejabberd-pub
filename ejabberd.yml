@@ -220,6 +220,7 @@ modules:
   mod_psa_tagged_accounts: {}
   mod_webclient_info: {}
   mod_recommendations: {}
+  mod_reporting: {}
 
 ### Local Variables:
 ### mode: yaml
