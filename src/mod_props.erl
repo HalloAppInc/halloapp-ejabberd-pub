@@ -175,6 +175,7 @@ get_uid_based_props(PropMap, Uid) ->
             PropMap20 = maps:update(contact_sharing, true, PropMap19),
             PropMap21 = maps:update(close_friends_recos, true, PropMap20),
             PropMap22 = maps:update(location_sharing, true, PropMap21),
+            PropMap23 = maps:update(group_chat, true, PropMap22),
             PropMap22
     end,
     apply_uid_prop_overrides(Uid, ResPropMap).

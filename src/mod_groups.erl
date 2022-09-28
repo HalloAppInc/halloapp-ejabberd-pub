@@ -57,7 +57,8 @@
     preview_with_invite_link/2,
     web_preview_invite_link/1,
     join_with_invite_link/2,
-    check_audience_hash/5
+    check_audience_hash/5,
+    is_chat_enabled/1
 ]).
 
 -include("logger.hrl").
@@ -446,6 +447,7 @@ get_group_info(Gid, Uid) ->
 -spec get_groups(Uid :: uid()) -> [group_info()].
 get_groups(Uid) ->
     Gids = model_groups:get_groups(Uid),
+    IsChatEnabled = is_chat_enabled(Uid),
     lists:filtermap(
         fun (Gid) ->
             case model_groups:get_group_info(Gid) of
@@ -453,7 +455,11 @@ get_groups(Uid) ->
                     ?WARNING("can not find group ~s", [Gid]),
                     false;
                 GroupInfo ->
-                    {true, GroupInfo}
+                    %% Filter chat groups for users for whom group-chat is not enabled.
+                    case GroupInfo#group_info.group_type =:= chat andalso IsChatEnabled =:= false of
+                        true -> false;
+                        false -> {true, GroupInfo}
+                    end
             end
         end,
         Gids).
@@ -1425,4 +1431,19 @@ get_max_group_size(<<"goVmGP3X7Iex_e2URceMtn">>) -> ?MAX_PREMIUM_GROUP_SIZE;
 get_max_group_size(<<"ghKAC4IQQxFW4PVsG9CZFp">>) -> ?MAX_PREMIUM_GROUP_SIZE;
 get_max_group_size(<<"gwmdE-Zm8O2TQOaoXo6B70">>) -> ?MAX_PREMIUM_GROUP_SIZE;
 get_max_group_size(_Gid) -> ?MAX_GROUP_SIZE.
+
+
+-spec is_chat_enabled(Uid :: binary()) -> boolean().
+is_chat_enabled(Uid) ->
+    case dev_users:is_dev_uid(Uid) of
+        true -> true;
+        false ->
+            {ok, ClientVersion} = model_accounts:get_client_version(Uid),
+            ClientType = util_ua:get_client_type(ClientVersion),
+            case ClientType of
+                android -> util_ua:is_version_greater_than(ClientVersion, <<"HalloApp/Android1.5.2">>);
+                ios -> util_ua:is_version_greater_than(ClientVersion, <<"HalloApp/iOS1.24.297">>);
+                _ -> false
+            end
+    end.
 
