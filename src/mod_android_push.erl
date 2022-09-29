@@ -192,7 +192,9 @@ push_message(Message, PushInfo) ->
                 message = Message,
                 timestamp_ms = TimestampMs,
                 retry_ms = ?RETRY_INTERVAL_MILLISEC,
-                push_info = PushInfo},
+                push_info = PushInfo,
+                apns_id = util_id:new_uuid()
+            },
         % Send to fcm push notification if applicable
         case PushInfo#push_info.token of
             undefined -> ok;

@@ -194,14 +194,14 @@ push_message_item(PushMessageItem, #{auth_token := AuthToken, url := Url, pendin
     ContentId = PushMetadata#push_metadata.content_id,
     ContentType = PushMetadata#push_metadata.content_type,
     Token = PushMessageItem#push_message_item.push_info#push_info.huawei_token,
-
+    PushId = PushMessageItem#push_message_item.apns_id,
     AndroidMap = extract_android_map(PushMessageItem, PushMetadata),
     PushBody = #{
         % <<"validate_only">> => <<"true">>, % set true for test mode
         <<"message">> => #{
             <<"token">> => [Token],
             <<"android">> => AndroidMap,
-            <<"data">> => <<"{\"title\":\"test\",\"body\":\"test\"}">>
+            <<"data">> => jiffy:encode(#{push_id => PushId})
         }
     },
 
@@ -264,6 +264,7 @@ extract_android_map(PushMessageItem, PushMetadata) ->
 handle_huawei_response({_Id, Response}, PushMessageItem, #{host := _Host} = State) ->
     Id = PushMessageItem#push_message_item.id,
     Uid = PushMessageItem#push_message_item.uid,
+    PushId = PushMessageItem#push_message_item.apns_id,
     Version = PushMessageItem#push_message_item.push_info#push_info.client_version,
     ContentType = PushMessageItem#push_message_item.content_type,
     Token = PushMessageItem#push_message_item.push_info#push_info.huawei_token,
@@ -280,10 +281,10 @@ handle_huawei_response({_Id, Response}, PushMessageItem, #{host := _Host} = Stat
             case parse_response(Body) of
                 {ok, ReqId} ->
                     stat:count("HA/push", ?HUAWEI, 1, [{"result", "success"}]),
-                    ?INFO("Uid:~s push successful for msg-id: ~s, Huawei Id: ~p", [Uid, Id, ReqId]),
+                    ?INFO("Uid:~s push successful for msg-id: ~s, Huawei Id: ~p, PushId: ~p", [Uid, Id, ReqId, PushId]),
                     {ok, Phone} = model_accounts:get_phone(Uid),
                     CC = mod_libphonenumber:get_cc(Phone),
-                    ha_events:log_event(<<"server.push_sent">>, #{uid => Uid, push_id => ReqId,
+                    ha_events:log_event(<<"server.push_sent">>, #{uid => Uid, push_id => PushId,
                             platform => android, client_version => Version, push_type => silent,
                             push_api => huawei, content_type => ContentType, cc => CC});
                 {error, _} ->
