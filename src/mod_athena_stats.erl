@@ -190,6 +190,15 @@ check_queries_internal(#{queries := Queries} = State) when map_size(Queries) =:=
 check_queries_internal(#{queries := Queries} = State) ->
     QueryExecutionIds = maps:keys(Queries),
     ?INFO("checking queries ~s", [QueryExecutionIds]),
+    batch_get_query_results(QueryExecutionIds),
+    {ok, State}.
+
+
+batch_get_query_results(QueryExecutionIds) when length(QueryExecutionIds) > ?MAX_QUERY_EXEC_IDS ->
+    {ExecIds1, ExecIds2} = lists:split(?MAX_QUERY_EXEC_IDS, QueryExecutionIds),
+    batch_get_query_results(ExecIds1),
+    batch_get_query_results(ExecIds2);
+batch_get_query_results(QueryExecutionIds) ->
     case erlcloud_athena:batch_get_query_execution(QueryExecutionIds) of
         {ok, Result} ->
             ?INFO("Result:~p", [Result]),
@@ -212,12 +221,11 @@ check_queries_internal(#{queries := Queries} = State) ->
                     end
                 end,
                 Executions
-            ),
-            {ok, State};
+            );
         {error, Reason} ->
-            ?ERROR("reason: ~p", [Reason]),
-            {ok, State}
+            ?ERROR("reason: ~p", [Reason])
     end.
+
 
 fetch_query_results_internal(ExecutionId, #{queries := Queries} = State) ->
     try
