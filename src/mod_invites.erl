@@ -38,7 +38,8 @@
     get_invite_strings/1,
     get_invite_strings_bin/1,
     get_invite_string_id/1,
-    lookup_invite_string/1
+    lookup_invite_string/1,
+    list_of_langids_to_keep_cc/0
 ]).
 
 -define(NS_INVITE, <<"halloapp:invites">>).
@@ -164,7 +165,10 @@ request_invite(FromUid, ToPhoneNum) ->
             InviteStringMap = mod_invites:get_invite_strings(FromUid),
             {ok, LangId1} = model_accounts:get_lang_id(FromUid),
             LangId2 = mod_translate:recast_langid(LangId1),
-            LangId3 = util:remove_cc_from_langid(LangId2),
+            LangId3 = case lists:member(LangId2, mod_invites:list_of_langids_to_keep_cc()) of
+                true -> LangId2;
+                false -> util:remove_cc_from_langid(LangId2)
+            end,
             InviteString = case maps:get(LangId3, InviteStringMap, undefined) of
                 undefined ->
                     %% Fallback to english
@@ -233,6 +237,14 @@ lookup_invite_string(HashId) ->
     catch Error : Reason ->
         io:format("Error (~p): ~p~n", [Error, Reason])
     end.
+
+
+list_of_langids_to_keep_cc() ->
+    %% Here we will maintain a list of LangIds that need to keep the CC attached
+    %% placeholder value is to appease dialyzer and has no chance of matching on a lang id
+    %% if this list is empty, dialyzer will complain due to some lists:member checks that can
+    %% never return false
+    [<<"placeholder">>].
 
 %%====================================================================
 %% Internal functions
@@ -354,6 +366,8 @@ init_invite_string_table() ->
         InviteStringsMap = jiffy:decode(Bin, [return_maps]),
         %% en localization strings dont appear with other languages in ios repo for some reason.
         %% TODO: need to fix this in the ios repo.
+        %% If adding strings here for a specific country, make sure the LangId for this
+        %% appears in the list_of_langids_to_keep_cc function above
         InviteStringsMap1 = InviteStringsMap#{
             <<"en">> => [
                 <<"I’m inviting you to join me on HalloApp. It is a private and secure app to share pictures, chat and call your friends. Get it at https://halloapp.com/get"/utf8>>,

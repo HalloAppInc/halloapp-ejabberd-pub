@@ -358,7 +358,10 @@ register_user(Uid, _Server, Phone, CampaignId) ->
                     undefined
             end,
             LangId1 = mod_translate:recast_langid(LangId),
-            LangId2 = util:remove_cc_from_langid(LangId1),
+            LangId2 = case lists:member(LangId1, mod_invites:list_of_langids_to_keep_cc()) of
+                true -> LangId1;
+                false -> util:remove_cc_from_langid(LangId1)
+            end,
             stat:count("HA/account", "registration_by_lang_id", 1,
                 [{lang_id, util:to_list(LangId1)}]),
             % get most recent inviter and track invite string used
