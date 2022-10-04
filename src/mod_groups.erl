@@ -1441,8 +1441,8 @@ is_chat_enabled(Uid) ->
             {ok, ClientVersion} = model_accounts:get_client_version(Uid),
             ClientType = util_ua:get_client_type(ClientVersion),
             case ClientType of
-                android -> util_ua:is_version_greater_than(ClientVersion, <<"HalloApp/Android1.5.2">>);
-                ios -> util_ua:is_version_greater_than(ClientVersion, <<"HalloApp/iOS1.24.297">>);
+                android -> util_ua:is_version_greater_than(ClientVersion, <<"HalloApp/Android1.5.5">>);
+                ios -> util_ua:is_version_greater_than(ClientVersion, <<"HalloApp/iOS1.24.298">>);
                 _ -> false
             end
     end.
