@@ -236,6 +236,8 @@ is_payload_always_allowed(pb_groupchat_retract) -> true;
 is_payload_always_allowed(pb_group_feed_item) -> true;
 is_payload_always_allowed(pb_group_feed_items) -> true;
 is_payload_always_allowed(pb_group_feed_rerequest) -> true;
+%% history resend should always be allowed.
+is_payload_always_allowed(pb_history_resend) -> true;
 %% server generated.
 is_payload_always_allowed(pb_end_of_queue) -> true;
 is_payload_always_allowed(pb_error_stanza) -> true;
@@ -259,6 +261,7 @@ check_blocked(Packet, Dir) ->
 check_blocked(FromUid, ToUid, Packet, Dir) ->
     Id = pb:get_id(Packet),
     PacketType = element(1, Packet),
+    PayloadType = pb:get_payload_type(Packet),
     IsBlocked = case Dir of
         %% Use updated functions here to check both old and new keys.
         in -> model_privacy:is_blocked2(ToUid, FromUid);
@@ -266,8 +269,8 @@ check_blocked(FromUid, ToUid, Packet, Dir) ->
     end,
     case IsBlocked of
         true ->
-            ?INFO("Blocked PacketType: ~p Id: ~p, from-uid: ~s to-uid: ~s",
-                    [PacketType, Id, FromUid, ToUid]),
+            ?INFO("Blocked PacketType: ~p PayloadType: ~p Id: ~p, from-uid: ~s to-uid: ~s",
+                    [PacketType, PayloadType, Id, FromUid, ToUid]),
             deny;
         false -> allow
     end.
