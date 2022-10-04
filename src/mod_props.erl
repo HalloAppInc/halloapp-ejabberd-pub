@@ -191,7 +191,11 @@ get_client_based_props(PropMap, android, ClientVersion) ->
     PropMap6 = maps:update(group_expiry, Result5, PropMap5),
     Result6 = util_ua:is_version_less_than(ClientVersion, <<"HalloApp/Android1.5.1">>),
     PropMap7 = maps:update(cleartext_group_feed, Result6, PropMap6),
-    PropMap7;
+    Result7 = util_ua:is_version_greater_than(ClientVersion, <<"HalloApp/Android1.5.5">>),
+    PropMap8 = maps:update(chat_reactions, Result7, PropMap7),
+    PropMap9 = maps:update(comment_reactions, Result7, PropMap8),
+    PropMap9;
+
 
 get_client_based_props(PropMap, ios, ClientVersion) ->
     %% Enable groups grid on the latest version.
@@ -209,7 +213,10 @@ get_client_based_props(PropMap, ios, ClientVersion) ->
     PropMap8 = maps:update(streaming_sending_enabled, true, PropMap7),
     Result8 = util_ua:is_version_less_than(ClientVersion, <<"HalloApp/iOS1.24.295">>),
     PropMap9 = maps:update(cleartext_group_feed, Result8, PropMap8),
-    PropMap9;
+    Result9 = util_ua:is_version_greater_than(ClientVersion, <<"HalloApp/iOS1.25.302">>),
+    PropMap10 = maps:update(chat_reactions, Result9, PropMap9),
+    PropMap11 = maps:update(comment_reactions, Result9, PropMap10),
+    PropMap11;
 
 get_client_based_props(PropMap, undefined, _) ->
     maps:update(groups, false, PropMap).
