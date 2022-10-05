@@ -8,4 +8,7 @@
 
 -define(INVITE_STRING_ID_SHA_HASH_LENGTH_BYTES, 16).
 
+-define(INVITE_STRINGS_TABLE, invite_strings).
+-define(INVITE_STRINGS_ETS_KEY, invite_strings_map).
+
 -endif.

@@ -14,16 +14,24 @@
 -define(PHONE1, <<"16505551111">>).
 -define(NAME1, <<"Name1">>).
 -define(USER_AGENT1, <<"HalloApp/Android1.0">>).
+-define(LANG_ID1, <<"en-US">>).
 
--define(UID2, <<"2">>).
+-define(UID2, <<"10">>).
 -define(PHONE2, <<"16175287001">>).
 -define(NAME2, <<"Name2">>).
 -define(USER_AGENT2, <<"HalloApp/Android1.0">>).
+-define(LANG_ID2A, <<"en-US">>).
+-define(LANG_ID2B, <<"en-GB">>).
 
 -define(UID3, <<"3">>).
 -define(PHONE3, <<"16175287002">>).
 -define(NAME3, <<"Name3">>).
 -define(USER_AGENT3, <<"HalloApp/Android1.0">>).
+-define(LANG_ID3, <<"en-US">>).
+
+-define(UID4, <<"5">>).
+-define(PHONE4, <<"16175287003">>).
+-define(LANG_ID4, <<"en-US">>).
 
 -define(TEST_PHONE1, <<"16175550000">>).
 
@@ -244,10 +252,31 @@ invite_string_id(_) ->
     ?_assertEqual(InvStr,
         mod_invites:lookup_invite_string(mod_invites:get_invite_string_id(InvStr)))].
 
+rm_invite_string_test(_) ->
+    %% The string being removed here depends on a uid s.t. uid mod len(all_en_strings) == 5,
+    %% because 5 is the 0-index of the first string removed by cc.
+    %% UID2 and UID4 match this criteria; UID2 has CC = GB, UID4 has CC = US
+    %% So, UID2 and UID4 should get same string, but UID4 lives in the US where this string was removed
+    %% Thus, UID4 should get binary(int(UID2) + 1)'s string instead
+    EnLang = <<"en">>,
+    Uid2String = maps:get(EnLang, mod_invites:get_invite_strings(?UID2), undefined),
+    Uid2Plus1 = util:to_binary(util:to_integer(?UID2) + 1),
+    ok = model_accounts:create_account(Uid2Plus1, ?PHONE2, ?NAME2, ?USER_AGENT2),
+    ok = model_accounts:set_push_token(Uid2Plus1, <<>>, <<>>, 0, ?LANG_ID2A),
+    Uid2Plus1String = maps:get(EnLang, mod_invites:get_invite_strings(Uid2Plus1), undefined),
+    Uid4String = maps:get(EnLang, mod_invites:get_invite_strings(?UID4), undefined),
+    [
+        ?_assertNotEqual(?UID2, Uid2Plus1),
+        ?_assertNotEqual(Uid2String, Uid2Plus1String),
+        ?_assertNotEqual(Uid2String, Uid4String),
+        ?_assertEqual(Uid4String, Uid2Plus1String)
+    ].
+
 invite_strings_test_() ->
     tutil:setup_once(fun setup_invite_strings/0, [
         fun get_invite_strings/1,
-        fun invite_string_id/1
+        fun invite_string_id/1,
+        fun rm_invite_string_test/1
     ]).
 
 %% --------------------------------------------	%%
@@ -304,8 +333,18 @@ setup_redis_only() ->
     ]).
 
 setup_invite_strings() ->
+    CleanupInfo = tutil:setup([{redis, redis_accounts}]),
+    %% Setup accounts so that each UID has an associated LangId
+    ok = model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1),
+    ok = model_accounts:set_push_token(?UID1, <<>>, <<>>, 0, ?LANG_ID1),
+    ok = model_accounts:create_account(?UID2, ?PHONE2, ?NAME2, ?USER_AGENT2),
+    ok = model_accounts:set_push_token(?UID2, <<>>, <<>>, 0, ?LANG_ID2A),
+    ok = model_accounts:create_account(?UID3, ?PHONE3, ?NAME3, ?USER_AGENT3),
+    ok = model_accounts:set_push_token(?UID3, <<>>, <<>>, 0, ?LANG_ID3),
+    ok = model_accounts:create_account(?UID4, ?PHONE4, ?NAME1, ?USER_AGENT1),
+    ok = model_accounts:set_push_token(?UID4, <<>>, <<>>, 0, ?LANG_ID4),
     mod_invites:init_invite_string_table(),
-    tutil:setup().
+    CleanupInfo.
 
 create_get_iq(Uid) ->
     #pb_iq{

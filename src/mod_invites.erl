@@ -46,8 +46,6 @@
 -define(NS_INVITE_STATS, "HA/invite").
 
 -define(INVITE_STRINGS_FILE, "invite_strings.json").
--define(INVITE_STRINGS_TABLE, invite_strings).
--define(INVITE_STRINGS_ETS_KEY, invite_strings_map).
 
 %%====================================================================
 %% gen_mod functions
@@ -195,6 +193,7 @@ get_invite_strings(Uid) ->
     try
         [{?INVITE_STRINGS_ETS_KEY, InviteStringsMap}] =
             ets:lookup(?INVITE_STRINGS_TABLE, ?INVITE_STRINGS_ETS_KEY),
+        InviteStringsMapForCC = rm_invite_strings_by_cc(InviteStringsMap, Uid),
         maps:fold(
             fun(LangId, Strings, Acc) ->
                 StringIndex = util:to_integer(Uid) rem length(Strings),
@@ -202,7 +201,7 @@ get_invite_strings(Uid) ->
                 Acc#{LangId => String}
             end,
             #{},
-            InviteStringsMap)
+            InviteStringsMapForCC)
     catch
         Class: Reason: Stacktrace  ->
             ?ERROR("Failed to get invite strings: ~p, ~p, ~p", [lager:pr_stacktrace(Stacktrace, {Class, Reason})]),
@@ -396,4 +395,22 @@ init_invite_string_table() ->
         ?WARNING("Failed to create a table for invite strings in ets: ~p: ~p", [Error, Reason])
     end,
     ok.
+
+
+rm_invite_strings_by_cc(InviteStringMap, Uid) ->
+    {ok, RawLangId} = model_accounts:get_lang_id(Uid),
+    case binary:split(RawLangId, <<"-">>) of
+        [RawLangId] -> InviteStringMap;
+        [_LangId, CC] ->
+            InvStrsToRm = mod_props:get_invite_strings_to_rm_by_cc(CC),
+            maps:map(
+                fun(LangId, Strings) ->
+                    InvStrsToRmForLangId = maps:get(LangId, InvStrsToRm, []),
+                    lists:filter(
+                        fun(S) -> not lists:member(S, InvStrsToRmForLangId) end,
+                        Strings)
+                end,
+                InviteStringMap);
+        _ -> ?WARNING("Unexpected LangId for ~s: ~p", [Uid, RawLangId])
+    end.
 
