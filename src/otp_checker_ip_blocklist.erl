@@ -31,6 +31,8 @@ check_otp_request(_Phone, IP, _UserAgent, _Method, _Protocol, _RemoteStaticKey) 
 
 
 -spec is_blocked(IP :: binary()) -> boolean().
+%% Never block our relay registration requests by ip address.
+is_blocked(<<"15.188.48.215">>) -> false;
 is_blocked(IP) ->
     CurrentTs = util:now(),
     case model_ip_addresses:is_ip_blocked(IP) of
