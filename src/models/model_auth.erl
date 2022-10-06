@@ -9,6 +9,7 @@
 -module(model_auth).
 -author("nikola").
 
+-include("_build/default/lib/ecredis/include/ecredis.hrl").
 -include("logger.hrl").
 -include("password.hrl").
 -include("redis_keys.hrl").
@@ -27,6 +28,8 @@
 -export([
     set_spub/2,
     get_spub/1,
+    get_uid_from_spub/1,
+    spub_search/1,
     delete_spub/1,
     lock_user/1,
     unlock_user/1,
@@ -35,7 +38,6 @@
     delete_static_key/2,
     get_static_keys/1,
     get_static_key_uid/1,
-    static_key_search/1,
     add_static_key_code_attempt/2,
     get_static_key_code_attempts/2
 ]).
@@ -47,8 +49,9 @@
 -define(FIELD_TIMESTAMP_MS, <<"tms">>).
 -define(FIELD_S_PUB, <<"spb">>).
 -define(FIELD_LOGIN_STATUS, <<"log">>).
-
+-define(FIELD_SPUB_UID, <<"spu">>).
 -define(FIELD_STATIC_KEY_UID, <<"sku">>).
+-define(TTL_REVERSE_SPUB, (30 * ?DAYS)).
 
 
 -spec set_spub(Uid :: binary(), SPub :: binary()) -> ok  | {error, any()}.
@@ -59,6 +62,16 @@ set_spub(Uid, SPub) ->
         ["HSET", spub_key(Uid),
             ?FIELD_S_PUB, SPub,
             ?FIELD_TIMESTAMP_MS, integer_to_binary(TimestampMs)]
+    ],
+    set_reverse_spub(Uid, SPub),
+    util_redis:verify_ok(multi_exec(Commands)).
+
+
+set_reverse_spub(Uid, SPub) ->
+    Commands = [
+        ["DEL", reverse_spub_key(SPub)],
+        ["HSET", reverse_spub_key(SPub), ?FIELD_SPUB_UID, Uid],
+        ["EXPIRE", reverse_spub_key(SPub), ?TTL_REVERSE_SPUB]
     ],
     util_redis:verify_ok(multi_exec(Commands)).
 
@@ -72,6 +85,66 @@ get_spub(Uid) ->
         ts_ms = util_redis:decode_ts(TsMsBinary),
         uid = Uid
     }}.
+
+
+-spec get_uid_from_spub(binary()) -> {ok, uid()} | {error, missing}.
+get_uid_from_spub(SPub) ->
+    q(["HGET", reverse_spub_key(SPub), ?FIELD_SPUB_UID]).
+
+
+%% for `ejabberdctl spub_info`
+-spec spub_search(binary()) -> list({binary(), uid()}).
+spub_search(RevSPubPrefix) ->
+    FormattedRevSPubPrefix = util:to_binary([?REVERSE_SPUB_KEY, "{", RevSPubPrefix, "*"]),
+    NodeList = lists:map(fun(Node) -> {Node, "0"} end, ecredis:get_nodes(ecredis_auth)),
+    spub_search(NodeList, FormattedRevSPubPrefix).
+
+
+%% Recursive function to scan each node until RevSPubPrefix returns some match(es)
+-spec spub_search([{Node :: rnode(), Cursor :: binary()}], binary()) -> list({binary(), uid()}).
+spub_search(NodeList, _RevSPubPrefix) when NodeList =:= [] ->
+    %% Base case: NodeList is empty; all nodes have been fully searched with no results
+    [];
+spub_search(NodeList, RevSPubPrefix) ->
+    %% Run SCAN on each node
+    Results = lists:map(
+        fun({Node, Cursor}) ->
+            {Node, qn(Node, ["SCAN", Cursor, "MATCH", RevSPubPrefix, "COUNT", "500"])}
+        end,
+        NodeList),
+    %% Remove nodes that have been fully scanned and returned no results
+    %% Also trim and flatten data to [{Node, NewCursor, ScanResults}]
+    FilteredResults = lists:filtermap(
+        fun({Node, {ok, Result}}) ->
+            case Result of
+                [<<"0">>, []] -> false;
+                [NewCursor, ScanResult] -> {true, {Node, NewCursor, ScanResult}}
+            end
+        end,
+        Results),
+    %% Check if any results were found on any node
+    case lists:any(fun({_Node, _Cursor, ScanRes}) -> ScanRes =/= [] end, FilteredResults) of
+        false ->
+            %% No results were found on any node; enter recursion
+            UpdatedNodeList = lists:map(
+                fun({Node, NewCursor, _}) -> {Node, NewCursor} end,
+                FilteredResults),
+            spub_search(UpdatedNodeList, RevSPubPrefix);
+        true ->
+            %% Some node(s) had results; combine all results and return them
+            lists:filtermap(
+                fun
+                    ({_Node, _Cursor, ScanResult}) when ScanResult =:= [] ->
+                        false;
+                    ({_Node, _Cursor, [ReverseSPubKey]}) ->
+                        %% Return value is {SPub, Uid}
+                        [_Prefix, SPub] = binary:split(ReverseSPubKey, [<<"{">>, <<"}">>],
+                            [global, trim]),
+                        {ok, Uid} = get_uid_from_spub(SPub),
+                        {true, {SPub, Uid}}
+                end,
+                FilteredResults)
+    end.
 
 
 -spec set_login(Uid :: binary()) -> boolean().
@@ -134,26 +207,6 @@ get_static_key_uid(StaticKey) ->
     RevStaticKey = reverse_static_key_key(StaticKey),
     q(["HGET", RevStaticKey, ?FIELD_STATIC_KEY_UID]).
 
-%% for `ejabberdctl static_key_info`
--spec static_key_search(binary()) -> [{binary(), uid()}].
-static_key_search(RevStaticKeyPrefix) ->
-    FormattedRevStaticKeyPrefix = util:to_binary([?REVERSE_STATIC_KEY_KEY, "{", RevStaticKeyPrefix, "*"]),
-    static_key_search(<<"0">>, FormattedRevStaticKeyPrefix).
-
--spec static_key_search(binary(), binary()) -> [{binary(), uid()}].
-static_key_search(Cursor, RevStaticKeyPrefix) ->
-    case q(["SCAN", Cursor, "MATCH", RevStaticKeyPrefix, "COUNT", "500"]) of
-        {ok, [<<"0">>, _]} -> [];
-        {ok, [NewCursor, []]} -> static_key_search(NewCursor, RevStaticKeyPrefix);
-        {ok, [_, Results]} ->
-            lists:map(
-                fun(RevStaticKey) ->
-                    {ok, Uid} = q(["HGET", RevStaticKey, ?FIELD_STATIC_KEY_UID]),
-                    {RevStaticKey, Uid}
-                end,
-                Results)
-    end.
-
 -spec add_static_key_code_attempt(StaticKey :: binary(), Timestamp :: integer()) -> integer().
 add_static_key_code_attempt(StaticKey, Timestamp) ->
     Key = static_key_attempt_key(StaticKey, Timestamp),
@@ -174,6 +227,7 @@ get_static_key_code_attempts(StaticKey, Timestamp) ->
 
 
 q(Command) -> ecredis:q(ecredis_auth, Command).
+qn(Node, Command) -> ecredis:qn(ecredis_auth, Node, Command).
 qp(Commands) -> ecredis:qp(ecredis_auth, Commands).
 qmn(Commands) -> util_redis:run_qmn(ecredis_auth, Commands).
 
@@ -188,6 +242,9 @@ multi_exec(Commands) ->
 -spec spub_key(binary()) -> binary().
 spub_key(Uid) ->
     <<?SPUB_KEY/binary, <<"{">>/binary, Uid/binary, <<"}">>/binary>>.
+
+reverse_spub_key(SPub) ->
+    <<?REVERSE_SPUB_KEY/binary, <<"{">>/binary, SPub/binary, <<"}">>/binary>>.
 
 static_key_key(Uid) ->
     <<?STATIC_KEY_KEY/binary, <<"{">>/binary, Uid/binary, <<"}">>/binary>>.

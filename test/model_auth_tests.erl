@@ -47,7 +47,17 @@ set_get_spub_test() ->
     {ok, NoSPub} = model_auth:get_spub(?UID1),
     ?assertEqual(no_spub(?UID1), NoSPub),
     ok = model_auth:set_spub(?UID1, ?SPUB1),
-    {ok, #s_pub{s_pub = ?SPUB1, uid = ?UID1}} = model_auth:get_spub(?UID1).
+    {ok, #s_pub{s_pub = ?SPUB1, uid = ?UID1}} = model_auth:get_spub(?UID1),
+    ?assertEqual({ok, ?UID1}, model_auth:get_uid_from_spub(?SPUB1)).
+
+
+spub_search_test() ->
+    setup(),
+    ok = model_auth:set_spub(?UID1, ?SPUB1),
+    <<SPubPrefix:2/binary, _Rest/binary>> = ?SPUB1,
+    ?assertEqual([{?SPUB1, ?UID1}], model_auth:spub_search(SPubPrefix)),
+    ?assertEqual([{?SPUB1, ?UID1}], model_auth:spub_search(?SPUB1)).
+
 
 lock_user_test() ->
     setup(),

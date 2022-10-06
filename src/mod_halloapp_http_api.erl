@@ -331,8 +331,6 @@ process_register_request(#{raw_phone := RawPhone, name := Name, ua := UserAgent,
         process_whisper_keys(Uid, IdentityKeyB64, SignedKeyB64, OneTimeKeysB64),
         process_push_token(Uid, PushPayload),
         CC = mod_libphonenumber:get_region_id(Phone),
-        ?INFO("Static noise key uid: ~s phone: ~s RemoteStaticKey: ~p SPub ~p",
-            [Uid, Phone, RemoteStaticKey, SPub]),
         ?INFO("registration complete uid: ~s phone: ~s country_code: ~s campaign_id: ~s",
             [Uid, Phone, CC, CampaignId]),
         Result = #{
