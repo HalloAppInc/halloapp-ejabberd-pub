@@ -204,7 +204,8 @@ get_invite_strings(Uid) ->
             InviteStringsMapForCC)
     catch
         Class: Reason: Stacktrace  ->
-            ?ERROR("Failed to get invite strings: ~p, ~p, ~p", [lager:pr_stacktrace(Stacktrace, {Class, Reason})]),
+            ?ERROR("Failed to get invite strings for ~s: ~p | ~p | ~p",
+                [Uid, Class, Reason, Stacktrace]),
             #{}
     end.
 
@@ -399,18 +400,21 @@ init_invite_string_table() ->
 
 rm_invite_strings_by_cc(InviteStringMap, Uid) ->
     {ok, RawLangId} = model_accounts:get_lang_id(Uid),
-    case binary:split(RawLangId, <<"-">>) of
-        [RawLangId] -> InviteStringMap;
-        [_LangId, CC] ->
-            InvStrsToRm = mod_props:get_invite_strings_to_rm_by_cc(CC),
-            maps:map(
-                fun(LangId, Strings) ->
-                    InvStrsToRmForLangId = maps:get(LangId, InvStrsToRm, []),
-                    lists:filter(
-                        fun(S) -> not lists:member(S, InvStrsToRmForLangId) end,
-                        Strings)
-                end,
-                InviteStringMap);
-        _ -> ?WARNING("Unexpected LangId for ~s: ~p", [Uid, RawLangId])
+    case RawLangId of
+        undefined -> InviteStringMap;
+        _ ->
+            case binary:split(RawLangId, <<"-">>) of
+                [RawLangId] -> InviteStringMap;
+                [_LangId, CC] ->
+                    InvStrsToRm = mod_props:get_invite_strings_to_rm_by_cc(CC),
+                    maps:map(
+                        fun(LangId, Strings) ->
+                            InvStrsToRmForLangId = maps:get(LangId, InvStrsToRm, []),
+                            lists:filter(
+                                fun(S) -> not lists:member(S, InvStrsToRmForLangId) end,
+                                Strings)
+                        end,
+                        InviteStringMap);
+                _ -> ?WARNING("Unexpected LangId for ~s: ~p", [Uid, RawLangId])
+            end
     end.
-
