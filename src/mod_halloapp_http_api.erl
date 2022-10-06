@@ -212,7 +212,8 @@ process_otp_request(#{raw_phone := RawPhone, lang_id := LangId, ua := UserAgent,
         log_otp_request(RawPhone, MethodBin, UserAgent, ClientIP, Protocol),
         check_ua(UserAgent),
         Phone = normalize_by_version(RawPhone, UserAgent),
-        check_hashcash(UserAgent, HashcashSolution, HashcashSolutionTimeTakenMs),
+        CC = mod_libphonenumber:get_region_id(Phone),
+        check_hashcash_cc(CC, UserAgent, HashcashSolution, HashcashSolutionTimeTakenMs),
         Method = get_otp_method(MethodBin),
         ?INFO("Phone: ~s, UserAgent: ~s, Campaign Id: ~s", [Phone, UserAgent, CampaignId]),
         case otp_checker:check(Phone, ClientIP, UserAgent, Method, Protocol, RemoteStaticKey) of
@@ -467,9 +468,9 @@ request_otp(Phone, LangId, UserAgent, Method, CampaignId) ->
             error(Reason)
     end.
 
--spec check_hashcash(UserAgent :: binary(), Solution :: binary(), TimeTakenMs :: integer()) -> ok | no_return().
-check_hashcash(UserAgent, Solution, TimeTakenMs) ->
-    case util_sms:is_hashcash_enabled(UserAgent, Solution) of
+-spec check_hashcash_cc(CC :: binary(), UserAgent :: binary(), Solution :: binary(), TimeTakenMs :: integer()) -> ok | no_return().
+check_hashcash_cc(CC, UserAgent, Solution, TimeTakenMs) ->
+    case util_sms:is_hashcash_enabled(UserAgent, Solution) andalso CC =/= <<"IR">> of
         true ->
             check_hashcash_solution_throw_error(Solution, TimeTakenMs);
         false ->
