@@ -27,6 +27,7 @@ message EventData {
     FabAction fab_action = 19;
     GroupHistoryReport group_history_report = 20;
     HomeDecryptionReport home_decryption_report = 21;
+    InviteRequestResult invite_request_result = 22;
   }
 }
 
@@ -287,12 +288,23 @@ message Call {
 
 
 message FabAction {
-    enum FabActionType {
-        UNKNOWN_TYPE = 0;
-        GALLERY = 1;
-        AUDIO = 2;
-        TEXT = 3;
-        CAMERA = 4;
-    }
-    FabActionType type = 1;
+  enum FabActionType {
+    UNKNOWN_TYPE = 0;
+    GALLERY = 1;
+    AUDIO = 2;
+    TEXT = 3;
+    CAMERA = 4;
+  }
+  FabActionType type = 1;
+}
+
+message InviteRequestResult {
+  enum Type {
+    UNKNOWN = 0;
+    CANCELLED = 1;
+    SENT = 2;
+    FAILED = 3;
+  }
+  Type type = 1;
+  string invited_phone = 2;
 }
