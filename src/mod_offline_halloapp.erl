@@ -131,12 +131,17 @@ handle_cast(Request, State) ->
 handle_info({push_offline_message, Message}, #{host := _ServerHost} = State) ->
     MsgId = pb:get_id(Message),
     Uid = pb:get_to(Message),
-    case model_messages:get_message(Uid, MsgId) of
-        {ok, undefined} ->
-            ?INFO("Uid: ~s, message has been acked, Id: ~s", [Uid, MsgId]);
-        _ ->
-            ?INFO("Uid: ~s, no ack for message Id: ~s, trying a push", [Uid, MsgId]),
-            ejabberd_sm:push_message(Message)
+    case lists:member(undefined, [MsgId, Uid]) of
+        true ->
+            ?ERROR("Invalid Msg | Uid: ~s | MsgId: ~p", [Uid, MsgId]);
+        false ->
+            case model_messages:get_message(Uid, MsgId) of
+                {ok, undefined} ->
+                    ?INFO("Uid: ~s, message has been acked, Id: ~s", [Uid, MsgId]);
+                _ ->
+                    ?INFO("Uid: ~s, no ack for message Id: ~s, trying a push", [Uid, MsgId]),
+                    ejabberd_sm:push_message(Message)
+            end
     end,
     {noreply, State};
 
