@@ -15,7 +15,7 @@
 -include_lib("stdlib/include/assert.hrl").
 -include("sms.hrl").
 
--define(DEFAULT_UA, "HalloApp/iOS1.11.181").
+-define(DEFAULT_UA, "HalloApp/iOS1.25.302").
 -define(DEFAULT_HOST, "localhost").
 -define(DEFAULT_PORT, "5580").
 
