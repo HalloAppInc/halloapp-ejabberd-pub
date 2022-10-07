@@ -36,15 +36,12 @@
     status/0,
     reopen_log/0,
     rotate_log/0,
-    set_loglevel/1,
     stop_kindly/2,
     reload_config/0,
     dump_config/1,
     convert_to_yaml/2,
     %% Cluster
-    join_cluster/0,
     leave_cluster/1,
-    list_cluster/0,
     %% Erlang
     update_list/0,
     update/1,
@@ -137,10 +134,6 @@ get_commands_spec() ->
         result_example = {ok, <<"The node ejabberd@localhost is started with status: started"
                     "ejabberd X.X is running in that node">>},
         args = [], result = {res, restuple}},
-    #ejabberd_commands{name = reset_auth_service, tags = [server],
-        desc = "Reset auth service: Server will start sending auth failures to clients again",
-        module = mod_auth_monitor, function = reset_auth_service,
-        args = [], result = {res, restuple}},
     #ejabberd_commands{name = stop, tags = [server],
         desc = "Stop ejabberd gracefully",
         module = init, function = stop,
@@ -149,6 +142,10 @@ get_commands_spec() ->
         desc = "Restart ejabberd gracefully",
         module = init, function = restart,
         args = [], result = {res, rescode}},
+    #ejabberd_commands{name = reset_auth_service, tags = [server],
+        desc = "Reset auth service: Server will start sending auth failures to clients again",
+        module = mod_auth_monitor, function = reset_auth_service,
+        args = [], result = {res, restuple}},
     #ejabberd_commands{name = reopen_log, tags = [logs, server],
         desc = "Reopen the log files",
         policy = admin,
@@ -181,14 +178,13 @@ get_commands_spec() ->
                                                   ]}}},
     #ejabberd_commands{name = set_loglevel, tags = [logs, server],
         desc = "Set the loglevel (0 to 5)",
-        module = ?MODULE, function = set_loglevel,
+        module = ejabberd_logger, function = set,
         args_desc = ["Integer of the desired logging level, between 1 and 5"],
         args_example = [5],
         result_desc = "The type of logger module used",
         result_example = lager,
         args = [{loglevel, integer}],
         result = {res, rescode}},
-
     #ejabberd_commands{name = update_list, tags = [server],
         desc = "List modified modules that can be updated",
         module = ?MODULE, function = update_list,
@@ -201,16 +197,14 @@ get_commands_spec() ->
         args_example = ["mod_vcard"],
         args = [{module, string}],
         result = {res, restuple}},
-
     #ejabberd_commands{name = reload_config, tags = [server, config],
         desc = "Reload config file in memory",
         module = ?MODULE, function = reload_config,
         args = [],
         result = {res, rescode}},
-
     #ejabberd_commands{name = join_cluster, tags = [cluster],
         desc = "Join the ejabberd cluster (using Redis)",
-        module = ?MODULE, function = join_cluster,
+        module = ejabberd_cluster, function = join,
         args = [],
         result = {res, rescode}},
     #ejabberd_commands{name = leave_cluster, tags = [cluster],
@@ -222,14 +216,12 @@ get_commands_spec() ->
         args_example = [<<"ejabberd1@machine8">>],
         args = [{node, binary}],
         result = {res, rescode}},
-
     #ejabberd_commands{name = list_cluster, tags = [cluster],
         desc = "List nodes that are part of the cluster handled by Node",
-        module = ?MODULE, function = list_cluster,
+        module = ejabberd_cluster, function = get_nodes,
         result_example = [ejabberd1@machine7, ejabberd1@machine8],
         args = [],
         result = {nodes, {list, {node, atom}}}},
-
     #ejabberd_commands{name = convert_to_yaml, tags = [config],
                     desc = "Convert the input file from Erlang to YAML format",
                     module = ?MODULE, function = convert_to_yaml,
@@ -244,71 +236,6 @@ get_commands_spec() ->
         args_example = ["/tmp/ejabberd.yml"],
         args = [{out, string}],
         result = {res, rescode}},
-
-    #ejabberd_commands{name = set_master, tags = [mnesia],
-        desc = "Set master node of the clustered Mnesia tables",
-        longdesc = "If you provide as nodename \"self\", this "
-        "node will be set as its own master.",
-        module = ?MODULE, function = set_master,
-        args_desc = ["Name of the erlang node that will be considered master of this node"],
-        args_example = ["ejabberd@machine7"],
-        args = [{nodename, string}], result = {res, restuple}},
-    #ejabberd_commands{name = mnesia_change_nodename, tags = [mnesia],
-        desc = "Change the erlang node name in a backup file",
-        module = ?MODULE, function = mnesia_change_nodename,
-        args_desc = ["Name of the old erlang node", "Name of the new node",
-                 "Path to old backup file", "Path to the new backup file"],
-        args_example = ["ejabberd@machine1", "ejabberd@machine2",
-                "/var/lib/ejabberd/old.backup", "/var/lib/ejabberd/new.backup"],
-        args = [{oldnodename, string}, {newnodename, string},
-            {oldbackup, string}, {newbackup, string}],
-        result = {res, restuple}},
-    #ejabberd_commands{name = backup, tags = [mnesia],
-        desc = "Store the database to backup file",
-        module = ?MODULE, function = backup_mnesia,
-        args_desc = ["Full path for the destination backup file"],
-        args_example = ["/var/lib/ejabberd/database.backup"],
-        args = [{file, string}], result = {res, restuple}},
-    #ejabberd_commands{name = restore, tags = [mnesia],
-        desc = "Restore the database from backup file",
-        module = ?MODULE, function = restore_mnesia,
-        args_desc = ["Full path to the backup file"],
-        args_example = ["/var/lib/ejabberd/database.backup"],
-        args = [{file, string}], result = {res, restuple}},
-    #ejabberd_commands{name = dump, tags = [mnesia],
-        desc = "Dump the database to a text file",
-        module = ?MODULE, function = dump_mnesia,
-        args_desc = ["Full path for the text file"],
-        args_example = ["/var/lib/ejabberd/database.txt"],
-        args = [{file, string}], result = {res, restuple}},
-    #ejabberd_commands{name = dump_table, tags = [mnesia],
-        desc = "Dump a table to a text file",
-        module = ?MODULE, function = dump_table,
-        args_desc = ["Full path for the text file", "Table name"],
-        args_example = ["/var/lib/ejabberd/table-muc-registered.txt", "muc_registered"],
-        args = [{file, string}, {table, string}], result = {res, restuple}},
-    #ejabberd_commands{name = load, tags = [mnesia],
-        desc = "Restore the database from a text file",
-        module = ?MODULE, function = load_mnesia,
-        args_desc = ["Full path to the text file"],
-        args_example = ["/var/lib/ejabberd/database.txt"],
-        args = [{file, string}], result = {res, restuple}},
-    #ejabberd_commands{name = mnesia_info, tags = [mnesia],
-        desc = "Dump info on global Mnesia state",
-        module = ?MODULE, function = mnesia_info,
-        args = [], result = {res, string}},
-    #ejabberd_commands{name = mnesia_table_info, tags = [mnesia],
-        desc = "Dump info on Mnesia table state",
-        module = ?MODULE, function = mnesia_table_info,
-        args_desc = ["Mnesia table name"],
-        args_example = ["roster"],
-        args = [{table, string}], result = {res, string}},
-    #ejabberd_commands{name = install_fallback, tags = [mnesia],
-        desc = "Install the database from a fallback file",
-        module = ?MODULE, function = install_fallback_mnesia,
-        args_desc = ["Full path to the fallback file"],
-        args_example = ["/var/lib/ejabberd/database.fallback"],
-        args = [{file, string}], result = {res, restuple}},
     #ejabberd_commands{name = clear_cache, tags = [server],
         desc = "Clear database cache on all nodes",
         module = ?MODULE, function = clear_cache,
@@ -500,13 +427,13 @@ hot_code_reload() ->
 
 
 %% Use the h script to check changed_modules.
-%% Ex: h release --machine s-test --list_changed_modules
+%% Ex: h release --machine s-test --list-changed-modules
 %% That should list the modules updated after the release.
 -spec list_changed_modules() -> {ok, [atom()]}.
 list_changed_modules() ->
     ModifiedModules = code:modified_modules(),
     ?INFO("changed_modules: ~p", [lists:sort(ModifiedModules)]),
-    io:format("changed_modules: ~p", [lists:sort(ModifiedModules)]),
+    io:format("changed_modules: ~p~n", [lists:sort(ModifiedModules)]),
     {ok, ModifiedModules}.
 
 
@@ -655,8 +582,6 @@ rotate_log() ->
     ejabberd_hooks:run(rotate_log_hook, []),
     ejabberd_logger:rotate_log().
 
-set_loglevel(LogLevel) ->
-    ejabberd_logger:set(LogLevel).
 
 %%%
 %%% Stop Kindly
@@ -735,14 +660,8 @@ convert_to_yaml(_In, _Out) -> {invalid_config, not_yml}.
 %%% Cluster management
 %%%
 
-join_cluster() ->
-    ejabberd_cluster:join().
-
 leave_cluster(NodeBin) ->
     ejabberd_cluster:leave(list_to_atom(binary_to_list(NodeBin))).
-
-list_cluster() ->
-    ejabberd_cluster:get_nodes().
 
 clear_cache() ->
     Nodes = ejabberd_cluster:get_nodes(),
