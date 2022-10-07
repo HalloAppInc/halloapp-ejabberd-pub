@@ -1,9 +1,0 @@
-diff a/ejabberd.yml.example b/ejabberd.yml.example	(rejected hunks)
-@@ -15,6 +15,7 @@
- ###
- 
- hosts:
-+  - "s.halloapp.net"
-   - localhost
- 
- loglevel: info
