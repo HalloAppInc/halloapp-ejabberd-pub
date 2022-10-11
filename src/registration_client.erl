@@ -131,7 +131,8 @@ hashcash_register(Name, Phone, Options) ->
     ClientKeyPair = {kp, dh25519, CurveSecret, CurvePub},
     Host = maps:get(host, Options, "127.0.0.1"),
     Port = maps:get(port, Options, 5208),
-    ClientOptions = #{host => Host, port => Port, state => register},
+    UserAgent = maps:get(user_agent, Options, ?DEFAULT_UA),
+    ClientOptions = #{host => Host, port => Port, user_agent => UserAgent, state => register},
     % request hashcash challenge
     {ok, HashcashRequestPkt} = compose_hashcash_noise_request(),
     case ha_client:connect_and_send(HashcashRequestPkt, ClientKeyPair, ClientOptions) of

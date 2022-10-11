@@ -25,7 +25,7 @@
     get_uid/0,
     do_noise_checks/0,
     do_noise_login/2,
-    do_noise_register/1
+    do_noise_register/2
 ]).
 
 -define(OPTS, [
@@ -62,8 +62,8 @@ do_noise_login({Name, Host}, Version) ->
     end,
     ok.
 
-do_noise_register({Name, Host}) ->
-    Options = #{host => Host, port => ?NOISE_REGISTER_PORT},
+do_noise_register({Name, Host}, Version) ->
+    Options = #{host => Host, port => ?NOISE_REGISTER_PORT, user_agent => Version},
     try registration_client:hashcash_register(Name, ?MONITOR_PHONE, Options) of
         ok -> record_state(Host, register, ?ALIVE_STATE);
         {error, Err} -> 
@@ -206,9 +206,10 @@ do_noise_logins(#{mrefs := MRefs} = State) ->
     maps:put(mrefs, NewMRefs, State).
 
 do_noise_registers(#{mrefs := MRefs} = State) ->
+    {Version, _Ts} = maps:get(client_version, State),
     NewMRefs = lists:foldl(
         fun({_Name, Host} = Args, AccMap) ->
-            {_Pid, Monitor} = spawn_monitor(?MODULE, do_noise_register, [Args]),
+            {_Pid, Monitor} = spawn_monitor(?MODULE, do_noise_register, [Args, Version]),
             maps:put(Monitor, {Host, register}, AccMap)
         end,
         MRefs,
