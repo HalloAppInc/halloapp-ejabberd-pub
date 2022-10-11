@@ -200,10 +200,16 @@ meck_finish(Module) ->
 
 
 load_protobuf() ->
-    case enif_protobuf:encode({pb_avatar, <<>>, <<>>}) of
-        {error, _Reason} -> enif_protobuf:load_cache(server:get_msg_defs());
-        Bin when is_binary(Bin) -> ok
-    end.
+    try
+        case enif_protobuf:encode({pb_avatar, <<>>, <<>>}) of
+            {error, _Reason} -> enif_protobuf:load_cache(server:get_msg_defs());
+            Bin when is_binary(Bin) -> ok
+        end
+    catch
+        _:_ ->
+            enif_protobuf:load_cache(server:get_msg_defs())
+    end,
+    ok.
 
 
 -spec init_redis(atom() | [atom()]) -> ok.
