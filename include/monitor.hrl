@@ -42,6 +42,7 @@
 % processes are pinged every PING_INTERVAL_MS ms
 -define(PING_INTERVAL_MS, (5 * ?SECONDS_MS)).
 -define(NOISE_PING_INTERVAL_MS, (10 * ?SECONDS_MS)).
+-define(REDIS_PING_INTERVAL_MS, (7 * ?SECONDS_MS)).
 
 % save recent process states for STATE_HISTORY_LENGTH_MS seconds
 % actual history saved will be between STATE_HISTORY_LENGTH_MS and (2 * STATE_HISTORY_LENGTH)

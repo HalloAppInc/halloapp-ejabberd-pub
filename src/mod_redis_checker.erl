@@ -114,7 +114,7 @@ mod_options(_Host) -> [].
 init(_) ->
     ets:new(?REDIS_TABLE, [named_table, public]),
     {Clusters, ClustersTsMs} = {get_clusters(), util:now_ms()},
-    {ok, Tref} = timer:apply_interval(?PING_INTERVAL_MS, ?MODULE, check_redises, []),
+    {ok, Tref} = timer:apply_interval(?REDIS_PING_INTERVAL_MS, ?MODULE, check_redises, []),
     {ok, #{clusters => Clusters, clusters_ts_ms => ClustersTsMs, tref => Tref}}.
 
 
@@ -130,11 +130,8 @@ handle_call(Request, From, State) ->
 
 
 handle_cast(check_redises, State) ->
-    ?INFO("Checking states", []),
     State2 = check_states(State),
-    ?INFO("Checking redises", []),
     State3 = check_redises(State2),
-    ?INFO("Checks complete", []),
     {noreply, State3};
 
 handle_cast({ping, Id, Ts, From}, State) ->
@@ -354,8 +351,8 @@ check_consecutive_connect_fails(Id, Node, StateHistory) ->
 check_has_slaves(Id, Node) ->
     StateHistory = get_state_history(Id, Node, ?HAS_SLAVES_KEY),
     send_stats(util:to_list(?HAS_SLAVES_KEY), Id, Node, StateHistory),
-    Window = lists:sublist(StateHistory, ?MISSING_SLAVE_THRESHOLD_MS div ?PING_INTERVAL_MS),
-    case util_monitor:get_num_fails(Window) =:= (?MISSING_SLAVE_THRESHOLD_MS div ?PING_INTERVAL_MS) of
+    Window = lists:sublist(StateHistory, ?MISSING_SLAVE_THRESHOLD_MS div ?REDIS_PING_INTERVAL_MS),
+    case util_monitor:get_num_fails(Window) =:= (?MISSING_SLAVE_THRESHOLD_MS div ?REDIS_PING_INTERVAL_MS) of
         false -> false;
         true ->
             ?ERROR("~p ~p has had less than ~p slaves for > ~p hour",
@@ -437,7 +434,7 @@ record_state(Id, Node, Type, State) ->
 
 -spec send_stats(StatName :: string(), Id :: atom(), Node :: rnode() | none, StateHistory :: [proc_state()]) -> ok.
 send_stats(StatName, Id, Node, StateHistory) ->
-    Window = ?MINUTES_MS div ?PING_INTERVAL_MS,
+    Window = ?MINUTES_MS div ?REDIS_PING_INTERVAL_MS,
     SuccessRate = 1 - (util_monitor:get_num_fails(lists:sublist(StateHistory, Window)) / Window),
     StrNode = case Node of
         #node{address = Host, port = Port} -> lists:concat([Host, "/", util:to_list(Port)]);
