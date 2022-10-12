@@ -28,9 +28,9 @@
 -endif.
 
 -define(MIN_SAMPLE, 50).
--define(ALERT_RATE, 90).
--define(ERROR_RATE, 80).
--define(WARNING_RATE, 65).
+-define(ALERT_RATE, 99).
+-define(ERROR_RATE, 90).
+-define(WARNING_RATE, 85).
 
 
 %%====================================================================
