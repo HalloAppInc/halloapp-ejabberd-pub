@@ -151,7 +151,9 @@ get_invite_strings_to_rm_by_cc(CC) ->
     case CC of
         <<"US">> -> #{<<"en">> => [
             %% ID: bC4w8HJbHV0zVxoZsIh+rA==
-            <<"I am inviting you to install HalloApp. Download for free here: https://halloapp.com/free">>
+            <<"I am inviting you to install HalloApp. Download for free here: https://halloapp.com/free">>,
+            %% ID: rpQ1erWtA2dUhEnDRYXOuA==
+            <<"Hey %@, let’s keep in touch on HalloApp. Download at https://halloapp.com/kit (HalloApp is a new, private social app for close friends and family, with no ads or algorithms).">>
         ]};
         _ -> #{}
     end.
