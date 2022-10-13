@@ -669,6 +669,10 @@ send_group_chat_message(MsgId, Gid, Uid, GroupChatStanza) ->
                     lists:foldl(
                         fun(ToUid, Acc) ->
                             GroupChatStanza1 = GroupChatStanza#pb_group_chat_stanza{
+                                gid = Gid,
+                                name = Group#group.name,
+                                avatar_id = Group#group.avatar,
+                                background = Group#group.background,
                                 sender_phone = SenderPhone,
                                 sender_name = SenderName,
                                 audience_hash = undefined,
