@@ -231,7 +231,9 @@ get_client_based_props(PropMap, ios, ClientVersion) ->
     Result9 = util_ua:is_version_greater_than(ClientVersion, <<"HalloApp/iOS1.25.301">>),
     PropMap10 = maps:update(chat_reactions, Result9, PropMap9),
     PropMap11 = maps:update(comment_reactions, Result9, PropMap10),
-    PropMap11;
+    Result10 = util_ua:is_version_greater_than(ClientVersion, <<"HalloApp/iOS1.25.305">>),
+    PropMap12 = maps:update(location_sharing, Result10, PropMap11),
+    PropMap12;
 
 get_client_based_props(PropMap, undefined, _) ->
     maps:update(groups, false, PropMap).
