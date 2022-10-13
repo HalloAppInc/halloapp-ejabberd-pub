@@ -672,7 +672,6 @@ send_group_chat_message(MsgId, Gid, Uid, GroupChatStanza) ->
                                 gid = Gid,
                                 name = Group#group.name,
                                 avatar_id = Group#group.avatar,
-                                background = Group#group.background,
                                 sender_phone = SenderPhone,
                                 sender_name = SenderName,
                                 audience_hash = undefined,
