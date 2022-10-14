@@ -173,6 +173,7 @@ message GroupDecryptionReport {
     POST_REACTION = 4;
     COMMENT_REACTION = 5;
     CHAT = 6;
+    CHAT_REACTION = 7;
   }
   ItemType item_type = 5;
   string original_version = 6; // at time msg id was first encountered
@@ -282,20 +283,100 @@ message Call {
   bool is_krisp_active = 12;
   uint64 ice_time_taken_ms = 13;  // time taken for ice connection state to be connected in ms.
 
-  string webrtc_stats = 20;       // json serialized version of the result of peer_connection.get_stats at the end of
-                                  // the call
+  string webrtc_stats = 20;
+  WebrtcSummary webrtc_summary = 21;  // summary of the result of peer_connection.get_stats at the end of the call
+}
+
+message WebrtcSummary {
+  // everything here refers to local incoming / outgoing - no remote streams are considered
+  StreamStats audio_stream = 1;
+  StreamStats video_stream = 2;
+
+  AudioStats audio = 3;
+  VideoStats video = 4;
+
+  repeated CandidatePairStats candidatePairs = 5;
+}
+
+message StreamStats {
+  //outgoing
+  uint64 packetsSent = 1;
+  // incoming
+  uint64 packetsLost = 2;
+  uint64 packetsReceived = 3;
+  uint64 bytesReceived = 4;
+
+  //jitter stats - incoming quality
+  double jitter = 5;
+  double jitterBufferDelay = 6;
+  uint64 jitterBufferEmittedCount = 7;
+  double jitterBufferMinimumDelay = 8;
+}
+
+message AudioStats {
+  // tracks quality of incoming audio
+  uint64 insertedSamplesForDeceleration = 1;
+  uint64 removedSamplesForAcceleration = 2;
+  uint64 packetsDiscarded = 3;
+}
+
+message VideoStats {
+  // tracks performance of incoming video
+  uint64 framesReceived = 1;
+  uint64 framesDropped = 2;
+
+  // these track performance of our outgoing video
+  double qualityLimitationDuration_bandwidth = 3;
+  double qualityLimitationDuration_cpu = 4;
+  double qualityLimitationDuration_none = 5;
+  double qualityLimitationDuration_other = 6;
+  // tracks compression in incoming video
+  double averageQp = 7;
+  // tracks how long in total encoding video took
+  double totalProcessingDelay = 8;
+}
+
+message CandidatePairStats {
+  enum CandidateType {
+    PRFLX = 0;
+    SRFLX = 1;
+    RELAY = 2;
+    HOST = 3;
+  }
+  CandidateType local = 1;
+  string localIP = 2;
+  CandidateType remote = 3;
+  string remoteIP = 4;
+
+  uint64 packetsSent = 5;
+  uint64 packetsReceived = 6;
+  uint64 bytesSent = 7;
+  uint64 bytesReceived = 8;
+
+  double averageRoundTripTime = 9;
+  double currentRoundTripTime = 10;
+  double availableOutgoingBitrate = 11;
+  double availableIncomingBitrate = 12;
+  enum CandidatePairState {
+    FROZEN = 0;
+    WAITING = 1;
+    IN_PROGRESS = 2;
+    FAILED = 3;
+    SUCCEEDED = 4;
+  }
+  CandidatePairState state = 13;
 }
 
 
 message FabAction {
-  enum FabActionType {
-    UNKNOWN_TYPE = 0;
-    GALLERY = 1;
-    AUDIO = 2;
-    TEXT = 3;
-    CAMERA = 4;
-  }
-  FabActionType type = 1;
+    enum FabActionType {
+        UNKNOWN_TYPE = 0;
+        GALLERY = 1;
+        AUDIO = 2;
+        TEXT = 3;
+        CAMERA = 4;
+    }
+    FabActionType type = 1;
 }
 
 message InviteRequestResult {

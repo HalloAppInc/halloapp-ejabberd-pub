@@ -1239,6 +1239,7 @@ message GroupFeedRerequest {
         POST_REACTION = 4;
         COMMENT_REACTION = 5;
         MESSAGE = 6;
+        MESSAGE_REACTION = 7;
     }
     ContentType content_type = 4;
 }
@@ -1519,9 +1520,7 @@ message OtpResponse {
         WRONG_HASHCASH_SOLUTION = 11;
         INVALID_COUNTRY_CODE = 12;
         INVALID_LENGTH = 13;
-//      Commenting out to prevent seg fault when running ejabberd
-//      TODO: investigate crash
-//      LINE_TYPE_VOIP = 14;
+        LINE_TYPE_VOIP = 14;
         LINE_TYPE_FIXED = 15;
         LINE_TYPE_OTHER = 16;
     }

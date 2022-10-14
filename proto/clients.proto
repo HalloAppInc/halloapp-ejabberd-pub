@@ -245,6 +245,7 @@ message Moment {
   Image image = 1;
   Image selfie_image = 2;
   bool selfie_leading = 3;
+  string location = 4;
 }
 
 message VoiceNote {
