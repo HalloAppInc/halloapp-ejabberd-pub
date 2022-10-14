@@ -147,6 +147,8 @@ e2e_decryption_report(TimestampMsBin) ->
                 WHERE timestamp_ms >= '", TimestampMsBin/binary, "'
                     AND \"group_decryption_report\".\"reason\" != 'missingContent'
                     AND \"group_decryption_report\".\"reason\" != 'content_missing'
+                    AND \"group_decryption_report\".\"reason\" != 'post_not_found'
+                    AND \"group_decryption_report\".\"reason\" != 'postNotFound'
                 GROUP BY version, platform) as total
         ON success.version=total.version
             AND success.platform=total.platform
@@ -189,6 +191,8 @@ e2e_decryption_report_7day(TimestampMsBin) ->
                 WHERE timestamp_ms >= '", TimestampMsBin/binary, "'
                     AND \"group_decryption_report\".\"reason\" != 'missingContent'
                     AND \"group_decryption_report\".\"reason\" != 'content_missing'
+                    AND \"group_decryption_report\".\"reason\" != 'post_not_found'
+                    AND \"group_decryption_report\".\"reason\" != 'postNotFound'
                 GROUP BY version, platform) as total
         ON success.version=total.version
             AND success.platform=total.platform
@@ -230,6 +234,8 @@ e2e_decryption_report_without_rerequest(TimestampMsBin) ->
                 WHERE timestamp_ms >= '", TimestampMsBin/binary, "'
                     AND \"group_decryption_report\".\"reason\" != 'missingContent'
                     AND \"group_decryption_report\".\"reason\" != 'content_missing'
+                    AND \"group_decryption_report\".\"reason\" != 'post_not_found'
+                    AND \"group_decryption_report\".\"reason\" != 'postNotFound'
                 GROUP BY version, platform) as total
         ON success.version=total.version
             AND success.platform=total.platform
