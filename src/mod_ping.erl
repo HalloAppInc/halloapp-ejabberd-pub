@@ -49,7 +49,7 @@
 
 -define(PING_ACTIVE_INTERVAL, 30 * ?SECONDS_MS).
 %% Temporarily increase ping timeout.
--define(PING_PASSIVE_INTERVAL, 120 * ?SECONDS_MS).
+-define(PING_PASSIVE_INTERVAL, 3600 * ?SECONDS_MS).
 -define(ACK_TIMEOUT, 5 * ?SECONDS_MS).
 
 %% API
@@ -285,10 +285,13 @@ add_timer(#session_info{sid = SID} = SessionInfo, State) ->
         _ ->
             Timers1
     end,
-    PingInterval = fetch_ping_interval(SessionInfo),
-    TRef = erlang:start_timer(PingInterval, self(), {ping, SessionInfo}),
-    Timers3 = maps:put(SID, {SessionInfo, TRef}, Timers2),
-    State#state{timers = Timers3}.
+    case fetch_ping_interval(SessionInfo) of
+        infinity -> State;
+        PingInterval ->
+            TRef = erlang:start_timer(PingInterval, self(), {ping, SessionInfo}),
+            Timers3 = maps:put(SID, {SessionInfo, TRef}, Timers2),
+            State#state{timers = Timers3}
+    end.
 
 
 -spec del_timer(SessionInfo :: session_info(), State :: state()) -> state().
@@ -305,7 +308,10 @@ del_timer(#session_info{sid = SID} = SessionInfo, State) ->
 
 
 fetch_ping_interval(#session_info{mode = active}) -> ?PING_ACTIVE_INTERVAL;
-fetch_ping_interval(#session_info{mode = passive}) -> ?PING_PASSIVE_INTERVAL.
+fetch_ping_interval(#session_info{mode = passive}) -> ?PING_PASSIVE_INTERVAL;
+fetch_ping_interval(SessionInfo) ->
+    ?ERROR("SessionInfo is invalid: ~p", [SessionInfo]),
+    infinity. %% This should never happen.
 
 
 depends(_Host, _Opts) ->
