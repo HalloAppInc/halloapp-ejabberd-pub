@@ -23,6 +23,7 @@ test_random_shuffle(_) ->
 test_get_shard(_) ->
     [
         ?_assertEqual(util:get_stest_shard_num(), util:get_shard('ejabberd@s-test')),
+        ?_assertEqual(util:get_stest_shard_num() + 1, util:get_shard('ejabberd@s-test1')),
         ?_assertEqual(4, util:get_shard('ejabberd@prod4')),
         ?_assertEqual(12, util:get_shard('ejabberd@prod12')),
         ?_assertEqual(undefined, util:get_shard('ejabberd@localhost'))

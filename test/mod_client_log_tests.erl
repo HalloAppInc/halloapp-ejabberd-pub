@@ -21,7 +21,6 @@
 -define(COUNT2, 7).
 
 -define(TERM, <<"teststring">>).
--define(SOURCE_SERVER, <<"s-test">>).
 -define(HEADERS, [{"content-type", "text/plain"}]).
 
 -define(EVENT1, #pb_media_upload{

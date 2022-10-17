@@ -28,10 +28,10 @@
 
 start(_Host, _Opts) ->
     ?INFO("starting", []),
-    case util:get_machine_name() of
-        <<"s-test">> ->
+    case util:is_machine_stest() of
+        true ->
             schedule();
-        _ -> ok
+        false -> ok
     end,
     ok.
 
@@ -53,10 +53,10 @@ schedule() ->
 
 stop(_Host) ->
     ?INFO("stopping", []),
-    case util:get_machine_name() of
-        <<"s-test">> ->
+    case util:is_machine_stest() of
+        true ->
             unschedule();
-        _ -> ok
+        false -> ok
     end,
     ok.
 

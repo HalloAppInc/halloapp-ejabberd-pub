@@ -513,7 +513,8 @@ get_shard() ->
 get_shard(Node) ->
     [_Name, NodeBin] = binary:split(to_binary(Node), <<"@">>),
     case NodeBin of
-        <<"s-test">> -> ?STEST_SHARD_NUM;
+        <<"s-test">> -> ?STEST_SHARD_NUM;  %% deprecated naming convention for s-test
+        <<"s-test", N/binary>> -> ?STEST_SHARD_NUM + to_integer(N);
         <<"prod", N/binary>> -> to_integer(N);
         _ -> undefined
     end.
@@ -630,7 +631,10 @@ get_machine_name() ->
 
 -spec is_machine_stest() -> boolean().
 is_machine_stest() ->
-    get_machine_name() =:= <<"s-test">>.
+    case binary:match(get_machine_name(), <<"s-test">>) of
+        nomatch -> false;
+        _ -> true
+    end.
 
 
 -spec repair_utf8(Bin :: binary()) -> binary().

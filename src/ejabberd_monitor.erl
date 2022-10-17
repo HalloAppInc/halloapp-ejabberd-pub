@@ -17,6 +17,10 @@
 -include("logger.hrl").
 -include("monitor.hrl").
 
+-ifdef(TEST).
+-export([get_list_of_stest_monitor_names/1]).
+-endif.
+
 -export([start_link/0]).
 %% gen_server callbacks
 -export([
@@ -293,11 +297,23 @@ monitor_other_monitors() ->
           lists:map(
               fun(N) -> {global, get_registered_name(N)} end,
               nodes());
-        stest -> [{global, get_registered_name('ejabberd@s-test')}];
+        stest -> get_list_of_stest_monitor_names(nodes());
         none -> []
     end,
     lists:foreach(fun monitor/1, MonitorList),
     ok.
+
+
+get_list_of_stest_monitor_names(Nodes) ->
+    lists:filtermap(
+        fun(NodeAtom) ->
+            NodeStr = util:to_list(NodeAtom),
+            case string:find(NodeStr, "s-test") of
+                nomatch -> false;
+                _ -> {true, {global, get_registered_name(NodeAtom)}}
+            end
+        end,
+        Nodes).
 
 
 monitor_atoms() ->

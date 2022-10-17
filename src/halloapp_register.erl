@@ -501,7 +501,7 @@ cast(Pid, Msg) ->
 
 % Counts requests that aren't from the registration checker.
 check_and_count(ClientIP, Namespace, Metric, Value, Tags) ->
-    case ClientIP =:= mod_aws:get_ip("s-test") of 
+    case lists:member(ClientIP, mod_aws:get_stest_ips()) of
         true -> ok;
         false -> stat:count(Namespace, Metric, Value, Tags)
     end.

@@ -41,7 +41,8 @@
     get_secret/1,
     get_secret_value/2,
     get_ejabberd_machines/0,
-    get_ip/1
+    get_ip/1,
+    get_stest_ips/0
 ]).
 
 %% Hooks
@@ -156,7 +157,7 @@ retrieve_secret(SecretName) ->
 -spec retrieve_ejabberd_machines() -> [{string(), string()}].
 retrieve_ejabberd_machines() ->
     {ok, Config} = erlcloud_aws:auto_config(),
-    Filters = [{"tag:Name", ["s-test", "prod*"]}],
+    Filters = [{"tag:Name", ["s-test*", "prod*"]}],
     %% TODO: see if aws function below can take --query pararm,
     %% so we don't have to do the map
     {ok, Res} = erlcloud_ec2:describe_instances([], Filters, Config),
@@ -233,9 +234,20 @@ get_machines_internal() ->
     end.
 
 -spec get_ip(MachineName :: string()) -> string().
-get_ip("s-test") -> "44.203.117.89";
 get_ip(MachineName) ->
     case lists:keyfind(MachineName, 1, get_ejabberd_machines()) of
         false -> "";
         {MachineName, IpAddr} -> IpAddr
     end.
+
+-spec get_stest_ips() -> [string()].
+get_stest_ips() ->
+    lists:filtermap(
+        fun({Name, Ip}) ->
+            case string:find(Name, "s-test") of
+                nomatch -> false;
+                _ -> {true, Ip}
+            end
+        end,
+        get_ejabberd_machines()).
+

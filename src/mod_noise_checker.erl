@@ -88,15 +88,15 @@ get_state_history(Ip, register) ->
 %%====================================================================
 
 start(Host, Opts) ->
-    case util:get_machine_name() of
-        <<"s-test">> -> gen_mod:start_child(?MODULE, Host, Opts, ?PROC());
-        _ -> ok
+    case util:is_machine_stest() of
+        true -> gen_mod:start_child(?MODULE, Host, Opts, ?PROC());
+        false -> ok
     end.
 
 stop(_Host) ->
-    case util:get_machine_name() of
-        <<"s-test">> -> gen_mod:stop_child(?PROC());
-        _ -> ok
+    case util:is_machine_stest() of
+        true -> gen_mod:stop_child(?PROC());
+        false -> ok
     end.
 
 depends(_Host, _Opts) -> [].

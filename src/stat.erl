@@ -272,8 +272,8 @@ init(_Stuff) ->
     %% TODO(vipin): Move the background jobs in a different module.
     {ok, _Tref1} = timer:apply_interval(1 * ?SECONDS_MS, ?MODULE, trigger_send, []),
     {ok, _} = timer:apply_interval(10 * ?SECONDS_MS, ?MODULE, trigger_count_sessions, []),
-    case util:get_machine_name() of
-        <<"s-test">> ->
+    case util:is_machine_stest() of
+        true ->
             {ok, _Tref2} = timer:apply_interval(5 * ?MINUTES_MS, ?MODULE, trigger_count_users, []),
             {ok, _Tref3} = timer:apply_interval(10 * ?MINUTES_MS, ?MODULE, trigger_zset_cleanup, []),
             {ok, _Tref4} = timer:apply_interval(2 * ?HOURS_MS, ?MODULE, trigger_count_users_by_version, []),
@@ -282,7 +282,7 @@ init(_Stuff) ->
             {ok, _Tref7} = timer:apply_interval(4 * ?HOURS_MS, ?MODULE, trigger_check_sms_reg, [past]),
             {ok, _Tref8} = timer:apply_interval(2 * ?HOURS_MS, ?MODULE, trigger_count_users_by_langid, []),
             {ok, _Tref9} = timer:apply_interval(1 * ?HOURS_MS, ?MODULE, trigger_count_users_by_os_version, []);
-        _ ->
+        false ->
             ok
     end,
     CurrentMinute = util:round_to_minute(util:now()),

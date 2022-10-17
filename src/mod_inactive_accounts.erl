@@ -36,18 +36,18 @@
 
 start(_Host, _Opts) ->
     ?INFO("start ~w", [?MODULE]),
-    case util:get_machine_name() of
-        <<"s-test">> -> schedule();
-        _ -> ok
+    case util:is_machine_stest() of
+        true -> schedule();
+        false -> ok
     end,
     ok.
 
 
 stop(_Host) ->
     ?INFO("stop ~w", [?MODULE]),
-    case util:get_machine_name() of
-        <<"s-test">> -> unschedule();
-        _ -> ok
+    case util:is_machine_stest() of
+        true -> unschedule();
+        false -> ok
     end,
     ok.
 
