@@ -120,7 +120,7 @@ get_props(Uid, ClientVersion) ->
         group_comments_notification => true, %% notifications for group comments by friends on group posts.
         home_feed_comment_notifications => false, %% notifications for home feed comments by friends.
         nse_runtime_sec => 17, %% ios-nse needs 3 secs to cleanup, we want our nse to run =< 20 secs.
-        file_sharing => false,   %% clients are capable of sending files.
+        file_sharing => true,   %% clients are capable of sending files.
         invite_strings => mod_invites:get_invite_strings_bin(Uid), %% json string with invite text.
         new_chat_ui => false,   %% turn on new chat ui on ios.
         is_psa_admin => false, %% is client allowed to post PSA Moment
@@ -175,8 +175,7 @@ get_uid_based_props(PropMap, Uid) ->
             PropMap5 = maps:update(draw_media, true, PropMap3),
             PropMap6 = maps:update(privacy_label, true, PropMap5),
             PropMap7 = maps:update(home_feed_comment_notifications, false, PropMap6),
-            PropMap8 = maps:update(file_sharing, true, PropMap7),
-            PropMap9 = maps:update(use_cleartext_group_feed, false, PropMap8),
+            PropMap9 = maps:update(use_cleartext_group_feed, false, PropMap7),
             PropMap10 = maps:update(new_chat_ui, true, PropMap9),
             PropMap11 = maps:update(enable_sentry_perf_tracking, true, PropMap10),
             PropMap12 = maps:update(group_expiry, true, PropMap11),
