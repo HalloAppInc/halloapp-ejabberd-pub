@@ -124,11 +124,10 @@ check_content_version_rules(Platform, ClientVersion, PayloadType, Message) ->
         {error, _} ->
             ?ERROR("Failed decoding message: ~p", [Message]),
             false;
-        #pb_packet{stanza = #pb_msg{payload = #pb_group_stanza{action = get}}} ->
-            case Platform of
-                android -> true;
-                ios -> util_ua:is_version_greater_than(ClientVersion, <<"HalloApp/iOS1.17.246">>);
-                _ -> false
+        #pb_packet{stanza = #pb_msg{payload = #pb_group_stanza{group_type = GroupType}}} ->
+            case GroupType of
+                chat -> mod_groups:is_chat_enabled_client_version(ClientVersion);
+                _ -> true
             end;
         #pb_packet{stanza = #pb_msg{payload = #pb_contact_list{contacts = [Contact]}}} ->
             case Contact#pb_contact.uid of
