@@ -91,7 +91,10 @@
     map_from_keys/2,
     remove_cc_from_langid/1,
     get_monitor_phone/0,
-    is_monitor_phone/1
+    is_monitor_phone/1,
+    is_node_stest/0,
+    is_node_stest/1,
+    is_main_stest/0
 ]).
 
 
@@ -639,6 +642,19 @@ is_machine_stest() ->
     end.
 
 
+-spec is_node_stest() -> boolean().
+is_node_stest() ->
+    is_node_stest(node()).
+
+
+-spec is_node_stest(Node :: atom()) -> boolean().
+is_node_stest(Node) ->
+    case binary:match(util:to_binary(Node), <<"s-test">>) of
+        nomatch -> false;
+        _ -> true
+    end.
+
+
 -spec repair_utf8(Bin :: binary()) -> binary().
 repair_utf8(<<>>) -> <<>>;
 repair_utf8(Bin) when is_binary(Bin) ->
@@ -753,6 +769,27 @@ is_monitor_phone(Phone) ->
     case binary:match(Phone, <<"161755512">>) of
         nomatch -> false;
         _ -> true
+    end.
+
+
+%% Used whether to run specific jobs or not.
+-spec is_main_stest() -> boolean().
+is_main_stest() ->
+    ShardNums = lists:filtermap(
+            fun(Node) ->
+                case is_node_stest(Node) of
+                    false -> false;
+                    true -> {true, get_shard(Node)}
+                end
+            end, nodes()),
+    case length(ShardNums) =:= 0 of
+        true -> true;
+        false ->
+            OwnShard = get_shard(node()),
+            case OwnShard < lists:min(ShardNums) of
+                true -> true;
+                false -> false
+            end
     end.
 
 

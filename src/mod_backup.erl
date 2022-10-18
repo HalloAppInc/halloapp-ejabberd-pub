@@ -131,6 +131,9 @@
     delete_elasticache_backups/1
 ]).
 
+%% Hooks
+-export([reassign_jobs/0]).
+
 %%%=============================================================================
 %%% END EXPORTS
 %%%=============================================================================
@@ -139,18 +142,15 @@
 
 start(_Host, _Opts) ->
     ?INFO("start ~w", [?MODULE]),
-    case util:is_machine_stest() of
-        true ->
-            schedule_all();
-        false ->
-            ok
-    end,
+    ejabberd_hooks:add(reassign_jobs, ?MODULE, reassign_jobs, 10),
+    check_and_schedule_all(),
     ok.
 
 
 stop(_Host) ->
     ?INFO("stop ~w", [?MODULE]),
-    case util:is_machine_stest() of
+    ejabberd_hooks:delete(reset_jobs, ?MODULE, reset_jobs, 10),
+    case util:is_main_stest() of
         true ->
             unschedule_all();
         false ->
@@ -165,6 +165,24 @@ depends(_Host, _Opts) ->
 
 mod_options(_Host) ->
     [].
+
+%%====================================================================
+%% Hooks
+%%====================================================================
+
+reassign_jobs() ->
+    unschedule_all(),
+    check_and_schedule_all(),
+    ok.
+
+
+check_and_schedule_all() ->
+    case util:is_main_stest() of
+        true -> schedule_all();
+        false -> ok
+    end,
+    ok.
+
 
 %%%=============================================================================
 %%% END GEN_MOD CALLBACKS

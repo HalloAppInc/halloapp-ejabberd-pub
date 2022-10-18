@@ -35,15 +35,16 @@
     score_all_friends/1
 ]).
 
+%% Hooks
+-export([reassign_jobs/0]).
+
 %% -------------------------------------------- %%
 %% gen_mod API functions
 %% --------------------------------------------	%%
 start(_Host, _Opts) ->
     ?INFO("starting", []),
-    case util:is_machine_stest() of
-        true -> schedule();
-        false -> ok
-    end,
+    ejabberd_hooks:add(reassign_jobs, ?MODULE, reassign_jobs, 10),
+    check_and_schedule(),
     ok.
 
 -spec schedule() -> ok.
@@ -57,7 +58,8 @@ schedule() ->
 
 stop(_Host) ->
     ?INFO("stopping", []),
-    case util:is_machine_stest() of
+    ejabberd_hooks:delete(reassign_jobs, ?MODULE, reassign_jobs, 10),
+    case util:is_main_stest() of
         true -> unschedule();
         false -> ok
     end,
@@ -80,6 +82,23 @@ depends(_Host, _Opts) ->
 mod_options(_Host) ->
     [].
 
+
+%%====================================================================
+%% Hooks
+%%====================================================================
+
+reassign_jobs() ->
+    unschedule(),
+    check_and_schedule(),
+    ok.
+
+
+check_and_schedule() ->
+    case util:is_main_stest() of
+        true -> schedule();
+        false -> ok
+    end,
+    ok.
 
 %% -------------------------------------------- %%
 %% Friend Recommendation API 

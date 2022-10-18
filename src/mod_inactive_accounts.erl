@@ -30,22 +30,24 @@
     is_any_dev_account/0
 ]).
 
+%% Hooks
+-export([reassign_jobs/0]).
+
 %%====================================================================
 %% gen_mod callbacks
 %%====================================================================
 
 start(_Host, _Opts) ->
     ?INFO("start ~w", [?MODULE]),
-    case util:is_machine_stest() of
-        true -> schedule();
-        false -> ok
-    end,
+    ejabberd_hooks:add(reassign_jobs, ?MODULE, reassign_jobs, 10),
+    check_and_schedule(),
     ok.
 
 
 stop(_Host) ->
     ?INFO("stop ~w", [?MODULE]),
-    case util:is_machine_stest() of
+    ejabberd_hooks:delete(reassign_jobs, ?MODULE, reassign_jobs, 10),
+    case util:is_main_stest() of
         true -> unschedule();
         false -> ok
     end,
@@ -56,6 +58,23 @@ depends(_Host, _Opts) ->
 
 mod_options(_Host) ->
     [].
+
+%%====================================================================
+%% Hooks
+%%====================================================================
+
+reassign_jobs() ->
+    unschedule(),
+    check_and_schedule(),
+    ok.
+
+
+check_and_schedule() ->
+    case util:is_main_stest() of
+        true -> schedule();
+        false -> ok
+    end,
+    ok.
 
 
 %%====================================================================
