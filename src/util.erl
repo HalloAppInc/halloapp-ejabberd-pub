@@ -89,7 +89,9 @@
     map_intersect_with/3, 
     map_merge_with/3,
     map_from_keys/2,
-    remove_cc_from_langid/1
+    remove_cc_from_langid/1,
+    get_monitor_phone/0,
+    is_monitor_phone/1
 ]).
 
 
@@ -738,4 +740,19 @@ remove_cc_from_langid(RawLangId) ->
             [LangId, _CC] = binary:split(RawLangId, <<"-">>),
             LangId
     end.
+
+
+get_monitor_phone() ->
+    Digit1 = util:to_binary(random:uniform(9)),
+    Digit2 = util:to_binary(random:uniform(9)),
+    <<"161755512", Digit1/binary, Digit2/binary>>.
+
+
+-spec is_monitor_phone(Phone :: binary()) -> boolean().
+is_monitor_phone(Phone) ->
+    case binary:match(Phone, <<"161755512">>) of
+        nomatch -> false;
+        _ -> true
+    end.
+
 

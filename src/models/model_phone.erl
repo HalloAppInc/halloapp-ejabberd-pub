@@ -125,9 +125,9 @@ add_sms_code2(Phone, Code, CampaignId) ->
     Timestamp = util:now(),
     VerificationAttemptListKey = verification_attempt_list_key(Phone),
     VerificationAttemptKey = verification_attempt_key(Phone, AttemptId),
-    TTL = case Phone of
-        ?MONITOR_PHONE -> ?MONITOR_VERIFICATION_TTL;
-        _ -> ?TTL_VERIFICATION_ATTEMPTS
+    TTL = case util:is_monitor_phone(Phone) of
+        true -> ?MONITOR_VERIFICATION_TTL;
+        false -> ?TTL_VERIFICATION_ATTEMPTS
     end,
     _Results = qp([["MULTI"],
                    ["ZADD", VerificationAttemptListKey, Timestamp, AttemptId],

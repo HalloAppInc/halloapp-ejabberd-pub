@@ -68,26 +68,28 @@
         ok |
         {block, BlockReason :: atom(), Details :: any()} |
         {error, ErrorReason :: atom(), Details :: any()}.
-check(Phone, _IP, _UserAgent, _Method, _Protocol, _RemoteStaticKey) when Phone =:= ?MONITOR_PHONE ->
-    %% Ignore checks for noise checker on our server.
-    ok;
 check(Phone, IP, UserAgent, Method, Protocol, RemoteStaticKey) ->
-    Result = lists:foldl(
-        fun(Checker, Acc) ->
-            case Acc of
-                {block, _, _} = Block -> Block;
-                {error, _, _} = Error -> Error;
-                allow -> allow;
-                ok -> Checker:check_otp_request(Phone, IP, UserAgent, Method, Protocol, RemoteStaticKey)
-            end
-        end, ok, ?CHECKERS),
+    case util:is_monitor_phone(Phone) of
+        % Ignore checks for noise checker on our server.
+        true -> ok;
+        false ->
+            Result = lists:foldl(
+                fun(Checker, Acc) ->
+                    case Acc of
+                        {block, _, _} = Block -> Block;
+                        {error, _, _} = Error -> Error;
+                        allow -> allow;
+                        ok -> Checker:check_otp_request(Phone, IP, UserAgent, Method, Protocol, RemoteStaticKey)
+                    end
+                end, ok, ?CHECKERS),
 
-    CC = mod_libphonenumber:get_region_id(Phone),
-    ?INFO("IP: ~s Phone: ~s CC: ~s UA: ~s ~s Remote Static Key: ~p Result: ~p",
-        [IP, Phone, CC, UserAgent, Protocol, util:maybe_base64_encode(RemoteStaticKey), Result]),
-    case Result of
-        allow -> ok;
-        Any -> Any
+            CC = mod_libphonenumber:get_region_id(Phone),
+            ?INFO("IP: ~s Phone: ~s CC: ~s UA: ~s ~s Remote Static Key: ~p Result: ~p",
+                [IP, Phone, CC, UserAgent, Protocol, util:maybe_base64_encode(RemoteStaticKey), Result]),
+            case Result of
+                allow -> ok;
+                Any -> Any
+            end
     end.
 
 otp_delivered(Phone, IP, Protocol, RemoteStaticKey) ->

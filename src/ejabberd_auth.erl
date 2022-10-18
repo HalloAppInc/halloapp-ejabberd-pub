@@ -79,9 +79,9 @@ check_and_register(Phone, Host, SPub, Name, UserAgent, CampaignId) ->
 try_enroll(Phone, Passcode, CampaignId) ->
     ?INFO("phone:~s code:~s", [Phone, Passcode]),
     {ok, AttemptId, Timestamp} = model_phone:add_sms_code2(Phone, Passcode, CampaignId),
-    case Phone of
-        ?MONITOR_PHONE -> ok;
-        _ -> stat:count("HA/account", "enroll")
+    case util:is_monitor_phone(Phone) of
+        true -> ok;
+        false -> stat:count("HA/account", "enroll")
     end,
     {ok, AttemptId, Timestamp}.
 

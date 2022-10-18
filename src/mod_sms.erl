@@ -151,24 +151,27 @@ verify_sms(Phone, Code) ->
 
 -spec add_verification_success(Phone :: phone(), FetchedInfo :: verification_info(),
         AllVerifyInfo :: [verification_info()]) -> match.
-add_verification_success(Phone, _FetchedInfo, _AllVerifyInfo) when Phone =:= ?MONITOR_PHONE -> match;
 add_verification_success(Phone, FetchedInfo, AllVerifyInfo) ->
-    #verification_info{attempt_id = AttemptId, gateway = Gateway} = FetchedInfo,
-    ok = model_phone:add_verification_success(Phone, AttemptId),
-    stat:count("HA/registration", "verify_sms", 1,
-        [{gateway, Gateway}, {cc, mod_libphonenumber:get_cc(Phone)}]),
-    GatewayAtom = util:to_atom(Gateway),
-    ?INFO("Phone: ~s sending feedback to gateway: ~s attemptId: ~s",
-                [Phone, Gateway, AttemptId]),
-    case GatewayAtom of
-        undefined ->
-            ?ERROR("Missing gateway of Phone:~p AttemptId: ~p", [Phone, AttemptId]),
-            ok;
-        _ ->
-            %% spawn a new process for sending feedback.
-            spawn(GatewayAtom, send_feedback, [Phone, AllVerifyInfo])
-    end,
-    match.
+    case util:is_monitor_phone(Phone) of
+        true -> match;
+        false ->
+            #verification_info{attempt_id = AttemptId, gateway = Gateway} = FetchedInfo,
+            ok = model_phone:add_verification_success(Phone, AttemptId),
+            stat:count("HA/registration", "verify_sms", 1,
+                [{gateway, Gateway}, {cc, mod_libphonenumber:get_cc(Phone)}]),
+            GatewayAtom = util:to_atom(Gateway),
+            ?INFO("Phone: ~s sending feedback to gateway: ~s attemptId: ~s",
+                        [Phone, Gateway, AttemptId]),
+            case GatewayAtom of
+                undefined ->
+                    ?ERROR("Missing gateway of Phone:~p AttemptId: ~p", [Phone, AttemptId]),
+                    ok;
+                _ ->
+                    %% spawn a new process for sending feedback.
+                    spawn(GatewayAtom, send_feedback, [Phone, AllVerifyInfo])
+            end,
+            match
+    end.
 
 
 -spec send_otp_to_inviter (Phone :: phone(), LangId :: binary(), UserAgent :: binary(), Method ::
