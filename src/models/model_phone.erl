@@ -131,6 +131,7 @@ add_sms_code2(Phone, Code, CampaignId) ->
     end,
     _Results = qp([["MULTI"],
                    ["ZADD", VerificationAttemptListKey, Timestamp, AttemptId],
+                   ["ZREMRANGEBYSCORE", VerificationAttemptListKey, "-inf", Timestamp - TTL],
                    ["EXPIRE", VerificationAttemptListKey, TTL],
                    ["HSET", VerificationAttemptKey, ?FIELD_CODE, Code, ?FIELD_VALID, "1", ?FIELD_CAMPAIGN_ID, CampaignId],
                    ["EXPIRE", VerificationAttemptKey, TTL],
