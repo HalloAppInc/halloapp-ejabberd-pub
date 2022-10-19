@@ -94,7 +94,9 @@
     is_monitor_phone/1,
     is_node_stest/0,
     is_node_stest/1,
-    is_main_stest/0
+    is_main_stest/0,
+    get_nodes/0,
+    get_node/0
 ]).
 
 
@@ -772,6 +774,10 @@ is_monitor_phone(Phone) ->
     end.
 
 
+get_nodes() -> nodes().
+
+get_node() -> node().
+
 %% Used whether to run specific jobs or not.
 -spec is_main_stest() -> boolean().
 is_main_stest() ->
@@ -781,11 +787,11 @@ is_main_stest() ->
                     false -> false;
                     true -> {true, get_shard(Node)}
                 end
-            end, nodes()),
+            end, get_nodes()),
     case length(ShardNums) =:= 0 of
         true -> true;
         false ->
-            OwnShard = get_shard(node()),
+            OwnShard = get_shard(get_node()),
             case OwnShard < lists:min(ShardNums) of
                 true -> true;
                 false -> false

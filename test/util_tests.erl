@@ -169,5 +169,27 @@ do_util_test_() ->
         fun test_to_list_maybe/1,
         fun test_list_to_map/1,
         fun test_normalize_scores/1,
-        fun test_remove_cc_from_langid/1
+        fun test_remove_cc_from_langid/1,
+        fun test_is_main_stest/1
     ]).
+
+
+test_is_main_stest(_) ->
+    [
+        ?_assertEqual(true, util:is_main_stest())
+    ].
+
+setup_util_nodes() ->
+    CleanupInfo = tutil:setup([
+        {meck, util, [
+            {get_nodes, fun() -> ['ejabberd@s-test1', 'ejabberd@prod0'] end},
+            {get_node, fun() -> 'ejabberd@s-test' end}
+        ]}
+    ]),
+    CleanupInfo.
+
+
+is_main_stest_test_() ->
+    tutil:setup_once(fun setup_util_nodes/0, fun test_is_main_stest/1).
+
+
