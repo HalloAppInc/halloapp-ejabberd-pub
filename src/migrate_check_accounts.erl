@@ -24,7 +24,8 @@
     set_registration_ts/2,
     print_devices/2,
     set_login_run/2,
-    cleanup_offline_queue_run/2
+    cleanup_offline_queue_run/2,
+    check_huawei_token_run/2
 ]).
 
 
@@ -449,6 +450,21 @@ cleanup_offline_queue_run(Key, State) ->
     end,
     State.
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                         Check huawei user accounts                        %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+check_huawei_token_run(Key, State) ->
+    Result = re:run(Key, "^acc:{([0-9]+)}$", [global, {capture, all, binary}]),
+    case Result of
+        {match, [[_FullKey, Uid]]} ->
+            {ok, PushInfo} = model_accounts:get_push_token(Uid),
+            ?INFO("Uid: ~p PushToken: ~p HuaweiToken: ~p",
+                [Uid, PushInfo#push_info.token, PushInfo#push_info.huawei_token]);
+        _ -> ok
+    end,
+    State.
 
 
 q(Client, Command) -> util_redis:q(Client, Command).
