@@ -459,9 +459,13 @@ check_huawei_token_run(Key, State) ->
     Result = re:run(Key, "^acc:{([0-9]+)}$", [global, {capture, all, binary}]),
     case Result of
         {match, [[_FullKey, Uid]]} ->
-            {ok, PushInfo} = model_accounts:get_push_token(Uid),
-            ?INFO("Uid: ~p PushToken: ~p HuaweiToken: ~p",
-                [Uid, PushInfo#push_info.token, PushInfo#push_info.huawei_token]);
+            {ok, PushInfo} = model_accounts:get_push_info(Uid),
+            case PushInfo of
+                #push_info{} ->
+                    ?INFO("Uid: ~p PushToken: ~p HuaweiToken: ~p",
+                        [Uid, PushInfo#push_info.token, PushInfo#push_info.huawei_token]);
+                _ -> ok
+            end;
         _ -> ok
     end,
     State.
