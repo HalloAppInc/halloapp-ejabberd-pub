@@ -460,12 +460,8 @@ check_huawei_token_run(Key, State) ->
     case Result of
         {match, [[_FullKey, Uid]]} ->
             {ok, PushInfo} = model_accounts:get_push_info(Uid),
-            case PushInfo of
-                #push_info{} ->
-                    ?INFO("Uid: ~p PushToken: ~p HuaweiToken: ~p",
-                        [Uid, PushInfo#push_info.token, PushInfo#push_info.huawei_token]);
-                _ -> ok
-            end;
+            ?INFO("Uid: ~p PushToken: ~p HuaweiToken: ~p",
+                [Uid, PushInfo#push_info.token, PushInfo#push_info.huawei_token]);
         _ -> ok
     end,
     State.
