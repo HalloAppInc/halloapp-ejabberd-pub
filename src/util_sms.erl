@@ -20,6 +20,7 @@
     get_mbird_response_code/1,
     get_response_code/1,
     get_sms_message/3,
+    is_apple_request/3,
     is_google_request/3,
     is_hashcash_enabled/2
 ]).
@@ -92,6 +93,14 @@ get_sms_message(UserAgent, Code, LangId) ->
     AppHash = util_ua:get_app_hash(UserAgent),
     Msg = io_lib:format("~ts: ~s~n~n~n~s", [SmsMsgBin, Code, AppHash]),
     {Msg, TranslatedLangId}.
+
+-spec is_apple_request(Phone :: binary(), IP :: binary(), Protocol :: atom()) -> boolean().
+is_apple_request(Phone, _IP, Protocol) ->
+    Result = util:is_apple_number(Phone),
+    case {Result, Protocol} of
+        {true, noise} -> true;
+        _ -> false
+    end.
 
 -spec is_google_request(Phone :: binary(), IP :: binary(), Protocol :: atom()) -> boolean().
 is_google_request(Phone, IP, Protocol) ->

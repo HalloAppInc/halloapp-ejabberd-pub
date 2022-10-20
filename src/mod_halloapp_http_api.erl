@@ -47,7 +47,8 @@
 
 %% Allow Google to register using the following OTP. The following OTP will be given to Google
 %% along with submission of new version of the App.
--define(SPECIAL_OTP_FOR_GOOGLE, <<"466453">>).
+-define(SPECIAL_OTP_GOOGLE, <<"466453">>).
+-define(SPECIAL_OTP_APPLE, <<"474663">>).
 
 
 %% API
@@ -680,10 +681,12 @@ log_otp_request(RawPhone, Method, UserAgent, ClientIP, Protocol) ->
 check_sms_code(Phone, ClientIP, Protocol, Code, RemoteStaticKey) ->
     check_excessive_sms_code_attempts(Phone, ClientIP, RemoteStaticKey),
     IsGoogleAndValid = util_sms:is_google_request(Phone, ClientIP, Protocol) andalso
-        Code =:= ?SPECIAL_OTP_FOR_GOOGLE,
-    case IsGoogleAndValid of
+        Code =:= ?SPECIAL_OTP_GOOGLE,
+    IsAppleAndValid = util_sms:is_apple_request(Phone, ClientIP, Protocol) andalso
+        Code =:= ?SPECIAL_OTP_APPLE,
+    case IsGoogleAndValid orelse IsAppleAndValid of
         true ->
-            ?INFO("Matched OTP for Google, Phone: ~p, IP: ~p, Code: ~p", [Phone, ClientIP, Code]),
+            ?INFO("Matched OTP for Google/Apple, Phone: ~p, IP: ~p, Code: ~p", [Phone, ClientIP, Code]),
             ok;
         false ->
             case mod_sms:verify_sms(Phone, Code) of

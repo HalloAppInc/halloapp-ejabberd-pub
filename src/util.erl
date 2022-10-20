@@ -57,6 +57,7 @@
     timestamp_to_datetime/1,
     decode_base_64/1,
     is_test_number/1,
+    is_apple_number/1,
     is_google_number/1,
     join_binary/2,
     join_binary/3,
@@ -474,6 +475,13 @@ is_google_number(Phone) ->
     case Phone of
         <<"16504992804">> -> true;
         <<"916504992804">> -> true;
+        _ -> false
+    end.
+
+-spec is_apple_number(Phone :: binary()) -> boolean().
+is_apple_number(Phone) ->
+    case Phone of
+        <<"16693334444">> -> true;
         _ -> false
     end.
 
