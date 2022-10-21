@@ -137,6 +137,12 @@ message ContactSyncError {
 
 // Pubsub
 
+message MomentInfo {
+    int64 notification_timestamp = 1; // timestamp received from the server in the notification.
+    int64 time_taken = 2; // Time taken on the moment camera to capture the moment.
+    int64 num_takes = 3; // Number of times a moment has been captured and discarded.
+}
+
 message MediaCounters {
     int32 num_images = 1;
     int32 num_videos = 2;
@@ -174,6 +180,9 @@ message Post {
     // If set to true, the client will try and show ui design to
     // share the recently composed post externally.
     bool show_post_share_screen = 12;
+
+    // Must be set only for moments.
+    MomentInfo moment_info = 13;
 }
 
 message Comment {
@@ -910,6 +919,10 @@ message ContentMissing {
 }
 
 
+message MomentNotification {
+    int64 timestamp = 1;
+}
+
 // IQ
 
 message Iq {
@@ -1032,6 +1045,7 @@ message Msg {
         ScreenshotReceipt screenshot_receipt = 50;
         SavedReceipt saved_receipt = 51;
         GroupChatStanza group_chat_stanza = 52;
+        MomentNotification moment_notification = 53;
     }
     int32 retry_count = 21;
     int32 rerequest_count = 25;
@@ -1178,6 +1192,9 @@ message PushToken {
 message PushRegister {
     PushToken push_token = 1;
     string lang_id = 2;
+    // Time difference in seconds between the timezone and GMT.
+    // Could be positive or negative
+    int64 zoneOffset = 3;
 }
 
 message PushPref {
