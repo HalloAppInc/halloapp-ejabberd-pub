@@ -265,22 +265,24 @@ handle_unexpected_cast(State, Msg) ->
 
 -spec process_auth_result(State :: state(), true | {false, Reason :: atom()},
         User :: uid()) -> state().
-process_auth_result(#{socket := Socket, ip := IP} = State, true, User) ->
-    ?INFO("(~ts) Accepted c2s authentication for ~ts from ~ts",
-        [halloapp_socket:pp(Socket), User,
+process_auth_result(#{socket := Socket, ip := IP, resource := Resource} = State, true, User) ->
+    ?INFO("(~ts) Accepted c2s authentication for ~ts from ~ts resource: ~ts",
+        [halloapp_socket:pp(Socket), User, Resource,
             ejabberd_config:may_hide_data(misc:ip_to_list(IP))]),
     stat:count("HA/auth", "success", 1),
     State;
-process_auth_result(#{socket := Socket, ip := IP, lserver := _LServer} = State,
+process_auth_result(#{socket := Socket, ip := IP, lserver := _LServer, resource := Resource} = State,
         {false, Reason}, User) ->
     ClientVersion = maps:get(client_version, State, undefined),
-    Format = "(~ts) Failed c2s authentication ~ts from ~ts: v:~ts Reason: ~ts",
+    Format = "(~ts) Failed c2s authentication ~ts from ~ts: resource: ~ts v:~ts Reason: ~ts",
     Args = [halloapp_socket:pp(Socket), User,
-        ejabberd_config:may_hide_data(misc:ip_to_list(IP)), ClientVersion, Reason],
+        ejabberd_config:may_hide_data(misc:ip_to_list(IP)), Resource, ClientVersion, Reason],
     case {Reason, ClientVersion} of
         {_, undefined} ->
             ?WARNING(Format, Args);
         {invalid_client_version, _} ->
+            ?INFO(Format, Args);
+        {session_conflict, _} ->
             ?INFO(Format, Args);
         _ ->
             ?WARNING(Format, Args)
