@@ -37,11 +37,11 @@
 -define(PUSH_LANG_ID1, <<"en-US">>).
 -define(PUSH_INFO1, #push_info{uid = ?UID1, os = ?PUSH_TOKEN_OS1,
         token = ?PUSH_TOKEN1, timestamp_ms = ?PUSH_TOKEN_TIMESTAMP1,
-        post_pref = undefined, comment_pref = undefined, lang_id = ?PUSH_LANG_ID1}).
+        post_pref = true, comment_pref = true, lang_id = ?PUSH_LANG_ID1}).
 
 -define(VOIP_PUSH_INFO1, #push_info{uid = ?UID1,
         voip_token = ?PUSH_TOKEN1, timestamp_ms = ?PUSH_TOKEN_TIMESTAMP1,
-        post_pref = undefined, comment_pref = undefined, lang_id = ?PUSH_LANG_ID1}).
+        post_pref = true, comment_pref = true, lang_id = ?PUSH_LANG_ID1}).
 
 -define(UID2, <<"2">>).
 -define(PHONE2, <<"16505552222">>).
@@ -53,9 +53,11 @@
 -define(PUSH_TOKEN2, <<"pu7YCnjPQpa4yHm0gJRJ1g">>).
 -define(PUSH_TOKEN_TIMESTAMP2, 1570300000148).
 -define(PUSH_LANG_ID2, <<"es-AR">>).
+-define(ZONE_OFFSET2, 100).
 -define(PUSH_INFO2, #push_info{uid = ?UID2, os = ?PUSH_TOKEN_OS2,
         token = ?PUSH_TOKEN2, timestamp_ms = ?PUSH_TOKEN_TIMESTAMP2,
-        post_pref = undefined, comment_pref = undefined, lang_id = ?PUSH_LANG_ID2}).
+        post_pref = true, comment_pref = true, lang_id = ?PUSH_LANG_ID2,
+        zone_offset = 100}).
 
 -define(UID3, <<"3">>).
 -define(PHONE3, <<"16505553333">>).
@@ -351,22 +353,22 @@ sub_unsub_clear_subscriptions(_) ->
 
 voip_and_push_tokens(_) ->
     %% push token
-    [?_assertEqual({ok, undefined}, model_accounts:get_push_token(?UID1)),
+    [?_assertEqual({ok, #push_info{uid = ?UID1, post_pref = true, comment_pref = true}}, model_accounts:get_push_info(?UID1)),
     ?_assertOk(model_accounts:set_push_token(?UID1, ?PUSH_TOKEN_OS1,
             ?PUSH_TOKEN1, ?PUSH_TOKEN_TIMESTAMP1, ?PUSH_LANG_ID1)),
-    ?_assertEqual({ok, ?PUSH_INFO1}, model_accounts:get_push_token(?UID1)),
+    ?_assertEqual({ok, ?PUSH_INFO1}, model_accounts:get_push_info(?UID1)),
     ?_assertOk(model_accounts:remove_push_info(?UID1)),
-    ?_assertEqual({ok, undefined}, model_accounts:get_push_token(?UID1)),
-    ?_assertEqual({ok, undefined}, model_accounts:get_push_token(?UID2)),
+    ?_assertEqual({ok, #push_info{uid = ?UID1, post_pref = true, comment_pref = true}}, model_accounts:get_push_info(?UID1)),
+    ?_assertEqual({ok, #push_info{uid = ?UID2, post_pref = true, comment_pref = true}}, model_accounts:get_push_info(?UID2)),
     ?_assertOk(model_accounts:set_push_token(?UID2, ?PUSH_TOKEN_OS2,
-            ?PUSH_TOKEN2, ?PUSH_TOKEN_TIMESTAMP2, ?PUSH_LANG_ID2)),
-    ?_assertEqual({ok, ?PUSH_INFO2}, model_accounts:get_push_token(?UID2)),
+            ?PUSH_TOKEN2, ?PUSH_TOKEN_TIMESTAMP2, ?PUSH_LANG_ID2, ?ZONE_OFFSET2)),
+    ?_assertEqual({ok, ?PUSH_INFO2}, model_accounts:get_push_info(?UID2)),
     %% voip token
     ?_assertOk(model_accounts:remove_push_info(?UID1)),
-    ?_assertEqual({ok, undefined}, model_accounts:get_push_token(?UID1)),
+    ?_assertEqual({ok, #push_info{uid = ?UID1, post_pref = true, comment_pref = true}}, model_accounts:get_push_info(?UID1)),
     ?_assertOk(model_accounts:set_voip_token(?UID1,
-        ?PUSH_TOKEN1, ?PUSH_TOKEN_TIMESTAMP1, ?PUSH_LANG_ID1)),
-    ?_assertEqual({ok, ?VOIP_PUSH_INFO1}, model_accounts:get_push_token(?UID1))].
+        ?PUSH_TOKEN1, ?PUSH_TOKEN_TIMESTAMP1, ?PUSH_LANG_ID1, undefined)),
+    ?_assertEqual({ok, ?VOIP_PUSH_INFO1}, model_accounts:get_push_info(?UID1))].
 
 
 lang_id_count(_) ->
@@ -583,7 +585,8 @@ api_test_() ->
         fun lang_id_count/1,
         fun count/1,
         fun check_account_exists/1,
-        fun check_uid_to_delete/1
+        fun check_uid_to_delete/1,
+        fun voip_and_push_tokens/1
     ]),
     tutil:in_parallel(fun setup_accounts/0, fun tutil:cleanup/1, [
         fun get_signup_user_agent/1,
@@ -596,7 +599,6 @@ api_test_() ->
         fun last_activity/1,
         fun last_ipaddress/1,
         fun sub_unsub_clear_subscriptions/1,
-        fun voip_and_push_tokens/1,
         fun push_post/1,
         fun push_comment/1,
         fun traced_phones/1,

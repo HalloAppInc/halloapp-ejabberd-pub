@@ -25,7 +25,7 @@
     remove_android_token/2,
     re_register_user/4,
     remove_user/2,
-    register_push_info/4,
+    register_push_info/5,
     is_valid_token_type/1,
     is_appclip_token_type/1
 ]).
@@ -85,9 +85,9 @@ remove_user(UserId, _Server) ->
 
 -spec process_local_iq(IQ :: iq()) -> iq().
 process_local_iq(#pb_iq{from_uid = Uid, type = set,
-        payload = #pb_push_register{lang_id = LangId,
+        payload = #pb_push_register{lang_id = LangId, zoneOffset = ZoneOffset,
         push_token = #pb_push_token{token_type = TokenTypeAtom, token = Token}}} = IQ) ->
-    ?INFO("Uid: ~s, set_push_token, TokenType: ~p", [Uid, TokenTypeAtom]),
+    ?INFO("Uid: ~s, set_push_token, TokenType: ~p, LangId: ~p, ZoneOffset: ~p", [Uid, TokenTypeAtom, LangId, ZoneOffset]),
     %% TODO: switch to using atoms everywhere.
     TokenType = util:to_binary(TokenTypeAtom),
     IsValidTokenType = is_valid_token_type(TokenType),
@@ -99,7 +99,7 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
             ?WARNING("Uid: ~s, invalid token_type attribute: ~s!", [Uid, TokenType]),
             pb:make_error(IQ, util:err(invalid_token_type));
         true ->
-            ok = register_push_info(Uid, TokenType, Token, LangId),
+            ok = register_push_info(Uid, TokenType, Token, LangId, ZoneOffset),
             pb:make_iq_result(IQ)
     end;
 
@@ -137,23 +137,23 @@ update_push_pref(Uid, #pb_push_pref{name = comment, value = Value}) ->
 
 %% TODO(murali@): add counters by push languageId.
 -spec register_push_info(Uid :: binary(), TokenType :: binary(),
-        Token :: binary(), LangId :: binary()) -> ok.
-register_push_info(Uid, TokenType, Token, LangId) when TokenType =:= ?IOS_VOIP_TOKEN_TYPE ->
+        Token :: binary(), LangId :: binary(), ZoneOffset :: integer()) -> ok.
+register_push_info(Uid, TokenType, Token, LangId, ZoneOffset) when TokenType =:= ?IOS_VOIP_TOKEN_TYPE ->
     LanguageId = get_language_id(LangId),
     TimestampMs = util:now_ms(),
-    ok = model_accounts:set_voip_token(Uid, Token, TimestampMs, LanguageId),
+    ok = model_accounts:set_voip_token(Uid, Token, TimestampMs, LanguageId, ZoneOffset),
     stat:count("HA/push_tokens", "set_voip_token"),
     ok;
-register_push_info(Uid, TokenType, Token, LangId) when TokenType =:= ?ANDROID_HUAWEI_TOKEN_TYPE ->
+register_push_info(Uid, TokenType, Token, LangId, ZoneOffset) when TokenType =:= ?ANDROID_HUAWEI_TOKEN_TYPE ->
     LanguageId = get_language_id(LangId),
     TimestampMs = util:now_ms(),
-    ok = model_accounts:set_huawei_token(Uid, Token, TimestampMs, LanguageId),
+    ok = model_accounts:set_huawei_token(Uid, Token, TimestampMs, LanguageId, ZoneOffset),
     stat:count("HA/push_tokens", "set_huawei_token"),
     ok;
-register_push_info(Uid, TokenType, Token, LangId) ->
+register_push_info(Uid, TokenType, Token, LangId, ZoneOffset) ->
     LanguageId = get_language_id(LangId),
     TimestampMs = util:now_ms(),
-    ok = model_accounts:set_push_token(Uid, TokenType, Token, TimestampMs, LanguageId),
+    ok = model_accounts:set_push_token(Uid, TokenType, Token, TimestampMs, LanguageId, ZoneOffset),
     stat:count("HA/push_tokens", "set_push_token"),
     ok.
 

@@ -628,13 +628,14 @@ get_and_check_whisper_keys(IdentityKeyB64, SignedKeyB64, OneTimeKeysB64) ->
 -spec process_push_token(Uid :: uid(), PushPayload :: map()) -> ok.
 process_push_token(Uid, PushPayload) ->
     LangId = maps:get(<<"lang_id">>, PushPayload, <<"en-US">>),
+    ZoneOffset = maps:get(<<"zoneOffset">>, PushPayload, undefined),
     PushToken = maps:get(<<"push_token">>, PushPayload, undefined),
     %% TODO: rename this field to token_type.
     PushTokenType = maps:get(<<"push_os">>, PushPayload, undefined),
     case PushToken =/= undefined andalso mod_push_tokens:is_appclip_token_type(PushTokenType) of
         true ->
-            ok = mod_push_tokens:register_push_info(Uid, PushTokenType, PushToken, LangId),
-            ?INFO("Uid: ~p, registered push_info, token_type: ~p, lang_id: ~p", [Uid, PushTokenType, LangId]),
+            ok = mod_push_tokens:register_push_info(Uid, PushTokenType, PushToken, LangId, ZoneOffset),
+            ?INFO("Uid: ~p, registered push_info, token_type: ~p, lang_id: ~p, ZoneOffset: ~p", [Uid, PushTokenType, LangId, ZoneOffset]),
             ok;
         false ->
             ok

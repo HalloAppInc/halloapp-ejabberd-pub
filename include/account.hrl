@@ -26,6 +26,7 @@
     last_activity_ts_ms :: maybe(integer()),
     activity_status :: maybe(activity_status()),
     lang_id :: maybe(binary()),
+    zone_offset :: maybe(integer()),
     device :: maybe(binary()),
     os_version :: maybe(binary()),
     last_ipaddress :: maybe(binary()),
@@ -57,7 +58,8 @@
     post_pref :: maybe(boolean()),
     comment_pref :: maybe(boolean()),
     client_version :: maybe(binary()),
-    lang_id :: maybe(binary())
+    lang_id :: maybe(binary()),
+    zone_offset :: maybe(integer())
 }).
 
 -type push_info() :: #push_info{}.

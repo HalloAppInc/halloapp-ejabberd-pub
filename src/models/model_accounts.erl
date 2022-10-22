@@ -101,9 +101,9 @@
     get_device/1,
     get_push_info/1,
     set_push_token/5,
-    get_push_token/1,
-    set_voip_token/4,
-    set_huawei_token/4,
+    set_push_token/6,
+    set_voip_token/5,
+    set_huawei_token/5,
     get_lang_id/1,
     remove_android_token/1,
     remove_huawei_token/1,
@@ -186,6 +186,7 @@
 -define(FIELD_PUSH_POST, <<"pp">>).
 -define(FIELD_PUSH_COMMENT, <<"pc">>).
 -define(FIELD_PUSH_LANGUAGE_ID, <<"pl">>).
+-define(FIELD_ZONE_OFFSET, <<"tz">>).
 -define(FIELD_VOIP_TOKEN, <<"pvt">>).
 -define(FIELD_HUAWEI_TOKEN, <<"ht">>).
 -define(FIELD_DEVICE, <<"dvc">>).
@@ -579,6 +580,7 @@ get_account(Uid) ->
                     activity_status = util:to_atom(maps:get(?FIELD_ACTIVITY_STATUS, M, undefined)),
                     client_version = maps:get(?FIELD_CLIENT_VERSION, M, undefined),
                     lang_id = maps:get(?FIELD_PUSH_LANGUAGE_ID, M, undefined),
+                    zone_offset = util_redis:decode_int(maps:get(?FIELD_ZONE_OFFSET, M, undefined)),
                     device = maps:get(?FIELD_DEVICE, M, undefined),
                     os_version = maps:get(?FIELD_OS_VERSION, M, undefined),
                     last_ipaddress = util:to_list(maps:get(?FIELD_LAST_IPADDRESS, M, undefined)),
@@ -598,48 +600,58 @@ get_lang_id(Uid) ->
     {ok, LangId}.
 
 
+
+-spec set_push_token(Uid :: uid(), TokenType :: binary(), PushToken :: binary(),
+        TimestampMs :: integer(), LangId :: binary()) -> ok.
+set_push_token(Uid, TokenType, PushToken, TimestampMs, LangId) ->
+    set_push_token(Uid, TokenType, PushToken, TimestampMs, LangId, undefined).
+
+
 %% We will first run a migration to set values appropriately for lang_id keys on all slots.
 %% Then set the value for lang_id key in persistent_term storage.
 %% In the next diff - we can cleanup this code.
 -spec set_push_token(Uid :: uid(), TokenType :: binary(), PushToken :: binary(),
-        TimestampMs :: integer(), LangId :: binary()) -> ok.
-set_push_token(Uid, TokenType, PushToken, TimestampMs, LangId) ->
+        TimestampMs :: integer(), LangId :: binary(), ZoneOffset :: maybe(integer())) -> ok.
+set_push_token(Uid, TokenType, PushToken, TimestampMs, LangId, ZoneOffset) ->
     {ok, OldLangId} = get_lang_id(Uid),
     {ok, _Res} = q([
             "HMSET", account_key(Uid),
             ?FIELD_PUSH_OS, TokenType,
             ?FIELD_PUSH_TOKEN, PushToken,
             ?FIELD_PUSH_TIMESTAMP, integer_to_binary(TimestampMs),
-            ?FIELD_PUSH_LANGUAGE_ID, LangId
+            ?FIELD_PUSH_LANGUAGE_ID, LangId,
+            ?FIELD_ZONE_OFFSET, util:to_binary(ZoneOffset)
         ]),
     update_lang_counters(Uid, LangId, OldLangId),
     ok.
 
 
 -spec set_huawei_token(Uid :: binary(), HuaweiToken :: binary(),
-    TimestampMs :: integer(), LangId :: binary()) -> ok.
-set_huawei_token(Uid, HuaweiToken, TimestampMs, LangId) ->
+    TimestampMs :: integer(), LangId :: binary(), ZoneOffset :: integer()) -> ok.
+set_huawei_token(Uid, HuaweiToken, TimestampMs, LangId, ZoneOffset) ->
     {ok, OldLangId} = get_lang_id(Uid),
     {ok, _Res} = q([
             "HMSET", account_key(Uid),
             ?FIELD_PUSH_OS, ?ANDROID_HUAWEI_TOKEN_TYPE,
             ?FIELD_HUAWEI_TOKEN, HuaweiToken,
             ?FIELD_PUSH_TIMESTAMP, integer_to_binary(TimestampMs),
-            ?FIELD_PUSH_LANGUAGE_ID, LangId
+            ?FIELD_PUSH_LANGUAGE_ID, LangId,
+            ?FIELD_ZONE_OFFSET, util:to_binary(ZoneOffset)
         ]),
     update_lang_counters(Uid, LangId, OldLangId),
     ok.
 
 
 -spec set_voip_token(Uid :: binary(), VoipToken :: binary(),
-    TimestampMs :: integer(), LangId :: binary()) -> ok.
-set_voip_token(Uid, VoipToken, TimestampMs, LangId) ->
+    TimestampMs :: integer(), LangId :: binary(), ZoneOffset :: integer()) -> ok.
+set_voip_token(Uid, VoipToken, TimestampMs, LangId, ZoneOffset) ->
     {ok, OldLangId} = get_lang_id(Uid),
     {ok, _Res} = q([
             "HMSET", account_key(Uid),
             ?FIELD_VOIP_TOKEN, VoipToken,
             ?FIELD_PUSH_TIMESTAMP, integer_to_binary(TimestampMs),
-            ?FIELD_PUSH_LANGUAGE_ID, LangId
+            ?FIELD_PUSH_LANGUAGE_ID, LangId,
+            ?FIELD_ZONE_OFFSET, util:to_binary(ZoneOffset)
         ]),
     update_lang_counters(Uid, LangId, OldLangId),
     ok.
@@ -664,27 +676,6 @@ update_lang_counters(Uid, LangId, OldLangId) ->
     ok.
 
 
--spec get_push_token(Uid :: uid()) -> {ok, maybe(push_info())} | {error, missing}.
-get_push_token(Uid) ->
-    {ok, [Os, Token, TimestampMs, LangId, VoipToken, HuaweiToken]} = q(
-            ["HMGET", account_key(Uid), ?FIELD_PUSH_OS, ?FIELD_PUSH_TOKEN,
-                    ?FIELD_PUSH_TIMESTAMP, ?FIELD_PUSH_LANGUAGE_ID, ?FIELD_VOIP_TOKEN, ?FIELD_HUAWEI_TOKEN]),
-    Res = case Token =:= undefined andalso VoipToken =:= undefined of
-        true -> undefined;
-        false ->
-            #push_info{
-                uid = Uid, 
-                os = Os, 
-                token = Token, 
-                voip_token = VoipToken,
-                huawei_token = HuaweiToken,
-                timestamp_ms = util_redis:decode_ts(TimestampMs),
-                lang_id = LangId
-            }
-    end,
-    {ok, Res}.
-
-
 -spec remove_android_token(Uid :: uid()) -> ok | {error, missing}.
 remove_android_token(Uid) ->
     {ok, _Res} = q(["HDEL", account_key(Uid), ?FIELD_PUSH_TOKEN]),
@@ -697,12 +688,12 @@ remove_huawei_token(Uid) ->
     ok.
 
 
--spec get_push_info(Uid :: uid()) -> {ok, maybe(push_info())} | {error, missing}.
+-spec get_push_info(Uid :: uid()) -> {ok, maybe(push_info())}.
 get_push_info(Uid) ->
-    {ok, [Os, Token, TimestampMs, PushPost, PushComment, ClientVersion, LangId, VoipToken, HuaweiToken]} = q(
+    {ok, [Os, Token, TimestampMs, PushPost, PushComment, ClientVersion, LangId, VoipToken, HuaweiToken, ZoneOffset]} = q(
             ["HMGET", account_key(Uid), ?FIELD_PUSH_OS, ?FIELD_PUSH_TOKEN, ?FIELD_PUSH_TIMESTAMP,
             ?FIELD_PUSH_POST, ?FIELD_PUSH_COMMENT, ?FIELD_CLIENT_VERSION, ?FIELD_PUSH_LANGUAGE_ID,
-            ?FIELD_VOIP_TOKEN, ?FIELD_HUAWEI_TOKEN]),
+            ?FIELD_VOIP_TOKEN, ?FIELD_HUAWEI_TOKEN, ?FIELD_ZONE_OFFSET]),
     Res = #push_info{
             uid = Uid,
             os = Os,
@@ -713,7 +704,8 @@ get_push_info(Uid) ->
             post_pref = boolean_decode(PushPost, true),
             comment_pref = boolean_decode(PushComment, true),
             client_version = ClientVersion,
-            lang_id = LangId
+            lang_id = LangId,
+            zone_offset = util_redis:decode_int(ZoneOffset)
         },
     {ok, Res}.
 
