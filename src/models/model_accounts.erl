@@ -154,6 +154,7 @@
     count_psa_tagged_uids/1,
     cleanup_psa_tagged_uids/1,
     mark_psa_post_sent/2,
+    mark_moment_notification_sent/2,
     get_node_list/0,
     scan/3
 ]).
@@ -200,6 +201,7 @@
 -define(FIELD_EXPORT_ID, <<"eur">>).
 
 -define(FIELD_PSA_POST_STATUS, <<"pps">>).
+-define(FIELD_MOMENT_NOFITICATION_STATUS, <<"mns">>).
 
 %%====================================================================
 %% Account related API
@@ -1128,6 +1130,13 @@ mark_psa_post_sent(Uid, PostId) ->
     ]),
     NotExists =:= <<"1">>.
 
+mark_moment_notification_sent(Uid, Tag) ->
+    [{ok, NotExists}, {ok, _}] = qp([
+        ["HSETNX", moment_sent_notification_key(Uid, Tag), ?FIELD_MOMENT_NOFITICATION_STATUS, 1],
+        ["EXPIRE", moment_sent_notification_key(Uid, Tag), ?MOMENT_TAG_EXPIRATION]
+    ]),
+    NotExists =:= <<"1">>.
+
 %%====================================================================
 %% Inactive Uid deletion API.
 %%====================================================================
@@ -1335,6 +1344,9 @@ psa_tagged_uids_key(Slot, PSATag) ->
 
 psa_tagged_post_key(Uid, PostId) ->
     <<?PSA_TAG_POST_KEY/binary, <<"{">>/binary, Uid/binary, <<"}:">>/binary, PostId/binary>>.
+
+moment_sent_notification_key(Uid, Tag) ->
+    <<?MOMENT_SENT_NOTIFICATION_KEY/binary, <<"{">>/binary, Uid/binary, <<"}:">>/binary, Tag/binary>>.
 
 count_registrations_key(Uid) ->
     Slot = crc16_redis:hash(binary_to_list(Uid)),

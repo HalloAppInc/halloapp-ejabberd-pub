@@ -69,6 +69,7 @@
 -define(POST_EXPIRATION, (31 * ?DAYS)).
 -define(POST_TTL_MS, (31 * ?DAYS_MS)).
 -define(CATCH_UP_TIME_MS, 1 * ?WEEKS_MS).
+-define(MOMENT_TAG_EXPIRATION, (2 * ?DAYS)).
 
 
 -endif.

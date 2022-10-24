@@ -46,6 +46,7 @@
 -define(POST_BLOB_EXPIRE_DAYS, 1).
 
 -define(PSA_TAG1, <<"psa_tag1">>).
+-define(MOMENT_TAG, <<"moment_tag">>).
 
 %% The setup is as follows:
 %% There are two posts: P1 (by U1) and P2 (by U2).
@@ -496,6 +497,16 @@ psa_tag_post_test() ->
     {ok, [ExpectedPost]} = model_feed:get_psa_tag_posts(?PSA_TAG1),
     ok.
       
+moment_tag_test() ->
+    setup(),
+    false = model_feed:is_moment_tag_done(?MOMENT_TAG),
+    ok = model_feed:mark_moment_tag_done(?MOMENT_TAG),
+    true = model_feed:is_moment_tag_done(?MOMENT_TAG),
+    Hr = model_feed:get_moment_time_to_send(?MOMENT_TAG),
+    Hr = model_feed:get_moment_time_to_send(?MOMENT_TAG),
+    false = model_feed:set_moment_time_to_send(Hr, ?MOMENT_TAG),
+    ok.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%                      Helper functions                                  %%%%

@@ -55,6 +55,7 @@
 
 -define(PSA_TAG_UIDS_KEY, <<"ptu:">>).
 -define(PSA_TAG_POST_KEY, <<"ptp:">>).
+-define(MOMENT_SENT_NOTIFICATION_KEY, <<"msn:">>).
 
 -define(EXPORT_DATA_KEY, <<"eda:">>).
 
@@ -77,6 +78,8 @@
 -define(REVERSE_COMMENT_KEY, <<"rfc:">>).
 -define(REVERSE_GROUP_POST_KEY, <<"rfg:">>).
 -define(PSA_TAG_KEY, <<"pst:">>).
+-define(MOMENT_TIME_TO_SEND_KEY, <<"mts:">>).
+-define(MOMENT_TAG_KEY, <<"mmt:">>).
 -define(REVERSE_PSA_TAG_KEY, <<"rpt:">>).
 -define(COMMENT_PUSH_LIST_KEY, <<"fcp:">>).
 -define(SHARE_POST_KEY, <<"fsp:">>).

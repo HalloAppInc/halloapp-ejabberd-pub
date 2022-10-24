@@ -59,6 +59,7 @@
     session_info/1,
     spub_info/1,
     get_sms_codes/1,
+    send_moment_notification/1,
     send_invite/2,
     reset_sms_backoff/1,
     delete_account/1,
@@ -401,7 +402,13 @@ get_commands_spec() ->
         desc = "Fetches push stats for android",
         module = android_push_stats, function = fetch_push_stats,
         result = {res, rescode}},
-    #ejabberd_commands{name = get_invite_string, tags = [server],
+    #ejabberd_commands{name = send_moment_notification, tags = [server],
+        desc = "Send Moment Notification",
+        module = ?MODULE, function = send_moment_notification,
+        args_desc = ["Phone number"],
+        args_example = [<<"12065555586">>],
+        args=[{phone, binary}], result = {res, rescode}},
+     #ejabberd_commands{name = get_invite_string, tags = [server],
         desc = "Get invite string from its hash ID",
         module = mod_invites, function = lookup_invite_string,
         args_desc = ["Invite string hash ID"],
@@ -985,6 +992,22 @@ get_sms_codes(PhoneRaw) ->
                     Codes = [Code || #verification_info{code = Code} <- RawList],
                     io:format("SMS codes for phone: ~s~n", [NormalizedPhone]),
                     [io:format("  ~s~n", [Code]) || Code <- Codes]
+            end
+    end,
+    ok.
+
+send_moment_notification(PhoneRaw) ->
+    ?INFO("Admin requesting moment notification for ~p", [PhoneRaw]),
+    Phone = mod_libphonenumber:prepend_plus(PhoneRaw),
+    case mod_libphonenumber:normalized_number(Phone, <<"US">>) of
+        undefined ->
+            io:format("Phone number invalid~n"),
+            io:format("Try entering only the numbers, no additional characters~n");
+        NormalizedPhone ->
+            case model_phone:get_uid(NormalizedPhone) of
+                {ok, undefined} ->
+                    io:format("No account associated with phone: ~s~n", [PhoneRaw]);
+                {ok, Uid} -> mod_moment_notification:send_moment_notification(Uid)
             end
     end,
     ok.

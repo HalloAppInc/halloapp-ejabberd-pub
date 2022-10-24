@@ -56,6 +56,11 @@
     is_psa_tag_done/1,
     mark_psa_tag_done/1,
     del_psa_tag_done/1,
+    get_moment_time_to_send/1,
+    set_moment_time_to_send/2,
+    is_moment_tag_done/1,
+    mark_moment_tag_done/1,
+    del_moment_tag_done/1,
     is_post_owner/2,
     get_post_tag/1,
     add_uid_to_audience/2,
@@ -85,6 +90,7 @@
 -define(FIELD_GROUP_ID, <<"gid">>).
 -define(FIELD_PSA_TAG, <<"pst">>).
 -define(FIELD_PSA_TAG_DONE, <<"ptd">>).
+-define(FIELD_MOMENT_TAG_DONE, <<"mtd">>).
 
 
 -spec publish_post(PostId :: binary(), Uid :: uid(), Payload :: binary(), PostTag :: post_tag(),
@@ -462,6 +468,44 @@ del_psa_tag_done(PSATag) ->
     {ok, Value} = q(["HDEL", psa_tag_key(PSATag), ?FIELD_PSA_TAG_DONE]),
     Value =:= <<"1">>.
 
+-spec get_moment_time_to_send(Tag :: binary()) -> integer().
+get_moment_time_to_send(Tag) ->
+    {ok, Payload} = q(["GET", moment_time_to_send_key(Tag)]),
+    case Payload of
+        undefined ->
+            %% from 3pm to 9pm local time.
+            Rand = 15 + random:uniform(6),
+            case set_moment_time_to_send(Rand, Tag) of
+                true -> Rand;
+                false -> get_moment_time_to_send(Tag)
+            end;
+        _ -> binary_to_integer(Payload)
+    end.
+
+
+-spec set_moment_time_to_send(Hr :: integer(), Tag :: binary()) -> boolean().
+set_moment_time_to_send(Hr, Tag) ->
+    {ok, Payload} = q(["SET", moment_time_to_send_key(Tag), util:to_binary(Hr),
+                      "EX", ?MOMENT_TAG_EXPIRATION, "NX"]),
+    Payload =:= <<"OK">>.
+
+-spec is_moment_tag_done(Tag :: binary()) -> boolean().
+is_moment_tag_done(Tag) ->
+    {ok, Value} = q(["HGET", moment_tag_key(Tag), ?FIELD_MOMENT_TAG_DONE]),
+    Value =:= <<"1">>.
+
+-spec mark_moment_tag_done(Tag :: binary()) -> ok.
+mark_moment_tag_done(Tag) ->
+    [{ok, _}, {ok, _}] = qp([
+        ["HSET", moment_tag_key(Tag), ?FIELD_MOMENT_TAG_DONE, 1],
+        ["EXPIRE", moment_tag_key(Tag), ?MOMENT_TAG_EXPIRATION]]),
+    ok.
+
+-spec del_moment_tag_done(Tag :: binary()) -> boolean().
+del_moment_tag_done(Tag) ->
+    {ok, Value} = q(["HDEL", moment_tag_key(Tag), ?FIELD_MOMENT_TAG_DONE]),
+    Value =:= <<"1">>.
+
 -spec get_psa_tag_posts(PSATag :: binary()) -> {ok, [feed_item()]} | {error, any()}.
 get_psa_tag_posts(PSATag) ->
     NowMs = util:now_ms(),
@@ -686,6 +730,14 @@ psa_tag_key(PSATag) ->
 reverse_psa_tag_key(PSATag) ->
     <<?REVERSE_PSA_TAG_KEY/binary, "{", PSATag/binary, "}">>.
 
+
+-spec moment_time_to_send_key(Tag :: binary()) -> binary().
+moment_time_to_send_key(Tag) ->
+    <<?MOMENT_TIME_TO_SEND_KEY/binary, "{", Tag/binary, "}">>.
+
+-spec moment_tag_key(Tag :: binary()) -> binary().
+moment_tag_key(Tag) ->
+    <<?MOMENT_TAG_KEY/binary, "{", Tag/binary, "}">>.
 
 -spec reverse_comment_key(Uid :: uid()) -> binary().
 reverse_comment_key(Uid) ->

@@ -574,6 +574,10 @@ psa_tag_test(_) ->
     ?_assert(model_accounts:mark_psa_post_sent(?UID1, ?POSTID1)),
     ?_assertNot(model_accounts:mark_psa_post_sent(?UID1, ?POSTID1))].
 
+moment_notification_test(_) ->
+    [?_assert(model_accounts:mark_moment_notification_sent(?UID1, ?POSTID1)),
+    ?_assertNot(model_accounts:mark_moment_notification_sent(?UID1, ?POSTID1))].
+
 
 api_test_() ->
     [tutil:setup_foreach(fun setup/0, [
@@ -609,7 +613,8 @@ api_test_() ->
         fun filter_nonexisting_uids/1,
         fun start_get_export/1,
         fun marketing_tag/1,
-        fun psa_tag_test/1
+        fun psa_tag_test/1,
+        fun moment_notification_test/1
     ])].
 
 

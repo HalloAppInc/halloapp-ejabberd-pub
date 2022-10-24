@@ -221,6 +221,7 @@ modules:
   mod_webclient_info: {}
   mod_recommendations: {}
   mod_reporting: {}
+  mod_moment_notification: {}
 
 ### Local Variables:
 ### mode: yaml
