@@ -22,7 +22,8 @@
     unschedule/0,
     send_notification/1,
     send_notifications/0,
-    send_moment_notification/1
+    send_moment_notification/1,
+    is_time_ok/3  %% for testing
 ]).
 
 %% Hooks
@@ -117,7 +118,8 @@ process_moment_tag(Tag) ->
             {ok, PushInfo} = model_accounts:get_push_info(Uid),
             ClientVersion = PushInfo#push_info.client_version,
             ZoneOffset = PushInfo#push_info.zone_offset,
-            ProcessingDone = case is_time_ok(Phone, ZoneOffset, HrToSend) andalso
+            ProcessingDone = case Phone =/= undefined andalso
+                    is_time_ok(Phone, ZoneOffset, HrToSend) andalso
                     is_client_version_ok(ClientVersion) of
                 true ->
                       maybe_send_moment_notification(Uid, Tag),
