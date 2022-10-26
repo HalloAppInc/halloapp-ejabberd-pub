@@ -38,7 +38,10 @@ get_queries() ->
         e2e_decryption_reason_rates(?IOS, QueryTimeMsBin),
         e2e_decryption_report(QueryTimeMsBin),
         e2e_decryption_report_7day(QueryTimeMsBin),
-        e2e_decryption_report_without_rerequest(QueryTimeMsBin)
+        e2e_decryption_report_without_rerequest(QueryTimeMsBin),
+        e2e_decryption_report_version(QueryTimeMsBin),
+        e2e_decryption_report_7day_version(QueryTimeMsBin),
+        e2e_decryption_report_without_rerequest_version(QueryTimeMsBin)
     ].
 
 
@@ -245,5 +248,136 @@ e2e_decryption_report_without_rerequest(TimestampMsBin) ->
         tags = #{},
         result_fun = {athena_e2e_results, record_dec_report},
         metrics = ["home_decryption_report0"]
+    }.
+
+
+%% Query gets the decryption report rates ordered by original_version.
+%% This query will run on data from TimestampMs till current.
+-spec e2e_decryption_report_version(TimestampMsBin :: binary()) -> athena_query().
+e2e_decryption_report_version(TimestampMsBin) ->
+    QueryBin = <<"
+        SELECT success.platform, success.version,
+            ROUND(success.count * 100.0 / total.count, 2) as success_rate,
+            success.count as success_count, total.count as total_count
+        FROM
+            (SELECT platform, \"home_decryption_report\".\"original_version\" as version, count(*) as count
+            FROM
+                (SELECT \"home_decryption_report\", \"platform\", MAX(\"version\") as \"version\",
+                    MAX(\"timestamp_ms\") as \"timestamp_ms\"
+                FROM \"default\".\"client_home_decryption_report\"
+                WHERE \"home_decryption_report\".\"time_taken_s\" <= 86400
+                GROUP BY \"home_decryption_report\", \"platform\")
+                WHERE timestamp_ms >= '", TimestampMsBin/binary, "'
+                    AND \"home_decryption_report\".\"result\"='ok'
+                GROUP BY \"home_decryption_report\".\"original_version\", platform) as success
+        JOIN
+            (SELECT platform, \"home_decryption_report\".\"original_version\" as version, count(*) as count
+            FROM
+                (SELECT \"home_decryption_report\", \"platform\", MAX(\"version\") as \"version\",
+                    MAX(\"timestamp_ms\") as \"timestamp_ms\"
+                FROM \"default\".\"client_home_decryption_report\"
+                WHERE \"home_decryption_report\".\"time_taken_s\" <= 86400
+                GROUP BY \"home_decryption_report\", \"platform\")
+                WHERE timestamp_ms >= '", TimestampMsBin/binary, "'
+                    AND \"home_decryption_report\".\"reason\" != 'missingContent'
+                    AND \"home_decryption_report\".\"reason\" != 'content_missing'
+                    AND \"home_decryption_report\".\"reason\" != 'post_not_found'
+                    AND \"home_decryption_report\".\"reason\" != 'postNotFound'
+                GROUP BY \"home_decryption_report\".\"original_version\", platform) as total
+        ON success.version=total.version
+            AND success.platform=total.platform
+        ORDER BY success.version DESC;">>,
+    #athena_query{
+        query_bin = QueryBin,
+        tags = #{},
+        result_fun = {athena_e2e_results, record_dec_report},
+        metrics = ["home_decryption_report_version"]
+    }.
+
+
+%% Query gets the decryption report rates ordered by version.
+%% This query will run on data from TimestampMs till current.
+-spec e2e_decryption_report_7day_version(TimestampMsBin :: binary()) -> athena_query().
+e2e_decryption_report_7day_version(TimestampMsBin) ->
+    QueryBin = <<"
+        SELECT success.platform, success.version,
+            ROUND(success.count * 100.0 / total.count, 2) as success_rate,
+            success.count as success_count, total.count as total_count
+        FROM
+            (SELECT platform, \"home_decryption_report\".\"original_version\" as version, count(*) as count
+            FROM
+                (SELECT \"home_decryption_report\", \"platform\", MAX(\"version\") as \"version\",
+                    MAX(\"timestamp_ms\") as \"timestamp_ms\"
+                FROM \"default\".\"client_home_decryption_report\"
+                WHERE \"home_decryption_report\".\"time_taken_s\" <= 604800
+                GROUP BY \"home_decryption_report\", \"platform\")
+                WHERE timestamp_ms >= '", TimestampMsBin/binary, "'
+                    AND \"home_decryption_report\".\"result\"='ok'
+                GROUP BY \"home_decryption_report\".\"original_version\", platform) as success
+        JOIN
+            (SELECT platform, \"home_decryption_report\".\"original_version\" as version, count(*) as count
+            FROM
+                (SELECT \"home_decryption_report\", \"platform\", MAX(\"version\") as \"version\",
+                    MAX(\"timestamp_ms\") as \"timestamp_ms\"
+                FROM \"default\".\"client_home_decryption_report\"
+                WHERE \"home_decryption_report\".\"time_taken_s\" <= 604800
+                GROUP BY \"home_decryption_report\", \"platform\")
+                WHERE timestamp_ms >= '", TimestampMsBin/binary, "'
+                    AND \"home_decryption_report\".\"reason\" != 'missingContent'
+                    AND \"home_decryption_report\".\"reason\" != 'content_missing'
+                    AND \"home_decryption_report\".\"reason\" != 'post_not_found'
+                    AND \"home_decryption_report\".\"reason\" != 'postNotFound'
+                GROUP BY \"home_decryption_report\".\"original_version\", platform) as total
+        ON success.version=total.version
+            AND success.platform=total.platform
+        ORDER BY success.version DESC;">>,
+    #athena_query{
+        query_bin = QueryBin,
+        tags = #{},
+        result_fun = {athena_e2e_results, record_dec_report},
+        metrics = ["home_decryption_report_7day_version"]
+    }.
+
+
+%% Query gets the decryption report rates with rerequest_count = 0, ordered by original_version.
+%% This query will run on data from TimestampMs till current.
+-spec e2e_decryption_report_without_rerequest_version(TimestampMsBin :: binary()) -> athena_query().
+e2e_decryption_report_without_rerequest_version(TimestampMsBin) ->
+    QueryBin = <<"
+        SELECT success.platform, success.version,
+            ROUND(success.count * 100.0 / total.count, 2) as success_rate,
+            success.count as success_count, total.count as total_count
+        FROM
+            (SELECT platform, \"home_decryption_report\".\"original_version\" as version, count(*) as count
+            FROM
+                (SELECT \"home_decryption_report\", \"platform\", MAX(\"version\") as \"version\",
+                    MAX(\"timestamp_ms\") as \"timestamp_ms\"
+                FROM \"default\".\"client_home_decryption_report\"
+                GROUP BY \"home_decryption_report\", \"platform\")
+                WHERE timestamp_ms >= '", TimestampMsBin/binary, "'
+                    AND \"home_decryption_report\".\"result\"='ok'
+                    AND \"home_decryption_report\".\"rerequest_count\"=0
+                GROUP BY \"home_decryption_report\".\"original_version\", platform) as success
+        JOIN
+            (SELECT platform, \"home_decryption_report\".\"original_version\" as version, count(*) as count
+            FROM
+                (SELECT \"home_decryption_report\", \"platform\", MAX(\"version\") as \"version\",
+                    MAX(\"timestamp_ms\") as \"timestamp_ms\"
+                FROM \"default\".\"client_home_decryption_report\"
+                GROUP BY \"home_decryption_report\", \"platform\")
+                WHERE timestamp_ms >= '", TimestampMsBin/binary, "'
+                    AND \"home_decryption_report\".\"reason\" != 'missingContent'
+                    AND \"home_decryption_report\".\"reason\" != 'content_missing'
+                    AND \"home_decryption_report\".\"reason\" != 'post_not_found'
+                    AND \"home_decryption_report\".\"reason\" != 'postNotFound'
+                GROUP BY \"home_decryption_report\".\"original_version\", platform) as total
+        ON success.version=total.version
+            AND success.platform=total.platform
+        ORDER BY success.version DESC;">>,
+    #athena_query{
+        query_bin = QueryBin,
+        tags = #{},
+        result_fun = {athena_e2e_results, record_dec_report},
+        metrics = ["home_decryption_report0_version"]
     }.
 
