@@ -260,7 +260,7 @@ e2e_decryption_report_version(TimestampMsBin) ->
             ROUND(success.count * 100.0 / total.count, 2) as success_rate,
             success.count as success_count, total.count as total_count
         FROM
-            (SELECT platform, \"group_decryption_report\".\"version\" as version, count(*) as count
+            (SELECT platform, \"group_decryption_report\".\"original_version\" as version, count(*) as count
             FROM
                 (SELECT \"group_decryption_report\", \"platform\", MAX(\"version\") as \"version\",
                     MAX(\"timestamp_ms\") as \"timestamp_ms\"
@@ -269,9 +269,9 @@ e2e_decryption_report_version(TimestampMsBin) ->
                 GROUP BY \"group_decryption_report\", \"platform\")
                 WHERE timestamp_ms >= '", TimestampMsBin/binary, "'
                     AND \"group_decryption_report\".\"result\"='ok'
-                GROUP BY \"group_decryption_report\".\"version\", platform) as success
+                GROUP BY \"group_decryption_report\".\"original_version\", platform) as success
         JOIN
-            (SELECT platform, \"group_decryption_report\".\"version\" as version, count(*) as count
+            (SELECT platform, \"group_decryption_report\".\"original_version\" as version, count(*) as count
             FROM
                 (SELECT \"group_decryption_report\", \"platform\", MAX(\"version\") as \"version\",
                     MAX(\"timestamp_ms\") as \"timestamp_ms\"
@@ -283,7 +283,7 @@ e2e_decryption_report_version(TimestampMsBin) ->
                     AND \"group_decryption_report\".\"reason\" != 'content_missing'
                     AND \"group_decryption_report\".\"reason\" != 'post_not_found'
                     AND \"group_decryption_report\".\"reason\" != 'postNotFound'
-                GROUP BY \"group_decryption_report\".\"version\", platform) as total
+                GROUP BY \"group_decryption_report\".\"original_version\", platform) as total
         ON success.version=total.version
             AND success.platform=total.platform
         ORDER BY success.version DESC;">>,
@@ -304,7 +304,7 @@ e2e_decryption_report_7day_version(TimestampMsBin) ->
             ROUND(success.count * 100.0 / total.count, 2) as success_rate,
             success.count as success_count, total.count as total_count
         FROM
-            (SELECT platform, \"group_decryption_report\".\"version\" as version, count(*) as count
+            (SELECT platform, \"group_decryption_report\".\"original_version\" as version, count(*) as count
             FROM
                 (SELECT \"group_decryption_report\", \"platform\", MAX(\"version\") as \"version\",
                     MAX(\"timestamp_ms\") as \"timestamp_ms\"
@@ -313,9 +313,9 @@ e2e_decryption_report_7day_version(TimestampMsBin) ->
                 GROUP BY \"group_decryption_report\", \"platform\")
                 WHERE timestamp_ms >= '", TimestampMsBin/binary, "'
                     AND \"group_decryption_report\".\"result\"='ok'
-                GROUP BY \"group_decryption_report\".\"version\", platform) as success
+                GROUP BY \"group_decryption_report\".\"original_version\", platform) as success
         JOIN
-            (SELECT platform, \"group_decryption_report\".\"version\" as version, count(*) as count
+            (SELECT platform, \"group_decryption_report\".\"original_version\" as version, count(*) as count
             FROM
                 (SELECT \"group_decryption_report\", \"platform\", MAX(\"version\") as \"version\",
                     MAX(\"timestamp_ms\") as \"timestamp_ms\"
@@ -327,7 +327,7 @@ e2e_decryption_report_7day_version(TimestampMsBin) ->
                     AND \"group_decryption_report\".\"reason\" != 'content_missing'
                     AND \"group_decryption_report\".\"reason\" != 'post_not_found'
                     AND \"group_decryption_report\".\"reason\" != 'postNotFound'
-                GROUP BY \"group_decryption_report\".\"version\", platform) as total
+                GROUP BY \"group_decryption_report\".\"original_version\", platform) as total
         ON success.version=total.version
             AND success.platform=total.platform
         ORDER BY success.version DESC;">>,
@@ -348,7 +348,7 @@ e2e_decryption_report_without_rerequest_version(TimestampMsBin) ->
             ROUND(success.count * 100.0 / total.count, 2) as success_rate,
             success.count as success_count, total.count as total_count
         FROM
-            (SELECT platform, \"group_decryption_report\".\"version\" as version, count(*) as count
+            (SELECT platform, \"group_decryption_report\".\"original_version\" as version, count(*) as count
             FROM
                 (SELECT \"group_decryption_report\", \"platform\", MAX(\"version\") as \"version\",
                     MAX(\"timestamp_ms\") as \"timestamp_ms\"
@@ -357,9 +357,9 @@ e2e_decryption_report_without_rerequest_version(TimestampMsBin) ->
                 WHERE timestamp_ms >= '", TimestampMsBin/binary, "'
                     AND \"group_decryption_report\".\"result\"='ok'
                     AND \"group_decryption_report\".\"rerequest_count\"=0
-                GROUP BY \"group_decryption_report\".\"version\", platform) as success
+                GROUP BY \"group_decryption_report\".\"original_version\", platform) as success
         JOIN
-            (SELECT platform, \"group_decryption_report\".\"version\" as version, count(*) as count
+            (SELECT platform, \"group_decryption_report\".\"original_version\" as version, count(*) as count
             FROM
                 (SELECT \"group_decryption_report\", \"platform\", MAX(\"version\") as \"version\",
                     MAX(\"timestamp_ms\") as \"timestamp_ms\"
@@ -370,7 +370,7 @@ e2e_decryption_report_without_rerequest_version(TimestampMsBin) ->
                     AND \"group_decryption_report\".\"reason\" != 'content_missing'
                     AND \"group_decryption_report\".\"reason\" != 'post_not_found'
                     AND \"group_decryption_report\".\"reason\" != 'postNotFound'
-                GROUP BY \"group_decryption_report\".\"version\", platform) as total
+                GROUP BY \"group_decryption_report\".\"original_version\", platform) as total
         ON success.version=total.version
             AND success.platform=total.platform
         ORDER BY success.version DESC;">>,
