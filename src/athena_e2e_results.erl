@@ -29,10 +29,15 @@ record_enc_and_dec(Query) ->
             [Version, EncSuccessRateStr, _, DecSuccessRateStr, _] = maps:get(<<"Data">>, ResultRow),
             {EncSuccessRate, <<>>} = string:to_float(EncSuccessRateStr),
             {DecSuccessRate, <<>>} = string:to_float(DecSuccessRateStr),
-            stat:count("HA/e2e", Metric1, EncSuccessRate,
-                    [{"version", util:to_list(Version)} | TagsAndValues]),
-            stat:count("HA/e2e", Metric2, DecSuccessRate,
-                    [{"version", util:to_list(Version)} | TagsAndValues])
+            case Version =/= <<>> andalso Version =/= "" of
+                true ->
+                    stat:count("HA/e2e", Metric1, EncSuccessRate,
+                        [{"version", util:to_list(Version)} | TagsAndValues]),
+                    stat:count("HA/e2e", Metric2, DecSuccessRate,
+                        [{"version", util:to_list(Version)} | TagsAndValues]),
+                    ok;
+                false -> ok
+            end
         end, ActualResultRows),
     ok.
 
@@ -48,13 +53,18 @@ record_dec_report(Query) ->
         fun(ResultRow) ->
             [Platform, Version, DecSuccessRateStr, _, TotalMsgsStr] = maps:get(<<"Data">>, ResultRow),
             {DecSuccessRate, <<>>} = string:to_float(DecSuccessRateStr),
-            stat:count("HA/e2e", Metric1, DecSuccessRate,
-                    [{"version", util:to_list(Version)},
-                    {"platform", util:to_list(Platform)} | TagsAndValues]),
-            TotalMsgs = util:to_integer(TotalMsgsStr),
-            stat:count("HA/e2e", Metric1 ++ "_count", TotalMsgs,
-                    [{"version", util:to_list(Version)},
-                    {"platform", util:to_list(Platform)} | TagsAndValues])
+            case Version =/= <<>> andalso Version =/= "" of
+                true ->
+                    stat:count("HA/e2e", Metric1, DecSuccessRate,
+                        [{"version", util:to_list(Version)},
+                        {"platform", util:to_list(Platform)} | TagsAndValues]),
+                    TotalMsgs = util:to_integer(TotalMsgsStr),
+                    stat:count("HA/e2e", Metric1 ++ "_count", TotalMsgs,
+                        [{"version", util:to_list(Version)},
+                        {"platform", util:to_list(Platform)} | TagsAndValues]),
+                    ok;
+                false -> ok
+            end
         end, ActualResultRows),
     ok.
 
