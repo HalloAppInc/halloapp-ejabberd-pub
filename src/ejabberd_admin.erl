@@ -841,7 +841,7 @@ uid_info(Uid, Options) ->
             lists:foreach(fun(Gid) ->
                 {GName, GSize} = case (model_groups:get_group_info(Gid)) of
                     #group_info{} = G -> {G#group_info.name, model_groups:get_group_size(Gid)};
-                    _  -> undefined, undefined
+                    _  -> {undefined, undefined}
                 end,
                 io:format("   ~s ~p (~s)~n", [GName, GSize, Gid])
             end, Gids)
