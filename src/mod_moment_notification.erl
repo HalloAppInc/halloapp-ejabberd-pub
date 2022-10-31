@@ -23,7 +23,7 @@
     send_notification/1,
     send_notifications/0,
     send_moment_notification/1,
-    is_time_ok/3  %% for testing
+    is_time_ok/5  %% for testing
 ]).
 
 %% Hooks
@@ -96,20 +96,23 @@ unschedule() ->
 -spec send_notifications() -> ok.
 send_notifications() ->
     {{_,_,Day}, {_,_,_}} = calendar:system_time_to_universal_time(util:now(), second),
-    send_notification(integer_to_binary(Day)),
+    send_notification(Day),
     ok.
 
 %%====================================================================
 
--spec send_notification(Tag :: binary()) -> ok.
-send_notification(Tag) ->
-    case model_feed:is_moment_tag_done(Tag) of
+-spec send_notification(Today :: integer()) -> ok.
+send_notification(Today) ->
+    %% Have we processed all the accounts regardless of their timezone Today (GMT).
+    case model_feed:is_moment_tag_done(util:to_binary(Today)) of
         true -> ok;
-        false -> process_moment_tag(Tag)
+        false -> process_moment_tag(Today)
     end.
 
-process_moment_tag(Tag) ->
-    HrToSend = model_feed:get_moment_time_to_send(Tag),
+process_moment_tag(Today) ->
+    HrToSendToday = model_feed:get_moment_time_to_send(util:to_binary(Today)),
+    HrToSendPrevDay = model_feed:get_moment_time_to_send(util:to_binary(Today - 1)), %% Local time is 1 day behind
+    HrToSendNextDay = model_feed:get_moment_time_to_send(util:to_binary(Today + 1)), %% Local time is 1 day ahead
     List = dev_users:get_dev_uids(),
     Phones = model_accounts:get_phones(List),
     UidPhones = lists:zip(List, Phones),
@@ -117,46 +120,65 @@ process_moment_tag(Tag) ->
         lists:foldl(fun({Uid, Phone}, Acc) ->
             {ok, PushInfo} = model_accounts:get_push_info(Uid),
             ClientVersion = PushInfo#push_info.client_version,
-            ZoneOffset = PushInfo#push_info.zone_offset,
+            ZoneOffset = case is_client_version_ok(ClientVersion) of
+                true -> PushInfo#push_info.zone_offset;
+                false -> undefined
+            end,
             ProcessingDone = case Phone =/= undefined andalso
-                    is_time_ok(Phone, ZoneOffset, HrToSend) andalso
+                    is_time_ok(Phone, ZoneOffset, HrToSendToday, HrToSendPrevDay, HrToSendNextDay) andalso
                     is_client_version_ok(ClientVersion) of
                 true ->
-                      maybe_send_moment_notification(Uid, Tag),
+                      maybe_send_moment_notification(Uid, util:to_binary(Today)),
                       true;
                 false -> false
             end,
             Acc andalso ProcessingDone
         end, true, UidPhones),
     case Processed of
-        true -> model_feed:mark_moment_tag_done(Tag);
+        true -> model_feed:mark_moment_tag_done(util:to_binary(Today));
         false -> ok
     end.
 
+%% TODO(vipin): Update this method. false clause is to satisfy Dialyzer
+is_client_version_ok(UserAgent) when is_binary(UserAgent) ->
+    true;
 is_client_version_ok(_UserAgent) ->
-    true.
+    false.
 
-is_time_ok(Phone, ZoneOffset, HrToSend) ->
+%% If localtime if within GMT day, use HrToSendToday. If locatime is in the prev day with
+%% respect to GMT day, use HrToSendPrevDay. If localtime is in the next day with respect to
+%% GMT day, use HrToSendNextDay.
+is_time_ok(Phone, ZoneOffset, HrToSendToday, HrToSendPrevDay, HrToSendNextDay) ->
     {{_,_,_}, {UtcHr,_,_}} = calendar:system_time_to_universal_time(util:now(), second),
-    UtcHr2 = UtcHr + 24,
+    ?DEBUG("UtcHr: ~p", [UtcHr]),
     CCLocalHr1 = case ZoneOffset of
         undefined ->
             CC = mod_libphonenumber:get_cc(Phone),
             case CC of
-                <<"AE">> -> UtcHr2 + 4;
-                <<"BA">> -> UtcHr2 + 2;
-                <<"GB">> -> UtcHr2 + 1;
-                <<"ID">> -> UtcHr2 + 7;
-                <<"IR">> -> UtcHr2 + 3;  %% + 3:30
-                <<"US">> -> UtcHr2 - 6;
-                <<"IN">> -> UtcHr2 + 5;
-                _ -> UtcHr2
+                <<"AE">> -> UtcHr + 4;
+                <<"BA">> -> UtcHr + 2;
+                <<"GB">> -> UtcHr + 1;
+                <<"ID">> -> UtcHr + 7;
+                <<"IR">> -> UtcHr + 3;  %% + 3:30
+                <<"US">> -> UtcHr - 6;
+                <<"IN">> -> UtcHr + 5;
+                _ -> UtcHr
             end;
         _ ->
             ZoneOffsetHr = round(ZoneOffset / 3600),
-            UtcHr2 + ZoneOffsetHr
+            UtcHr + ZoneOffsetHr
     end,
-    CCLocalHr = CCLocalHr1 rem 24,
+    ?DEBUG("LocalHr: ~p", [CCLocalHr1]),
+    {HrToSend, CCLocalHr} = case CCLocalHr1 >= 24 of
+        true ->
+            {HrToSendNextDay, CCLocalHr1 - 24};
+        false ->
+            case CCLocalHr1 < 0 of
+                true -> {HrToSendPrevDay, CCLocalHr1 + 24};
+                false -> {HrToSendToday, CCLocalHr1}
+            end
+    end,
+    ?DEBUG("HrToSend: ~p, CCLocalHr: ~p", [HrToSend, CCLocalHr]),
     (CCLocalHr >= 15) andalso ((CCLocalHr >= HrToSend) orelse (HrToSend > 21)).
 
 -spec maybe_send_moment_notification(Uid :: uid(), Tag :: binary()) -> ok.
