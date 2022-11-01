@@ -18,6 +18,10 @@
 
 -define(STEST_SHARD_NUM, 100).
 
+-ifdef(TEST).
+-export([is_main_stest/2]).
+-endif.
+
 -export([
     is_android_user/1,
     is_ios_user/1,
@@ -789,21 +793,20 @@ get_node() -> node().
 %% Used whether to run specific jobs or not.
 -spec is_main_stest() -> boolean().
 is_main_stest() ->
+    is_main_stest(node(), nodes()).
+
+is_main_stest(Node, Nodes) ->
     ShardNums = lists:filtermap(
-            fun(Node) ->
-                case is_node_stest(Node) of
-                    false -> false;
-                    true -> {true, get_shard(Node)}
-                end
-            end, get_nodes()),
+        fun(N) ->
+            case is_node_stest(N) of
+                false -> false;
+                true -> {true, get_shard(N)}
+            end
+        end, Nodes),
     case length(ShardNums) =:= 0 of
         true -> true;
         false ->
-            OwnShard = get_shard(get_node()),
-            case OwnShard < lists:min(ShardNums) of
-                true -> true;
-                false -> false
-            end
+            OwnShard = get_shard(Node),
+            is_node_stest(Node) andalso OwnShard < lists:min(ShardNums)
     end.
-
 

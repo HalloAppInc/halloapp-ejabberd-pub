@@ -150,6 +150,15 @@ test_remove_cc_from_langid(_) ->
     ].
 
 
+test_is_main_stest(_) ->
+    Nodes = ['ejabberd@s-test3', 'ejabberd@prod2', 'ejabberd@s-test1', 'ejabberd@prod5'],
+    [
+        ?_assert(util:is_main_stest('ejabberd@s-test', Nodes)),
+        ?_assertNot(util:is_main_stest('ejabberd@s-test4', Nodes)),
+        ?_assertNot(util:is_main_stest('ejabberd@prod0', Nodes))
+    ].
+
+
 do_util_test_() ->
     % Note, this is an unnecessary amount of complexity -- all of these test functions could just end
     % in _test_() and work great. It's just fun to parallelize to go super duper fast
@@ -172,24 +181,4 @@ do_util_test_() ->
         fun test_remove_cc_from_langid/1,
         fun test_is_main_stest/1
     ]).
-
-
-test_is_main_stest(_) ->
-    [
-        ?_assertEqual(true, util:is_main_stest())
-    ].
-
-setup_util_nodes() ->
-    CleanupInfo = tutil:setup([
-        {meck, util, [
-            {get_nodes, fun() -> ['ejabberd@s-test1', 'ejabberd@prod0'] end},
-            {get_node, fun() -> 'ejabberd@s-test' end}
-        ]}
-    ]),
-    CleanupInfo.
-
-
-is_main_stest_test_() ->
-    tutil:setup_once(fun setup_util_nodes/0, fun test_is_main_stest/1).
-
 
