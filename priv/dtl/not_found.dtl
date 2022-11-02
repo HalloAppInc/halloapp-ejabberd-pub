@@ -14,8 +14,8 @@
   <link rel='shortcut icon' type='image/x-icon' href='https://halloapp.com/images/favicon.ico'/>
   <link href='https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.min.css' rel='stylesheet'>
 
-  <script type="module" crossorigin src="https://d1efjkqerxchlh.cloudfront.net/es/23/assets/index.1a934193.js"></script>
-  <link rel="stylesheet" href="https://d1efjkqerxchlh.cloudfront.net/es/23/assets/index.42dd013c.css">
+  <script type="module" crossorigin src="https://d1efjkqerxchlh.cloudfront.net/es/24/assets/index.cc5f86af.js"></script>
+  <link rel="stylesheet" href="https://d1efjkqerxchlh.cloudfront.net/es/24/assets/index.09c4d9f5.css">
 </head>
 <body>
 <div id="app"></div>
