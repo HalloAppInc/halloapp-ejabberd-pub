@@ -101,8 +101,8 @@ get_props(Uid, ClientVersion) ->
         max_video_bit_rate => 4000000, %% max_video_bit_rate set to 4Mbps.
         audio_note_bit_rate => 96000, %% audio_note_bit_rate set to 96Kbps.
         cleartext_group_feed => true, %% whether client must send unencrypted content in group_feed.
-        use_cleartext_group_feed => true, %% whether clients must rely on unencrypted content in group_feed.
-        cleartext_home_feed => true, %% whether client must send unencrypted content in home_feed.
+        use_cleartext_group_feed => false, %% whether clients must rely on unencrypted content in group_feed.
+        cleartext_home_feed => false, %% whether client must send unencrypted content in home_feed.
         use_cleartext_home_feed => true, %% whether clients must rely on unencrypted content in home_feed.
         audio_calls => true, %% whether clients can make audio calls.
         video_calls => true, %% whether clients can make video calls.
@@ -175,7 +175,8 @@ get_uid_based_props(PropMap, Uid) ->
             PropMap5 = maps:update(draw_media, true, PropMap3),
             PropMap6 = maps:update(privacy_label, true, PropMap5),
             PropMap7 = maps:update(home_feed_comment_notifications, false, PropMap6),
-            PropMap9 = maps:update(use_cleartext_group_feed, false, PropMap7),
+            PropMap8 = maps:update(use_cleartext_group_feed, true, PropMap7),
+            PropMap9 = maps:update(cleartext_group_feed, true, PropMap8),
             PropMap10 = maps:update(new_chat_ui, true, PropMap9),
             PropMap11 = maps:update(enable_sentry_perf_tracking, true, PropMap10),
             PropMap12 = maps:update(group_expiry, true, PropMap11),
@@ -199,36 +200,27 @@ get_uid_based_props(PropMap, Uid) ->
         ClientType :: atom(), ClientVersion :: binary()) -> map().
 get_client_based_props(PropMap, android, ClientVersion) ->
     PropMap4 = maps:update(streaming_sending_enabled, true, PropMap),
-    Result4 = util_ua:is_version_less_than(ClientVersion, <<"HalloApp/Android1.3.6">>),
-    PropMap5 = maps:update(use_cleartext_group_feed, Result4, PropMap4),
     Result5 = util_ua:is_version_greater_than(ClientVersion, <<"HalloApp/Android1.4.5">>),
-    PropMap6 = maps:update(group_expiry, Result5, PropMap5),
-    Result6 = util_ua:is_version_less_than(ClientVersion, <<"HalloApp/Android1.5.1">>),
-    PropMap7 = maps:update(cleartext_group_feed, Result6, PropMap6),
-    Result7 = util_ua:is_version_greater_than(ClientVersion, <<"HalloApp/Android1.5.4">>),
-    PropMap8 = maps:update(chat_reactions, Result7, PropMap7),
-    PropMap9 = maps:update(comment_reactions, Result7, PropMap8),
-    PropMap9;
+    PropMap5 = maps:update(group_expiry, Result5, PropMap4),
+    Result6 = util_ua:is_version_greater_than(ClientVersion, <<"HalloApp/Android1.5.4">>),
+    PropMap6 = maps:update(chat_reactions, Result6, PropMap5),
+    PropMap7 = maps:update(comment_reactions, Result6, PropMap6),
+    PropMap7;
 
 
 get_client_based_props(PropMap, ios, ClientVersion) ->
     %% Enable groups grid on the latest version.
     Result3 = util_ua:is_version_greater_than(ClientVersion, <<"HalloApp/iOS1.21.279">>),
     PropMap3 = maps:update(enable_groups_grid, Result3, PropMap),
-    %% Enable group encryption on latest ios build.
-    Result4 = util_ua:is_version_less_than(ClientVersion, <<"HalloApp/iOS1.21.279">>),
-    PropMap4 = maps:update(use_cleartext_group_feed, Result4, PropMap3),
     Result5 = util_ua:is_version_greater_than(ClientVersion, <<"HalloApp/iOS1.22.290">>),
-    PropMap5 = maps:update(new_chat_ui, Result5, PropMap4),
+    PropMap5 = maps:update(new_chat_ui, Result5, PropMap3),
     Result6 = util_ua:is_version_greater_than(ClientVersion, <<"HalloApp/iOS1.23.292">>),
     PropMap6 = maps:update(group_expiry, Result6, PropMap5),
     Result7 = util_ua:is_version_greater_than(ClientVersion, <<"HalloApp/iOS1.22.290">>),
     PropMap7 = maps:update(pre_answer_calls, Result7, PropMap6),
     PropMap8 = maps:update(streaming_sending_enabled, true, PropMap7),
-    Result8 = util_ua:is_version_less_than(ClientVersion, <<"HalloApp/iOS1.24.295">>),
-    PropMap9 = maps:update(cleartext_group_feed, Result8, PropMap8),
     Result9 = util_ua:is_version_greater_than(ClientVersion, <<"HalloApp/iOS1.25.301">>),
-    PropMap10 = maps:update(chat_reactions, Result9, PropMap9),
+    PropMap10 = maps:update(chat_reactions, Result9, PropMap8),
     PropMap11 = maps:update(comment_reactions, Result9, PropMap10),
     Result10 = util_ua:is_version_greater_than(ClientVersion, <<"HalloApp/iOS1.25.305">>),
     PropMap12 = maps:update(location_sharing, Result10, PropMap11),
