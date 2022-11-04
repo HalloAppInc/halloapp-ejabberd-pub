@@ -620,7 +620,7 @@ share_group_feed(Gid, Uid) ->
 filter_group_feed_items(_Uid, Items) ->
     {Posts, Comments} = lists:partition(fun(Item) -> is_record(Item, post) end, Items),
     %% Dont resend moments to anyone including dev-users when resending history.
-    FilteredPosts = lists:filter(fun(Post) -> Post#post.tag =/= secret_post end, Posts),
+    FilteredPosts = lists:filter(fun(Post) -> Post#post.tag =/= moment end, Posts),
     FilteredPostIdsList = lists:map(fun(Post) -> Post#post.id end, FilteredPosts),
     FilteredPostIdsSet = sets:from_list(FilteredPostIdsList),
     FilteredComments = lists:filter(

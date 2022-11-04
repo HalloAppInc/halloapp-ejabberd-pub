@@ -171,7 +171,9 @@ message Post {
     MediaCounters media_counters = 8;
     enum Tag {
         EMPTY = 0;
-        SECRET_POST = 1;
+        MOMENT = 1;
+        PUBLIC_MOMENT = 2;
+        PUBLIC_POST = 3;
     }
     Tag tag = 9;
     string psa_tag = 10;
@@ -239,6 +241,44 @@ message FeedItems {
     int64 uid = 1 [ebin = true];
     repeated FeedItem items = 2;
 }
+
+
+enum PublicFeedContentType {
+    MOMENTS = 0;
+    POSTS = 1;
+}
+
+
+message PublicFeedRequest {
+    string cursor = 1;
+    PublicFeedContentType public_feed_content_type = 2;
+    GpsLocation gps_location = 3;
+}
+
+
+message PublicFeedResponse {
+    enum Result {
+        UNKNOWN = 0;
+        SUCCESS = 1;
+        FAILURE = 2;
+    }
+    enum Reason {
+        UNKNOWN_REASON = 0;
+        OK = 1;
+        INVALID_CURSOR = 2;
+    }
+    Result result = 1;
+    Reason reason = 2;
+    PublicFeedContentType public_feed_content_type = 3;
+    repeated FeedItem items = 4;
+}
+
+
+message GpsLocation {
+    double latitude = 1;
+    double longitude = 2;
+}
+
 
 message SenderStateWithKeyInfo {
     bytes public_key = 1;
@@ -913,6 +953,7 @@ message ContentMissing {
         HOME_COMMENT_REACTION = 12;
         HOME_POST_REACTION = 13;
         GROUP_CHAT = 14;
+        GROUP_CHAT_REACTION = 15;
     }
     ContentType content_type = 2;
     string sender_client_version = 3;  // ex: "HalloApp/Android0.127"
@@ -976,6 +1017,8 @@ message Iq {
         ExternalSharePostContainer external_share_post_container = 44;
         WebClientInfo web_client_info = 45;
         ReportUserContent report_user_content = 46;
+        PublicFeedRequest public_feed_request = 47;
+        PublicFeedResponse public_feed_response = 48;
     }
     int64 to_uid = 29 [ebin = true];    // only for server use
     int64 from_uid = 30 [ebin = true];    // only for server use

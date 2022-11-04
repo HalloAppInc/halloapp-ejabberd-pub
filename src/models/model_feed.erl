@@ -672,9 +672,9 @@ decode_audience_type(_) -> undefined.
 
 
 encode_post_tag(empty) -> <<"e">>;
-encode_post_tag(secret_post) -> <<"s">>.
+encode_post_tag(moment) -> <<"s">>.
 
-decode_post_tag(<<"s">>) -> secret_post;
+decode_post_tag(<<"s">>) -> moment;
 decode_post_tag(<<"e">>) -> empty;
 decode_post_tag(_) -> undefined.
 

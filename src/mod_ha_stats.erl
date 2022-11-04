@@ -222,7 +222,7 @@ feed_item_published(Uid, PostOwnerUid, ItemId, ItemType, ItemTag, FeedAudienceTy
             ha_events:log_user_event(Uid, post_published),
             report_media_counters(post, MediaCounters),
             case ItemTag of
-                secret_post ->
+                moment ->
                     ha_events:log_user_event(Uid, secret_post_published),
                     report_media_counters(secret_post, MediaCounters);
                 _ ->
@@ -511,7 +511,7 @@ count_packet(Namespace, Action, #pb_msg{from_uid = FromUid, to_uid = ToUid, payl
                             stat:count("HA/feed_receipts", "post_viewed_by_tag", 1, [{tag, PostTag}]),
                             stat:count("HA/feed_receipts", "post_viewed_by_tag_cc", 1, [{cc, FromCC}, {tag, PostTag}]),
                             ha_events:log_user_event(FromUid, post_send_seen),
-                            case PostTag =:= secret_post of
+                            case PostTag =:= moment of
                                 true -> ha_events:log_user_event(FromUid, secret_post_send_seen);
                                 false -> ok
                             end;
@@ -519,7 +519,7 @@ count_packet(Namespace, Action, #pb_msg{from_uid = FromUid, to_uid = ToUid, payl
                             %% ToUid's post was seen by FromUid
                             ha_events:log_user_event(ToUid, post_receive_seen),
                             ha_events:log_friend_event(ToUid, FromUid, ContentId, post_receive_seen),
-                            case PostTag =:= secret_post of
+                            case PostTag =:= moment of
                                 true -> ha_events:log_user_event(ToUid, secret_post_receive_seen);
                                 false -> ok
                             end

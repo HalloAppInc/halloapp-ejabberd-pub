@@ -694,7 +694,7 @@ filter_feed_items(Uid, Items) ->
             fun(Post) ->
                 case {Post#post.audience_type, Post#post.tag} of
                     %% Dont resend moments to anyone including dev-users when resending history.
-                    {_, secret_post} -> false;
+                    {_, moment} -> false;
                     {all, _} -> true;
                     {_, _} ->
                         lists:member(Uid, Post#post.audience_list)
