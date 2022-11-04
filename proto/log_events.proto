@@ -388,4 +388,6 @@ message InviteRequestResult {
   }
   Type type = 1;
   string invited_phone = 2;
+  string lang_id = 3;
+  string invite_string_id = 4;
 }
