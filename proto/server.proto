@@ -269,8 +269,9 @@ message PublicFeedResponse {
     }
     Result result = 1;
     Reason reason = 2;
-    PublicFeedContentType public_feed_content_type = 3;
-    repeated FeedItem items = 4;
+    string cursor = 3;
+    PublicFeedContentType public_feed_content_type = 4;
+    repeated FeedItem items = 5;
 }
 
 
