@@ -102,13 +102,13 @@ on_user_first_login(Uid, _Server) ->
     ok.
 
 
--spec request_sms(Phone :: phone(), UserAgent :: binary()) -> {ok, non_neg_integer()} | {error, term()} | {error, term(), non_neg_integer()}.
+-spec request_sms(Phone :: phone(), UserAgent :: binary()) -> {ok, non_neg_integer(), boolean()} | {error, term()}.
 request_sms(Phone, UserAgent) ->
     request_otp(Phone, <<"en-US">>, UserAgent, sms, <<>>).
 
 -spec request_otp(Phone :: phone(), LangId :: binary(), UserAgent :: binary(), Method :: method(),
     CampaignId :: binary()) ->
-    {ok, non_neg_integer()} | {error, term()} | {error, term(), non_neg_integer()}.
+    {ok, non_neg_integer(), boolean()} | {error, term()}.
 request_otp(Phone, LangId, UserAgent, Method, CampaignId) ->
     case {config:get_hallo_env(), util:is_test_number(Phone)} of
         {prod, true} -> send_otp_to_inviter(Phone, LangId, UserAgent, Method);
@@ -119,10 +119,10 @@ request_otp(Phone, LangId, UserAgent, Method, CampaignId) ->
 
 
 % Just generate and store code for this user. Mostly called for test phones or in localhost/test
--spec just_enroll(Phone :: binary()) -> {ok, integer()}.
+-spec just_enroll(Phone :: binary()) -> {ok, integer(), boolean()}.
 just_enroll(Phone) ->
     {ok, _NewAttemptId, _Timestamp} = ejabberd_auth:try_enroll(Phone, generate_code(Phone), <<>>),
-    {ok, 30}.
+    {ok, 30, false}.
 
 
 -spec verify_sms(Phone :: phone(), Code :: binary()) -> match | nomatch.
@@ -175,7 +175,7 @@ add_verification_success(Phone, FetchedInfo, AllVerifyInfo) ->
 
 
 -spec send_otp_to_inviter (Phone :: phone(), LangId :: binary(), UserAgent :: binary(), Method ::
-    atom()) -> {ok, non_neg_integer()} | {error, term()} | {error, term(), non_neg_integer()}.
+    atom()) -> {ok, non_neg_integer(), boolean()} | {error, term()}.
 send_otp_to_inviter(Phone, LangId, UserAgent, Method)->
     {ok, InvitersList} = model_invites:get_inviters_list(Phone),
     case InvitersList of
@@ -197,7 +197,7 @@ send_otp_to_inviter(Phone, LangId, UserAgent, Method)->
     end. 
 
 -spec send_otp(OtpPhone :: phone(), LangId :: binary(), Phone :: phone(), UserAgent :: binary(),
-        Method :: method(), CampaignId :: binary()) -> {ok, non_neg_integer()} | {error, term()} | {error, term(), non_neg_integer()}.
+        Method :: method(), CampaignId :: binary()) -> {ok, non_neg_integer(), boolean()} | {error, term()}.
 send_otp(OtpPhone, LangId, Phone, UserAgent, Method, CampaignId) ->
     {ok, OldResponses} = model_phone:get_all_gateway_responses(Phone),
     stat:count("HA/registration", "send_otp"),
@@ -213,7 +213,10 @@ send_otp(OtpPhone, LangId, Phone, UserAgent, Method, CampaignId) ->
             model_phone:add_gateway_response(Phone, NewAttemptId, SMSResponse),
             AllResponses = OldResponses ++ [SMSResponse],
             NextTs = find_next_ts(AllResponses),
-            {ok, NextTs - Timestamp};
+            IsUndelivered = lists:any(fun(#gateway_response{status = Status}) ->
+                  is_undelivered(Status)
+            end, AllResponses),
+            {ok, NextTs - Timestamp, IsUndelivered};
         {error, GW, Reason} = _Err ->
             %% We log an error inside the gateway already.
             ?INFO("Unable to send ~p: ~p, Gateway: ~p, OtpPhone: ~s Phone: ~s ",
@@ -260,6 +263,10 @@ find_next_ts(OldResponses) ->
 is_successful_otp_attempt(Status) ->
     Status =/= undelivered andalso Status =/= failed andalso
         Status =/= unknown andalso Status =/= undefined.
+
+
+is_undelivered(Status) ->
+    Status =:= undelivered.
 
 
 -spec send_otp_internal(OtpPhone :: phone(), Phone :: phone(), LangId :: binary(), UserAgent :: binary(), Method :: method(),

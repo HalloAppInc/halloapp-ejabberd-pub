@@ -201,7 +201,7 @@ get_hashcash_difficulty() ->
     end.
 
 -spec process_otp_request(RequestData :: map()) ->
-    {ok, phone(), integer()} | {error, retried_too_soon | dropped, phone(), integer()} | {error, any()}.
+    {ok, phone(), integer(), boolean()} | {error, retried_too_soon | dropped, phone(), integer()} | {error, any()}.
 process_otp_request(#{raw_phone := RawPhone, lang_id := LangId, ua := UserAgent, method := MethodBin,
         ip := ClientIP, raw_data := RawData,
         protocol := Protocol} = RequestData) ->
@@ -219,8 +219,9 @@ process_otp_request(#{raw_phone := RawPhone, lang_id := LangId, ua := UserAgent,
         ?INFO("Phone: ~s, UserAgent: ~s, Campaign Id: ~s", [Phone, UserAgent, CampaignId]),
         case otp_checker:check(Phone, ClientIP, UserAgent, Method, Protocol, RemoteStaticKey) of
             ok ->
-                {ok, RetryAfterSecs} = request_otp(Phone, LangId, UserAgent, Method, CampaignId),
-                {ok, Phone, RetryAfterSecs};
+                {ok, RetryAfterSecs, IsPastUndelivered} =
+                    request_otp(Phone, LangId, UserAgent, Method, CampaignId),
+                {ok, Phone, RetryAfterSecs, IsPastUndelivered};
             {error, retried_too_soon, RetryAfterSecs} ->
                 log_request_otp_error(retried_too_soon, MethodBin, RawPhone, UserAgent, ClientIP, Protocol),
                 {error, retried_too_soon, Phone, RetryAfterSecs};
@@ -457,11 +458,11 @@ log_request_otp_error(ErrorType, Method, RawPhone, UserAgent, ClientIP, Protocol
 
 
 -spec request_otp(Phone :: phone(), LangId :: binary(), UserAgent :: binary(),
-        Method :: atom(), CampaignId :: binary()) -> {ok, integer()} | no_return(). % throws otp_fail
+        Method :: atom(), CampaignId :: binary()) -> {ok, integer(), boolean()} | no_return(). % throws otp_fail
 request_otp(Phone, LangId, UserAgent, Method, CampaignId) ->
     CountryCode = mod_libphonenumber:get_cc(Phone),
     case mod_sms:request_otp(Phone, LangId, UserAgent, Method, CampaignId) of
-        {ok, _} = Ret -> Ret;
+        {ok, _, _} = Ret -> Ret;
         {error, Reason} ->
             ?ERROR("could not send otp Reason: ~p Phone: ~p, cc: ~p", [Reason, Phone, CountryCode]),
             error(Reason)

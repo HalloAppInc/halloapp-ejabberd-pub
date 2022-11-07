@@ -1587,6 +1587,7 @@ message OtpResponse {
     }
     Reason reason = 3;
     int64 retry_after_secs = 4;
+    bool should_verify_number = 5;
 }
 
 message VerifyOtpRequest {

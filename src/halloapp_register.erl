@@ -304,12 +304,13 @@ process_element(#pb_register_request{request = #pb_otp_request{} = OtpRequest},
         campaign_id => CampaignId
     },
     OtpResponse = case mod_halloapp_http_api:process_otp_request(RequestData) of
-        {ok, Phone, RetryAfterSecs} ->
+        {ok, Phone, RetryAfterSecs, IsPastUndelivered} ->
             check_and_count(ClientIP, "HA/registration", "request_otp_success", 1, [{protocol, "noise"}]),
             #pb_otp_response{
                 phone = Phone,
                 result = success,
-                retry_after_secs = RetryAfterSecs
+                retry_after_secs = RetryAfterSecs,
+                should_verify_number = IsPastUndelivered
             };
         {error, retried_too_soon, Phone, RetryAfterSecs} ->
             #pb_otp_response{
