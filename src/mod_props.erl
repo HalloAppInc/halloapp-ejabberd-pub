@@ -136,7 +136,8 @@ get_props(Uid, ClientVersion) ->
         aggressive_invite_screen => false,  %% Indicates to the client to show invite screen
         contact_sharing => false,  %% Enables clients to share contacts on chat
         close_friends_recos => false, %% Should invite recommendations be sorted based on number of close friends
-        location_sharing => false
+        location_sharing => false,
+        moment_external_share => false %% Enabled external sharing of moments
     },
     PropMap2 = get_uid_based_props(PropMap1, Uid),
     ClientType = util_ua:get_client_type(ClientVersion),
@@ -191,7 +192,8 @@ get_uid_based_props(PropMap, Uid) ->
             PropMap21 = maps:update(close_friends_recos, true, PropMap20),
             PropMap22 = maps:update(location_sharing, true, PropMap21),
             PropMap23 = maps:update(group_chat, true, PropMap22),
-            PropMap23
+            PropMap24 = maps:update(moment_external_share, true, PropMap23),
+            PropMap24
     end,
     apply_uid_prop_overrides(Uid, ResPropMap).
 
