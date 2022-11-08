@@ -197,6 +197,18 @@ clean_event(#pb_event_data{uid = UidInt, platform = Platform, cc = CC,
     % temporary fix, TODO: remove once iOS pushes are changed
     NewStamp = util:check_and_convert_sec_to_ms(Stamp),
     Event#pb_event_data{edata = Edata#pb_push_received{client_timestamp = NewStamp}};
+clean_event(#pb_event_data{uid = UidInt,
+        edata = #pb_invite_request_result{invited_phone = Phone} = Edata} = Event) ->
+    Uid = util:to_binary(UidInt),
+    {ok, InviterPhone} = model_accounts:get_phone(Uid),
+    RegionId = mod_libphonenumber:get_region_id(InviterPhone),
+    case mod_libphonenumber:normalize(Phone, RegionId) of
+        {ok, NormalPhone} ->
+            Event#pb_event_data{edata = Edata#pb_invite_request_result{invited_phone = NormalPhone}};
+        {error, Reason} ->
+            ?ERROR("Can't normalize phone ~p from pb_invite_request_result: ~s", [Phone, Reason]),
+            Event
+    end;
 clean_event(Event) ->
     Event.
 
