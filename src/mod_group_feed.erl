@@ -319,7 +319,7 @@ publish_comment_unsafe(GroupInfo, Uid, CommentId, PostId, ParentCommentId, Paylo
             PushSet = sets:from_list([PostOwnerUid, Uid | ParentPushList]),
 
             ok = model_feed:publish_comment(CommentId, PostId, Uid,
-                    ParentCommentId, PayloadBase64, TimestampMs),
+                    ParentCommentId, CommentType, PayloadBase64, TimestampMs),
             ejabberd_hooks:run(group_feed_item_published, Server,
                     [Gid, Uid, PostOwnerUid, CommentId, CommentType, sets:size(AudienceSet), MediaCounters]),
 

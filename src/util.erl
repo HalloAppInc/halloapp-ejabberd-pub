@@ -101,7 +101,8 @@
     is_node_stest/1,
     is_main_stest/0,
     get_nodes/0,
-    get_node/0
+    get_node/0,
+    index_of/2
 ]).
 
 
@@ -809,4 +810,11 @@ is_main_stest(Node, Nodes) ->
             OwnShard = get_shard(Node),
             is_node_stest(Node) andalso OwnShard < lists:min(ShardNums)
     end.
+
+
+index_of(Item, List) -> index_of(Item, List, 1).
+
+index_of(_, [], _)  -> undefined;
+index_of(Item, [Item|_], Index) -> Index;
+index_of(Item, [_|Tl], Index) -> index_of(Item, Tl, Index+1).
 

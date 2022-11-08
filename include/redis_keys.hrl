@@ -83,6 +83,8 @@
 -define(REVERSE_PSA_TAG_KEY, <<"rpt:">>).
 -define(COMMENT_PUSH_LIST_KEY, <<"fcp:">>).
 -define(SHARE_POST_KEY, <<"fsp:">>).
+-define(TIME_BUCKET_KEY, <<"tk:">>).
+-define(GEO_TAG_TIME_BUCKET_KEY, <<"gtk:">>).
 
 
 %% PrivacyKeys

@@ -13,7 +13,8 @@
 -type node_type() :: feed | metadata.
 -type item_type() :: feedpost | comment | other.
 -type event_type() :: publish | retract | share.
--type post_tag() :: empty | moment.
+-type post_tag() :: empty | moment | public_post | public_moment.
+-type comment_type() :: comment | post_reaction | comment_reaction.
 
 -record(psnode, {
     id :: binary(),                             %% node_id
@@ -54,6 +55,7 @@
     post_id :: binary(),
     publisher_uid :: uid(),
     parent_id :: binary(),
+    comment_type :: comment_type(),
     payload :: binary(),
     ts_ms :: integer()
 }).
@@ -67,6 +69,7 @@
 -type set() :: sets:set().
 
 -define(POST_EXPIRATION, (31 * ?DAYS)).
+-define(MOMENT_EXPIRATION, (1 * ?DAYS)).
 -define(POST_TTL_MS, (31 * ?DAYS_MS)).
 -define(CATCH_UP_TIME_MS, 1 * ?WEEKS_MS).
 -define(MOMENT_TAG_EXPIRATION, (3 * ?DAYS)).

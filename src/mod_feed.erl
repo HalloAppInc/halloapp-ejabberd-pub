@@ -257,6 +257,26 @@ set_ts_and_publisher_name(MsgId, #pb_feed_item{item = Item} = FeedItem) ->
         PSATag :: binary(), AudienceListStanza ::[pb_audience()], HomeFeedSt :: pb_feed_item()) -> {ok, integer()} | {error, any()}.
 publish_post(_Uid, _PostId, _PayloadBase64, _PostTag, _PSATag, undefined, _HomeFeedSt) ->
     {error, no_audience};
+publish_post(_Uid, _PostId, _PayloadBase64, public_post, _PSATag, _AudienceList, _HomeFeedSt) -> {error, not_supported};
+publish_post(Uid, PostId, PayloadBase64, public_moment, PSATag, _AudienceList, HomeFeedSt)
+        when PSATag =:= undefined; PSATag =:= <<>> ->
+    ?INFO("Uid: ~s, public_moment PostId: ~s", [Uid, PostId]),
+    Server = util:get_host(),
+    MediaCounters = HomeFeedSt#pb_feed_item.item#pb_post.media_counters,
+    %% Store only the audience to be broadcasted to.
+    {ok, FinalTimestampMs} = case model_feed:get_post(PostId) of
+        {error, missing} ->
+            TimestampMs = util:now_ms(),
+            ?INFO("Uid: ~s PostId ~p published as public_moment: ~p", [Uid, PostId]),
+            ok = model_feed:publish_post(PostId, Uid, PayloadBase64, public_moment, all, [], TimestampMs),
+            ejabberd_hooks:run(feed_item_published, Server,
+                [Uid, Uid, PostId, post, public_moment, all, 0, MediaCounters]),
+            {ok, TimestampMs};
+        {ok, ExistingPost} ->
+            ?INFO("Uid: ~s PostId: ~s already published", [Uid, PostId]),
+            {ok, ExistingPost#post.ts_ms}
+    end,
+    {ok, FinalTimestampMs};
 publish_post(Uid, PostId, PayloadBase64, PostTag, PSATag, AudienceList, HomeFeedSt)
         when PSATag =:= undefined; PSATag =:= <<>> ->
     ?INFO("Uid: ~s, PostId: ~s", [Uid, PostId]),
@@ -382,7 +402,7 @@ publish_comment(PublisherUid, CommentId, PostId, ParentCommentId, PayloadBase64,
                     %% It should be stored and broadcasted.
                     NewPushList = [PostOwnerUid, PublisherUid | ParentPushList],
                     ok = model_feed:publish_comment(CommentId, PostId, PublisherUid,
-                            ParentCommentId, PayloadBase64, TimestampMs),
+                            ParentCommentId, CommentType, PayloadBase64, TimestampMs),
                     ejabberd_hooks:run(feed_item_published, Server,
                         [PublisherUid, PostOwnerUid, CommentId, CommentType, undefined,
                         Post#post.audience_type, sets:size(FeedAudienceSet), MediaCounters]),

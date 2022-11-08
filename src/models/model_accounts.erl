@@ -156,7 +156,8 @@
     mark_psa_post_sent/2,
     mark_moment_notification_sent/2,
     get_node_list/0,
-    scan/3
+    scan/3,
+    get_latest_geo_tag/1
 ]).
 
 %%====================================================================
@@ -589,6 +590,21 @@ get_account(Uid) ->
                     avatar_id = maps:get(?FIELD_AVATAR_ID, M, undefined)
                 },
             {ok, Account}
+    end.
+
+
+get_latest_geo_tag(Uid) ->
+    case q(["ZREVRANGE", Uid, "0", "0", "WITHSCORES"]) of
+        {ok, []} -> undefined;
+        {ok, [NewestGeoTag, Timestamp]} ->
+            ExpiredTs = util:now() - 1,
+            case Timestamp > ExpiredTs of
+                true -> NewestGeoTag;
+                false -> undefined
+            end;
+        Err ->
+            ?ERROR("Failed to get geo tag for ~s: ~p", [Uid, Err]),
+            undefined
     end.
 
 

@@ -40,7 +40,14 @@
     publish_post/8,
     publish_psa_post/6,
     publish_post/7,
+    index_post_by_user_tags/4,
+    get_public_moments/4,
+    get_posts_by_time_bucket/6,
+    get_posts_by_geo_tag_time_bucket/7,
+    split_cursor/1,
+    join_cursor/2,
     publish_comment/6,
+    publish_comment/7,
     retract_post/2,
     retract_comment/2,
     get_post/1,
@@ -86,6 +93,7 @@
 -define(FIELD_TIMESTAMP_MS, <<"ts">>).
 -define(FIELD_PUBLISHER_UID, <<"pbu">>).
 -define(FIELD_PARENT_COMMENT_ID, <<"pc">>).
+-define(FIELD_COMMENT_TYPE, <<"ct">>).
 -define(FIELD_DELETED, <<"del">>).
 -define(FIELD_GROUP_ID, <<"gid">>).
 -define(FIELD_PSA_TAG, <<"pst">>).
@@ -148,21 +156,161 @@ publish_post(PostId, Uid, Payload, PostTag, FeedAudienceType, FeedAudienceList, 
             ["ZADD", reverse_post_key(Uid), TimestampMs, PostId],
             ["EXPIRE", reverse_post_key(Uid), ?POST_EXPIRATION]]),
     ok = cleanup_reverse_index(Uid),
+    index_post_by_user_tags(PostId, Uid, PostTag, TimestampMs),
     ok.
+
+
+%% Indexes post-id by a specific geotag if the post-tag matches public content.
+-spec index_post_by_user_tags(PostId :: binary(), Uid :: uid(), PostTag :: post_tag(), TimestampMs :: integer()) -> ok.
+index_post_by_user_tags(PostId, Uid, PostTag, TimestampMs) ->
+    try
+        %% Index public content - only moments for now.
+        %% Ignore posts for now.
+        case PostTag =:= public_moment of
+            true ->
+                %% We could obtain other user info here like lang-id or cc etc and index by them as well.
+                %% Obtain geo tag.
+                GeoTag = model_accounts:get_latest_geo_tag(Uid),
+                case GeoTag =:= <<>> orelse GeoTag =:= undefined of
+                    true ->
+                        %% If GeoTag of the user is empty then index this post into other buckets
+                        %% TODO: Extend this to other time buckets as well like country or language id.
+                        %% Index onto time buckets only for now.
+                        [{ok, _}, {ok, _}] = qp([
+                            ["ZADD", time_bucket_key(TimestampMs), TimestampMs, PostId],
+                            ["EXPIRE", time_bucket_key(TimestampMs), ?MOMENT_EXPIRATION]]),
+                        ok;
+                    false ->
+                        %% Index onto geo-tag and time buckets.
+                        [{ok, _}, {ok, _}] = qp([
+                            ["ZADD", geo_tag_time_bucket_key(GeoTag, TimestampMs), TimestampMs, PostId],
+                            ["EXPIRE", geo_tag_time_bucket_key(GeoTag, TimestampMs), ?MOMENT_EXPIRATION]]),
+                        ok
+                end;
+            false -> ok
+        end,
+        ok
+    catch
+        _:_ ->
+            ok
+    end,
+    ok.
+
+
+-spec get_public_moments(GeoTag :: maybe(binary()), TimestampMs :: integer(), Cursor :: maybe(binary()), Limit :: integer()) -> [binary()].
+get_public_moments(GeoTag, TimestampMs, Cursor, Limit) ->
+    case GeoTag =:= undefined orelse GeoTag =:= <<>> of
+        true ->
+            case split_cursor(Cursor) of
+                {undefined, undefined} ->
+                    TimestampHr = floor(TimestampMs / ?HOURS),
+                    get_posts_by_time_bucket(TimestampHr, TimestampHr, undefined, Limit, Limit, []);
+                {CursorPostId, CursorTimestampMs} ->
+                    CursorTimestampHr = floor(CursorTimestampMs / ?HOURS),
+                    get_posts_by_time_bucket(CursorTimestampHr, CursorTimestampHr, CursorPostId, Limit, Limit, [])
+            end;
+        false ->
+            case split_cursor(Cursor) of
+                {undefined, undefined} ->
+                    TimestampHr = floor(TimestampMs / ?HOURS),
+                    get_posts_by_geo_tag_time_bucket(GeoTag, TimestampHr, TimestampHr, undefined, Limit, Limit, []);
+                {CursorPostId, CursorTimestampMs} ->
+                    CursorTimestampHr = floor(CursorTimestampMs / ?HOURS),
+                    get_posts_by_geo_tag_time_bucket(GeoTag, CursorTimestampHr, CursorTimestampHr, CursorPostId, Limit, Limit, [])
+            end
+    end.
+
+
+-spec get_posts_by_time_bucket(StartTimestampHr :: integer(), CurTimestampHr :: integer(),
+        CursorPostId :: maybe(binary()), CurLimit :: integer(), Limit :: integer(), ResultPostIds :: [binary()]) -> [binary()].
+get_posts_by_time_bucket(StartTimestampHr, CurTimestampHr,
+        _CursorPostId, _CurLimit, _Limit, ResultPostIds)
+        when StartTimestampHr - CurTimestampHr >= 24 ->
+    ResultPostIds;
+get_posts_by_time_bucket(StartTimestampHr, CurTimestampHr,
+        CursorPostId, CurLimit, Limit, ResultPostIds) ->
+    {ok, PostIds} = q(["ZREVRANGEBYSCORE", time_bucket_key_hr(CurTimestampHr), "+inf", "-inf"]),
+    FinalResultPostIds = case util:index_of(CursorPostId, PostIds) of
+        undefined ->
+            ResultPostIds ++ lists:sublist(PostIds, CurLimit);
+        Index ->
+            ResultPostIds ++ lists:sublist(PostIds, Index+1, CurLimit)
+    end,
+    case length(FinalResultPostIds) >= Limit of
+        true -> FinalResultPostIds;
+        false ->
+            NewLimit = Limit - length(FinalResultPostIds),
+            get_posts_by_time_bucket(StartTimestampHr, CurTimestampHr-1,
+                CursorPostId, NewLimit, Limit, FinalResultPostIds)
+    end.
+
+
+-spec get_posts_by_geo_tag_time_bucket(GeoTag :: binary(), StartTimestampHr :: integer(), CurTimestampHr :: integer(),
+        CursorPostId :: maybe(binary()), CurLimit :: integer(), Limit :: integer(), ResultPostIds :: [binary()]) -> [binary()].
+get_posts_by_geo_tag_time_bucket(_GeoTag, StartTimestampHr, CurTimestampHr,
+        _CursorPostId, _CurLimit, _Limit, ResultPostIds)
+        when StartTimestampHr - CurTimestampHr >= 24 ->
+    ResultPostIds;
+get_posts_by_geo_tag_time_bucket(GeoTag, StartTimestampHr, CurTimestampHr,
+        CursorPostId, CurLimit, Limit, ResultPostIds) ->
+    {ok, PostIds} = q(["ZREVRANGEBYSCORE", geo_tag_time_bucket_key_hr(GeoTag, CurTimestampHr), "+inf", "-inf"]),
+    FinalResultPostIds = case util:index_of(CursorPostId, PostIds) of
+        undefined ->
+            ResultPostIds ++ lists:sublist(PostIds, CurLimit);
+        Index ->
+            ResultPostIds ++ lists:sublist(PostIds, Index+1, CurLimit)
+    end,
+    case length(FinalResultPostIds) >= Limit of
+        true -> FinalResultPostIds;
+        false ->
+            NewLimit = Limit - length(FinalResultPostIds),
+            get_posts_by_geo_tag_time_bucket(GeoTag, StartTimestampHr, CurTimestampHr-1,
+                CursorPostId, NewLimit, Limit, FinalResultPostIds)
+    end.
+
+
+-spec split_cursor(Cursor :: binary()) -> {maybe(binary()), maybe(integer())}.
+split_cursor(undefined) -> {undefined, undefined};
+split_cursor(<<>>) -> {undefined, undefined};
+split_cursor(Cursor) ->
+    try
+        [CursorPostId, CursorTimestampMsBin] = re:split(Cursor, "::"),
+        case CursorPostId =:= <<>> orelse CursorTimestampMsBin =:= <<>> of
+            true -> {undefined, undefined};
+            false -> {CursorPostId, util:to_integer(CursorTimestampMsBin)}
+        end
+    catch
+        _:_ ->
+            ?ERROR("Failed to split cursor: ~p", [Cursor]),
+            {undefined, undefined}
+    end.
+
+
+-spec join_cursor(CursorPostId :: binary(), CursorTimestampMs :: integer()) -> binary().
+join_cursor(CursorPostId, CursorTimestampMs) ->
+    CursorTimestampMsBin = util:to_binary(CursorTimestampMs),
+    <<CursorPostId/binary, "::", CursorTimestampMsBin/binary>>.
+
+
+-spec publish_comment(CommentId :: binary(), PostId :: binary(),
+        PublisherUid :: uid(), ParentCommentId :: binary(),
+        Payload :: binary(), TimestampMs :: integer()) -> ok | {error, any()}.
+publish_comment(CommentId, PostId, PublisherUid, ParentCommentId, Payload, TimestampMs) ->
+    publish_comment(CommentId, PostId, PublisherUid, ParentCommentId, comment, Payload, TimestampMs).
 
 
 %% TODO(murali@): Write lua scripts for some functions in this module.
 -spec publish_comment(CommentId :: binary(), PostId :: binary(),
-        PublisherUid :: uid(), ParentCommentId :: binary(),
+        PublisherUid :: uid(), ParentCommentId :: binary(), CommentType :: comment_type(),
         Payload :: binary(), TimestampMs :: integer()) -> ok | {error, any()}.
-publish_comment(CommentId, PostId, PublisherUid,
-        ParentCommentId, Payload, TimestampMs) ->
+publish_comment(CommentId, PostId, PublisherUid, ParentCommentId, CommentType, Payload, TimestampMs) ->
     {ok, TTL} = q(["TTL", post_key(PostId)]),
     ParentCommentIdValue = util_redis:encode_maybe_binary(ParentCommentId),
     [{ok, _}, {ok, _}] = qp([
             ["HSET", comment_key(CommentId, PostId),
                 ?FIELD_PUBLISHER_UID, PublisherUid,
                 ?FIELD_PARENT_COMMENT_ID, ParentCommentIdValue,
+                ?FIELD_COMMENT_TYPE, encode_comment_type(CommentType),
                 ?FIELD_PAYLOAD, Payload,
                 ?FIELD_TIMESTAMP_MS, integer_to_binary(TimestampMs)],
             ["EXPIRE", comment_key(CommentId, PostId), TTL]]),
@@ -280,10 +428,10 @@ get_post(PostId) ->
 
 -spec get_comment(CommentId :: binary(), PostId :: binary()) -> {ok, comment()} | {error, any()}.
 get_comment(CommentId, PostId) ->
-    {ok, [PublisherUid, ParentCommentId, Payload, TimestampMs, IsDeletedBin]} = q(
+    {ok, [PublisherUid, ParentCommentId, CommentTypeBin, Payload, TimestampMs, IsDeletedBin]} = q(
         ["HMGET", comment_key(CommentId, PostId),
-            ?FIELD_PUBLISHER_UID, ?FIELD_PARENT_COMMENT_ID, ?FIELD_PAYLOAD, ?FIELD_TIMESTAMP_MS, ?FIELD_DELETED]),
-    process_comment(CommentId, PostId, PublisherUid, ParentCommentId, Payload, TimestampMs, IsDeletedBin).
+            ?FIELD_PUBLISHER_UID, ?FIELD_PARENT_COMMENT_ID, ?FIELD_COMMENT_TYPE, ?FIELD_PAYLOAD, ?FIELD_TIMESTAMP_MS, ?FIELD_DELETED]),
+    process_comment(CommentId, PostId, PublisherUid, ParentCommentId, CommentTypeBin, Payload, TimestampMs, IsDeletedBin).
 
 
 -spec get_comments(CommentIds :: [binary()], PostId :: binary()) -> [{ok, comment()} | {error, any()}].
@@ -291,21 +439,21 @@ get_comments(CommentIds, PostId) ->
     Commands = lists:map(
         fun(CommentId) ->
             ["HMGET", comment_key(CommentId, PostId),
-            ?FIELD_PUBLISHER_UID, ?FIELD_PARENT_COMMENT_ID, ?FIELD_PAYLOAD, ?FIELD_TIMESTAMP_MS, ?FIELD_DELETED]
+            ?FIELD_PUBLISHER_UID, ?FIELD_PARENT_COMMENT_ID, ?FIELD_COMMENT_TYPE, ?FIELD_PAYLOAD, ?FIELD_TIMESTAMP_MS, ?FIELD_DELETED]
         end, CommentIds),
     AllComments = qmn(Commands),
     Comments = lists:zipwith(
         fun(Comment, CommentId) ->
-            {ok, [PublisherUid, ParentCommentId, Payload, TimestampMs, IsDeletedBin]} = Comment,
-            process_comment(CommentId, PostId, PublisherUid,ParentCommentId,Payload, TimestampMs, IsDeletedBin)
+            {ok, [PublisherUid, ParentCommentId, CommentTypeBin, Payload, TimestampMs, IsDeletedBin]} = Comment,
+            process_comment(CommentId, PostId, PublisherUid, ParentCommentId, CommentTypeBin, Payload, TimestampMs, IsDeletedBin)
         end, AllComments, CommentIds),
     Comments.
 
 
 -spec process_comment(CommentId :: binary(), PostId :: binary(), PublisherUid :: binary(),
-        ParentCommentId :: binary(), Payload :: binary(), TimestampMs :: binary(),
+        ParentCommentId :: binary(), CommentTypeBin :: binary(), Payload :: binary(), TimestampMs :: binary(),
         IsDeletedBin :: binary()) -> {ok, comment()} | {error, any()}.
-process_comment(CommentId, PostId, PublisherUid, ParentCommentId, Payload, TimestampMs, IsDeletedBin) ->
+process_comment(CommentId, PostId, PublisherUid, ParentCommentId, CommentTypeBin, Payload, TimestampMs, IsDeletedBin) ->
     IsDeleted = util_redis:decode_boolean(IsDeletedBin, false),
     case PublisherUid =:= undefined orelse IsDeleted =:= true of
         true ->
@@ -316,6 +464,7 @@ process_comment(CommentId, PostId, PublisherUid, ParentCommentId, Payload, Times
             post_id = PostId,
             publisher_uid = PublisherUid,
             parent_id = util_redis:decode_maybe_binary(ParentCommentId),
+            comment_type = decode_comment_type(CommentTypeBin),
             payload = Payload,
             ts_ms = util_redis:decode_ts(TimestampMs)}}
     end.
@@ -342,11 +491,11 @@ get_comment_data(PostId, CommentId, ParentId) ->
         ["HMGET", post_key(PostId), ?FIELD_UID, ?FIELD_PAYLOAD, ?FIELD_TAG,
                 ?FIELD_AUDIENCE_TYPE, ?FIELD_TIMESTAMP_MS, ?FIELD_DELETED],
         ["SMEMBERS", post_audience_key(PostId)],
-        ["HMGET", comment_key(CommentId, PostId), ?FIELD_PUBLISHER_UID, ?FIELD_PARENT_COMMENT_ID,
+        ["HMGET", comment_key(CommentId, PostId), ?FIELD_PUBLISHER_UID, ?FIELD_PARENT_COMMENT_ID, ?FIELD_COMMENT_TYPE,
                 ?FIELD_PAYLOAD, ?FIELD_TIMESTAMP_MS, ?FIELD_DELETED]]),
     [PostUid, PostPayload, PostTag, AudienceType, PostTsMs, IsPostDeletedBin] = Res1,
     AudienceList = Res2,
-    [CommentPublisherUid, ParentCommentId, CommentPayload, CommentTsMs, IsCommentDeletedBin] = Res3,
+    [CommentPublisherUid, ParentCommentId, CommentTypeBin, CommentPayload, CommentTsMs, IsCommentDeletedBin] = Res3,
     
     IsPostMissing = PostUid =:= undefined orelse util_redis:decode_boolean(IsPostDeletedBin, false),
     IsCommentMissing = CommentPublisherUid =:= undefined orelse
@@ -376,6 +525,7 @@ get_comment_data(PostId, CommentId, ParentId) ->
                 post_id = PostId,
                 publisher_uid = CommentPublisherUid,
                 parent_id = util_redis:decode_maybe_binary(ParentCommentId),
+                comment_type = decode_comment_type(CommentTypeBin),
                 payload = CommentPayload,
                 ts_ms = util_redis:decode_ts(CommentTsMs)
             },
@@ -672,11 +822,25 @@ decode_audience_type(_) -> undefined.
 
 
 encode_post_tag(empty) -> <<"e">>;
-encode_post_tag(moment) -> <<"s">>.
+encode_post_tag(moment) -> <<"s">>;
+encode_post_tag(public_post) -> <<"pp">>;
+encode_post_tag(public_moment) -> <<"pm">>.
 
 decode_post_tag(<<"s">>) -> moment;
 decode_post_tag(<<"e">>) -> empty;
+decode_post_tag(<<"pp">>) -> public_post;
+decode_post_tag(<<"pm">>) -> public_moment;
 decode_post_tag(_) -> undefined.
+
+
+encode_comment_type(comment) -> <<"c">>;
+encode_comment_type(comment_reaction) -> <<"cr">>;
+encode_comment_type(post_reaction) -> <<"pr">>.
+
+
+decode_comment_type(<<"c">>) -> comment;
+decode_comment_type(<<"cr">>) -> comment_reaction;
+decode_comment_type(<<"pr">>) -> post_reaction.
 
 
 decode_comment_key(CommentKey) ->
@@ -746,4 +910,27 @@ reverse_comment_key(Uid) ->
 -spec external_share_post_key(BlobId :: binary()) -> binary().
 external_share_post_key(BlobId) ->
     <<?SHARE_POST_KEY/binary, "{", BlobId/binary, "}">>.
+
+-spec time_bucket_key(TimestampMs :: integer()) -> binary().
+time_bucket_key(TimestampMs) ->
+    TimestampHr = floor(TimestampMs / (1 * ?HOURS_MS)),
+    time_bucket_key_hr(TimestampHr).
+
+
+-spec time_bucket_key_hr(TimestampHr :: integer()) -> binary().
+time_bucket_key_hr(TimestampHr) ->
+    TimestampHrBin = util:to_binary(TimestampHr),
+    <<?TIME_BUCKET_KEY/binary, "{", TimestampHrBin/binary, "}">>.
+
+
+-spec geo_tag_time_bucket_key(GeoTag :: binary(), TimestampMs :: integer()) -> binary().
+geo_tag_time_bucket_key(GeoTag, TimestampMs) ->
+    TimestampHr = floor(TimestampMs / (1 * ?HOURS_MS)),
+    geo_tag_time_bucket_key_hr(GeoTag, TimestampHr).
+
+
+-spec geo_tag_time_bucket_key_hr(GeoTag :: binary(), TimestampHr :: integer()) -> binary().
+geo_tag_time_bucket_key_hr(GeoTag, TimestampHr) ->
+    TimestampHrBin = util:to_binary(TimestampHr),
+    <<?GEO_TAG_TIME_BUCKET_KEY/binary, ":", GeoTag/binary, "{", TimestampHrBin/binary, "}">>.
 

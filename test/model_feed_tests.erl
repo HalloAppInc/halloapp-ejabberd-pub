@@ -251,6 +251,25 @@ get_post_and_its_comments_test() ->
     ok.
 
 
+get_posts_from_bucket_test() ->
+    setup(),
+    Timestamp1 = util:now_ms() - (3600 * 1000),
+    Timestamp2 = util:now_ms(),
+    %% Publish post and check.
+    ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, public_moment, all, [?UID1, ?UID2], Timestamp1),
+    ok = model_feed:publish_post(?POST_ID2, ?UID1, ?PAYLOAD2, public_moment, except, [?UID2], Timestamp2),
+
+    TimestampHr1 = floor(Timestamp1 / (3600 * 1000)),
+    Posts1 = model_feed:get_posts_by_time_bucket(TimestampHr1, TimestampHr1, undefined, 10, 10, []),
+    ?assertEqual(1, length(Posts1)),
+    TimestampHr2 = floor(Timestamp2 / (3600 * 1000)),
+    Posts2 = model_feed:get_posts_by_time_bucket(TimestampHr2, TimestampHr2, undefined, 10, 10, []),
+    ?assertEqual(2, length(Posts2)),
+    Posts3 = model_feed:get_posts_by_time_bucket(TimestampHr2, TimestampHr2, ?POST_ID2, 10, 10, []),
+    ?assertEqual(1, length(Posts3)),
+    ok.
+
+
 comment_subs_test() ->
     setup(),
     Timestamp1 = util:now_ms(),
@@ -575,6 +594,7 @@ get_comment1(Timestamp) ->
         post_id = ?POST_ID1,
         publisher_uid = ?UID1,
         parent_id = undefined,
+        comment_type = comment,
         payload = ?COMMENT_PAYLOAD1,
         ts_ms = Timestamp
     }.
@@ -585,6 +605,7 @@ get_comment2(Timestamp) ->
         post_id = ?POST_ID1,
         publisher_uid = ?UID2,
         parent_id = ?COMMENT_ID1,
+        comment_type = comment,
         payload = ?COMMENT_PAYLOAD2,
         ts_ms = Timestamp
     }.
@@ -595,6 +616,7 @@ get_comment3(Timestamp) ->
         post_id = ?POST_ID1,
         publisher_uid = ?UID1,
         parent_id = ?COMMENT_ID2,
+        comment_type = comment,
         payload = ?COMMENT_PAYLOAD3,
         ts_ms = Timestamp
     }.
@@ -605,6 +627,7 @@ get_comment4(Timestamp) ->
         post_id = ?POST_ID2,
         publisher_uid = ?UID2,
         parent_id = undefined,
+        comment_type = comment,
         payload = ?COMMENT_PAYLOAD4,
         ts_ms = Timestamp
     }.
@@ -615,6 +638,7 @@ get_comment5(Timestamp) ->
         post_id = ?POST_ID3,
         publisher_uid = ?UID2,
         parent_id = undefined,
+        comment_type = comment,
         payload = ?COMMENT_PAYLOAD5,
         ts_ms = Timestamp
     }.
