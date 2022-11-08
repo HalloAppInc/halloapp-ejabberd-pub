@@ -25,7 +25,8 @@
     get_uid/0,
     do_noise_checks/0,
     do_noise_login/2,
-    do_noise_register/2
+    do_noise_register/2,
+    reassign_jobs/0
 ]).
 
 -define(OPTS, [
@@ -84,18 +85,39 @@ get_state_history(Ip, login) ->
 get_state_history(Ip, register) ->
     util_monitor:get_state_history(?NOISE_REGISTER_TABLE, Ip).
 
+
+reassign_jobs() ->
+    case util:is_main_stest() of
+        true ->
+            {Host, Opts} = persistent_term:get({?MODULE, gen_mod_start_args}),
+            gen_mod:start_child(?MODULE, Host, Opts, ?PROC());
+        false ->
+            EjabberdProcs = lists:map(
+                fun({ProcName, _Pid, _, _}) -> ProcName end,
+                supervisor3:which_children(ejabberd_gen_mod_sup)
+            ),
+            case lists:member(?PROC(), EjabberdProcs) of
+                true -> gen_mod:stop_child(?PROC());
+                false -> ok
+            end,
+            ok
+    end.
+
 %%====================================================================
 %% gen_mod API
 %%====================================================================
 
 start(Host, Opts) ->
-    case util:is_machine_stest() of
+    persistent_term:put({?MODULE, gen_mod_start_args}, {Host, Opts}),
+    ejabberd_hooks:add(node_up, ?MODULE, reassign_jobs, 5),
+    case util:is_main_stest() of
         true -> gen_mod:start_child(?MODULE, Host, Opts, ?PROC());
         false -> ok
     end.
 
 stop(_Host) ->
-    case util:is_machine_stest() of
+    ejabberd_hooks:delete(node_up, ?MODULE, reassign_jobs, 5),
+    case util:is_main_stest() of
         true -> gen_mod:stop_child(?PROC());
         false -> ok
     end.

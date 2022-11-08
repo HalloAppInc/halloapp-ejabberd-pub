@@ -149,7 +149,7 @@ start(_Host, _Opts) ->
 
 stop(_Host) ->
     ?INFO("stop ~w", [?MODULE]),
-    ejabberd_hooks:delete(reset_jobs, ?MODULE, reset_jobs, 10),
+    ejabberd_hooks:delete(reassign_jobs, ?MODULE, reassign_jobs, 10),
     case util:is_main_stest() of
         true ->
             unschedule_all();

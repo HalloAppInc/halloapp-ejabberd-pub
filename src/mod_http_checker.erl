@@ -21,7 +21,8 @@
 %% API
 -export([
     get_state_history/1,
-    ping_ports/0
+    ping_ports/0,
+    reassign_jobs/0
 ]).
 
 %%====================================================================
@@ -36,18 +37,40 @@ get_state_history(Url) ->
 ping_ports() ->
     gen_server:cast(?PROC(), ping_ports).
 
+
+reassign_jobs() ->
+    case util:is_main_stest() of
+        true ->
+            {Host, Opts} = persistent_term:get({?MODULE, gen_mod_start_args}),
+            gen_mod:start_child(?MODULE, Host, Opts, ?PROC());
+        false ->
+            EjabberdProcs = lists:map(
+                fun({ProcName, _Pid, _, _}) -> ProcName end,
+                supervisor3:which_children(ejabberd_gen_mod_sup)
+            ),
+            case lists:member(?PROC(), EjabberdProcs) of
+                true ->
+                    gen_mod:stop_child(?PROC());
+                false -> ok
+            end,
+            ok
+    end.
+
 %%====================================================================
 %% gen_mod API
 %%====================================================================
 
 start(Host, Opts) ->
-    case util:is_machine_stest() of
+    persistent_term:put({?MODULE, gen_mod_start_args}, {Host, Opts}),
+    ejabberd_hooks:add(reassign_jobs, ?MODULE, reassign_jobs, 5),
+    case util:is_main_stest() of
         true -> gen_mod:start_child(?MODULE, Host, Opts, ?PROC());
         false -> ok
     end.
 
 stop(_Host) ->
-    case util:is_machine_stest() of
+    ejabberd_hooks:delete(reassign_jobs, ?MODULE, reassign_jobs, 5),
+    case util:is_main_stest() of
         true -> gen_mod:stop_child(?PROC());
         false -> ok
     end.

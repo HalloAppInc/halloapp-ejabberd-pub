@@ -48,7 +48,8 @@
 -export([
     check_redises/0,
     get_state_history/2,
-    get_state_history/3
+    get_state_history/3,
+    reassign_jobs/0
 ]).
 
 %%====================================================================
@@ -75,6 +76,24 @@ get_state_history(Id, Node, Type) ->
     util_monitor:get_state_history(?REDIS_TABLE, make_key(Id, Node, Type)).
 
 
+reassign_jobs() ->
+    case util:is_main_stest() of
+        true ->
+            {Host, Opts} = persistent_term:get({?MODULE, gen_mod_start_args}),
+            gen_mod:start_child(?MODULE, Host, Opts, ?PROC());
+        false ->
+            EjabberdProcs = lists:map(
+                fun({ProcName, _Pid, _, _}) -> ProcName end,
+                supervisor3:which_children(ejabberd_gen_mod_sup)
+            ),
+            case lists:member(?PROC(), EjabberdProcs) of
+                true ->
+                    gen_mod:stop_child(?PROC());
+                false -> ok
+            end,
+            ok
+    end.
+
 %%====================================================================
 %% gen_mod API
 %%====================================================================
@@ -83,7 +102,9 @@ start(Host, Opts) ->
     case config:get_hallo_env() of
         localhost -> gen_mod:start_child(?MODULE, Host, Opts, ?PROC());
         prod ->
-            case util:is_machine_stest() of
+            persistent_term:put({?MODULE, gen_mod_start_args}, {Host, Opts}),
+            ejabberd_hooks:add(reassign_jobs, ?MODULE, reassign_jobs, 5),
+            case util:is_main_stest() of
                 true -> gen_mod:start_child(?MODULE, Host, Opts, ?PROC());
                 false -> ok
             end;
@@ -94,7 +115,8 @@ stop(_Host) ->
     case config:get_hallo_env() of
         localhost -> gen_mod:stop_child(?PROC());
         prod ->
-            case util:is_machine_stest() of
+            ejabberd_hooks:delete(reassign_jobs, ?MODULE, reassign_jobs, 5),
+            case util:is_main_stest() of
                 true -> gen_mod:stop_child(?PROC());
                 false -> ok
             end;
