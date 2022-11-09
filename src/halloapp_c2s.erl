@@ -193,10 +193,14 @@ open_session(#{user := Uid, server := Server, resource := Resource,
     SocketType = maps:get(socket_type, State),
     Protocol = util:get_protocol(IP),
     ClientType = util_ua:resource_to_client_type(Resource),
-    stat:count("HA/connections", "ip", 1, [{protocol, Protocol}, {platform, ClientType}]),
-    stat:count("HA/connections", "ip_resource", 1,
-        [{protocol, Protocol}, {platform, ClientType}, {resource, util:to_atom(Resource)}]),
-    stat:count("HA/connections", "socket", 1, [{socket_type, SocketType}]),
+    case lists:member(util:parse_ip_address(IP), mod_aws:get_stest_ips()) of
+        true -> ok;
+        false ->
+            stat:count("HA/connections", "ip", 1, [{protocol, Protocol}, {platform, ClientType}]),
+            stat:count("HA/connections", "ip_resource", 1,
+                [{protocol, Protocol}, {platform, ClientType}, {resource, util:to_atom(Resource)}]),
+            stat:count("HA/connections", "socket", 1, [{socket_type, SocketType}])
+    end,
     check_first_login(Uid, Server),
     ejabberd_sm:open_session(SID, Uid, Server, Resource, Priority, Mode, Info),
     halloapp_stream_in:establish(State2).
