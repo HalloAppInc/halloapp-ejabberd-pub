@@ -164,8 +164,30 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
         fun(SharePostSt) ->
             process_share_posts(Uid, Server, SharePostSt)
         end, SharePostStanzas),
-    pb:make_iq_result(IQ, #pb_feed_item{action = Action, share_stanzas = ResultSharePostStanzas}).
+    pb:make_iq_result(IQ, #pb_feed_item{action = Action, share_stanzas = ResultSharePostStanzas});
 
+% Get public feed items
+process_local_iq(#pb_iq{from_uid = Uid, payload = #pb_public_feed_request{cursor = Cursor,
+    public_feed_content_type = ContentType, gps_location = GpsLocation}} = IQ) ->
+    %% TODO: fetch geotag and add it to user's account
+%%    NewTag = mod_location:get_geo_tag(Uid, GpsLocation),  % not a real function yet, just a concept
+%%    case NewTag of
+%%        undefined -> ok;
+%%        _ -> model_accounts:add_geo_tag(Uid, NewTag, util:now())
+%%    end,
+    %% TODO: fetch items to return based on geotag
+    Tag = model_accounts:get_latest_geo_tag(Uid),
+    Items = [],
+    %% TODO: fetch and return cursor
+    NewCursor = <<"">>,
+    Ret = #pb_public_feed_response{
+        result = success,
+        reason = ok,
+        cursor = NewCursor,
+        public_feed_content_type = ContentType,
+        items = Items
+    },
+    pb:make_iq_result(IQ, Ret).
 
 -spec add_friend(Uid :: uid(), Server :: binary(), Ouid :: uid(), WasBlocked :: boolean()) -> ok.
 add_friend(Uid, _Server, Ouid, false) ->

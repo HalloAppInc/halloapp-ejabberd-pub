@@ -10,6 +10,7 @@
 -author("nikola").
 
 -include("account.hrl").
+-include("feed.hrl").
 -include("ha_types.hrl").
 -include("util_redis.hrl").
 -include("tutil.hrl").
@@ -578,6 +579,21 @@ moment_notification_test(_) ->
     [?_assert(model_accounts:mark_moment_notification_sent(?UID1, ?POSTID1)),
     ?_assertNot(model_accounts:mark_moment_notification_sent(?UID1, ?POSTID1))].
 
+geo_tag_test(_) ->
+    TagToExpire = <<"GEO0">>,
+    ExpiredTime = util:now() - ?GEO_TAG_EXPIRATION,
+    Tag1 = <<"GEO1">>,
+    Time1 = util:to_binary(util:now()),
+    Tag2 = <<"GEO2">>,
+    Time2 = util:to_binary(util:now() + 1),
+    [?_assertEqual([], model_accounts:get_all_geo_tags(?UID1)),
+    ?_assertEqual(undefined, model_accounts:get_latest_geo_tag(?UID1)),
+    ?_assertOk(model_accounts:add_geo_tag(?UID1, TagToExpire, ExpiredTime)),
+    ?_assertOk(model_accounts:add_geo_tag(?UID1, Tag1, Time1)),
+    ?_assertOk(model_accounts:add_geo_tag(?UID1, Tag2, Time2)),
+    ?_assertEqual([{Tag2, Time2}, {Tag1, Time1}], model_accounts:get_all_geo_tags(?UID1)),
+    ?_assertEqual(Tag2, model_accounts:get_latest_geo_tag(?UID1))].
+
 
 api_test_() ->
     [tutil:setup_foreach(fun setup/0, [
@@ -614,7 +630,8 @@ api_test_() ->
         fun start_get_export/1,
         fun marketing_tag/1,
         fun psa_tag_test/1,
-        fun moment_notification_test/1
+        fun moment_notification_test/1,
+        fun geo_tag_test/1
     ])].
 
 

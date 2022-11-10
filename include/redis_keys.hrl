@@ -65,6 +65,8 @@
 
 -define(REVERSE_STATIC_KEY_KEY, <<"rskk:">>).
 
+-define(GEO_TAG_KEY, <<"geo:">>).
+
 % old deleted/deprecated keys
 %%-define(INVITES_KEY, <<"inv:">>).
 

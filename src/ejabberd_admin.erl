@@ -821,6 +821,9 @@ uid_info(Uid, Options) ->
             io:format("TokenInfo, OS: ~s, TokenHead: ~s, VoipTokenHead: ~s, HuaweiTokenHead: ~s~n",
                     [Os, TokenPrint, VoipTokenPrint, HuaweiTokenPrint]),
 
+            Tags = model_accounts:get_all_geo_tags(Uid),
+            io:format("GeoTags: ~p", [Tags]),
+
             {ok, ContactList, NumFriends} = format_contact_list(Uid),
             ContactList2 = case lists:member(show_all_contacts, Options) of
                 true -> ContactList;

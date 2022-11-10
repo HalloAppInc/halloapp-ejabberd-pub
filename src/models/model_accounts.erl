@@ -147,6 +147,9 @@
     get_export/1,
     start_export/2,
     test_set_export_time/2, % For tests only
+    add_geo_tag/3,
+    get_latest_geo_tag/1,
+    get_all_geo_tags/1,
     add_marketing_tag/2,
     get_marketing_tags/1,
     add_uid_to_psa_tag/2,
@@ -1255,6 +1258,42 @@ test_set_export_time(Uid, Ts) ->
     {ok, _} = q(["HSET", export_data_key(Uid), ?FIELD_EXPORT_START_TS, Ts]),
     ok.
 
+-spec add_geo_tag(Uid :: uid(), Tag :: binary(), Timestamp :: integer()) -> ok.
+add_geo_tag(Uid, Tag, Timestamp) ->
+    ExpiredTs = util:now() - ?GEO_TAG_EXPIRATION,
+    Key = geo_tag_key(Uid),
+    qp([["ZADD", Key, Timestamp, Tag],
+        ["ZREMRANGEBYSCORE", Key, "-inf", ExpiredTs]]),
+    ok.
+
+-spec get_latest_geo_tag(Uid :: uid()) -> maybe(binary()).
+get_latest_geo_tag(Uid) ->
+    Key = geo_tag_key(Uid),
+    case q(["ZREVRANGE", Key, "0", "0", "WITHSCORES"]) of
+        {ok, []} -> undefined;
+        {ok, [NewestGeoTag, Timestamp]} ->
+            ExpiredTs = util:now() - ?GEO_TAG_EXPIRATION,
+            case Timestamp > ExpiredTs of
+                true -> NewestGeoTag;
+                false -> undefined
+            end;
+        Err ->
+            ?ERROR("Failed to get geo tag for ~s: ~p", [Uid, Err]),
+            undefined
+    end.
+
+-spec get_all_geo_tags(Uid :: uid()) -> list({binary(), binary()}).
+get_all_geo_tags(Uid) ->
+    Key = geo_tag_key(Uid),
+    ExpiredTs = util:now() - ?GEO_TAG_EXPIRATION,
+    case q(["ZREVRANGEBYSCORE", Key, "+inf", util:to_list(ExpiredTs), "WITHSCORES"]) of
+        {ok, GeoTags} ->
+            util_redis:parse_zrange_with_scores(GeoTags);
+        Err ->
+            ?ERROR("Failed to get all geo tags for ~s: ~p", [Uid, Err]),
+            undefined
+    end.
+
 -spec add_marketing_tag(Uid :: uid(), Tag :: binary()) -> ok.
 add_marketing_tag(Uid, Tag) ->
     Timestamp = util:now(),
@@ -1383,4 +1422,7 @@ export_data_key(Uid) ->
 
 marketing_tag_key(Uid) ->
     <<?MARKETING_TAG_KEY/binary, "{", Uid/binary, "}">>.
+
+geo_tag_key(Uid) ->
+    <<?GEO_TAG_KEY/binary, "{", Uid/binary, "}">>.
 
