@@ -624,7 +624,7 @@ get_moment_time_to_send(Tag) ->
     case Payload of
         undefined ->
             %% from 3pm to 9pm local time.
-            Rand = 15 + random:uniform(6),
+            Rand = 15*60 + random:uniform(6*60),
             case set_moment_time_to_send(Rand, Tag) of
                 true -> Rand;
                 false -> get_moment_time_to_send(Tag)

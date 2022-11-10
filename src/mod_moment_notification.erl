@@ -20,10 +20,10 @@
 -export([
     schedule/0,
     unschedule/0,
-    send_notification/1,
     send_notifications/0,
     send_moment_notification/1,
-    is_time_ok/5  %% for testing
+    maybe_send_moment_notification/2,
+    is_time_ok/7  %% for testing
 ]).
 
 %% Hooks
@@ -69,7 +69,12 @@ reassign_jobs() ->
 
 check_and_schedule() ->
     case util:is_main_stest() of
-        true -> schedule();
+        true ->
+            %% Process last two hours again in case notifications were lost
+            %% because of server restart.
+            process_moment_tag(util:now(), false),
+            process_moment_tag(util:now() - ?HOURS, true),
+            schedule();
         false -> ok
     end,
     ok.
@@ -95,25 +100,76 @@ unschedule() ->
 
 -spec send_notifications() -> ok.
 send_notifications() ->
-    {{_,_,Day}, {_,_,_}} = calendar:system_time_to_universal_time(util:now(), second),
-    send_notification(Day),
+    process_moment_tag(util:now(), false),
     ok.
 
 %%====================================================================
 
--spec send_notification(Today :: integer()) -> ok.
-send_notification(Today) ->
-    %% Have we processed all the accounts regardless of their timezone Today (GMT).
-    case model_feed:is_moment_tag_done(util:to_binary(Today)) of
-        true -> ok;
-        false -> process_moment_tag(Today)
+%% Following function exists to convert old format notification time (hr) to new format (min).
+backward_compatible(Min) ->
+    case Min < 15 * 60 of
+        true -> Min * 60;
+        false -> Min
     end.
 
-process_moment_tag(Today) ->
-    HrToSendToday = model_feed:get_moment_time_to_send(util:to_binary(Today)),
-    HrToSendPrevDay = model_feed:get_moment_time_to_send(util:to_binary(Today - 1)), %% Local time is 1 day behind
-    HrToSendNextDay = model_feed:get_moment_time_to_send(util:to_binary(Today + 1)), %% Local time is 1 day ahead
+% At the current GMT time, we need to process everybody between GMT-24 to GMT+24.
+% These time zones represent -1 day for some, current day for some, +1 day for some.
+% For all these three days we can fetch applicable time the notification is supposed to go.
+%
+% If the local time's hr is greater than the hr of notification, we schedule the notification
+% to be sent after some time. We need to make sure no double notifications are sent.
+process_moment_tag(CurrentTimeSecs, IsImmediateNotification) ->
+    {{_,_,Today}, {CurrentHrGMT, CurrentMinGMT,_}} = 
+        calendar:system_time_to_universal_time(CurrentTimeSecs, second),
+    {{_,_,Yesterday}, {_,_,_}} =
+        calendar:system_time_to_universal_time(CurrentTimeSecs - ?DAYS, second),
+    {{_,_,Tomorrow}, {_,_,_}} =
+        calendar:system_time_to_universal_time(CurrentTimeSecs + ?DAYS, second),
+
+    %% Following are number of minutes in local time when moment notification needs to be sent
+    %% today, yesterday and tomorrow.
+    MinToSendToday = backward_compatible(model_feed:get_moment_time_to_send(util:to_binary(Today))),
+    MinToSendPrevDay = backward_compatible(model_feed:get_moment_time_to_send(util:to_binary(Yesterday))),
+    MinToSendNextDay = backward_compatible(model_feed:get_moment_time_to_send(util:to_binary(Tomorrow))),
+
+    _TodayHr = MinToSendToday div 60,
+    _YesterdayHr = MinToSendPrevDay div 60,
+    _TomorrowHr = MinToSendNextDay div 60,
+
+    %% Need to fetch list of users that are tagged to receive for Yesterday, Today and Tomorrow
+    %% based on current GMT time.
+    %% - CurrentHrGMT, TodayHr, YesterdayHr, TomorrowHr
+    %%
+    %% Today's tag - where in the world is the local time TodayHr
+    %% - (TodayHr - CurrentHrGMT), e.g. PDT is GMT-8. If TodayHr is 15hr and CurrentHrGMT is 22Hr
+    %%   (15 - 22) = -7 (cann't process PDT, but can process a zone that is 1 hr ahead of PDT)
+    %%   (15 - 23) = -8 (can process PDT when currentHrGMT is 23Hr).
+    %%   Today's tag at CurrentHrGMT is -7.
+    %%
+    %% Yesterday's tag
+    %% - (YesterdayHr - CurrentHrGMT - 24), e.g. Hawaii is GMT-10. If YesterdayHr is 14Hr, and
+    %%   CurrentHrGMT is 1Hr
+    %%   (14 - 1 - 24) = -11 (processing Hawaii would be late by 1 Hr), but can process zone that
+    %%                                                              is 1hr behind Hawaii
+    %%   (14 - 0 - 24) = -10 (can process when CurrentHrGMT is 0Hr).
+    %%   Yesterday's tag at CurrentHrGMT is -11
+    %%
+    %% Tomorrow's tag
+    %% - (TomorrowHr - CurrentHrGMT + 24), e.g. Japan is GMT+9. If TomorrowHr is 8Hr, and 
+    %%   CurrentHrGMT is 22Hr
+    %%   (8 - 22 + 24) = 10 (cann't process Japan for 1 more hr).
+    %%   (8 - 23 + 24) = 9 (can process Japan when CurrentHrGMT is 23hr).
+    %%   Tomorrow's tag at CurrentHrGMT is 10
+    %%
+    %% Least tag is -12, Largest tag is +14. If any of the above tags is not within this limit,
+    %% it can safely be ignored.
+    %%
+
+    %% TODO(vipin): instead of fetching list of developers, we need to fetch three list of users
+    %% based on above tags (for yesterday, today and tomorrow). If any of the tags is < -12 or
+    %% greater than +14, it can safely be ignored.
     List = dev_users:get_dev_uids(),
+
     Phones = model_accounts:get_phones(List),
     UidPhones = lists:zip(List, Phones),
     Processed =
@@ -124,20 +180,23 @@ process_moment_tag(Today) ->
                 true -> PushInfo#push_info.zone_offset;
                 false -> undefined
             end,
-            ProcessingDone = case Phone =/= undefined andalso
-                    is_time_ok(Phone, ZoneOffset, HrToSendToday, HrToSendPrevDay, HrToSendNextDay) andalso
+            {TimeOk, MinToWait} = 
+                is_time_ok(CurrentHrGMT, CurrentMinGMT, Phone, ZoneOffset,
+                    MinToSendToday, MinToSendPrevDay, MinToSendNextDay),
+            MinToWait2 = case IsImmediateNotification of
+                false -> MinToWait;
+                true -> 0
+            end,
+            ProcessingDone = case Phone =/= undefined andalso TimeOk andalso
                     is_client_version_ok(ClientVersion) of
                 true ->
-                      maybe_send_moment_notification(Uid, util:to_binary(Today)),
+                      wait_and_send_notification(Uid, util:to_binary(Today), MinToWait2),
                       true;
                 false -> false
             end,
             Acc andalso ProcessingDone
         end, true, UidPhones),
-    case Processed of
-        true -> model_feed:mark_moment_tag_done(util:to_binary(Today));
-        false -> ok
-    end.
+    ?INFO("Processed fully: ~p", [Processed]).
 
 %% TODO(vipin): Update this method. false clause is to satisfy Dialyzer
 is_client_version_ok(UserAgent) when is_binary(UserAgent) ->
@@ -145,49 +204,68 @@ is_client_version_ok(UserAgent) when is_binary(UserAgent) ->
 is_client_version_ok(_UserAgent) ->
     false.
 
-%% If localtime if within GMT day, use HrToSendToday. If locatime is in the prev day with
-%% respect to GMT day, use HrToSendPrevDay. If localtime is in the next day with respect to
-%% GMT day, use HrToSendNextDay.
-is_time_ok(Phone, ZoneOffset, HrToSendToday, HrToSendPrevDay, HrToSendNextDay) ->
-    {{_,_,_}, {UtcHr,_,_}} = calendar:system_time_to_universal_time(util:now(), second),
-    ?DEBUG("UtcHr: ~p", [UtcHr]),
-    CCLocalHr1 = case ZoneOffset of
+%% If localtime if within GMT day, use MinToSendToday. If locatime is in the prev day with
+%% respect to GMT day, use MinToSendPrevDay. If localtime is in the next day with respect to
+%% GMT day, use MinToSendNextDay.
+is_time_ok(CurrentHrGMT, CurrentMinGMT, Phone, ZoneOffset,
+        MinToSendToday, MinToSendPrevDay, MinToSendNextDay) ->
+    ?DEBUG("GMTHr: ~p", [CurrentHrGMT]),
+    LocalMin = case ZoneOffset of
         undefined ->
             CC = mod_libphonenumber:get_cc(Phone),
             case CC of
-                <<"AE">> -> UtcHr + 4;
-                <<"BA">> -> UtcHr + 2;
-                <<"GB">> -> UtcHr + 1;
-                <<"ID">> -> UtcHr + 7;
-                <<"IR">> -> UtcHr + 3;  %% + 3:30
-                <<"US">> -> UtcHr - 6;
-                <<"IN">> -> UtcHr + 5;
-                _ -> UtcHr
+                <<"AE">> -> (CurrentHrGMT + 4) * 60;
+                <<"BA">> -> (CurrentHrGMT + 2) * 60;
+                <<"GB">> -> (CurrentHrGMT + 1) * 60;
+                <<"ID">> -> (CurrentHrGMT + 7) * 60;
+                <<"IR">> -> (CurrentHrGMT + 3) * 60 + 30;  %% + 3:30
+                <<"US">> -> (CurrentHrGMT - 6) * 60;
+                <<"IN">> -> (CurrentHrGMT + 5) * 60;
+                _ -> CurrentHrGMT * 60 + CurrentMinGMT
             end;
         _ ->
-            ZoneOffsetHr = round(ZoneOffset / 3600),
-            UtcHr + ZoneOffsetHr
+            ZoneOffsetMin = ZoneOffset div 60,
+            (CurrentHrGMT * 60) + CurrentMinGMT + ZoneOffsetMin
     end,
-    ?DEBUG("LocalHr: ~p", [CCLocalHr1]),
-    {HrToSend, CCLocalHr} = case CCLocalHr1 >= 24 of
+    ?DEBUG("LocalMin: ~p", [LocalMin]),
+    {MinToSend, LocalCurrentHr, LocalCurrentMin} = case LocalMin >= 24 * 60 of
         true ->
-            {HrToSendNextDay, CCLocalHr1 - 24};
+            AdjustedMin = LocalMin - 24 * 60,
+            {MinToSendNextDay, AdjustedMin div 60, AdjustedMin rem 60};
         false ->
-            case CCLocalHr1 < 0 of
-                true -> {HrToSendPrevDay, CCLocalHr1 + 24};
-                false -> {HrToSendToday, CCLocalHr1}
+            case LocalMin < 0 of
+                true ->
+                    AdjustedMin = LocalMin + 24 * 60,
+                    {MinToSendPrevDay, AdjustedMin div 60, AdjustedMin rem 60};
+                false -> {MinToSendToday, LocalMin div 60, LocalMin rem 60}
             end
     end,
-    ?DEBUG("HrToSend: ~p, CCLocalHr: ~p", [HrToSend, CCLocalHr]),
-    (CCLocalHr >= 15) andalso ((CCLocalHr >= HrToSend) orelse (HrToSend > 21)).
+    WhichHrToSend = MinToSend div 60,
+    WhichMinToSend = MinToSend rem 60,
+    ?DEBUG("WhichTimeToSend: ~p:~p", [WhichHrToSend, WhichMinToSend]),
+    ?DEBUG("LocalTime: ~p:~p", [LocalCurrentHr, LocalCurrentMin]),
+    IsTimeOk = (LocalCurrentHr >= WhichHrToSend),
+    MinToWait = case LocalCurrentHr == WhichHrToSend of
+        true ->
+            case (WhichMinToSend - LocalCurrentMin) > 0 of
+                true -> (WhichMinToSend - LocalCurrentMin);
+                false -> 0
+            end;
+        false -> 0
+    end,
+    {IsTimeOk, MinToWait}.
+
+
+-spec wait_and_send_notification(Uid :: uid(), Tag :: binary(), MinToWait :: integer()) -> ok.
+wait_and_send_notification(Uid, Tag, MinToWait) ->
+    timer:apply_after(MinToWait * ?MINUTES_MS, ?MODULE, maybe_send_moment_notification, [Uid, Tag]),
+    ok.
 
 -spec maybe_send_moment_notification(Uid :: uid(), Tag :: binary()) -> ok.
 maybe_send_moment_notification(Uid, Tag) ->
     case model_accounts:mark_moment_notification_sent(Uid, Tag) of
-        true ->
-            send_moment_notification(Uid);
-       false ->
-            ?DEBUG("Moment notification already sent to Uid: ~p", [Uid])
+        true -> send_moment_notification(Uid);
+        false -> ?DEBUG("Moment notification already sent to Uid: ~p", [Uid])
     end.
 
 
