@@ -122,6 +122,7 @@ get_props(Uid, ClientVersion) ->
         nse_runtime_sec => 17, %% ios-nse needs 3 secs to cleanup, we want our nse to run =< 20 secs.
         file_sharing => true,   %% clients are capable of sending files.
         invite_strings => mod_invites:get_invite_strings_bin(Uid), %% json string with invite text.
+        pre_invite_strings => mod_invites:get_pre_invite_strings_bin(Uid),
         new_chat_ui => false,   %% turn on new chat ui on ios.
         is_psa_admin => false, %% is client allowed to post PSA Moment
         group_expiry => false, %% whether group expiry option is turned on for clients.

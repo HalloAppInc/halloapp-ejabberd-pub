@@ -388,35 +388,13 @@ fetchpb:
 	rm -rf deps/schemas
 
 
-translate:
-	# creates temporary directories to work with.
-	rm -rf temp
-	mkdir -p temp
-	mkdir -p temp/msgs
-	mkdir -p priv/msgs
-	# clone ios repo
-	git clone git@github.com:HalloAppInc/halloapp-ios.git temp/halloapp-ios
-	# copies all translation strings related folders.
-	find temp/halloapp-ios/Halloapp/*.lproj -type d | xargs -I{} cp -r {} temp/msgs/
-	# deletes all files except the files that contain the exact translations.
-	find temp/msgs/*.lproj -type f ! -name 'Localizable.strings' -delete
-	rm -rf temp/msgs/Base.lproj temp/msgs/en.lproj
-	# rename all files to be 'langId.strings'
-	cd temp/msgs/ && for subdir in *; do mv -v $$subdir $${subdir//.lproj/}; done;
-	cd temp/msgs/ && for subdir in *; do mv $$subdir/Localizable.strings $$subdir.txt; done;
-	cd temp/msgs/ && rm -r */;
-	# filter out all server translations and delete the rest of the lines.
-	cd temp/msgs/ && for file in *; do grep '\"server.*' $$file > $$file.strings; done;
-	# remove any other files if any.
-	find temp/msgs/ -type f ! -name '*.strings' -delete;
-	cd temp/msgs/ && for file in *; do mv -v $$file $${file//.txt.strings/.strings}; done;
-	# move them to the msgs directory.
-	cp temp/msgs/* priv/msgs/
-	# cleanup.
-	rm -rf temp
-
+pre-invite-strings:
+	$(MAKE) STRING_NAME='invite.contact.count' RESULT_FILE=pre_invite_strings.json copy-lang-strings-internal
 
 invite-strings:
+	$(MAKE) STRING_NAME='\"invite.text*' RESULT_FILE=invite_strings.json copy-lang-strings-internal
+
+copy-lang-strings-internal:
 	rm -rf temp
 	mkdir -p temp/msgs
 	mkdir -p priv/data
@@ -432,23 +410,23 @@ invite-strings:
 	cd temp/msgs/ && for subdir in *; do mv $$subdir/Localizable.strings $$subdir.txt; done;
 	cd temp/msgs/ && rm -r */;
 	# filter out all invite string translations and delete the rest of the lines.
-	cd temp/msgs/ && for file in *; do grep '\"invite.text*' $$file | cut -d '"' -f 4 > $$file.strings; done;
+	cd temp/msgs/ && for file in *; do grep $(STRING_NAME) $$file | cut -d '"' -f 4 > $$file.strings; done;
 	# remove any other files if any.
 	find temp/msgs/ -type f ! -name '*.strings' -delete;
-	touch temp/invite_strings.json
-	echo "{" >> temp/invite_strings.json
+	touch temp/$(RESULT_FILE)
+	echo "{" >> temp/$(RESULT_FILE)
 	# first, format each .string file into a new file .string2
 	# then, cat these formatted files into a json output file
 	cd temp/msgs/ && for file in *; do \
 		while read -r line; do \
 			printf '  "%s",\n' "$$line" >> `echo $${file}2` ; done < $${file}; \
 		truncate -s-2 $${file}2; \
-		printf '%s: [\n%s\n],\n' "\"`echo $${file//.txt.strings}`\"" "`cat $${file}2`" >> ../invite_strings.json; done;
+		printf '%s: [\n%s\n],\n' "\"`echo $${file//.txt.strings}`\"" "`cat $${file}2`" >> ../$(RESULT_FILE); done;
 	# truncate last comma character from file
-	truncate -s-2 temp/invite_strings.json
-	echo "\n}" >> temp/invite_strings.json
+	truncate -s-2 temp/$(RESULT_FILE)
+	echo "\n}" >> temp/$(RESULT_FILE)
 	# move the file to the data directory.
-	cp temp/invite_strings.json priv/data/
+	cp temp/$(RESULT_FILE) priv/data/
 	# cleanup.
 	rm -rf temp
 

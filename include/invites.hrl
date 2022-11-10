@@ -11,4 +11,7 @@
 -define(INVITE_STRINGS_TABLE, invite_strings).
 -define(INVITE_STRINGS_ETS_KEY, invite_strings_map).
 
+-define(PRE_INVITE_STRINGS_TABLE, pre_invite_strings).
+-define(PRE_INVITE_STRINGS_ETS_KEY, pre_invite_strings_map).
+
 -endif.

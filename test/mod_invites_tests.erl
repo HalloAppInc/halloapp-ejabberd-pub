@@ -245,6 +245,12 @@ get_invite_strings(_) ->
     ?_assertNotEqual(undefined, maps:get(<<"en">>, InviteStringMap, undefined)),
     ?_assertNotEqual(undefined, maps:get(<<"id">>, InviteStringMap, undefined))].
 
+get_pre_invite_strings(_) ->
+    PreInviteStringMap = mod_invites:get_invite_strings(?UID1),
+    [?_assertNotEqual(#{}, PreInviteStringMap),
+    ?_assertNotEqual(undefined, maps:get(<<"en">>, PreInviteStringMap, undefined)),
+    ?_assertNotEqual(undefined, maps:get(<<"id">>, PreInviteStringMap, undefined))].
+
 invite_string_id(_) ->
     InviteStringMap = mod_invites:get_invite_strings(?UID1),
     InvStr = maps:get(<<"en">>, InviteStringMap, undefined),
@@ -275,6 +281,7 @@ rm_invite_string_test(_) ->
 invite_strings_test_() ->
     tutil:setup_once(fun setup_invite_strings/0, [
         fun get_invite_strings/1,
+        fun get_pre_invite_strings/1,
         fun invite_string_id/1,
         fun rm_invite_string_test/1
     ]).
@@ -343,6 +350,7 @@ setup_invite_strings() ->
     ok = model_accounts:set_push_token(?UID3, <<>>, <<>>, 0, ?LANG_ID3),
     ok = model_accounts:create_account(?UID4, ?PHONE4, ?NAME1, ?USER_AGENT1),
     ok = model_accounts:set_push_token(?UID4, <<>>, <<>>, 0, ?LANG_ID4),
+    mod_invites:init_pre_invite_string_table(),
     mod_invites:init_invite_string_table(),
     CleanupInfo.
 

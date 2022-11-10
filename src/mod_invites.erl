@@ -23,6 +23,7 @@
     get_time_until_refresh/1,
     get_last_sunday_midnight/1,
     get_next_sunday_midnight/1,
+    init_pre_invite_string_table/0,
     init_invite_string_table/0
 ]).
 -endif.
@@ -39,13 +40,16 @@
     get_invite_strings_bin/1,
     get_invite_string_id/1,
     lookup_invite_string/1,
-    list_of_langids_to_keep_cc/0
+    list_of_langids_to_keep_cc/0,
+    get_pre_invite_strings/1,
+    get_pre_invite_strings_bin/1
 ]).
 
 -define(NS_INVITE, <<"halloapp:invites">>).
 -define(NS_INVITE_STATS, "HA/invite").
 
 -define(INVITE_STRINGS_FILE, "invite_strings.json").
+-define(PRE_INVITE_STRINGS_FILE, "pre_invite_strings.json").
 
 %%====================================================================
 %% gen_mod functions
@@ -54,6 +58,7 @@
 start(Host, _Opts) ->
     gen_iq_handler:add_iq_handler(ejabberd_local, Host, pb_invites_request, ?MODULE, process_local_iq),
     ejabberd_hooks:add(register_user, Host, ?MODULE, register_user, 50),
+    init_pre_invite_string_table(),
     init_invite_string_table(),
     ok.
 
@@ -61,7 +66,8 @@ stop(Host) ->
     gen_iq_handler:remove_iq_handler(ejabberd_local, Host, pb_invites_request),
     ejabberd_hooks:delete(register_user, Host, ?MODULE, register_user, 50),
     try
-        ets:delete(?INVITE_STRINGS_TABLE)
+        ets:delete(?INVITE_STRINGS_TABLE),
+        ets:delete(?PRE_INVITE_STRINGS_TABLE)
     catch Error:Reason ->
         ?WARNING("Could not delete ets table ~p: ~p: ~p", [?INVITE_STRINGS_TABLE, Error, Reason])
     end,
@@ -161,6 +167,7 @@ request_invite(FromUid, ToPhoneNum) ->
             model_invites:record_invite(FromUid, NormalizedPhone, NumInvitesLeft),
             ha_events:log_user_event(FromUid, invite_recorded),
             InviteStringMap = mod_invites:get_invite_strings(FromUid),
+            PreInviteStringMap = mod_invites:get_pre_invite_strings(FromUid),
             {ok, LangId1} = model_accounts:get_lang_id(FromUid),
             LangId2 = mod_translate:recast_langid(LangId1),
             LangId3 = case lists:member(LangId2, mod_invites:list_of_langids_to_keep_cc()) of
@@ -174,12 +181,19 @@ request_invite(FromUid, ToPhoneNum) ->
                 InvStr -> InvStr
             end,
             InviteStringId = mod_invites:get_invite_string_id(InviteString),
+            PreInviteString = case maps:get(LangId2, PreInviteStringMap, undefined) of
+                undefined ->
+                    %% Fallback to english
+                    maps:get(<<"en">>, PreInviteStringMap, "");
+                PreInvStr -> PreInvStr
+            end,
             ha_events:log_event(<<"server.invite_sent">>,
                 #{
                     uid => FromUid,
                     phone => ToPhoneNum,
                     lang_id => LangId2,
-                    invite_string_id => InviteStringId
+                    invite_string_id => InviteStringId,
+                    pre_invite_string => PreInviteString
                 }),
             {ToPhoneNum, ok, undefined}
     end.
@@ -245,6 +259,33 @@ list_of_langids_to_keep_cc() ->
     %% if this list is empty, dialyzer will complain due to some lists:member checks that can
     %% never return false
     [<<"placeholder">>].
+
+
+-spec get_pre_invite_strings(Uid :: uid()) -> map().
+get_pre_invite_strings(Uid) ->
+    try
+        [{?PRE_INVITE_STRINGS_ETS_KEY, PreInviteStringsMap}] =
+            ets:lookup(?PRE_INVITE_STRINGS_TABLE, ?PRE_INVITE_STRINGS_ETS_KEY),
+        maps:fold(
+            fun(LangId, Strings, Acc) ->
+                StringIndex = get_pre_invite_str_index(Uid, length(Strings)),
+                String = lists:nth(StringIndex + 1, Strings),
+                Acc#{LangId => String}
+            end,
+            #{},
+            PreInviteStringsMap)
+    catch
+        Class: Reason: Stacktrace  ->
+            ?ERROR("Failed to get pre invite strings for ~s: ~p | ~p | ~p",
+                [Uid, Class, Reason, Stacktrace]),
+            #{}
+    end.
+
+
+-spec get_pre_invite_strings_bin(Uid :: uid()) -> binary().
+get_pre_invite_strings_bin(Uid) ->
+    PreInviteStringsMap = get_pre_invite_strings(Uid),
+    jiffy:encode(PreInviteStringsMap).
 
 %%====================================================================
 %% Internal functions
@@ -354,6 +395,33 @@ get_next_sunday_midnight(CurrTime) ->
     get_last_sunday_midnight(CurrTime) + ?WEEKS.
 
 
+init_pre_invite_string_table() ->
+    %% Load invite strings into ets
+    try
+        ?INFO("Trying to create table for pre invite strings in ets", []),
+        ets:new(?PRE_INVITE_STRINGS_TABLE, [named_table, public, {read_concurrency, true}]),
+        % load and store invite strings in ets
+        % to refresh the invite strings json file, run `make pre-invite-strings`
+        Filename = filename:join(misc:data_dir(), ?PRE_INVITE_STRINGS_FILE),
+        {ok, Bin} = file:read_file(Filename),
+        PreInviteStringsMap = jiffy:decode(Bin, [return_maps]),
+        %% en localization strings dont appear with other languages in ios repo for some reason.
+        %% TODO: need to fix this in the ios repo.
+        %% If adding strings here for a specific country, make sure the LangId for this
+        %% appears in the list_of_langids_to_keep_cc function above
+        PreInviteStringsMap1 = PreInviteStringsMap#{
+            <<"en">> => [
+                <<"">>,
+                <<"%d contacts on HalloApp">>
+            ]
+        },
+        ets:insert(?PRE_INVITE_STRINGS_TABLE, {?PRE_INVITE_STRINGS_ETS_KEY, PreInviteStringsMap1})
+    catch Error:Reason ->
+        ?WARNING("Failed to create a table for pre invite strings in ets: ~p: ~p", [Error, Reason])
+    end,
+    ok.
+
+
 init_invite_string_table() ->
     %% Load invite strings into ets
     try
@@ -366,8 +434,6 @@ init_invite_string_table() ->
         InviteStringsMap = jiffy:decode(Bin, [return_maps]),
         %% en localization strings dont appear with other languages in ios repo for some reason.
         %% TODO: need to fix this in the ios repo.
-        %% If adding strings here for a specific country, make sure the LangId for this
-        %% appears in the list_of_langids_to_keep_cc function above
         InviteStringsMap1 = InviteStringsMap#{
             <<"en">> => [
                 <<"I’m inviting you to join me on HalloApp. It is a private and secure app to share pictures, chat and call your friends. Get it at https://halloapp.com/get"/utf8>>,
@@ -418,3 +484,16 @@ rm_invite_strings_by_cc(InviteStringMap, Uid) ->
                 _ -> ?WARNING("Unexpected LangId for ~s: ~p", [Uid, RawLangId])
             end
     end.
+
+
+get_pre_invite_str_index(Uid, NumBuckets) ->
+    hash_to_bucket(Uid, NumBuckets, <<"pre_inv_str">>).
+
+
+hash_to_bucket(Uid, NumBuckets, Salt) ->
+    Sha = crypto:hash(sha256, <<Uid/binary, Salt/binary>>),
+    FirstSize = byte_size(Sha) - 8,
+    <<_Rest:FirstSize/binary, Last8:8/binary>> = Sha,
+    <<LastInt:64>> = Last8,
+    LastInt rem NumBuckets.
+
