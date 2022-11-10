@@ -165,7 +165,8 @@ re_register_user(Uid, _Server, _Phone, _CampaignId) ->
     lists:foreach(
         fun(Gid) ->
             %% We dont share group feed history to re-registered users.
-            ok = model_groups:delete_audience_hash(Gid)
+            ok = model_groups:delete_audience_hash(Gid),
+            check_and_share_group_feed(Gid, Uid)
         end, Gids),
     ok.
 
@@ -568,10 +569,11 @@ make_pb_group_feed_item(GroupInfo, Uid, SenderName, GroupFeedSt, Ts) ->
 check_and_share_group_feed(Gid, Uid) ->
     case dev_users:is_dev_uid(Uid) of
         true ->
-            ?INFO("Ignore sharing group feed Gid: ~s ToUid: ~s", [Gid, Uid]),
+            share_group_feed(Gid, Uid),
             ok;
         false ->
-            share_group_feed(Gid, Uid)
+            ?INFO("Ignore sharing group feed Gid: ~s ToUid: ~s", [Gid, Uid]),
+            ok
     end.
 
 
