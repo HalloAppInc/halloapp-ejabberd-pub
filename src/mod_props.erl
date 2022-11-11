@@ -102,7 +102,7 @@ get_props(Uid, ClientVersion) ->
         audio_note_bit_rate => 96000, %% audio_note_bit_rate set to 96Kbps.
         cleartext_group_feed => true, %% whether client must send unencrypted content in group_feed.
         use_cleartext_group_feed => false, %% whether clients must rely on unencrypted content in group_feed.
-        cleartext_home_feed => false, %% whether client must send unencrypted content in home_feed.
+        cleartext_home_feed => true, %% whether client must send unencrypted content in home_feed.
         use_cleartext_home_feed => true, %% whether clients must rely on unencrypted content in home_feed.
         audio_calls => true, %% whether clients can make audio calls.
         video_calls => true, %% whether clients can make video calls.
