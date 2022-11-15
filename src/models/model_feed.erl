@@ -56,6 +56,7 @@
     get_comment/2,
     get_post_and_its_comments/1,
     get_comment_data/3,
+    get_post_timestamp_ms/1,
     get_7day_user_feed/1,
     get_entire_user_feed/1,
     get_7day_group_feed/1,
@@ -156,7 +157,7 @@ publish_moment(PostId, Uid, Payload, PostTag, FeedAudienceType, FeedAudienceList
 
  -spec publish_post_internal(PostId :: binary(), Uid :: uid(), Payload :: binary(), PostTag :: post_tag(),
         FeedAudienceType :: atom(), FeedAudienceList :: [binary()],
-        TimestampMs :: integer(), MomentInfo :: pb_moment_info()) -> ok | {error, any()}.
+        TimestampMs :: integer(), MomentInfo :: maybe(pb_moment_info())) -> ok | {error, any()}.
 publish_post_internal(PostId, Uid, Payload, PostTag, FeedAudienceType, FeedAudienceList, TimestampMs, MomentInfo) ->
     {NumTakesBin, NotificationTimestampBin, TimeTakenBin} = encode_moment_info(MomentInfo),
     C1 = [["HSET", post_key(PostId),
@@ -194,7 +195,7 @@ index_post_by_user_tags(PostId, Uid, PostTag, TimestampMs) ->
                 %% We could obtain other user info here like lang-id or cc etc and index by them as well.
                 %% Obtain geo tag.
                 GeoTag = model_accounts:get_latest_geo_tag(Uid),
-                case GeoTag =:= <<>> orelse GeoTag =:= undefined of
+                case GeoTag =:= undefined of
                     true ->
                         %% If GeoTag of the user is empty then index this post into other buckets
                         %% TODO: Extend this to other time buckets as well like country or language id.
@@ -226,19 +227,19 @@ get_public_moments(GeoTag, TimestampMs, Cursor, Limit) ->
         true ->
             case split_cursor(Cursor) of
                 {undefined, undefined} ->
-                    TimestampHr = floor(TimestampMs / ?HOURS),
+                    TimestampHr = floor(TimestampMs / ?HOURS_MS),
                     get_posts_by_time_bucket(TimestampHr, TimestampHr, undefined, Limit, Limit, []);
                 {CursorPostId, CursorTimestampMs} ->
-                    CursorTimestampHr = floor(CursorTimestampMs / ?HOURS),
+                    CursorTimestampHr = floor(CursorTimestampMs / ?HOURS_MS),
                     get_posts_by_time_bucket(CursorTimestampHr, CursorTimestampHr, CursorPostId, Limit, Limit, [])
             end;
         false ->
             case split_cursor(Cursor) of
                 {undefined, undefined} ->
-                    TimestampHr = floor(TimestampMs / ?HOURS),
+                    TimestampHr = floor(TimestampMs / ?HOURS_MS),
                     get_posts_by_geo_tag_time_bucket(GeoTag, TimestampHr, TimestampHr, undefined, Limit, Limit, []);
                 {CursorPostId, CursorTimestampMs} ->
-                    CursorTimestampHr = floor(CursorTimestampMs / ?HOURS),
+                    CursorTimestampHr = floor(CursorTimestampMs / ?HOURS_MS),
                     get_posts_by_geo_tag_time_bucket(GeoTag, CursorTimestampHr, CursorTimestampHr, CursorPostId, Limit, Limit, [])
             end
     end.
@@ -305,7 +306,7 @@ split_cursor(Cursor) ->
     catch
         _:_ ->
             ?ERROR("Failed to split cursor: ~p", [Cursor]),
-            {undefined, undefined}
+            error(invalid_cursor)
     end.
 
 
@@ -561,6 +562,12 @@ get_comment_data(PostId, CommentId, ParentId) ->
     end,
 
     {PostRet, CommentRet, PushRet}.
+
+
+-spec get_post_timestamp_ms(binary()) -> pos_integer().
+get_post_timestamp_ms(PostId) ->
+    {ok, Res} = q(["HGET", post_key(PostId), ?FIELD_TIMESTAMP_MS]),
+    util_redis:decode_int(Res).
 
 
 %% Returns a list of uids to send a push notification for when replying to commentId on postId.
@@ -999,10 +1006,11 @@ time_bucket_key_hr(TimestampHr) ->
     <<?TIME_BUCKET_KEY/binary, "{", TimestampHrBin/binary, "}">>.
 
 
--spec geo_tag_time_bucket_key(GeoTag :: binary(), TimestampMs :: integer()) -> binary().
+-spec geo_tag_time_bucket_key(GeoTag :: atom(), TimestampMs :: integer()) -> binary().
 geo_tag_time_bucket_key(GeoTag, TimestampMs) ->
     TimestampHr = floor(TimestampMs / (1 * ?HOURS_MS)),
-    geo_tag_time_bucket_key_hr(GeoTag, TimestampHr).
+    GeoTagBin = util:to_binary(GeoTag),
+    geo_tag_time_bucket_key_hr(GeoTagBin, TimestampHr).
 
 
 -spec geo_tag_time_bucket_key_hr(GeoTag :: binary(), TimestampHr :: integer()) -> binary().

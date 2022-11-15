@@ -1285,7 +1285,7 @@ test_set_export_time(Uid, Ts) ->
     {ok, _} = q(["HSET", export_data_key(Uid), ?FIELD_EXPORT_START_TS, Ts]),
     ok.
 
--spec add_geo_tag(Uid :: uid(), Tag :: binary(), Timestamp :: integer()) -> ok.
+-spec add_geo_tag(Uid :: uid(), Tag :: atom(), Timestamp :: integer()) -> ok.
 add_geo_tag(Uid, Tag, Timestamp) ->
     ExpiredTs = util:now() - ?GEO_TAG_EXPIRATION,
     Key = geo_tag_key(Uid),
@@ -1293,7 +1293,7 @@ add_geo_tag(Uid, Tag, Timestamp) ->
         ["ZREMRANGEBYSCORE", Key, "-inf", ExpiredTs]]),
     ok.
 
--spec get_latest_geo_tag(Uid :: uid()) -> maybe(binary()).
+-spec get_latest_geo_tag(Uid :: uid()) -> maybe(atom()).
 get_latest_geo_tag(Uid) ->
     Key = geo_tag_key(Uid),
     case q(["ZREVRANGE", Key, "0", "0", "WITHSCORES"]) of
@@ -1301,7 +1301,7 @@ get_latest_geo_tag(Uid) ->
         {ok, [NewestGeoTag, Timestamp]} ->
             ExpiredTs = util:now() - ?GEO_TAG_EXPIRATION,
             case Timestamp > ExpiredTs of
-                true -> NewestGeoTag;
+                true -> util:to_atom(NewestGeoTag);
                 false -> undefined
             end;
         Err ->

@@ -76,5 +76,6 @@
 -define(CATCH_UP_TIME_MS, 1 * ?WEEKS_MS).
 -define(MOMENT_TAG_EXPIRATION, (3 * ?DAYS)).
 -define(GEO_TAG_EXPIRATION, (4 * ?WEEKS)).
+-define(NUM_PUBLIC_FEED_ITEMS_PER_REQUEST, 10).
 
 -endif.

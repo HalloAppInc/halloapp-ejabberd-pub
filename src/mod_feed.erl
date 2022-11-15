@@ -19,6 +19,13 @@
 
 -define(NS_FEED, <<"halloapp:feed">>).
 
+%% functions used in tests
+-ifdef(TEST).
+-export([
+    get_public_moments/4
+]).
+-endif.
+
 %% gen_mod API.
 -export([start/2, stop/1, reload/3, mod_options/1, depends/2]).
 
@@ -168,26 +175,63 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
 
 % Get public feed items
 process_local_iq(#pb_iq{from_uid = Uid, payload = #pb_public_feed_request{cursor = Cursor,
-    public_feed_content_type = ContentType, gps_location = GpsLocation}} = IQ) ->
-    %% TODO: fetch geotag and add it to user's account
-%%    NewTag = mod_location:get_geo_tag(Uid, GpsLocation),  % not a real function yet, just a concept
-%%    case NewTag of
-%%        undefined -> ok;
-%%        _ -> model_accounts:add_geo_tag(Uid, NewTag, util:now())
-%%    end,
-    %% TODO: fetch items to return based on geotag
-    Tag = model_accounts:get_latest_geo_tag(Uid),
-    Items = [],
-    %% TODO: fetch and return cursor
-    NewCursor = <<"">>,
+    public_feed_content_type = moments, gps_location = GpsLocation}} = IQ) ->
+    ?INFO("Public feed request: Uid ~s, GpsLocation ~p, Cursor ~p", [Uid, GpsLocation, Cursor]),
+    try
+        %% Get geotag from GeoLocation, add it to user account if it exists
+        NewTag = mod_location:get_geo_tag(Uid, GpsLocation),
+        case NewTag of
+            undefined -> ok;
+            _ ->
+                ?INFO("Adding new tag ~p for Uid ~s", [NewTag, Uid]),
+                model_accounts:add_geo_tag(Uid, NewTag, util:now())
+        end,
+        %% Fetch latest geotag, public moments (convert them to pb feed items) and calculate cursor
+        Tag = model_accounts:get_latest_geo_tag(Uid),
+        PublicMoments = get_public_moments(Tag, util:now_ms(), Cursor, ?NUM_PUBLIC_FEED_ITEMS_PER_REQUEST),
+        PublicFeedItems = lists:map(fun convert_posts_to_feed_items/1, PublicMoments),
+        NewCursor = case PublicMoments of
+            [] -> <<>>;
+            _ ->
+                PostId = (lists:last(PublicMoments))#post.id,
+                PostTsMs = model_feed:get_post_timestamp_ms(PostId),
+                model_feed:join_cursor(PostId, PostTsMs)
+        end,
+        Ret = #pb_public_feed_response{
+            result = success,
+            reason = ok,
+            cursor = NewCursor,
+            public_feed_content_type = moments,
+            items = PublicFeedItems
+        },
+        ?INFO("Successful public feed response: Uid ~s, NewCursor ~p, Tag ~p NumItems ~p",
+            [Uid, NewCursor, Tag, length(PublicFeedItems)]),
+        pb:make_iq_result(IQ, Ret)
+    catch
+        error:invalid_cursor ->
+            ErrRet = #pb_public_feed_response{
+                result = failure,
+                reason = invalid_cursor},
+            pb:make_iq_result(IQ, ErrRet);
+        Error:Reason ->
+            ?ERROR("Error processing public feed request: ~p: ~p", [Error, Reason]),
+            ErrRet = #pb_public_feed_response{
+                result = failure,
+                reason = unknown_reason},
+            pb:make_iq_result(IQ, ErrRet)
+    end;
+
+process_local_iq(#pb_iq{payload = #pb_public_feed_request{public_feed_content_type = ContentType}} = IQ) ->
+    %% Return error for content type other than moments
     Ret = #pb_public_feed_response{
-        result = success,
-        reason = ok,
-        cursor = NewCursor,
+        result = failure,
+        reason = unknown_reason,
+        cursor = <<>>,
         public_feed_content_type = ContentType,
-        items = Items
+        items = []
     },
     pb:make_iq_result(IQ, Ret).
+
 
 -spec add_friend(Uid :: uid(), Server :: binary(), Ouid :: uid(), WasBlocked :: boolean()) -> ok.
 add_friend(Uid, _Server, Ouid, false) ->
@@ -691,6 +735,36 @@ get_message_type(#pb_feed_item{action = publish, item = #pb_comment{}}, PushSet,
     end;
 get_message_type(#pb_feed_item{action = retract}, _, _) -> normal.
 
+
+get_public_moments(Tag, TimestampMs, Cursor, Limit) ->
+    get_public_moments(Tag, TimestampMs, Cursor, Limit, []).
+
+
+get_public_moments(Tag, TimestampMs, Cursor, Limit, PublicMoments) ->
+    case length(PublicMoments) >= Limit of
+        true ->
+            %% Base case: Limit has been reached
+            lists:sublist(PublicMoments, Limit);
+        false ->
+            %% Fetch 20% more items than needed to account for possible deleted posts
+            NumNeeded = Limit - length(PublicMoments),
+            NumToFetch = round(NumNeeded * 1.2),
+            NewPublicMomentIds = model_feed:get_public_moments(Tag, TimestampMs, Cursor, NumToFetch),
+            %% Filter out deleted posts and convert PostIds to Posts
+            NewPublicMoments = model_feed:get_posts(NewPublicMomentIds),
+            case length(NewPublicMomentIds) < NumToFetch of
+                true ->
+                    %% If length(NewPublicMomentIds) is less than the number of items we tried to fetch,
+                    %% we must have reached the end of the possible items, so we should return here
+                    lists:sublist(PublicMoments ++ NewPublicMoments, Limit);
+                false ->
+                    %% Otherwise, recurse
+                    PostTsMs = model_feed:get_post_timestamp_ms(lists:last(NewPublicMomentIds)),
+                    NewCursor = model_feed:join_cursor(lists:last(NewPublicMomentIds), PostTsMs),
+                    get_public_moments(Tag, TimestampMs, NewCursor,
+                        Limit, PublicMoments ++ NewPublicMoments)
+            end
+    end.
 
 %%====================================================================
 %% feed: helper internal functions
