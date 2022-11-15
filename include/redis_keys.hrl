@@ -60,6 +60,7 @@
 -define(EXPORT_DATA_KEY, <<"eda:">>).
 
 -define(MARKETING_TAG_KEY, <<"mta:">>).
+-define(ZONE_OFFSET_TAG_KEY, <<"zot:">>).
 
 -define(STATIC_KEY_KEY, <<"skk:">>).
 

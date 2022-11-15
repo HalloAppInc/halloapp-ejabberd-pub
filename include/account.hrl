@@ -12,6 +12,7 @@
 -define(ACCOUNT_HRL, 1).
 
 -include("ha_types.hrl").
+-include("time.hrl").
 
 -record(account,
 {
@@ -72,5 +73,8 @@
 -define(ANDROID_HUAWEI_TOKEN_TYPE, <<"android_huawei">>).
 
 -define(MAX_NAME_SIZE, 25).   %% 25 utf8 characters
+
+-define(MOMENT_TAG_INTERVAL_MIN, 60).
+-define(MOMENT_TAG_INTERVAL_SEC, (?MOMENT_TAG_INTERVAL_MIN * ?MINUTES)).
 
 -endif.

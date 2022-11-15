@@ -25,7 +25,8 @@
     print_devices/2,
     set_login_run/2,
     cleanup_offline_queue_run/2,
-    check_huawei_token_run/2
+    check_huawei_token_run/2,
+    update_zone_offset/2
 ]).
 
 
@@ -462,6 +463,33 @@ check_huawei_token_run(Key, State) ->
             {ok, PushInfo} = model_accounts:get_push_info(Uid),
             ?INFO("Uid: ~p PushToken: ~p HuaweiToken: ~p",
                 [Uid, PushInfo#push_info.token, PushInfo#push_info.huawei_token]);
+        _ -> ok
+    end,
+    State.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                         Update Zone Offset Tag                        %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+update_zone_offset(Key, State) ->
+    DryRun = maps:get(dry_run, State, false),
+    Result = re:run(Key, "^acc:{([0-9]+)}$", [global, {capture, all, binary}]),
+    case Result of
+        {match, [[_FullKey, Uid]]} ->
+            {ok, PushInfo} = model_accounts:get_push_info(Uid),
+            ZoneOffset = PushInfo#push_info.zone_offset,
+            case ZoneOffset =/= undefined of
+                true ->
+                    case DryRun of
+                        true ->
+                            model_accounts:update_zone_offset_tag(Uid, ZoneOffset, undefined),
+                            ?INFO("Uid: ~p, updated zone offset : ~p", [Uid, ZoneOffset]);
+                        false ->
+                            ?INFO("Uid: ~p, will update zone offset : ~p", [Uid, ZoneOffset])
+                    end;
+                false -> ok
+            end;
         _ -> ok
     end,
     State.

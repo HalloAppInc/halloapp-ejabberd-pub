@@ -73,7 +73,7 @@ check_and_schedule() ->
             %% Process last two hours again in case notifications were lost
             %% because of server restart.
             process_moment_tag(util:now(), false),
-            process_moment_tag(util:now() - ?HOURS, true),
+            process_moment_tag(util:now() - ?MOMENT_TAG_INTERVAL_SEC, true),
             schedule();
         false -> ok
     end,
@@ -87,6 +87,7 @@ check_and_schedule() ->
 
 -spec schedule() -> ok.
 schedule() ->
+    ?INFO("Scheduling", []),
     erlcron:cron(send_notifications, {
         {daily, {every, {1, hr}}},
         {?MODULE, send_notifications, []}
@@ -125,16 +126,18 @@ process_moment_tag(CurrentTimeSecs, IsImmediateNotification) ->
         calendar:system_time_to_universal_time(CurrentTimeSecs - ?DAYS, second),
     {{_,_,Tomorrow}, {_,_,_}} =
         calendar:system_time_to_universal_time(CurrentTimeSecs + ?DAYS, second),
+    ?INFO("Processing Today: ~p, GMT: ~p:~p", [Today, CurrentHrGMT, CurrentMinGMT]),
 
     %% Following are number of minutes in local time when moment notification needs to be sent
     %% today, yesterday and tomorrow.
     MinToSendToday = backward_compatible(model_feed:get_moment_time_to_send(util:to_binary(Today))),
     MinToSendPrevDay = backward_compatible(model_feed:get_moment_time_to_send(util:to_binary(Yesterday))),
     MinToSendNextDay = backward_compatible(model_feed:get_moment_time_to_send(util:to_binary(Tomorrow))),
+    ?INFO("Today: ~p, Yesterday: ~p, Tomorrow: ~p", [MinToSendToday, MinToSendPrevDay, MinToSendNextDay]),
 
-    _TodayHr = MinToSendToday div 60,
-    _YesterdayHr = MinToSendPrevDay div 60,
-    _TomorrowHr = MinToSendNextDay div 60,
+    TodayHr = MinToSendToday div ?MOMENT_TAG_INTERVAL_MIN,
+    YesterdayHr = MinToSendPrevDay div ?MOMENT_TAG_INTERVAL_MIN,
+    TomorrowHr = MinToSendNextDay div ?MOMENT_TAG_INTERVAL_MIN,
 
     %% Need to fetch list of users that are tagged to receive for Yesterday, Today and Tomorrow
     %% based on current GMT time.
@@ -165,36 +168,42 @@ process_moment_tag(CurrentTimeSecs, IsImmediateNotification) ->
     %% it can safely be ignored.
     %%
 
-    %% TODO(vipin): instead of fetching list of developers, we need to fetch three list of users
-    %% based on above tags (for yesterday, today and tomorrow). If any of the tags is < -12 or
-    %% greater than +14, it can safely be ignored.
-    List = dev_users:get_dev_uids(),
+    TodaysList = get_zone_tag_uids(TodayHr - CurrentHrGMT),
+    YesterdayList = get_zone_tag_uids(YesterdayHr - CurrentHrGMT),
+    TomorrowList = get_zone_tag_uids(TomorrowHr - CurrentHrGMT),
+    List = lists:flatten([TodaysList, YesterdayList, TomorrowList]),
 
     Phones = model_accounts:get_phones(List),
     UidPhones = lists:zip(List, Phones),
     Processed =
-        lists:foldl(fun({Uid, Phone}, Acc) ->
-            {ok, PushInfo} = model_accounts:get_push_info(Uid),
-            ClientVersion = PushInfo#push_info.client_version,
-            ZoneOffset = case is_client_version_ok(ClientVersion) of
-                true -> PushInfo#push_info.zone_offset;
-                false -> undefined
-            end,
-            {TimeOk, MinToWait} = 
-                is_time_ok(CurrentHrGMT, CurrentMinGMT, Phone, ZoneOffset,
-                    MinToSendToday, MinToSendPrevDay, MinToSendNextDay),
-            MinToWait2 = case IsImmediateNotification of
-                false -> MinToWait;
-                true -> 0
-            end,
-            ProcessingDone = case Phone =/= undefined andalso TimeOk andalso
-                    is_client_version_ok(ClientVersion) of
-                true ->
-                      wait_and_send_notification(Uid, util:to_binary(Today), MinToWait2),
-                      true;
-                false -> false
-            end,
-            Acc andalso ProcessingDone
+        lists:foldl(
+            fun({Uid, Phone}, Acc) when Phone =/= undefined ->
+                {ok, PushInfo} = model_accounts:get_push_info(Uid),
+                ClientVersion = PushInfo#push_info.client_version,
+                ZoneOffset = case is_client_version_ok(ClientVersion) of
+                    true -> PushInfo#push_info.zone_offset;
+                    false -> undefined
+                end,
+                {TimeOk, MinToWait} = 
+                    is_time_ok(CurrentHrGMT, CurrentMinGMT, Phone, ZoneOffset,
+                        MinToSendToday, MinToSendPrevDay, MinToSendNextDay),
+                MinToWait2 = case IsImmediateNotification of
+                    false -> MinToWait;
+                    true -> 0
+                end,
+                ProcessingDone = case TimeOk andalso is_client_version_ok(ClientVersion) of
+                    true ->
+                          ?INFO("Scheduling: ~p, Today: ~p, MinToWait: ~p", [Uid, Today, MinToWait2]),
+                          wait_and_send_notification(Uid, util:to_binary(Today), MinToWait2),
+                          true;
+                    false ->
+                          ?INFO("Skipping: ~p", [Uid]),
+                          false
+                end,
+                Acc andalso ProcessingDone;
+            ({Uid, _}, Acc) ->
+                ?INFO("Skipping: ~p, invalid Phone", [Uid]),
+                Acc
         end, true, UidPhones),
     ?INFO("Processed fully: ~p", [Processed]).
 
@@ -204,6 +213,16 @@ is_client_version_ok(UserAgent) when is_binary(UserAgent) ->
 is_client_version_ok(_UserAgent) ->
     false.
 
+get_zone_tag_uids(ZoneOffsetDiff) ->
+    %% If the tag is < -12 or greater than +14, it can safely be ignored.
+    {ok, UidsList} = case ZoneOffsetDiff >= -12 andalso ZoneOffsetDiff =< 14 of
+        true -> model_accounts:get_zone_offset_tag_uids(ZoneOffsetDiff * ?MOMENT_TAG_INTERVAL_SEC);
+        false ->
+            ?ERROR("Invalid zone offset diff: ~p", [ZoneOffsetDiff]),
+            {ok, []}
+    end,
+    UidsList.
+ 
 %% If localtime if within GMT day, use MinToSendToday. If locatime is in the prev day with
 %% respect to GMT day, use MinToSendPrevDay. If localtime is in the next day with respect to
 %% GMT day, use MinToSendNextDay.
@@ -242,8 +261,8 @@ is_time_ok(CurrentHrGMT, CurrentMinGMT, Phone, ZoneOffset,
     end,
     WhichHrToSend = MinToSend div 60,
     WhichMinToSend = MinToSend rem 60,
-    ?DEBUG("WhichTimeToSend: ~p:~p", [WhichHrToSend, WhichMinToSend]),
-    ?DEBUG("LocalTime: ~p:~p", [LocalCurrentHr, LocalCurrentMin]),
+    ?INFO("Phone: ~p, WhichTimeToSend: ~p:~p", [Phone, WhichHrToSend, WhichMinToSend]),
+    ?INFO("LocalTime: ~p:~p", [LocalCurrentHr, LocalCurrentMin]),
     IsTimeOk = (LocalCurrentHr >= WhichHrToSend),
     MinToWait = case LocalCurrentHr == WhichHrToSend of
         true ->
@@ -258,14 +277,20 @@ is_time_ok(CurrentHrGMT, CurrentMinGMT, Phone, ZoneOffset,
 
 -spec wait_and_send_notification(Uid :: uid(), Tag :: binary(), MinToWait :: integer()) -> ok.
 wait_and_send_notification(Uid, Tag, MinToWait) ->
-    timer:apply_after(MinToWait * ?MINUTES_MS, ?MODULE, maybe_send_moment_notification, [Uid, Tag]),
+    case dev_users:is_dev_uid(Uid) of
+        true ->
+            timer:apply_after(MinToWait * ?MINUTES_MS, ?MODULE,
+                maybe_send_moment_notification, [Uid, Tag]);
+        false ->
+            ?INFO("Not a developer: ~p", [Uid])
+    end,
     ok.
 
 -spec maybe_send_moment_notification(Uid :: uid(), Tag :: binary()) -> ok.
 maybe_send_moment_notification(Uid, Tag) ->
     case model_accounts:mark_moment_notification_sent(Uid, Tag) of
         true -> send_moment_notification(Uid);
-        false -> ?DEBUG("Moment notification already sent to Uid: ~p", [Uid])
+        false -> ?INFO("Moment notification already sent to Uid: ~p", [Uid])
     end.
 
 

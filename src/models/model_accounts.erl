@@ -159,7 +159,10 @@
     mark_psa_post_sent/2,
     mark_moment_notification_sent/2,
     get_node_list/0,
-    scan/3
+    scan/3,
+    update_zone_offset_tag/3,
+    get_zone_offset_tag_uids/1,
+    delete_zone_offset_tag/2
 ]).
 
 %%====================================================================
@@ -617,7 +620,9 @@ set_push_token(Uid, TokenType, PushToken, TimestampMs, LangId) ->
 -spec set_push_token(Uid :: uid(), TokenType :: binary(), PushToken :: binary(),
         TimestampMs :: integer(), LangId :: binary(), ZoneOffset :: maybe(integer())) -> ok.
 set_push_token(Uid, TokenType, PushToken, TimestampMs, LangId, ZoneOffset) ->
-    {ok, OldLangId} = get_lang_id(Uid),
+    {ok, OldPushInfo} = get_push_info(Uid),
+    OldLangId = OldPushInfo#push_info.lang_id,
+    OldZoneOffset = OldPushInfo#push_info.zone_offset,
     {ok, _Res} = q([
             "HMSET", account_key(Uid),
             ?FIELD_PUSH_OS, TokenType,
@@ -627,6 +632,7 @@ set_push_token(Uid, TokenType, PushToken, TimestampMs, LangId, ZoneOffset) ->
             ?FIELD_ZONE_OFFSET, util:to_binary(ZoneOffset)
         ]),
     update_lang_counters(Uid, LangId, OldLangId),
+    update_zone_offset_tag(Uid, ZoneOffset, OldZoneOffset),
     ok.
 
 
@@ -679,6 +685,44 @@ update_lang_counters(Uid, LangId, OldLangId) ->
     end,
     ok.
 
+
+-spec update_zone_offset_tag(Uid :: binary(), ZoneOffsetSec :: maybe(integer()), OldZoneOffsetSec :: maybe(integer())) -> ok.
+update_zone_offset_tag(Uid, ZoneOffsetSec, OldZoneOffsetSec) when is_integer(ZoneOffsetSec) andalso ZoneOffsetSec =/= OldZoneOffsetSec ->
+    HashSlot = util_redis:eredis_hash(binary_to_list(Uid)),
+    Slot = HashSlot rem ?NUM_SLOTS,
+    ZoneOffsetTag = util:to_binary(ZoneOffsetSec div ?MOMENT_TAG_INTERVAL_SEC),
+    Commands = case OldZoneOffsetSec of
+        undefined ->
+            [["SADD", zone_offset_tag_key(Slot, ZoneOffsetTag), Uid]];
+        _ ->
+            OldOffsetTag = util:to_binary(OldZoneOffsetSec div ?MOMENT_TAG_INTERVAL_SEC),
+            [["SREM", zone_offset_tag_key(Slot, OldOffsetTag), Uid],
+            ["SADD", zone_offset_tag_key(Slot, ZoneOffsetTag), Uid]]
+    end,
+    qp(Commands),
+    ok;
+update_zone_offset_tag(_Uid, _ZoneOffsetSec, _OldZoneOffsetSec) ->
+    ok.
+
+-spec delete_zone_offset_tag(Uid :: binary(), ZoneOffsetSec :: integer()) -> ok.
+delete_zone_offset_tag(Uid, ZoneOffsetSec) when is_integer(ZoneOffsetSec) ->
+    HashSlot = util_redis:eredis_hash(binary_to_list(Uid)),
+    Slot = HashSlot rem ?NUM_SLOTS,
+    ZoneOffsetTag = util:to_binary(ZoneOffsetSec div ?MOMENT_TAG_INTERVAL_SEC),
+    q(["SREM", zone_offset_tag_key(Slot, ZoneOffsetTag), Uid]),
+    ok.
+ 
+-spec get_zone_offset_tag_uids(ZoneOffsetSec :: integer()) -> {ok, [binary()]}.
+get_zone_offset_tag_uids(ZoneOffsetSec) ->
+    ZoneOffsetTag = util:to_binary(ZoneOffsetSec div ?MOMENT_TAG_INTERVAL_SEC),
+    ListUids = lists:foldl(
+        fun (Slot, Acc) ->
+            {ok, Res} = q(["SMEMBERS", zone_offset_tag_key(Slot, ZoneOffsetTag)]),
+            Acc ++ Res
+        end,
+        [],
+        lists:seq(0, ?NUM_SLOTS - 1)),
+    {ok, ListUids}.
 
 -spec remove_android_token(Uid :: uid()) -> ok | {error, missing}.
 remove_android_token(Uid) ->
@@ -1408,4 +1452,8 @@ marketing_tag_key(Uid) ->
 
 geo_tag_key(Uid) ->
     <<?GEO_TAG_KEY/binary, "{", Uid/binary, "}">>.
+
+zone_offset_tag_key(Slot, ZoneOffsetTag) ->
+    SlotBin = util:to_binary(Slot),
+    <<?ZONE_OFFSET_TAG_KEY/binary, "{", SlotBin/binary, "}:", ZoneOffsetTag/binary>>.
 

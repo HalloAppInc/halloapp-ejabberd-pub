@@ -104,6 +104,8 @@
 
 -define(POSTID1, <<"post1">>).
 
+-define(ZONE_OFFSET1, -28800).
+-define(ZONE_OFFSET3, 28800).
 %% ----------------------------------------------
 %% Key Tests
 %% ----------------------------------------------
@@ -594,6 +596,31 @@ geo_tag_test(_) ->
     ?_assertEqual([{Tag2, Time2}, {Tag1, Time1}], model_accounts:get_all_geo_tags(?UID1)),
     ?_assertEqual(Tag2, model_accounts:get_latest_geo_tag(?UID1))].
 
+zone_offset_tag_test(_) ->
+    [?_assertEqual({ok, []},
+        model_accounts:get_zone_offset_tag_uids(?ZONE_OFFSET1)),
+    ?_assertOk(model_accounts:update_zone_offset_tag(
+        ?UID1, ?ZONE_OFFSET1, undefined)),
+    ?_assertOk(model_accounts:update_zone_offset_tag(
+        ?UID1, ?ZONE_OFFSET1, undefined)),
+    ?_assertEqual({ok, [?UID1]},
+        model_accounts:get_zone_offset_tag_uids(?ZONE_OFFSET1)),
+    ?_assertOk(model_accounts:update_zone_offset_tag(
+        ?UID1, ?ZONE_OFFSET1, ?ZONE_OFFSET1)),
+    ?_assertEqual({ok, [?UID1]},
+        model_accounts:get_zone_offset_tag_uids(?ZONE_OFFSET1)),
+    ?_assertOk(model_accounts:delete_zone_offset_tag(
+        ?UID1, ?ZONE_OFFSET1)),
+    ?_assertEqual({ok, []},
+        model_accounts:get_zone_offset_tag_uids(?ZONE_OFFSET1)),
+    ?_assertEqual({ok, []},
+        model_accounts:get_zone_offset_tag_uids(?ZONE_OFFSET3)),
+    ?_assertOk(model_accounts:update_zone_offset_tag(?UID1, ?ZONE_OFFSET1, undefined)),
+    ?_assertOk(model_accounts:update_zone_offset_tag(?UID1, ?ZONE_OFFSET3, ?ZONE_OFFSET1)),
+    ?_assertEqual({ok, []},
+                  model_accounts:get_zone_offset_tag_uids(?ZONE_OFFSET1)),
+    ?_assertEqual({ok, [?UID1]},
+                   model_accounts:get_zone_offset_tag_uids(?ZONE_OFFSET3))].
 
 api_test_() ->
     [tutil:setup_foreach(fun setup/0, [
@@ -631,7 +658,8 @@ api_test_() ->
         fun marketing_tag/1,
         fun psa_tag_test/1,
         fun moment_notification_test/1,
-        fun geo_tag_test/1
+        fun geo_tag_test/1,
+        fun zone_offset_tag_test/1
     ])].
 
 
