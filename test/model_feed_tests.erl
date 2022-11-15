@@ -524,6 +524,8 @@ moment_tag_test() ->
     Hr = model_feed:get_moment_time_to_send(?MOMENT_TAG),
     Hr = model_feed:get_moment_time_to_send(?MOMENT_TAG),
     false = model_feed:set_moment_time_to_send(Hr, ?MOMENT_TAG),
+    ok = model_feed:del_moment_time_to_send(?MOMENT_TAG),
+    true = model_feed:set_moment_time_to_send(Hr, ?MOMENT_TAG),
     ok.
 
 

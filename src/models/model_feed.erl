@@ -65,6 +65,7 @@
     del_psa_tag_done/1,
     get_moment_time_to_send/1,
     set_moment_time_to_send/2,
+    del_moment_time_to_send/1,
     is_moment_tag_done/1,
     mark_moment_tag_done/1,
     del_moment_tag_done/1,
@@ -624,7 +625,7 @@ get_moment_time_to_send(Tag) ->
     case Payload of
         undefined ->
             %% from 3pm to 9pm local time.
-            Rand = 15*60 + random:uniform(6*60),
+            Rand = 15*60 + rand:uniform(6*60),
             case set_moment_time_to_send(Rand, Tag) of
                 true -> Rand;
                 false -> get_moment_time_to_send(Tag)
@@ -638,6 +639,10 @@ set_moment_time_to_send(Hr, Tag) ->
     {ok, Payload} = q(["SET", moment_time_to_send_key(Tag), util:to_binary(Hr),
                       "EX", ?MOMENT_TAG_EXPIRATION, "NX"]),
     Payload =:= <<"OK">>.
+
+-spec del_moment_time_to_send(Tag :: binary()) -> ok.
+del_moment_time_to_send(Tag) ->
+    util_redis:verify_ok(q(["DEL", moment_time_to_send_key(Tag)])).
 
 -spec is_moment_tag_done(Tag :: binary()) -> boolean().
 is_moment_tag_done(Tag) ->
