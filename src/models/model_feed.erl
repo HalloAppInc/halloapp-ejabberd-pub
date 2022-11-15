@@ -894,14 +894,17 @@ encode_moment_info(#pb_moment_info{notification_timestamp = NotifTs, num_takes =
 
 decode_moment_info(NotificationTimestampBin, NumTakesBin, TimeTakenBin) ->
     NotifTs = case NotificationTimestampBin of
+        undefined -> 0;
         <<>> -> 0;
         _ -> util:to_integer(NotificationTimestampBin)
     end,
     NumTakes = case NumTakesBin of
+        undefined -> 0;
         <<>> -> 0;
         _ -> util:to_integer(NumTakesBin)
     end,
     TimeTaken = case TimeTakenBin of
+        undefined -> 0;
         <<>> -> 0;
         _ -> util:to_integer(TimeTakenBin)
     end,
