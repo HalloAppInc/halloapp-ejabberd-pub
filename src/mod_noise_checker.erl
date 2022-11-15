@@ -46,7 +46,12 @@ do_noise_login({Name, Host}, Version) ->
     NoiseUid = get_uid(),
     %% Does XX noise login
     KeyPair = {kp, dh25519, get_secret_key(), get_public_key()},
-    Options = #{host => Host, port => ?NOISE_LOGIN_PORT, version => Version, resource => <<"iphone">>, monitor => true},
+    IpProtocol = case string:find(Name, "ipv6") of
+        nomatch -> inet;
+        _ -> inet6
+    end,
+    Options = #{host => Host, port => ?NOISE_LOGIN_PORT, version => Version,
+        resource => <<"iphone">>, monitor => true, ip_protocol => IpProtocol},
     try ha_client:connect_and_login(NoiseUid, KeyPair, Options) of
         {ok, Pid} ->
             gen_server:stop(Pid),
@@ -64,7 +69,11 @@ do_noise_login({Name, Host}, Version) ->
     ok.
 
 do_noise_register({Name, Host}, Version) ->
-    Options = #{host => Host, port => ?NOISE_REGISTER_PORT, user_agent => Version},
+    IpProtocol = case string:find(Name, "ipv6") of
+        nomatch -> inet;
+        _ -> inet6
+    end,
+    Options = #{host => Host, port => ?NOISE_REGISTER_PORT, user_agent => Version, ip_protocol => IpProtocol},
     MonitorPhone = util:get_monitor_phone(),
     try registration_client:hashcash_register(Name, MonitorPhone, Options) of
         ok -> record_state(Host, register, ?ALIVE_STATE);
@@ -310,7 +319,10 @@ check_states(CheckType) ->
 %%====================================================================
 
 get_load_balancer_hosts() -> [
-    {"load_balancer", "s.halloapp.net"}
+    {"load_balancer_ipv4", "s.halloapp.net"},
+    {"load_balancer_ipv6", "s.halloapp.net"},
+    {"stest_load_balancer_ipv4", "s-test.halloapp.net"},
+    {"stest_load_balancer_ipv6", "s-test.halloapp.net"}
 ].
 
 
