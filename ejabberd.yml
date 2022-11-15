@@ -167,6 +167,7 @@ modules:
   mod_packet_filter: {}
   mod_ping: {}
   mod_props: {}
+  mod_location: {}
   mod_feed: {}
   mod_sms: {}
   mod_user_session: {}
