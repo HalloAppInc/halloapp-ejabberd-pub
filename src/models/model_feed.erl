@@ -40,6 +40,7 @@
     publish_post/8,
     publish_psa_post/6,
     publish_post/7,
+    publish_moment/8,
     index_post_by_user_tags/4,
     get_public_moments/4,
     get_posts_by_time_bucket/6,
@@ -100,6 +101,9 @@
 -define(FIELD_PSA_TAG, <<"pst">>).
 -define(FIELD_PSA_TAG_DONE, <<"ptd">>).
 -define(FIELD_MOMENT_TAG_DONE, <<"mtd">>).
+-define(FIELD_NUM_TAKES, <<"nt">>).
+-define(FIELD_NOTIFICATION_TIMESTAMP, <<"nts">>).
+-define(FIELD_TIME_TAKEN, <<"tt">>).
 
 
 -spec publish_post(PostId :: binary(), Uid :: uid(), Payload :: binary(), PostTag :: post_tag(),
@@ -140,12 +144,30 @@ publish_psa_post(PostId, Uid, Payload, PostTag, PSATag, TimestampMs)
         FeedAudienceType :: atom(), FeedAudienceList :: [binary()],
         TimestampMs :: integer()) -> ok | {error, any()}.
 publish_post(PostId, Uid, Payload, PostTag, FeedAudienceType, FeedAudienceList, TimestampMs) ->
+    publish_post_internal(PostId, Uid, Payload, PostTag, FeedAudienceType, FeedAudienceList, TimestampMs, undefined).
+
+
+ -spec publish_moment(PostId :: binary(), Uid :: uid(), Payload :: binary(), PostTag :: post_tag(),
+        FeedAudienceType :: atom(), FeedAudienceList :: [binary()],
+        TimestampMs :: integer(), MomentInfo :: pb_moment_info()) -> ok | {error, any()}.
+publish_moment(PostId, Uid, Payload, PostTag, FeedAudienceType, FeedAudienceList, TimestampMs, MomentInfo) ->
+    publish_post_internal(PostId, Uid, Payload, PostTag, FeedAudienceType, FeedAudienceList, TimestampMs, MomentInfo).
+
+
+ -spec publish_post_internal(PostId :: binary(), Uid :: uid(), Payload :: binary(), PostTag :: post_tag(),
+        FeedAudienceType :: atom(), FeedAudienceList :: [binary()],
+        TimestampMs :: integer(), MomentInfo :: pb_moment_info()) -> ok | {error, any()}.
+publish_post_internal(PostId, Uid, Payload, PostTag, FeedAudienceType, FeedAudienceList, TimestampMs, MomentInfo) ->
+    {NumTakesBin, NotificationTimestampBin, TimeTakenBin} = encode_moment_info(MomentInfo),
     C1 = [["HSET", post_key(PostId),
         ?FIELD_UID, Uid,
         ?FIELD_PAYLOAD, Payload,
         ?FIELD_TAG, encode_post_tag(PostTag),
         ?FIELD_AUDIENCE_TYPE, encode_audience_type(FeedAudienceType),
-        ?FIELD_TIMESTAMP_MS, integer_to_binary(TimestampMs)]],
+        ?FIELD_TIMESTAMP_MS, integer_to_binary(TimestampMs),
+        ?FIELD_NUM_TAKES, NumTakesBin,
+        ?FIELD_NOTIFICATION_TIMESTAMP, NotificationTimestampBin,
+        ?FIELD_TIME_TAKEN, TimeTakenBin]],
     C2 = case FeedAudienceList of
         [] -> [];
         _ -> [["SADD", post_audience_key(PostId) | FeedAudienceList]]
@@ -403,11 +425,13 @@ remove_all_user_posts(Uid) ->
 -spec get_post(PostId :: binary()) -> {ok, post()} | {error, any()}.
 get_post(PostId) ->
     [
-        {ok, [Uid, Payload, PostTag, AudienceType, TimestampMs, Gid, PSATag, IsDeletedBin]},
+        {ok, [Uid, Payload, PostTag, AudienceType, TimestampMs, Gid, PSATag, IsDeletedBin,
+            NotificationTimestampBin, NumTakesBin, TimeTakenBin]},
         {ok, AudienceList}] = qp([
             ["HMGET", post_key(PostId),
                 ?FIELD_UID, ?FIELD_PAYLOAD, ?FIELD_TAG, ?FIELD_AUDIENCE_TYPE, ?FIELD_TIMESTAMP_MS,
-                ?FIELD_GROUP_ID, ?FIELD_PSA_TAG, ?FIELD_DELETED],
+                ?FIELD_GROUP_ID, ?FIELD_PSA_TAG, ?FIELD_DELETED, ?FIELD_NOTIFICATION_TIMESTAMP,
+                ?FIELD_NUM_TAKES, ?FIELD_TIME_TAKEN],
             ["SMEMBERS", post_audience_key(PostId)]]),
     IsDeleted = util_redis:decode_boolean(IsDeletedBin, false),
     case Uid =:= undefined orelse IsDeleted =:= true of
@@ -422,7 +446,8 @@ get_post(PostId) ->
                 payload = Payload,
                 ts_ms = util_redis:decode_ts(TimestampMs),
                 gid = Gid,
-                psa_tag = PSATag
+                psa_tag = PSATag,
+                moment_info = decode_moment_info(NotificationTimestampBin, NumTakesBin, TimeTakenBin)
             }}
     end.
 
@@ -490,11 +515,12 @@ get_post_and_its_comments(PostId) when is_binary(PostId) ->
 get_comment_data(PostId, CommentId, ParentId) ->
     [{ok, Res1}, {ok, Res2}, {ok, Res3}] = qp([
         ["HMGET", post_key(PostId), ?FIELD_UID, ?FIELD_PAYLOAD, ?FIELD_TAG,
-                ?FIELD_AUDIENCE_TYPE, ?FIELD_TIMESTAMP_MS, ?FIELD_DELETED],
+                ?FIELD_AUDIENCE_TYPE, ?FIELD_TIMESTAMP_MS, ?FIELD_DELETED, ?FIELD_NOTIFICATION_TIMESTAMP,
+                ?FIELD_NUM_TAKES, ?FIELD_TIME_TAKEN],
         ["SMEMBERS", post_audience_key(PostId)],
         ["HMGET", comment_key(CommentId, PostId), ?FIELD_PUBLISHER_UID, ?FIELD_PARENT_COMMENT_ID, ?FIELD_COMMENT_TYPE,
                 ?FIELD_PAYLOAD, ?FIELD_TIMESTAMP_MS, ?FIELD_DELETED]]),
-    [PostUid, PostPayload, PostTag, AudienceType, PostTsMs, IsPostDeletedBin] = Res1,
+    [PostUid, PostPayload, PostTag, AudienceType, PostTsMs, IsPostDeletedBin, NotificationTimestampBin, NumTakesBin, TimeTakenBin] = Res1,
     AudienceList = Res2,
     [CommentPublisherUid, ParentCommentId, CommentTypeBin, CommentPayload, CommentTsMs, IsCommentDeletedBin] = Res3,
     
@@ -512,7 +538,8 @@ get_comment_data(PostId, CommentId, ParentId) ->
                 audience_list = AudienceList,
                 payload = PostPayload,
                 tag = decode_post_tag(PostTag),
-                ts_ms = util_redis:decode_ts(PostTsMs)
+                ts_ms = util_redis:decode_ts(PostTsMs),
+                moment_info = decode_moment_info(NotificationTimestampBin, NumTakesBin, TimeTakenBin)
             },
             %% Fetch push data.
             ParentPushList = lists:usort(get_comment_push_data(ParentId, PostId)),
@@ -836,6 +863,50 @@ decode_post_tag(<<"e">>) -> empty;
 decode_post_tag(<<"pp">>) -> public_post;
 decode_post_tag(<<"pm">>) -> public_moment;
 decode_post_tag(_) -> undefined.
+
+
+encode_moment_info(undefined) -> {<<>>, <<>>, <<>>};
+encode_moment_info(#pb_moment_info{notification_timestamp = NotifTs, num_takes = NumTakes, time_taken = TimeTaken}) ->
+    NotificationTimestampBin = case NotifTs of
+        undefined -> <<>>;
+        0 -> <<>>;
+        _ -> util:to_binary(NotifTs)
+    end,
+    NumTakesBin = case NumTakes of
+        undefined -> <<>>;
+        0 -> <<>>;
+        _ -> util:to_integer(NumTakes)
+    end,
+    TimeTakenBin = case TimeTaken of
+        undefined -> <<>>;
+        0 -> <<>>;
+        _ -> util:to_integer(TimeTaken)
+    end,
+    {NotificationTimestampBin, NumTakesBin, TimeTakenBin}.
+
+
+decode_moment_info(NotificationTimestampBin, NumTakesBin, TimeTakenBin) ->
+    NotifTs = case NotificationTimestampBin of
+        <<>> -> 0;
+        _ -> util:to_integer(NotificationTimestampBin)
+    end,
+    NumTakes = case NumTakesBin of
+        <<>> -> 0;
+        _ -> util:to_integer(NumTakesBin)
+    end,
+    TimeTaken = case TimeTakenBin of
+        <<>> -> 0;
+        _ -> util:to_integer(TimeTakenBin)
+    end,
+    case NotifTs =:= 0 andalso NumTakes =:= 0 andalso TimeTaken =:= 0 of
+        true -> undefined;
+        false ->
+            #pb_moment_info{
+                notification_timestamp = NotifTs,
+                num_takes = NumTakes,
+                time_taken = TimeTaken
+            }
+    end.
 
 
 encode_comment_type(comment) -> <<"c">>;

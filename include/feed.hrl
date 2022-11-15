@@ -9,6 +9,7 @@
 
 -include("ha_types.hrl").
 -include("time.hrl").
+-include("server.hrl").
 
 -type node_type() :: feed | metadata.
 -type item_type() :: feedpost | comment | other.
@@ -44,7 +45,8 @@
     audience_list :: [uid()],
     ts_ms :: integer(),
     gid :: maybe(binary()),
-    psa_tag :: maybe(binary())
+    psa_tag :: maybe(binary()),
+    moment_info :: pb_moment_info()
 }).
 
 -type post() :: #post{}.
