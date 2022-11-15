@@ -65,54 +65,40 @@ get_geo_tag(Uid, GpsLocation) ->
     GeoTag.
 
 
+%% Points of the quadrilateral must be in the counter clockwise direction.
 -spec get_tagged_locations() -> list().
 get_tagged_locations() ->
     [{cal_ave,
-        [{37.4295388, -122.1435419},
-         {37.4290103, -122.1426232},
+        [{37.4256235, -122.1462536},
          {37.4251790, -122.1456645},
-         {37.4256235, -122.1462536}]}].
+         {37.4290103, -122.1426232},
+         {37.4295388, -122.1435419}]}].
 
 
-%% We calculate the sum of the area of the triangles formed with the point and the corners of the rectangle.
-%% We calculate the area of the rectangle itself and compare it with the above value.
-%% If the values match - then the point is inside - else the point is outside.
+%% Checks if the point is on the left side of each line.
+%% https://stackoverflow.com/questions/2752725/finding-whether-a-point-lies-inside-a-rectangle-or-not/2752753#2752753
 -spec is_location_interior(GpsLocation :: {float(), float()}, Coordinates :: [{float(), float()}]) -> boolean().
 is_location_interior(GpsLocation, Coordinates) ->
     Point = GpsLocation,
     [Corner1, Corner2, Corner3, Corner4] = Coordinates,
-    PointArea1 = triangle_area(Corner1, Corner2, Point),
-    PointArea2 = triangle_area(Corner2, Corner3, Point),
-    PointArea3 = triangle_area(Corner3, Corner4, Point),
-    PointArea4 = triangle_area(Corner4, Corner1, Point),
+    IsLeftSide1 = check_point_direction(Corner1, Corner2, Point),
+    IsLeftSide2 = check_point_direction(Corner2, Corner3, Point),
+    IsLeftSide3 = check_point_direction(Corner3, Corner4, Point),
+    IsLeftSide4 = check_point_direction(Corner4, Corner1, Point),
 
-    Area1 = triangle_area(Corner1, Corner2, Corner3),
-    Area2 = triangle_area(Corner3, Corner4, Corner1),
-
-    %% Use large error threshold for now.
-    case (PointArea1 + PointArea2 + PointArea3 + PointArea4) > (Area1 + Area2) + 0.01  of
-        true -> false;
-        false -> true
-    end.
+    IsLeftSide1 andalso IsLeftSide2 andalso IsLeftSide3 andalso IsLeftSide4.
 
 
-triangle_area(Corner1, Corner2, Corner3) ->
-    A = distance(Corner1, Corner2),
-    B = distance(Corner2, Corner3),
-    C = distance(Corner3, Corner1),
-    S = (A + B + C) / 2,
-    Area = math:sqrt(S * (S - A) * (S - B) * (S - C)),
-    Area.
-
-
-
-distance(Corner1, Corner2) ->
+check_point_direction(Corner1, Corner2, Point) ->
     {X1, Y1} = Corner1,
     {X2, Y2} = Corner2,
-    Xdiff = X2 - X1,
-    Ydiff = Y2 - Y1,
-    Distance = math:sqrt(Xdiff*Xdiff + Ydiff*Ydiff),
-    Distance.
+    {Xp, Yp} = Point,
+    A = -(Y2 - Y1),
+    B = X2 - X1,
+    C = -(A * X1 + B * Y1),
+    D = A * Xp + B * Yp + C,
+    %% return if point is on the left side.
+    D >= 0.
 
 
 
