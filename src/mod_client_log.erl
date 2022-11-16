@@ -200,13 +200,19 @@ clean_event(#pb_event_data{uid = UidInt, platform = Platform, cc = CC,
 clean_event(#pb_event_data{uid = UidInt,
         edata = #pb_invite_request_result{invited_phone = Phone} = Edata} = Event) ->
     Uid = util:to_binary(UidInt),
-    {ok, InviterPhone} = model_accounts:get_phone(Uid),
-    RegionId = mod_libphonenumber:get_region_id(InviterPhone),
-    case mod_libphonenumber:normalize(Phone, RegionId) of
-        {ok, NormalPhone} ->
-            Event#pb_event_data{edata = Edata#pb_invite_request_result{invited_phone = NormalPhone}};
-        {error, Reason} ->
-            ?ERROR("Can't normalize phone ~p from pb_invite_request_result: ~s", [Phone, Reason]),
+    case model_accounts:get_phone(Uid) of
+        {ok, InviterPhone} ->
+            RegionId = mod_libphonenumber:get_region_id(InviterPhone),
+            case mod_libphonenumber:normalize(Phone, RegionId) of
+                {ok, NormalPhone} ->
+                    ?INFO("InviteRequestResult: normalized ~p to ~p, RegionId ~p", [Phone, NormalPhone, RegionId]),
+                    Event#pb_event_data{edata = Edata#pb_invite_request_result{invited_phone = NormalPhone}};
+                {error, Reason} ->
+                    ?ERROR("Can't normalize phone ~p from pb_invite_request_result: ~s", [Phone, Reason]),
+                    Event
+            end;
+        Err ->
+            ?ERROR("Failed to fetch phone for Uid ~s: ~p", [Uid, Err]),
             Event
     end;
 clean_event(Event) ->
