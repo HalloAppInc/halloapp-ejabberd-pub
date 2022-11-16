@@ -65,7 +65,9 @@ get_geo_tag(Uid, GpsLocation) ->
     GeoTag.
 
 
-%% Points of the quadrilateral must be in the counter clockwise direction.
+%% Currently, our shapes must be convex polygons to satisfy the is_location_interior algo.
+%% The list of points should be defined s.t. the points are ordered in clockwise direction
+%% and any two points next to each other (incl. first and last point) form an edge of the polygon.
 -spec get_tagged_locations() -> list().
 get_tagged_locations() ->
     [{cal_ave,
@@ -81,25 +83,18 @@ get_tagged_locations() ->
 is_location_interior(GpsLocation, Coordinates) ->
     Point = GpsLocation,
     [Corner1, Corner2, Corner3, Corner4] = Coordinates,
-    IsLeftSide1 = check_point_direction(Corner1, Corner2, Point),
-    IsLeftSide2 = check_point_direction(Corner2, Corner3, Point),
-    IsLeftSide3 = check_point_direction(Corner3, Corner4, Point),
-    IsLeftSide4 = check_point_direction(Corner4, Corner1, Point),
+    IsPointRight1 = is_point_right_of_edge(Corner1, Corner2, Point),
+    IsPointRight2 = is_point_right_of_edge(Corner2, Corner3, Point),
+    IsPointRight3 = is_point_right_of_edge(Corner3, Corner4, Point),
+    IsPointRight4 = is_point_right_of_edge(Corner4, Corner1, Point),
 
-    IsLeftSide1 andalso IsLeftSide2 andalso IsLeftSide3 andalso IsLeftSide4.
+    IsPointRight1 andalso IsPointRight2 andalso IsPointRight3 andalso IsPointRight4.
 
 
-check_point_direction(Corner1, Corner2, Point) ->
+is_point_right_of_edge(Corner1, Corner2, Point) ->
     {X1, Y1} = Corner1,
     {X2, Y2} = Corner2,
     {Xp, Yp} = Point,
-    A = -(Y2 - Y1),
-    B = X2 - X1,
-    C = -(A * X1 + B * Y1),
-    D = A * Xp + B * Yp + C,
-    %% return if point is on the left side.
-    D >= 0.
-
-
-
+    D = (X2 - X1) * (Yp - Y1) - (Xp - X1) * (Y2 - Y1),
+    D =< 0.
 
