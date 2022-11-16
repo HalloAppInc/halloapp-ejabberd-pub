@@ -66,7 +66,7 @@ process_local_iq(#pb_iq{type = set, from_uid = Uid, payload = #pb_client_log{eve
         #{client_version := ClientVersion} = _State) ->
     try
         % clean all the events and replace them
-        Events = lists:map(fun clean_event/1, EventsDirty),
+        {Events, Uid} = lists:mapfoldl(fun clean_event/2, Uid, EventsDirty),
         ClientLogsSt = ClientLogsStDirty#pb_client_log{events = Events},
         IQ = IQDirty#pb_iq{payload = ClientLogsSt},
         Platform = util_ua:get_client_type(ClientVersion),
@@ -190,17 +190,16 @@ process_event(Uid, #pb_event_data{edata = Edata} = Event) ->
             {error, badarg}
     end.
 
--spec clean_event(Event :: pb_event_data()) -> pb_event_data().
-clean_event(#pb_event_data{uid = UidInt, platform = Platform, cc = CC,
-        edata = #pb_push_received{id = Id, client_timestamp = Stamp} = Edata} = Event) ->
-    ?INFO("Uid: ~p Platform: ~s CC: ~s PushId: ~s", [UidInt, Platform, CC, Id]),
+-spec clean_event(Event :: pb_event_data(), Uid :: uid()) -> {pb_event_data(), uid()}.
+clean_event(#pb_event_data{platform = Platform, cc = CC,
+        edata = #pb_push_received{id = Id, client_timestamp = Stamp} = Edata} = Event, Uid) ->
+    ?INFO("Uid: ~p Platform: ~s CC: ~s PushId: ~s", [Uid, Platform, CC, Id]),
     % temporary fix, TODO: remove once iOS pushes are changed
     NewStamp = util:check_and_convert_sec_to_ms(Stamp),
-    Event#pb_event_data{edata = Edata#pb_push_received{client_timestamp = NewStamp}};
-clean_event(#pb_event_data{uid = UidInt,
-        edata = #pb_invite_request_result{invited_phone = Phone} = Edata} = Event) ->
-    Uid = util:to_binary(UidInt),
-    case model_accounts:get_phone(Uid) of
+    {Event#pb_event_data{edata = Edata#pb_push_received{client_timestamp = NewStamp}}, Uid};
+clean_event(#pb_event_data{edata = #pb_invite_request_result{invited_phone = Phone} = Edata} = Event,
+        Uid) ->
+    NewEvent = case model_accounts:get_phone(Uid) of
         {ok, InviterPhone} ->
             RegionId = mod_libphonenumber:get_region_id(InviterPhone),
             case mod_libphonenumber:normalize(Phone, RegionId) of
@@ -214,9 +213,10 @@ clean_event(#pb_event_data{uid = UidInt,
         Err ->
             ?ERROR("Failed to fetch phone for Uid ~s: ~p", [Uid, Err]),
             Event
-    end;
-clean_event(Event) ->
-    Event.
+    end,
+    {NewEvent, Uid};
+clean_event(Event, Uid) ->
+    {Event, Uid}.
 
 -spec get_namespace(Edata :: tuple()) -> binary().
 get_namespace(Edata) when is_tuple(Edata) ->
