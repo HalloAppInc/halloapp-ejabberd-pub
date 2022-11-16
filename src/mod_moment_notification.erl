@@ -133,7 +133,8 @@ process_moment_tag(CurrentTimeSecs, IsImmediateNotification) ->
     MinToSendToday = backward_compatible(model_feed:get_moment_time_to_send(util:to_binary(Today))),
     MinToSendPrevDay = backward_compatible(model_feed:get_moment_time_to_send(util:to_binary(Yesterday))),
     MinToSendNextDay = backward_compatible(model_feed:get_moment_time_to_send(util:to_binary(Tomorrow))),
-    ?INFO("Today: ~p, Yesterday: ~p, Tomorrow: ~p", [MinToSendToday, MinToSendPrevDay, MinToSendNextDay]),
+    ?INFO("Times to send - Today: ~p, Yesterday: ~p, Tomorrow: ~p", 
+        [MinToSendToday, MinToSendPrevDay, MinToSendNextDay]),
 
     TodayHr = MinToSendToday div ?MOMENT_TAG_INTERVAL_MIN,
     YesterdayHr = MinToSendPrevDay div ?MOMENT_TAG_INTERVAL_MIN,
@@ -167,10 +168,15 @@ process_moment_tag(CurrentTimeSecs, IsImmediateNotification) ->
     %% Least tag is -12, Largest tag is +14. If any of the above tags is not within this limit,
     %% it can safely be ignored.
     %%
-
-    TodaysList = get_zone_tag_uids(TodayHr - CurrentHrGMT),
-    YesterdayList = get_zone_tag_uids(YesterdayHr - CurrentHrGMT - 24),
-    TomorrowList = get_zone_tag_uids(TomorrowHr - CurrentHrGMT + 24),
+    
+    TodayOffsetHr = TodayHr - CurrentHrGMT,
+    YesterdayOffsetHr = YesterdayHr - CurrentHrGMT - 24,
+    TomorrowOffsetHr = TomorrowHr - CurrentHrGMT + 24,
+    ?INFO("Today's offset: ~p, Yesterday's offset: ~p, Tomorrow's offset: ~p",
+        [TodayOffsetHr, YesterdayOffsetHr, TomorrowOffsetHr]),
+    TodaysList = get_zone_tag_uids(TodayOffsetHr),
+    YesterdayList = get_zone_tag_uids(YesterdayOffsetHr),
+    TomorrowList = get_zone_tag_uids(TomorrowOffsetHr),
     List = lists:flatten([TodaysList, YesterdayList, TomorrowList]),
 
     Phones = model_accounts:get_phones(List),
@@ -193,7 +199,7 @@ process_moment_tag(CurrentTimeSecs, IsImmediateNotification) ->
                 end,
                 ProcessingDone = case TimeOk andalso is_client_version_ok(ClientVersion) of
                     true ->
-                          ?INFO("Scheduling: ~p, Today: ~p, MinToWait: ~p", [Uid, Today, MinToWait2]),
+                          ?INFO("Scheduling: ~p, MinToWait: ~p", [Uid, MinToWait2]),
                           wait_and_send_notification(Uid, util:to_binary(Today), MinToWait2),
                           true;
                     false ->
@@ -261,8 +267,8 @@ is_time_ok(CurrentHrGMT, CurrentMinGMT, Phone, ZoneOffset,
     end,
     WhichHrToSend = MinToSend div 60,
     WhichMinToSend = MinToSend rem 60,
-    ?INFO("Phone: ~p, WhichTimeToSend: ~p:~p", [Phone, WhichHrToSend, WhichMinToSend]),
-    ?INFO("LocalTime: ~p:~p", [LocalCurrentHr, LocalCurrentMin]),
+    ?INFO("Phone: ~p, WhichTimeToSend: ~p:~p, LocalTime: ~p:~p",
+        [Phone, WhichHrToSend, WhichMinToSend, LocalCurrentHr, LocalCurrentMin]),
     IsTimeOk = (LocalCurrentHr >= WhichHrToSend),
     MinToWait = case LocalCurrentHr == WhichHrToSend of
         true ->
