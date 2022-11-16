@@ -162,9 +162,14 @@ record_state(Ip, State) ->
 
 send_http_requests(#{mrefs := MRefs} = State) ->
     NewMRefs = lists:foldl(
-        fun(Url, AccMap) ->
+        fun({Name, Url}, AccMap) ->
+            IpProtocol = case string:find(Name, "ipv6") of
+                nomatch -> inet;
+                _ -> inet6
+            end,
             Ip = get_ip_from_url(Url),
-            {ok, Ref} = httpc:request(get, {Url, []}, [{timeout, ?PING_TIMEOUT_MS}], [{sync, false}]),
+            {ok, Ref} = httpc:request(get, {Url, []}, [{timeout, ?PING_TIMEOUT_MS}],
+                [{sync, false}, {socket_opts, [IpProtocol]}]),
             maps:put(Ref, Ip, AccMap)
         end,
         MRefs,
@@ -227,7 +232,10 @@ check_states(State) ->
 %%====================================================================
 
 get_static_urls() -> [
-    {"load_balancer", "https://api.halloapp.net:443/api/_ok"}
+    {"load_balancer_ipv4", "https://api.halloapp.net:443/api/_ok"},
+    {"load_balancer_ipv6", "https://api.halloapp.net:443/api/_ok"},
+    {"stest_load_balancer_ipv4", "https://api-test.halloapp.net:443/api/_ok"},
+    {"stest_load_balancer_ipv6", "https://api-test.halloapp.net:443/api/_ok"}
 ].
 
 
@@ -237,9 +245,8 @@ get_all_ips() ->
 
 
 get_all_urls() ->
-    UrlsFromIp = lists:map(fun({_Name, Ip}) -> get_url_from_ip(Ip) end, mod_aws:get_ejabberd_machines()),
-    StaticUrls = lists:map(fun({_Name, Url}) -> Url end, get_static_urls()),
-    lists:concat([UrlsFromIp, StaticUrls]).
+    UrlsFromIp = lists:map(fun({Name, Ip}) -> {Name, get_url_from_ip(Ip)} end, mod_aws:get_ejabberd_machines()),
+    UrlsFromIp ++ get_static_urls().
 
 
 get_ip_from_url(Url) ->

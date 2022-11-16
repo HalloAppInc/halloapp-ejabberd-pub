@@ -15,6 +15,7 @@
 -include_lib("stdlib/include/assert.hrl").
 -include("sms.hrl").
 
+-define(DEFAULT_IP_PROTOCOL, inet).  %% 'inet' signals to prepare the socket using ipv4
 -define(DEFAULT_UA, "HalloApp/iOS1.25.302").
 -define(DEFAULT_HOST, "localhost").
 -define(DEFAULT_PORT, "5580").
@@ -132,7 +133,9 @@ hashcash_register(Name, Phone, Options) ->
     Host = maps:get(host, Options, "127.0.0.1"),
     Port = maps:get(port, Options, 5208),
     UserAgent = maps:get(user_agent, Options, ?DEFAULT_UA),
-    ClientOptions = #{host => Host, port => Port, user_agent => UserAgent, state => register},
+    IpProtocol = maps:get(ip_protocol, Options, ?DEFAULT_IP_PROTOCOL),
+    ClientOptions = #{host => Host, port => Port, user_agent => UserAgent,
+        state => register, ip_protocol => IpProtocol},
     % request hashcash challenge
     {ok, HashcashRequestPkt} = compose_hashcash_noise_request(),
     case ha_client:connect_and_send(HashcashRequestPkt, ClientKeyPair, ClientOptions) of

@@ -99,7 +99,8 @@
     auto_send_pongs => true,
     host => "localhost",
     port => 5222,
-    mode => active
+    mode => active,
+    ip_protocol => inet
 }).
 
 
@@ -335,10 +336,11 @@ send_iq(Client, Id, Type, Payload) ->
 init([Options] = _Args) ->
     Host = maps:get(host, Options, maps:get(host, ?DEFAULT_OPT)),
     Port = maps:get(port, Options, maps:get(port, ?DEFAULT_OPT)),
+    IpProtocol = maps:get(ip_protocol, Options, maps:get(ip_protocol, ?DEFAULT_OPT)),
     %% TODO: use a default root_public key to verify the certificate.
 
     %% Connect via tcp
-    case gen_tcp:connect(Host, Port, [binary, {active, true}], 5000) of
+    case gen_tcp:connect(Host, Port, [binary, {active, true}, IpProtocol], 5000) of
         {ok, Socket} ->
             State = #state{
                 socket = Socket,
