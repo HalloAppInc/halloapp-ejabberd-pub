@@ -118,14 +118,14 @@ reassign_jobs() ->
 
 start(Host, Opts) ->
     persistent_term:put({?MODULE, gen_mod_start_args}, {Host, Opts}),
-    ejabberd_hooks:add(node_up, ?MODULE, reassign_jobs, 5),
+    ejabberd_hooks:add(reassign_jobs, ?MODULE, reassign_jobs, 5),
     case util:is_main_stest() of
         true -> gen_mod:start_child(?MODULE, Host, Opts, ?PROC());
         false -> ok
     end.
 
 stop(_Host) ->
-    ejabberd_hooks:delete(node_up, ?MODULE, reassign_jobs, 5),
+    ejabberd_hooks:delete(reassign_jobs, ?MODULE, reassign_jobs, 5),
     case util:is_main_stest() of
         true -> gen_mod:stop_child(?PROC());
         false -> ok
