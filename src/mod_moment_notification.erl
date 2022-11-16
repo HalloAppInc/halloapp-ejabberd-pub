@@ -169,8 +169,8 @@ process_moment_tag(CurrentTimeSecs, IsImmediateNotification) ->
     %%
 
     TodaysList = get_zone_tag_uids(TodayHr - CurrentHrGMT),
-    YesterdayList = get_zone_tag_uids(YesterdayHr - CurrentHrGMT),
-    TomorrowList = get_zone_tag_uids(TomorrowHr - CurrentHrGMT),
+    YesterdayList = get_zone_tag_uids(YesterdayHr - CurrentHrGMT - 24),
+    TomorrowList = get_zone_tag_uids(TomorrowHr - CurrentHrGMT + 24),
     List = lists:flatten([TodaysList, YesterdayList, TomorrowList]),
 
     Phones = model_accounts:get_phones(List),
@@ -218,7 +218,7 @@ get_zone_tag_uids(ZoneOffsetDiff) ->
     {ok, UidsList} = case ZoneOffsetDiff >= -12 andalso ZoneOffsetDiff =< 14 of
         true -> model_accounts:get_zone_offset_tag_uids(ZoneOffsetDiff * ?MOMENT_TAG_INTERVAL_SEC);
         false ->
-            ?ERROR("Invalid zone offset diff: ~p", [ZoneOffsetDiff]),
+            ?INFO("Invalid zone offset diff: ~p, Ignoring", [ZoneOffsetDiff]),
             {ok, []}
     end,
     UidsList.
