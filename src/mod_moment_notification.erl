@@ -190,7 +190,7 @@ process_moment_tag(CurrentTimeSecs, IsImmediateNotification) ->
                     true -> PushInfo#push_info.zone_offset;
                     false -> undefined
                 end,
-                {TimeOk, MinToWait} = 
+                {TimeOk, MinToWait, DayAdjustment} = 
                     is_time_ok(CurrentHrGMT, CurrentMinGMT, Phone, ZoneOffset,
                         MinToSendToday, MinToSendPrevDay, MinToSendNextDay),
                 MinToWait2 = case IsImmediateNotification of
@@ -199,8 +199,13 @@ process_moment_tag(CurrentTimeSecs, IsImmediateNotification) ->
                 end,
                 ProcessingDone = case TimeOk andalso is_client_version_ok(ClientVersion) of
                     true ->
-                          ?INFO("Scheduling: ~p, MinToWait: ~p", [Uid, MinToWait2]),
-                          wait_and_send_notification(Uid, util:to_binary(Today), MinToWait2),
+                          LocalDay = case DayAdjustment of
+                              0 -> Today;
+                              -1 -> Yesterday;
+                              1 -> Tomorrow
+                          end,
+                          ?INFO("Scheduling: ~p, Local day: ~p, MinToWait: ~p", [Uid, LocalDay, MinToWait2]),
+                          wait_and_send_notification(Uid, util:to_binary(LocalDay), MinToWait2),
                           true;
                     false ->
                           ?INFO("Skipping: ~p", [Uid]),
@@ -253,16 +258,16 @@ is_time_ok(CurrentHrGMT, CurrentMinGMT, Phone, ZoneOffset,
             (CurrentHrGMT * 60) + CurrentMinGMT + ZoneOffsetMin
     end,
     ?DEBUG("LocalMin: ~p", [LocalMin]),
-    {MinToSend, LocalCurrentHr, LocalCurrentMin} = case LocalMin >= 24 * 60 of
+    {DayAdjustment, MinToSend, LocalCurrentHr, LocalCurrentMin} = case LocalMin >= 24 * 60 of
         true ->
             AdjustedMin = LocalMin - 24 * 60,
-            {MinToSendNextDay, AdjustedMin div 60, AdjustedMin rem 60};
+            {1, MinToSendNextDay, AdjustedMin div 60, AdjustedMin rem 60};
         false ->
             case LocalMin < 0 of
                 true ->
                     AdjustedMin = LocalMin + 24 * 60,
-                    {MinToSendPrevDay, AdjustedMin div 60, AdjustedMin rem 60};
-                false -> {MinToSendToday, LocalMin div 60, LocalMin rem 60}
+                    {-1, MinToSendPrevDay, AdjustedMin div 60, AdjustedMin rem 60};
+                false -> {0, MinToSendToday, LocalMin div 60, LocalMin rem 60}
             end
     end,
     WhichHrToSend = MinToSend div 60,
@@ -278,7 +283,7 @@ is_time_ok(CurrentHrGMT, CurrentMinGMT, Phone, ZoneOffset,
             end;
         false -> 0
     end,
-    {IsTimeOk, MinToWait}.
+    {IsTimeOk, MinToWait, DayAdjustment}.
 
 
 -spec wait_and_send_notification(Uid :: uid(), Tag :: binary(), MinToWait :: integer()) -> ok.
