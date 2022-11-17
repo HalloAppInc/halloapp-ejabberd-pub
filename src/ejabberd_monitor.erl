@@ -388,8 +388,14 @@ monitor_c2s_heap_size() ->
             HeapSizes = lists:foldl(
                 fun(Pid, Acc) ->
                     {_, Size} = erlang:process_info(Pid, total_heap_size),
-                    ?INFO("Heap size of pid ~p process: ~p", [Pid, Size]),
-                    [Size] ++ Acc
+                    case erlang:process_info(Pid, total_heap_size) of
+                        undefined ->
+                            ?INFO("C2S Pid no longer alive: ~p", [Pid]),
+                            Acc;
+                        {_, Size} ->
+                            ?INFO("Heap size of pid ~p process: ~p", [Pid, Size]),
+                            [Size] ++ Acc
+                    end
                 end, [], SamplePids),
             Avg = lists:sum(HeapSizes)/length(HeapSizes),
             FormattedAvg = util:to_float(io_lib:format("~.1f",[Avg])),
