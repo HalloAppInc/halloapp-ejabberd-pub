@@ -338,6 +338,7 @@ group_feed_item_retracted(Gid, Uid, ItemId, ItemType) ->
 -spec register_user(Uid :: binary(), Server :: binary(), Phone :: binary(), CampaignId :: binary()) -> ok.
 register_user(Uid, _Server, Phone, CampaignId) ->
     ?INFO("counting uid:~s", [Uid]),
+    AppType = util_uid:get_app_type(Uid),
     case util:is_test_number(Phone) of
         false ->
             stat:count("HA/account", "registration"),
@@ -347,7 +348,7 @@ register_user(Uid, _Server, Phone, CampaignId) ->
             stat:count("HA/account", "registration_by_cc_and_campaign_id", 1, [{cc, CC}, {campaign_id, CampaignId}]),
             stat:count("HA/account", "registration_invites", 1, [IsInvitedTag]),
             %% Fetch their last verified response and count the registration with that lang_id.
-            {ok, GatewayResponses} = model_phone:get_all_gateway_responses(Phone),
+            {ok, GatewayResponses} = model_phone:get_all_gateway_responses(Phone, AppType),
             LangId = case lists:search(
                     fun(GatewayResponse) ->
                         GatewayResponse#gateway_response.verified

@@ -40,7 +40,7 @@ delete_account_iq1_test() ->
     tutil:meck_init(model_accounts, get_account, fun(_) -> {ok, #account{phone = ?NORM_PHONE1}} end),
     tutil:meck_init(model_friends, get_friends, fun(_) -> {ok, []} end),
     tutil:meck_init(model_contacts, get_contacts, fun(_) -> {ok, []} end),
-    tutil:meck_init(model_phone, get_uids, fun(_) -> #{} end),
+    tutil:meck_init(model_phone, get_uids, fun(_, _) -> #{} end),
     tutil:meck_init(ha_events, log_event, fun(_, _) -> ok end),
     tutil:meck_init(ejabberd_auth, remove_user, fun(_, _) -> ok end),
     IQ = create_delete_account_iq(?UID1, ?SERVER1, set, ?PHONE1),

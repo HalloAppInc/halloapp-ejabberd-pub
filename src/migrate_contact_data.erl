@@ -31,7 +31,7 @@ remove_unregistered_numbers_run(Key, State) ->
     Result = re:run(Key, "rev:{([0-9]+)}$", [global, {capture, all, binary}]),
     case Result of
         {match, [[_FullKey, Phone]]} ->
-            {ok, Uid} = model_phone:get_uid(Phone),
+            {ok, Uid} = model_phone:get_uid(Phone, halloapp),
             case Uid of
                 undefined ->
                     ?INFO("Removing key ~s, phone: ~s", [Key, Phone]),
@@ -62,7 +62,7 @@ remove_unregistered_numbers_verify(Key, State) ->
     Result = re:run(Key, "^rev:{([0-9]+)}$", [global, {capture, all, binary}]),
     case Result of
         {match, [[_FullKey, Phone]]} ->
-            {ok, Uid} = model_phone:get_uid(Phone),
+            {ok, Uid} = model_phone:get_uid(Phone, halloapp),
             case Uid of
                 undefined -> ?ERROR("This key still exists: ~p, phone: ~p", [Key, Phone]);
                 _ -> ok

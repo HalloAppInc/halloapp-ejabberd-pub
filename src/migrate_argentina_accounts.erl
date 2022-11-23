@@ -38,11 +38,11 @@ log_account_info_run(Key, State) ->
             case CheckPhone of
                 undefined -> ok;
                 _ ->
-                    {ok, Uid} = model_phone:get_uid(CheckPhone),
+                    {ok, Uid} = model_phone:get_uid(CheckPhone, halloapp),
                     NumContacts = model_contacts:count_contacts(Uid),
                     {ok, Friends} = model_friends:get_friends(Uid),
                     {ok, Contacts} = model_contacts:get_contacts(Uid),
-                    UidContacts = model_phone:get_uids(Contacts),
+                    UidContacts = model_phone:get_uids(Contacts, halloapp),
                     NumUidContacts = length(maps:to_list(UidContacts)),
                     NumFriends = length(Friends),
                     CC = mod_libphonenumber:get_cc(Phone),
@@ -68,14 +68,14 @@ adjust_phones_run(Key, State) ->
                 <<"549", _Rest/binary>> -> ok;
                 <<"54", Rest/binary>> ->
                     NewPhone = <<"549", Rest/binary>>,
-                    {ok, Uid} = model_phone:get_uid(Phone),
+                    {ok, Uid} = model_phone:get_uid(Phone, halloapp),
                     case DryRun of
                         true ->
                             ?INFO("Phone: ~p, NewPhone: ~p, would set to uid: ~p",
                                 [Phone, NewPhone, Uid]);
                         false ->
-                            ok = model_phone:add_phone(NewPhone, Uid),
-                            {ok, Uid2} = model_phone:get_uid(NewPhone),
+                            ok = model_phone:add_phone(NewPhone, halloapp, Uid),
+                            {ok, Uid2} = model_phone:get_uid(NewPhone, halloapp),
                             ?INFO("Phone: ~p, NewPhone: ~p, set to uid: ~p",
                                 [Phone, NewPhone, Uid2])
                     end;
@@ -99,7 +99,7 @@ adjust_account_and_readd_contacts_run(Key, State) ->
         {match, [[_FullKey, Phone]]} ->
             case Phone of
                 <<"549", _Rest/binary>> ->
-                    {ok, Uid} = model_phone:get_uid(Phone),
+                    {ok, Uid} = model_phone:get_uid(Phone, halloapp),
                     Command = ["HSET", model_accounts:account_key(Uid), <<"ph">>, Phone],
                     {ok, Contacts} = model_contacts:get_contacts(Uid),
                     NewContacts = renormalize_contacts(Contacts),
@@ -137,7 +137,7 @@ readd_friends_run(Key, State) ->
         {match, [[_FullKey, Phone]]} ->
             case Phone of
                 <<"549", _Rest/binary>> ->
-                    {ok, Uid} = model_phone:get_uid(Phone),
+                    {ok, Uid} = model_phone:get_uid(Phone, halloapp),
                     {ok, Contacts} = model_contacts:get_contacts(Uid),
                     case DryRun of
                         true ->
@@ -168,7 +168,7 @@ trigger_full_sync_run(Key, State) ->
         {match, [[_FullKey, Phone]]} ->
             case Phone of
                 <<"549", _Rest/binary>> ->
-                    {ok, Uid} = model_phone:get_uid(Phone),
+                    {ok, Uid} = model_phone:get_uid(Phone, halloapp),
                     case DryRun of
                         true ->
                             ?INFO("would send empty hash to: ~p", [Uid]);
@@ -197,7 +197,7 @@ send_new_user_notifications_run(Key, State) ->
             case Phone of
                 <<"549", _Rest/binary>> -> ok;
                 <<"54", _Rest/binary>> ->
-                    {ok, Uid} = model_phone:get_uid(Phone),
+                    {ok, Uid} = model_phone:get_uid(Phone, halloapp),
                     case DryRun of
                         true ->
                             ?INFO("would send_new_user_notifications to: ~p", [Uid]);
@@ -226,7 +226,7 @@ delete_old_keys_run(Key, State) ->
             case Phone of
                 <<"549", _Rest/binary>> -> ok;
                 <<"54", _Rest/binary>> ->
-                    {ok, Uid} = model_phone:get_uid(Phone),
+                    {ok, Uid} = model_phone:get_uid(Phone, halloapp),
                     case model_accounts:get_phone(Uid) of
                         {ok, UidPhone} ->
                             Match = UidPhone =:= Phone,
@@ -235,7 +235,7 @@ delete_old_keys_run(Key, State) ->
                                 true ->
                                     ?INFO("would delete_phone to: ~p", [Phone]);
                                 false ->
-                                    ok = model_phone:delete_phone(Phone),
+                                    ok = model_phone:delete_phone(Phone, halloapp),
                                     ?INFO("deleted phone: ~p", [Phone])
                             end;
                         _ ->

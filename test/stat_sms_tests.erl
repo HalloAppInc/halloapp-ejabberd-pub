@@ -12,6 +12,7 @@
 -include_lib("eunit/include/eunit.hrl").
 -include("sms.hrl").
 -include("ha_types.hrl").
+-include("ha_types.hrl").
 
 -define(PHONE1, <<"12466960841">>). %% BB - Barbados
 -define(PHONE2, <<"16504443079">>). %% US
@@ -167,7 +168,7 @@ verify_attempts(0, _Phone, _AttemptIdList) -> 0;
 verify_attempts(NumToSucceed, _Phone, []) -> NumToSucceed;
 verify_attempts(NumToSucceed, Phone, AttemptIdList) ->
     [AttemptId | OtherAttempts] = AttemptIdList,
-    ok = model_phone:add_verification_success(Phone, AttemptId),
+    ok = model_phone:add_verification_success(Phone, ?HALLOAPP, AttemptId),
     verify_attempts(NumToSucceed-1, Phone, OtherAttempts).
 
 
@@ -178,8 +179,8 @@ make_attempts(Phone, Gateway, SmsId, NumAttempts) ->
 
 make_attempts(_Phone, _Gateway, _SmsId, 0, Acc) -> Acc;
 make_attempts(Phone, Gateway, SmsId, NumAttempts, Acc) ->
-    {ok, AttemptId, _} = model_phone:add_sms_code2(Phone, ?CODE1),
-    ok = model_phone:add_gateway_response(Phone, AttemptId,
+    {ok, AttemptId, _} = model_phone:add_sms_code2(Phone, ?HALLOAPP, ?CODE1),
+    ok = model_phone:add_gateway_response(Phone, ?HALLOAPP, AttemptId,
         #gateway_response{gateway=Gateway, gateway_id=SmsId, status=?STATUS, response=?RECEIPT}),
     make_attempts(Phone, Gateway, SmsId, NumAttempts-1, [AttemptId |Acc]).
 

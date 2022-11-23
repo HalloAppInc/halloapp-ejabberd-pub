@@ -21,6 +21,7 @@
 -type names_map() :: #{uid() := binary()}.
 
 -type client_type() :: android | ios.
+-type app_type() :: halloapp | katchup.
 
 -type pname() :: atom().
 -type pvalue() :: binary() | boolean() | float() | integer().
@@ -32,6 +33,9 @@
 -type timestamp() :: erlang:timestamp().
 
 -type mode() :: active | passive.
+
+-define(HALLOAPP, halloapp).
+-define(KATCHUP, katchup).
 
 -type(avatar_id() :: binary()).
 

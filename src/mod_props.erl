@@ -87,6 +87,35 @@ get_hash(Uid, ClientVersion) ->
 
 -spec get_props(Uid :: binary(), ClientVersion :: binary()) -> proplist().
 get_props(Uid, ClientVersion) ->
+    case util_ua:get_app_type(ClientVersion) of
+        undefined -> [];
+        AppType -> get_props(Uid, ClientVersion, AppType)
+    end.
+
+
+-spec get_props(Uid :: binary(), ClientVersion :: binary(), AppType :: app_type()) -> proplist().
+get_props(Uid, ClientVersion, katchup) ->
+    PropMap1 = #{
+        dev => false, %% whether the client is dev or not.
+        contact_sync_frequency => 1 * ?DAYS, %% how often should clients sync all contacts.
+        max_video_bit_rate => 4000000, %% max_video_bit_rate set to 4Mbps.
+        audio_note_bit_rate => 96000, %% audio_note_bit_rate set to 96Kbps.
+        streaming_upload_chunk_size =>  65536, %% size of media streaming upload chunk size, 64KB.
+        streaming_initial_download_size => 5242880, %% size of intial download while media streaming, 5MB.
+        streaming_sending_enabled => true, %% whether streaming is enabled.
+        emoji_version => 2, %% emoji version for clients to use.
+        nse_runtime_sec => 17, %% ios-nse needs 3 secs to cleanup, we want our nse to run =< 20 secs.
+        enable_sentry_perf_tracking => false, %% Enable Sentry perf tracking on iOS clients
+        background_upload => true   %% Enables background upload on ios clients.
+    },
+    ClientType = util_ua:get_client_type(ClientVersion),
+    AppType = util_ua:get_app_type(ClientVersion),
+    PropMap2 = get_uid_based_props(PropMap1, AppType, Uid),
+    PropMap3 = get_client_based_props(PropMap2, AppType, ClientType, ClientVersion),
+    Proplist = maps:to_list(PropMap3),
+    lists:keysort(1, Proplist);
+
+get_props(Uid, ClientVersion, halloapp) ->
     PropMap1 = #{
         dev => false, %% whether the client is dev or not.
         contact_sync_frequency => 1 * ?DAYS, %% how often should clients sync all contacts.
@@ -140,9 +169,10 @@ get_props(Uid, ClientVersion) ->
         location_sharing => false,
         moment_external_share => false %% Enabled external sharing of moments
     },
-    PropMap2 = get_uid_based_props(PropMap1, Uid),
+    AppType = util_ua:get_app_type(ClientVersion),
     ClientType = util_ua:get_client_type(ClientVersion),
-    PropMap3 = get_client_based_props(PropMap2, ClientType, ClientVersion),
+    PropMap2 = get_uid_based_props(PropMap1, AppType, Uid),
+    PropMap3 = get_client_based_props(PropMap2, AppType, ClientType, ClientVersion),
     Proplist = maps:to_list(PropMap3),
     lists:keysort(1, Proplist).
 
@@ -164,8 +194,8 @@ get_invite_strings_to_rm_by_cc(CC) ->
 %% Internal functions
 %%====================================================================
 
--spec get_uid_based_props(PropMap :: map(), Uid :: binary()) -> map().
-get_uid_based_props(PropMap, Uid) ->
+-spec get_uid_based_props(PropMap :: map(), AppType :: atom(), Uid :: binary()) -> map().
+get_uid_based_props(PropMap, halloapp, Uid) ->
     ResPropMap = case dev_users:is_dev_uid(Uid) of
         false ->
             PropMap;
@@ -196,12 +226,15 @@ get_uid_based_props(PropMap, Uid) ->
             PropMap24 = maps:update(moment_external_share, true, PropMap23),
             PropMap24
     end,
-    apply_uid_prop_overrides(Uid, ResPropMap).
+    apply_uid_prop_overrides(Uid, ResPropMap);
+
+get_uid_based_props(PropMap, katchup, _Uid) ->
+    PropMap.
 
 
--spec get_client_based_props(PropMap :: map(),
+-spec get_client_based_props(PropMap :: map(), AppType :: atom(),
         ClientType :: atom(), ClientVersion :: binary()) -> map().
-get_client_based_props(PropMap, android, ClientVersion) ->
+get_client_based_props(PropMap, halloapp, android, ClientVersion) ->
     PropMap4 = maps:update(streaming_sending_enabled, true, PropMap),
     Result5 = util_ua:is_version_greater_than(ClientVersion, <<"HalloApp/Android1.4.5">>),
     PropMap5 = maps:update(group_expiry, Result5, PropMap4),
@@ -213,7 +246,7 @@ get_client_based_props(PropMap, android, ClientVersion) ->
     PropMap8;
 
 
-get_client_based_props(PropMap, ios, ClientVersion) ->
+get_client_based_props(PropMap, halloapp, ios, ClientVersion) ->
     %% Enable groups grid on the latest version.
     Result3 = util_ua:is_version_greater_than(ClientVersion, <<"HalloApp/iOS1.21.279">>),
     PropMap3 = maps:update(enable_groups_grid, Result3, PropMap),
@@ -233,8 +266,11 @@ get_client_based_props(PropMap, ios, ClientVersion) ->
     PropMap13 = maps:update(post_reactions, Result11, PropMap12),
     PropMap13;
 
-get_client_based_props(PropMap, undefined, _) ->
-    maps:update(groups, false, PropMap).
+get_client_based_props(PropMap, halloapp, undefined, _) ->
+    maps:update(groups, false, PropMap);
+
+get_client_based_props(PropMap, katchup, _, _) ->
+    PropMap.
 
 
 apply_uid_prop_overrides(Uid, PropMap) ->

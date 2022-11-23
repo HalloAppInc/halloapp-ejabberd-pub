@@ -133,6 +133,7 @@ hashcash_register(Name, Phone, Options) ->
     Host = maps:get(host, Options, "127.0.0.1"),
     Port = maps:get(port, Options, 5208),
     UserAgent = maps:get(user_agent, Options, ?DEFAULT_UA),
+    AppType = util_ua:get_app_type(UserAgent),
     IpProtocol = maps:get(ip_protocol, Options, ?DEFAULT_IP_PROTOCOL),
     ClientOptions = #{host => Host, port => Port, user_agent => UserAgent,
         state => register, ip_protocol => IpProtocol},
@@ -150,10 +151,10 @@ hashcash_register(Name, Phone, Options) ->
                 case Resp2 of
                     #pb_register_response{response = #pb_otp_response{result = success}} ->
                         % look up otp code from redis.
-                        {ok, VerifyAttempts} = model_phone:get_verification_attempt_list(Phone),
+                        {ok, VerifyAttempts} = model_phone:get_verification_attempt_list(Phone, AppType),
                         SortedVerifyAttempts = lists:keysort(2, VerifyAttempts),
                         {AttemptId, _TTL} = lists:last(SortedVerifyAttempts),
-                        {ok, Code} = model_phone:get_sms_code2(Phone, AttemptId),
+                        {ok, Code} = model_phone:get_sms_code2(Phone, AppType, AttemptId),
                         % verify with the code.
                         SignedMessage = enacl:sign("HALLO", maps:get(secret, KeyPair)),
                         VerifyOtpOptions = #{name => Name, static_key => maps:get(public, KeyPair), signed_phrase => SignedMessage}, 

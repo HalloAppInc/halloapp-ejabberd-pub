@@ -34,30 +34,32 @@ verify_test() ->
             model_phone:add_gateway_callback_info(GatewayResponse),
             Status =:= accepted
         end),
-    {ok, AttemptId1, _} = model_phone:add_sms_code2(?PHONE, ?VONAGE_CODE),
-    ok = model_phone:add_gateway_response(?PHONE, AttemptId1,
+    {ok, AttemptId1, _} = model_phone:add_sms_code2(?PHONE, ?HALLOAPP, ?VONAGE_CODE),
+    ok = model_phone:add_gateway_response(?PHONE, ?HALLOAPP, AttemptId1,
         #gateway_response{gateway = vonage_verify, gateway_id = ?SID1, status = sent}),
     %% Sleep for 1 seconds so the timestamp for Attempt1 and Attempt2 is different.
     timer:sleep(timer:seconds(1)),
-    {ok, AttemptId2, _} = model_phone:add_sms_code2(?PHONE, ?VONAGE_CODE),
-    ok = model_phone:add_gateway_response(?PHONE, AttemptId2,
+    {ok, AttemptId2, _} = model_phone:add_sms_code2(?PHONE, ?HALLOAPP, ?VONAGE_CODE),
+    ok = model_phone:add_gateway_response(?PHONE, ?HALLOAPP, AttemptId2,
         #gateway_response{gateway = vonage_verify, gateway_id = ?SID2, status = sent}),
-    match = mod_sms:verify_sms(?PHONE, ?CODE),
+    match = mod_sms:verify_sms(?PHONE, ?HALLOAPP, ?CODE),
     ?assert(meck:called(vonage_verify, verify_code_internal, [?PHONE, ?CODE, '_'])),
     % confirm oldest to newest requests
-    true = model_phone:get_verification_success(?PHONE, AttemptId1),
-    false = model_phone:get_verification_success(?PHONE, AttemptId2),
+    true = model_phone:get_verification_success(?PHONE, ?HALLOAPP, AttemptId1),
+    false = model_phone:get_verification_success(?PHONE, ?HALLOAPP, AttemptId2),
     % confirm error with default vonage code
-    nomatch = mod_sms:verify_sms(?PHONE, ?VONAGE_CODE),
+    nomatch = mod_sms:verify_sms(?PHONE, ?HALLOAPP, ?VONAGE_CODE),
     %% match without going through vonage_verify after prev validation
-    match = mod_sms:verify_sms(?PHONE, ?CODE),
+    match = mod_sms:verify_sms(?PHONE, ?HALLOAPP, ?CODE),
+    % confirm error with default vonage code
+    nomatch = mod_sms:verify_sms(?PHONE, ?KATCHUP, ?CODE),
 
     %% Invalidate old codes.
-    ok = model_phone:invalidate_old_attempts(?PHONE),
+    ok = model_phone:invalidate_old_attempts(?PHONE, ?HALLOAPP),
     %% this will now fail after invalidating old codes.
-    nomatch = mod_sms:verify_sms(?PHONE, ?CODE),
-    {ok, AllVerifyInfo} = model_phone:get_all_verification_info(?PHONE),
-    nomatch = mbird_verify:verify_code(?PHONE, ?CODE, AllVerifyInfo),
+    nomatch = mod_sms:verify_sms(?PHONE, ?HALLOAPP, ?CODE),
+    {ok, AllVerifyInfo} = model_phone:get_all_verification_info(?PHONE, ?HALLOAPP),
+    nomatch = mbird_verify:verify_code(?PHONE, ?HALLOAPP, ?CODE, AllVerifyInfo),
     tutil:meck_finish(ejabberd_router),
     tutil:meck_finish(vonage_verify).
 

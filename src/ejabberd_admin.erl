@@ -714,9 +714,10 @@ remove_phone_trace(Phone) ->
     ok.
 
 format_contact_list(Uid) ->
+    AppType = util_uid:get_app_type(Uid),
     {ok, ContactPhones} = model_contacts:get_contacts(Uid),
     {ok, Friends} = model_friends:get_friends(Uid),
-    PhoneToUidMap = model_phone:get_uids(ContactPhones),
+    PhoneToUidMap = model_phone:get_uids(ContactPhones, AppType),
     UidToNameMap = model_accounts:get_names(maps:values(PhoneToUidMap)),
     {PhoneToNumFriendsMap, PhoneToCreationDateMap, PhoneToLastActiveDateMap} = maps:fold(
         fun(K, V, {Acc1, Acc2, Acc3}) ->
@@ -859,11 +860,17 @@ phone_info(Phone) ->
     phone_info(Phone, []).
 
 phone_info(Phone, Options) ->
-    case model_phone:get_uid(Phone) of
+    case model_phone:get_uid(Phone, halloapp) of
         {ok, undefined} ->
-            io:format("No account associated with phone: ~s~n", [Phone]),
+            io:format("No halloapp account associated with phone: ~s~n", [Phone]),
             invite_info(Phone);
         {ok, Uid} -> uid_info(Uid, Options)
+    end,
+    case model_phone:get_uid(Phone, katchup) of
+        {ok, undefined} ->
+            io:format("No katchup account associated with phone: ~s~n", [Phone]),
+            invite_info(Phone);
+        {ok, Uid2} -> uid_info(Uid2, Options)
     end,
     ok.
 
@@ -935,13 +942,17 @@ spub_info(Key) ->
 
 
 reset_sms_backoff(Phone) ->
-    ?INFO("Reset SMS backoff for: ~p", [Phone]),
-    {ok, Attempts} = model_phone:get_verification_attempt_list(Phone),
+    reset_sms_backoff(Phone, halloapp).
+
+
+reset_sms_backoff(Phone, AppType) ->
+    ?INFO("Reset SMS backoff for: ~p, ~p", [Phone, AppType]),
+    {ok, Attempts} = model_phone:get_verification_attempt_list(Phone, AppType),
     case Attempts of
         [] -> io:format("Nothing to reset~n");
         _ ->
             {AttemptId, _Ts} = lists:last(Attempts),
-            model_phone:add_verification_success(Phone, AttemptId),
+            model_phone:add_verification_success(Phone, AppType, AttemptId),
             io:format("Successfully reset SMS backoff for ~p~n", [Phone])
     end,
     ok.
@@ -981,6 +992,10 @@ send_ios_push(Uid, PushType, Payload) ->
 
 
 get_sms_codes(PhoneRaw) ->
+    get_sms_codes(PhoneRaw, halloapp),
+    get_sms_codes(PhoneRaw, katchup).
+
+get_sms_codes(PhoneRaw, AppType) ->
     ?INFO("Admin requesting SMS codes for ~p", [PhoneRaw]),
     Phone = mod_libphonenumber:prepend_plus(PhoneRaw),
     case mod_libphonenumber:normalized_number(Phone, <<"US">>) of
@@ -988,9 +1003,9 @@ get_sms_codes(PhoneRaw) ->
             io:format("Phone number invalid~n"),
             io:format("Try entering only the numbers, no additional characters~n");
         NormalizedPhone ->
-            {ok, RawList} = model_phone:get_all_verification_info(NormalizedPhone),
+            {ok, RawList} = model_phone:get_all_verification_info(NormalizedPhone, AppType),
             case RawList of
-                [] -> io:format("No SMS codes associated with phone: ~s", [NormalizedPhone]);
+                [] -> io:format("No SMS codes associated with phone: ~s, AppType: ~p", [NormalizedPhone, AppType]);
                 _ ->
                     Codes = [Code || #verification_info{code = Code} <- RawList],
                     io:format("SMS codes for phone: ~s~n", [NormalizedPhone]),
@@ -999,7 +1014,12 @@ get_sms_codes(PhoneRaw) ->
     end,
     ok.
 
+
 send_moment_notification(PhoneRaw) ->
+    send_moment_notification(PhoneRaw, halloapp).
+
+
+send_moment_notification(PhoneRaw, AppType) ->
     ?INFO("Admin requesting moment notification for ~p", [PhoneRaw]),
     Phone = mod_libphonenumber:prepend_plus(PhoneRaw),
     case mod_libphonenumber:normalized_number(Phone, <<"US">>) of
@@ -1007,7 +1027,7 @@ send_moment_notification(PhoneRaw) ->
             io:format("Phone number invalid~n"),
             io:format("Try entering only the numbers, no additional characters~n");
         NormalizedPhone ->
-            case model_phone:get_uid(NormalizedPhone) of
+            case model_phone:get_uid(NormalizedPhone, AppType) of
                 {ok, undefined} ->
                     io:format("No account associated with phone: ~s~n", [PhoneRaw]);
                 {ok, Uid} -> mod_moment_notification:send_moment_notification(Uid)
@@ -1041,9 +1061,14 @@ delete_account(Uid) ->
     ok.
 
 
--spec request_phone_logs(Phone :: binary()) -> ok.
 request_phone_logs(Phone) ->
-    case model_phone:get_uid(Phone) of
+    request_phone_logs(Phone, halloapp),
+    request_phone_logs(Phone, katchup).
+
+
+-spec request_phone_logs(Phone :: binary(), AppType :: app_type()) -> ok.
+request_phone_logs(Phone, AppType) ->
+    case model_phone:get_uid(Phone, AppType) of
         {ok, Uid} ->
             request_uid_logs(Uid),
             io:format("Sent request_logs notification to phone: ~s~n", [Phone]);

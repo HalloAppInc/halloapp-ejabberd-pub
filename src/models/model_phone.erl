@@ -21,38 +21,38 @@
 -ifdef(TEST).
 -export([
     q/1, qmn/1,
-    verification_attempt_key/2
+    verification_attempt_key/3
 ]).
 -endif.
 
 
 %% API
 -export([
-    phone_key/1,
-    add_phone/2,
-    delete_phone/1,
-    get_uid/1,
-    get_uids/1,
-    add_sms_code2/2,
+    phone_key/2,
+    add_phone/3,
+    delete_phone/2,
+    get_uid/2,
+    get_uids/2,
     add_sms_code2/3,
+    add_sms_code2/4,
     get_incremental_attempt_list/1,
-    delete_sms_code2/1,
-    update_sms_code/3,
-    get_sms_code2/2,
-    get_all_verification_info/1,
-    add_gateway_response/3,
-    get_all_gateway_responses/1,
-    get_verification_attempt_list/1,
+    delete_sms_code2/2,
+    update_sms_code/4,
+    get_sms_code2/3,
+    get_all_verification_info/2,
+    add_gateway_response/4,
+    get_all_gateway_responses/2,
+    get_verification_attempt_list/2,
     add_gateway_callback_info/1,
     get_verification_attempt_key/1,
-    get_gateway_response_status/2,
-    add_verification_success/2,
-    get_verification_success/2,
-    get_verification_attempt_summary/2,
+    get_gateway_response_status/3,
+    add_verification_success/3,
+    get_verification_success/3,
+    get_verification_attempt_summary/3,
     add_phone_pattern/2,
     get_phone_pattern_info/1,
     delete_phone_pattern/1,
-    invalidate_old_attempts/1,
+    invalidate_old_attempts/2,
     add_static_key/2,
     get_static_key_info/1,
     delete_static_key/1,
@@ -61,9 +61,9 @@
     delete_phone_cc/1,
     add_hashcash_challenge/1,
     delete_hashcash_challenge/1,
-    add_phone_code_attempt/2,
-    get_phone_code_attempts/2,
-    phone_attempt_key/2
+    add_phone_code_attempt/3,
+    get_phone_code_attempts/3,
+    phone_attempt_key/3
 ]).
 
 %%====================================================================
@@ -114,17 +114,17 @@
 %% TTL for phone code guessing attempt counter
 -define(TTL_PHONE_ATTEMPT, 7 * ?DAYS).
 
--spec add_sms_code2(Phone :: phone(), Code :: binary()) -> {ok, binary(), non_neg_integer()}  | {error, any()}.
-add_sms_code2(Phone, Code) ->
-    add_sms_code2(Phone, Code, <<>>).
+-spec add_sms_code2(Phone :: phone(), AppType :: app_type(), Code :: binary()) -> {ok, binary(), non_neg_integer()}  | {error, any()}.
+add_sms_code2(Phone, AppType, Code) ->
+    add_sms_code2(Phone, AppType, Code, <<>>).
 
--spec add_sms_code2(Phone :: phone(), Code :: binary(), CampaignId :: binary()) -> {ok, binary(), non_neg_integer()}  | {error, any()}.
-add_sms_code2(Phone, Code, CampaignId) ->
+-spec add_sms_code2(Phone :: phone(), AppType :: app_type(), Code :: binary(), CampaignId :: binary()) -> {ok, binary(), non_neg_integer()}  | {error, any()}.
+add_sms_code2(Phone, AppType, Code, CampaignId) ->
     %% TODO(vipin): Need to clean verification attempt list when SMS code expire.
     AttemptId = generate_attempt_id(),
     Timestamp = util:now(),
-    VerificationAttemptListKey = verification_attempt_list_key(Phone),
-    VerificationAttemptKey = verification_attempt_key(Phone, AttemptId),
+    VerificationAttemptListKey = verification_attempt_list_key(Phone, AppType),
+    VerificationAttemptKey = verification_attempt_key(Phone, AppType, AttemptId),
     TTL = case util:is_monitor_phone(Phone) of
         true -> ?MONITOR_VERIFICATION_TTL;
         false -> ?TTL_VERIFICATION_ATTEMPTS
@@ -143,7 +143,7 @@ add_sms_code2(Phone, Code, CampaignId) ->
     IncrementalTimestamp = Timestamp div ?SMS_REG_TIMESTAMP_INCREMENT,
     IncrementalTimestampKey = incremental_timestamp_key(IncrementalTimestamp),
     ?DEBUG("Added at: ~p, Key: ~p", [IncrementalTimestamp, IncrementalTimestampKey]),
-    _Result2 = qp([["SADD", IncrementalTimestampKey, term_to_binary({Phone, AttemptId})],
+    _Result2 = qp([["SADD", IncrementalTimestampKey, term_to_binary({Phone, AppType, AttemptId})],
                    ["EXPIRE", IncrementalTimestampKey, ?TTL_INCREMENTAL_TIMESTAMP]]),
     {ok, AttemptId, Timestamp}.
 
@@ -156,29 +156,29 @@ get_incremental_attempt_list(IncrementalTimestamp) ->
     [binary_to_term(Elem) || Elem <- List].
 
 
--spec delete_sms_code2(Phone :: phone()) -> ok  | {error, any()}.
-delete_sms_code2(Phone) ->
-    {ok, VerificationAttemptList} = get_verification_attempt_list(Phone),
+-spec delete_sms_code2(Phone :: phone(), AppType :: app_type()) -> ok  | {error, any()}.
+delete_sms_code2(Phone, AppType) ->
+    {ok, VerificationAttemptList} = get_verification_attempt_list(Phone, AppType),
     RedisCommands = lists:map(
         fun({AttemptId, _TS}) ->
-            ["DEL", verification_attempt_key(Phone, AttemptId)]
+            ["DEL", verification_attempt_key(Phone, AppType, AttemptId)]
         end, VerificationAttemptList),
     case RedisCommands of
         [] ->
             ok;
         _ ->
-            RedisCommands2 = RedisCommands ++ [["DEL", verification_attempt_list_key(Phone)]],
+            RedisCommands2 = RedisCommands ++ [["DEL", verification_attempt_list_key(Phone, AppType)]],
             qp(RedisCommands2)
     end,
     ok.
 
 
--spec get_all_verification_info(Phone :: phone()) -> {ok, [verification_info()]} | {error, any()}.
-get_all_verification_info(Phone) ->
-    {ok, VerificationAttemptList} = get_verification_attempt_list(Phone),
+-spec get_all_verification_info(Phone :: phone(), AppType :: app_type()) -> {ok, [verification_info()]} | {error, any()}.
+get_all_verification_info(Phone, AppType) ->
+    {ok, VerificationAttemptList} = get_verification_attempt_list(Phone, AppType),
     RedisCommands = lists:map(
         fun({AttemptId, _TS}) ->
-            ["HMGET", verification_attempt_key(Phone, AttemptId),
+            ["HMGET", verification_attempt_key(Phone, AppType, AttemptId),
                 ?FIELD_CODE, ?FIELD_SENDER, ?FIELD_SID, ?FIELD_STATUS, ?FIELD_VALID]
         end, VerificationAttemptList),
     VerifyInfoList = qp(RedisCommands),
@@ -202,33 +202,33 @@ get_all_verification_info(Phone) ->
     {ok, FinalVerificationInfo}.
 
 
--spec get_sms_code2(Phone :: phone(), AttemptId :: binary()) -> {ok, binary()} | {error, any()}.
-get_sms_code2(Phone, AttemptId) ->
-  VerificationAttemptKey = verification_attempt_key(Phone, AttemptId),
+-spec get_sms_code2(Phone :: phone(), AppType :: app_type(), AttemptId :: binary()) -> {ok, binary()} | {error, any()}.
+get_sms_code2(Phone, AppType, AttemptId) ->
+  VerificationAttemptKey = verification_attempt_key(Phone, AppType, AttemptId),
   {ok, Res} = q(["HGET", VerificationAttemptKey, ?FIELD_CODE]),
   {ok, Res}.
 
 
 % Mbird_verify has a default code of <<"999999">>. In approved attempts, we want
 % to update the code so that it can be used to verify again (up to 24hrs).
--spec update_sms_code(Phone :: phone(), Code :: binary(), AttemptId :: binary()) -> ok.
-update_sms_code(Phone, Code, AttemptId) ->
-    VerificationAttemptKey = verification_attempt_key(Phone, AttemptId),
+-spec update_sms_code(Phone :: phone(), AppType :: app_type(), Code :: binary(), AttemptId :: binary()) -> ok.
+update_sms_code(Phone, AppType, Code, AttemptId) ->
+    VerificationAttemptKey = verification_attempt_key(Phone, AppType, AttemptId),
     _Res = q(["HSET", VerificationAttemptKey, ?FIELD_CODE, Code]),
     ok.
 
 
--spec get_verification_attempt_list(Phone :: phone()) -> {ok, [{binary(), binary()}]} | {error, any()}.
-get_verification_attempt_list(Phone) ->
+-spec get_verification_attempt_list(Phone :: phone(), AppType :: app_type()) -> {ok, [{binary(), binary()}]} | {error, any()}.
+get_verification_attempt_list(Phone, AppType) ->
     Deadline = util:now() - ?TTL_SMS_CODE,
-    {ok, Res} = q(["ZRANGEBYSCORE", verification_attempt_list_key(Phone),
+    {ok, Res} = q(["ZRANGEBYSCORE", verification_attempt_list_key(Phone, AppType),
           integer_to_binary(Deadline), "+inf", "WITHSCORES"]),
     {ok, util_redis:parse_zrange_with_scores(Res)}.
 
 
--spec add_gateway_response(Phone :: phone(), AttemptId :: binary(), SMSResponse :: gateway_response())
+-spec add_gateway_response(Phone :: phone(), AppType :: app_type(), AttemptId :: binary(), SMSResponse :: gateway_response())
       -> ok | {error, any()}.
-add_gateway_response(Phone, AttemptId, SMSResponse) ->
+add_gateway_response(Phone, AppType, AttemptId, SMSResponse) ->
     #gateway_response{
         gateway_id = GatewayId,
         gateway = Gateway,
@@ -238,7 +238,7 @@ add_gateway_response(Phone, AttemptId, SMSResponse) ->
         lang_id = LangId
     } = SMSResponse,
     GatewayResponseKey = gateway_response_key(Gateway, GatewayId),
-    VerificationAttemptKey = verification_attempt_key(Phone, AttemptId),
+    VerificationAttemptKey = verification_attempt_key(Phone, AppType, AttemptId),
     _Result1 = qp([["MULTI"],
                    ["HSET", GatewayResponseKey, ?FIELD_VERIFICATION_ATTEMPT, VerificationAttemptKey],
                    ["EXPIRE", GatewayResponseKey, ?TTL_VERIFICATION_ATTEMPTS],
@@ -257,12 +257,12 @@ add_gateway_response(Phone, AttemptId, SMSResponse) ->
     ok.
 
 
--spec get_all_gateway_responses(Phone :: phone()) -> {ok, [gateway_response()]} | {error, any()}.
-get_all_gateway_responses(Phone) ->
-    {ok, VerificationAttemptList} = get_verification_attempt_list(Phone),
+-spec get_all_gateway_responses(Phone :: phone(), AppType :: app_type()) -> {ok, [gateway_response()]} | {error, any()}.
+get_all_gateway_responses(Phone, AppType) ->
+    {ok, VerificationAttemptList} = get_verification_attempt_list(Phone, AppType),
     RedisCommands = lists:map(
         fun({AttemptId, _TS}) ->
-            ["HMGET", verification_attempt_key(Phone, AttemptId), ?FIELD_SENDER, ?FIELD_METHOD,
+            ["HMGET", verification_attempt_key(Phone, AppType, AttemptId), ?FIELD_SENDER, ?FIELD_METHOD,
                 ?FIELD_STATUS, ?FIELD_VERIFICATION_SUCCESS, ?FIELD_LANGID, ?FIELD_VALID]
         end, VerificationAttemptList),
     ResponseList = qp(RedisCommands),
@@ -327,42 +327,42 @@ get_verification_attempt_key(GatewayResponse) ->
     {ok, VerificationAttemptKey}.
 
 
--spec get_gateway_response_status(Phone :: phone(), AttemptId :: binary())
+-spec get_gateway_response_status(Phone :: phone(), AppType :: app_type(), AttemptId :: binary())
     -> {ok, atom()} | {error, any()}.
-get_gateway_response_status(Phone, AttemptId) ->
-    VerificationAttemptKey = verification_attempt_key(Phone, AttemptId),
+get_gateway_response_status(Phone, AppType, AttemptId) ->
+    VerificationAttemptKey = verification_attempt_key(Phone, AppType, AttemptId),
     {ok, Res} = q(["HGET", VerificationAttemptKey, ?FIELD_STATUS]),
     {ok, util:to_atom(Res)}.
 
 
--spec add_verification_success(Phone :: phone(), AttemptId :: binary()) -> ok | {error, any()}.
-add_verification_success(Phone, AttemptId) ->
-    VerificationAttemptKey = verification_attempt_key(Phone, AttemptId),
+-spec add_verification_success(Phone :: phone(), AppType :: app_type(), AttemptId :: binary()) -> ok | {error, any()}.
+add_verification_success(Phone, AppType, AttemptId) ->
+    VerificationAttemptKey = verification_attempt_key(Phone, AppType, AttemptId),
     _Res = q(["HSET", VerificationAttemptKey, ?FIELD_VERIFICATION_SUCCESS, "1"]),
     ok.
 
 
--spec invalidate_old_attempts(Phone :: phone()) -> ok | {error, any()}.
-invalidate_old_attempts(Phone) ->
-    {ok, VerificationAttemptList} = get_verification_attempt_list(Phone),
+-spec invalidate_old_attempts(Phone :: phone(), AppType :: app_type()) -> ok | {error, any()}.
+invalidate_old_attempts(Phone, AppType) ->
+    {ok, VerificationAttemptList} = get_verification_attempt_list(Phone, AppType),
     RedisCommands = lists:map(
         fun({AttId, _TS}) ->
-            ["HSET", verification_attempt_key(Phone, AttId), ?FIELD_VALID, "0"]
+            ["HSET", verification_attempt_key(Phone, AppType, AttId), ?FIELD_VALID, "0"]
         end, VerificationAttemptList),
     qp(RedisCommands),
     ok.
 
 
--spec get_verification_success(Phone :: phone(), AttemptId :: binary()) -> boolean().
-get_verification_success(Phone, AttemptId) ->
-    VerificationAttemptKey = verification_attempt_key(Phone, AttemptId),
+-spec get_verification_success(Phone :: phone(), AppType :: app_type(), AttemptId :: binary()) -> boolean().
+get_verification_success(Phone, AppType, AttemptId) ->
+    VerificationAttemptKey = verification_attempt_key(Phone, AppType, AttemptId),
     {ok, Res} = q(["HGET", VerificationAttemptKey, ?FIELD_VERIFICATION_SUCCESS]),
     util_redis:decode_boolean(Res, false).
 
 
--spec get_verification_attempt_summary(Phone :: phone(), AttemptId :: binary()) -> gateway_response().
-get_verification_attempt_summary(Phone, AttemptId) ->
-    {ok, Res} = q(["HMGET", verification_attempt_key(Phone, AttemptId), ?FIELD_SENDER, ?FIELD_METHOD,
+-spec get_verification_attempt_summary(Phone :: phone(), AppType :: app_type(), AttemptId :: binary()) -> gateway_response().
+get_verification_attempt_summary(Phone, AppType, AttemptId) ->
+    {ok, Res} = q(["HMGET", verification_attempt_key(Phone, AppType, AttemptId), ?FIELD_SENDER, ?FIELD_METHOD,
         ?FIELD_STATUS, ?FIELD_VERIFICATION_SUCCESS, ?FIELD_LANGID]),
     [Sender, Method, Status, Success, LangId] = Res,
     case {Sender, Method, Status, Success, LangId} of
@@ -378,27 +378,27 @@ get_verification_attempt_summary(Phone, AttemptId) ->
     end.
  
 
--spec add_phone(Phone :: phone(), Uid :: uid()) -> ok  | {error, any()}.
-add_phone(Phone, Uid) ->
-    {ok, _Res} = q(["SET", phone_key(Phone), Uid]),
+-spec add_phone(Phone :: phone(), AppType :: app_type(), Uid :: uid()) -> ok  | {error, any()}.
+add_phone(Phone, AppType, Uid) ->
+    {ok, _Res} = q(["SET", phone_key(Phone, AppType), Uid]),
     ok.
 
 
--spec delete_phone(Phone :: phone()) -> ok  | {error, any()}.
-delete_phone(Phone) ->
-    {ok, _Res} = q(["DEL", phone_key(Phone)]),
+-spec delete_phone(Phone :: phone(), AppType :: app_type()) -> ok  | {error, any()}.
+delete_phone(Phone, AppType) ->
+    {ok, _Res} = q(["DEL", phone_key(Phone, AppType)]),
     ok.
 
 
--spec get_uid(Phone :: phone()) -> {ok, maybe(binary())} | {error, any()}.
-get_uid(Phone) ->
-    q(["GET" , phone_key(Phone)]).
+-spec get_uid(Phone :: phone(), AppType :: app_type()) -> {ok, maybe(binary())} | {error, any()}.
+get_uid(Phone, AppType) ->
+    q(["GET" , phone_key(Phone, AppType)]).
 
 
--spec get_uids(Phones :: [binary()]) -> map() | {error, any()}.
-get_uids([]) -> #{};
-get_uids(Phones) ->
-    Commands = lists:map(fun(Phone) -> ["GET" , phone_key(Phone)] end, Phones),
+-spec get_uids(Phones :: [binary()], AppType :: app_type()) -> map() | {error, any()}.
+get_uids([], _AppType) -> #{};
+get_uids(Phones, AppType) ->
+    Commands = lists:map(fun(Phone) -> ["GET" , phone_key(Phone, AppType)] end, Phones),
     Res = qmn(Commands),
     Result = lists:foldl(
         fun({Phone, {ok, Uid}}, Acc) ->
@@ -497,18 +497,18 @@ delete_hashcash_challenge(Challenge) ->
     end.
 
 
--spec add_phone_code_attempt(Phone :: binary(), Timestamp :: integer()) -> integer().
-add_phone_code_attempt(Phone, Timestamp) ->
-    Key = phone_attempt_key(Phone, Timestamp),
+-spec add_phone_code_attempt(Phone :: binary(), AppType :: app_type(), Timestamp :: integer()) -> integer().
+add_phone_code_attempt(Phone, AppType, Timestamp) ->
+    Key = phone_attempt_key(Phone, AppType, Timestamp),
     {ok, [Res, _]} = multi_exec([
         ["INCR", Key],
         ["EXPIRE", Key, ?TTL_PHONE_ATTEMPT]
     ]),
     util_redis:decode_int(Res).
 
--spec get_phone_code_attempts(Phone :: binary(), Timestamp :: integer()) -> maybe(integer()).
-get_phone_code_attempts(Phone, Timestamp) ->
-    Key = phone_attempt_key(Phone, Timestamp),
+-spec get_phone_code_attempts(Phone :: binary(), AppType :: app_type(), Timestamp :: integer()) -> maybe(integer()).
+get_phone_code_attempts(Phone, AppType, Timestamp) ->
+    Key = phone_attempt_key(Phone, AppType, Timestamp),
     {ok, Res} = q(["GET", Key]),
     case Res of
         undefined -> 0;
@@ -548,10 +548,10 @@ decode_method(Method) ->
     util:to_atom(Method2).
 
 
--spec phone_key(Phone :: phone()) -> binary().
-phone_key(Phone) ->
+-spec phone_key(Phone :: phone(), AppType :: app_type()) -> binary().
+phone_key(Phone, AppType) ->
     Slot = get_slot(Phone),
-    phone_key(Phone, Slot).
+    phone_key(Phone, AppType, Slot).
 
 
 -spec phone_pattern_key(PhonePattern :: binary()) -> binary().
@@ -566,23 +566,30 @@ generate_attempt_id() ->
 
 % TODO: migrate the data to make the keys take look like pho:{5}:1555555555
 % TODO: also migrate to the crc16_redis
--spec phone_key(Phone :: phone(), Slot :: integer()) -> binary().
-phone_key(Phone, Slot) ->
-    <<?PHONE_KEY/binary, <<"{">>/binary, Slot/integer, <<"}:">>/binary, Phone/binary>>.
+-spec phone_key(Phone :: phone(), AppType :: app_type(), Slot :: integer()) -> binary().
+phone_key(Phone, halloapp, Slot) ->
+    <<?PHONE_KEY/binary, <<"{">>/binary, Slot/integer, <<"}:">>/binary, Phone/binary>>;
+phone_key(Phone, katchup, Slot) ->
+    <<?PHONE_KATCHUP_KEY/binary, <<"{">>/binary, Slot/integer, <<"}:">>/binary, Phone/binary>>.
 
 
 -spec get_slot(Phone :: phone()) -> integer().
 get_slot(Phone) ->
     crc16:crc16(binary_to_list(Phone)) rem ?MAX_SLOTS.
 
--spec verification_attempt_list_key(Phone :: phone()) -> binary().
-verification_attempt_list_key(Phone) ->
-    <<?VERIFICATION_ATTEMPT_LIST_KEY/binary, <<"{">>/binary, Phone/binary, <<"}">>/binary>>.
+-spec verification_attempt_list_key(Phone :: phone(), AppType :: app_type()) -> binary().
+verification_attempt_list_key(Phone, halloapp) ->
+    <<?VERIFICATION_ATTEMPT_LIST_KEY/binary, <<"{">>/binary, Phone/binary, <<"}">>/binary>>;
+verification_attempt_list_key(Phone, katchup) ->
+    <<?KATCHUP_VERIFICATION_ATTEMPT_LIST_KEY/binary, <<"{">>/binary, Phone/binary, <<"}">>/binary>>.
 
 
--spec verification_attempt_key(Phone :: phone(), AttemptId :: binary()) -> binary().
-verification_attempt_key(Phone, AttemptId) ->
-    <<?VERIFICATION_ATTEMPT_ID_KEY/binary, <<"{">>/binary, Phone/binary, <<"}:">>/binary, AttemptId/binary>>.
+-spec verification_attempt_key(Phone :: phone(), AppType :: app_type(), AttemptId :: binary()) -> binary().
+verification_attempt_key(Phone, halloapp, AttemptId) ->
+    <<?VERIFICATION_ATTEMPT_ID_KEY/binary, <<"{">>/binary, Phone/binary, <<"}:">>/binary, AttemptId/binary>>;
+verification_attempt_key(Phone, katchup, AttemptId) ->
+    <<?KATCHUP_VERIFICATION_ATTEMPT_ID_KEY/binary, <<"{">>/binary, Phone/binary, <<"}:">>/binary, AttemptId/binary>>.
+
 
 -spec incremental_timestamp_key(IncrementalTS :: integer()) -> binary().
 incremental_timestamp_key(IncrementalTS) ->
@@ -610,9 +617,12 @@ phone_cc_key(CC) ->
 hashcash_key(Challenge) ->
     <<?HASHCASH_KEY/binary, "{", Challenge/binary, "}:">>.
 
--spec phone_attempt_key(Phone :: binary(), Timestamp :: integer() ) -> binary().
-phone_attempt_key(Phone, Timestamp) ->
+-spec phone_attempt_key(Phone :: binary(), AppType :: app_type(), Timestamp :: integer() ) -> binary().
+phone_attempt_key(Phone, halloapp, Timestamp) ->
     Day = util:to_binary(util:to_integer(Timestamp / ?DAYS)),
-    <<?PHONE_ATTEMPT_KEY/binary, "{", Phone/binary, "}:", Day/binary>>.
+    <<?PHONE_ATTEMPT_KEY/binary, "{", Phone/binary, "}:", Day/binary>>;
+phone_attempt_key(Phone, katchup, Timestamp) ->
+    Day = util:to_binary(util:to_integer(Timestamp / ?DAYS)),
+    <<?PHONE_KATCHUP_ATTEMPT_KEY/binary, "{", Phone/binary, "}:", Day/binary>>.
 
 

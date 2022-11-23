@@ -379,13 +379,14 @@ notify_key_subscribers(Uid, IdentityKeyB64) ->
     %% We construct a list of potential subscribers and send the update notification to all of them.
     IdentityKey = util:maybe_base64_decode(IdentityKeyB64),
 
+    AppType = util_uid:get_app_type(Uid),
     %% Phone reverse index.
     case model_accounts:get_phone(Uid) of
         {ok, Phone} ->
             {ok, Ouids1} = model_contacts:get_contact_uids(Phone),
             %% Contact Phones. -- uid may not have any - since we clear contacts on registration.
             {ok, ContactPhones} = model_contacts:get_contacts(Uid),
-            PhoneToUidMap = model_phone:get_uids(ContactPhones),
+            PhoneToUidMap = model_phone:get_uids(ContactPhones, AppType),
             Ouids2 = maps:values(PhoneToUidMap),
 
             %% GroupMember-Uids.

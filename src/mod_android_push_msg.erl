@@ -16,7 +16,6 @@
 -define(HTTP_TIMEOUT_MILLISEC, 10000).             %% 10 seconds.
 -define(HTTP_CONNECT_TIMEOUT_MILLISEC, 10000).     %% 10 seconds.
 
--define(HALLOAPP, <<"halloapp">>).
 %% TODO: Should move away from having the key in the codebase.
 %% Unfortunately one of the dependencies needs it in a file as of now. we can fix it eventually.
 -define(GOOGLE_SERVICE_KEY_FILE, "google_service_key.json").

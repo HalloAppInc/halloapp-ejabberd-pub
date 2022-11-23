@@ -149,7 +149,8 @@ dump_account(Uid) ->
                       Tag
                 end,
                 {ok, Contacts} = model_contacts:get_contacts(Uid),
-                UidContacts = model_phone:get_uids(Contacts),
+                AppType = util_uid:get_app_type(Uid),
+                UidContacts = model_phone:get_uids(Contacts, AppType),
                 NumContacts = length(Contacts),
                 NumUidContacts = length(maps:to_list(UidContacts)),
                 NumFriends = length(RealFriends),
@@ -164,6 +165,7 @@ dump_account(Uid) ->
                 CC = mod_libphonenumber:get_cc(Account#account.phone),
                 ha_events:log_event(<<"server.accounts">>, #{
                     uid => Account#account.uid,
+                    app_type => AppType,
                     creation_ts_ms => Account#account.creation_ts_ms,
                     last_activity => Account#account.last_activity_ts_ms,
                     signup_version => Account#account.signup_user_agent,

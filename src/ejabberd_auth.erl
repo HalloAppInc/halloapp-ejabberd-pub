@@ -17,7 +17,7 @@
 -export([
     set_spub/2,
     check_spub/2,
-    try_enroll/3,
+    try_enroll/4,
     check_and_register/6,
     get_users/0,
     count_users/0,
@@ -75,10 +75,10 @@ check_and_register(Phone, Host, SPub, Name, UserAgent, CampaignId) ->
     end.
 
 
--spec try_enroll(Phone :: binary(), Passcode :: binary(), CampaignId :: binary()) -> {ok, binary(), integer()}.
-try_enroll(Phone, Passcode, CampaignId) ->
-    ?INFO("phone:~s code:~s", [Phone, Passcode]),
-    {ok, AttemptId, Timestamp} = model_phone:add_sms_code2(Phone, Passcode, CampaignId),
+-spec try_enroll(Phone :: binary(), AppType :: app_type(), Passcode :: binary(), CampaignId :: binary()) -> {ok, binary(), integer()}.
+try_enroll(Phone, AppType, Passcode, CampaignId) ->
+    ?INFO("phone:~s AppType: ~p code:~s", [Phone, AppType, Passcode]),
+    {ok, AttemptId, Timestamp} = model_phone:add_sms_code2(Phone, AppType, Passcode, CampaignId),
     case util:is_monitor_phone(Phone) of
         true -> ok;
         false -> stat:count("HA/account", "enroll")
@@ -121,7 +121,8 @@ remove_user(User, Server) ->
     {ok, binary(), register | login} |
     {error, db_failure | not_allowed | exists | invalid_jid}.
 check_and_register_internal(Phone, Server, Cred, Name, UserAgent, CampaignId) ->
-    case model_phone:get_uid(Phone) of
+    AppType = util_ua:get_app_type(UserAgent),
+    case model_phone:get_uid(Phone, AppType) of
         {ok, undefined} ->
             case ha_try_register(Phone, Cred, Name, UserAgent, CampaignId) of
                 {ok, _, UserId} ->
@@ -146,9 +147,10 @@ check_and_register_internal(Phone, Server, Cred, Name, UserAgent, CampaignId) ->
 
 ha_try_register(Phone, Cred, Name, UserAgent, CampaignId) ->
     ?INFO("phone:~s", [Phone]),
-    {ok, Uid} = util_uid:generate_uid(),
+    AppType = util_ua:get_app_type(UserAgent),
+    {ok, Uid} = util_uid:generate_uid(UserAgent),
     ok = model_accounts:create_account(Uid, Phone, Name, UserAgent, CampaignId),
-    ok = model_phone:add_phone(Phone, Uid),
+    ok = model_phone:add_phone(Phone, AppType, Uid),
     case set_spub(Uid, Cred) of
         ok ->{ok, Cred, Uid};
         Err -> Err
@@ -158,12 +160,13 @@ ha_try_register(Phone, Cred, Name, UserAgent, CampaignId) ->
 -spec ha_remove_user(Uid :: binary()) -> ok.
 ha_remove_user(Uid) ->
     ?INFO("Uid:~s", [Uid]),
+    AppType = util_uid:get_app_type(Uid),
     case model_accounts:get_phone(Uid) of
         {ok, Phone} ->
-            {ok, PhoneUid} = model_phone:get_uid(Phone),
+            {ok, PhoneUid} = model_phone:get_uid(Phone, AppType),
             case PhoneUid =:= Uid of
                 true ->
-                    ok = model_phone:delete_phone(Phone);
+                    ok = model_phone:delete_phone(Phone, AppType);
                 false ->
                     ?ERROR("uid mismatch for phone map Uid: ~s Phone: ~s PhoneUid: ~s",
                         [Uid, Phone, PhoneUid]),

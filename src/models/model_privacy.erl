@@ -367,7 +367,7 @@ block_phone(Uid, Phone) ->
 -spec block_phones(Uid :: uid(), Phones :: list(phone())) -> ok.
 block_phones(_Uid, []) -> ok;
 block_phones(Uid, Phones) ->
-    Ouids = maps:values(model_phone:get_uids(Phones)),
+    Ouids = maps:values(model_phone:get_uids(Phones, halloapp)),
     PhoneCommands = lists:map(fun(Phone) -> ["SADD", block_phone_key(Uid), Phone] end, Phones),
     UidCommands = lists:map(fun(Ouid) -> ["SADD", block_uid_key(Uid), Ouid] end, Ouids),
     AddPhoneCommands = lists:map(fun(Phone) -> ["SADD", reverse_block_phone_key(Phone), Uid] end, Phones),
@@ -434,7 +434,7 @@ unblock_phone(Uid, Phone) ->
 -spec unblock_phones(Uid :: uid(), Phones :: list(phone())) -> ok.
 unblock_phones(_Uid, []) -> ok;
 unblock_phones(Uid, Phones) ->
-    Ouids = maps:values(model_phone:get_uids(Phones)),
+    Ouids = maps:values(model_phone:get_uids(Phones, halloapp)),
     PhoneCommands = lists:map(fun(Phone) -> ["SREM", block_phone_key(Uid), Phone] end, Phones),
     UidCommands = lists:map(fun(Ouid) -> ["SREM", block_uid_key(Uid), Ouid] end, Ouids),
     ReversePhoneCommands = lists:map(fun(Phone) -> ["SREM", reverse_block_phone_key(Phone), Uid] end, Phones),

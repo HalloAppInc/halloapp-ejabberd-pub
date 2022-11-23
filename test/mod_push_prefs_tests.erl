@@ -9,6 +9,7 @@
 -module(mod_push_prefs_tests).
 -author("yexin").
 
+-include("ha_types.hrl").
 -include("account.hrl").
 -include("packets.hrl").
 -include_lib("eunit/include/eunit.hrl").
@@ -73,8 +74,9 @@ create_set_pref_iq(Uid, PushPrefs) ->
 setup_accounts(Accounts) ->
     lists:foreach(
         fun([Uid, Phone, Name, UserAgent]) ->
+            AppType = util_uid:get_app_type(Uid),
             ok = model_accounts:create_account(Uid, Phone, Name, UserAgent),
-            ok = model_phone:add_phone(Phone, Uid)
+            ok = model_phone:add_phone(Phone, AppType, Uid)
         end, Accounts),
     ok.
 

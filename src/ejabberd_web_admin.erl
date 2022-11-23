@@ -1901,12 +1901,13 @@ lookup_uid(Uid) ->
     end.
 
 
+%% TODO: clean this up separately.
 lookup_phone(Phone) ->
     ?INFO("Getting account info for phone: ~s", [Phone]),
-    case model_phone:get_uid(Phone) of
+    case model_phone:get_uid(Phone, halloapp) of
         {ok, undefined} ->
-            Info = [?XC(<<"p">>, io_lib:format("No account found for phone: ~s", [Phone]))],
-            {ok, VerificationInfo} = model_phone:get_all_verification_info(Phone),
+            Info = [?XC(<<"p">>, io_lib:format("No halloapp account found for phone: ~s", [Phone]))],
+            {ok, VerificationInfo} = model_phone:get_all_verification_info(Phone, halloapp),
             _Info2 = lists:foldl(
                 fun(VerifyAttempt, Acc) ->
                     Acc ++ [
@@ -1919,6 +1920,23 @@ lookup_phone(Phone) ->
                 VerificationInfo
             );
         {ok, Uid} -> lookup_uid(Uid)
+    end,
+    case model_phone:get_uid(Phone, katchup) of
+        {ok, undefined} ->
+            Info3 = [?XC(<<"p">>, io_lib:format("No katchup account found for phone: ~s", [Phone]))],
+            {ok, VerificationInfo2} = model_phone:get_all_verification_info(Phone, katchup),
+            _Info4 = lists:foldl(
+                fun(VerifyAttempt, Acc) ->
+                    Acc ++ [
+                        ?XE(<<"p">>, [
+                            ?C(io_lib:format("Attempt: ~p", [VerifyAttempt]))
+                        ])
+                    ]
+                end,
+                Info3,
+                VerificationInfo2
+            );
+        {ok, Uid2} -> lookup_uid(Uid2)
     end.
 
 
@@ -1961,9 +1979,10 @@ generate_groups_table(Uid) ->
 
 
 generate_invites_table(Uid) ->
+    AppType = util_uid:get_app_type(Uid),
     {ok, SentInvites} = model_invites:get_sent_invites(Uid),
     Fun = fun(I) ->
-        case model_phone:get_uid(I) of
+        case model_phone:get_uid(I, AppType) of
             {ok, undefined} -> <<>>;
             {ok, IUid} -> <<IUid/binary>>
         end
@@ -1986,9 +2005,10 @@ generate_invites_table(Uid) ->
     ), ?BR].
 
 
+%% TODO: currently, this will not work properly.
 generate_sms_info(Phone) ->
     ?INFO("Getting SMS info for phone: ~s", [Phone]),
-    {ok, VerificationInfo} = model_phone:get_all_verification_info(Phone),
+    {ok, VerificationInfo} = model_phone:get_all_verification_info(Phone, halloapp),
     SmsInfo = lists:foldl(
                 fun(VerifyAttempt, Acc) ->
                     Acc ++ [
@@ -2000,7 +2020,7 @@ generate_sms_info(Phone) ->
                 [],
                 VerificationInfo
             ),
-    {ok, Uid} = model_phone:get_uid(Phone),
+    {ok, Uid} = model_phone:get_uid(Phone, halloapp),
     AccInfo = case Uid of
         undefined -> [?XC(<<"p">>, <<"No account associated with this phone number.">>)];
         _ -> [?XE(<<"p">>, [

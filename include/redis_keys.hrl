@@ -138,8 +138,11 @@
 
 %% RedisPhone
 -define(PHONE_KEY, <<"pho:">>).
+-define(PHONE_KATCHUP_KEY, <<"phka:">>).
 %% old deleted key
 %%-define(CODE_KEY, <<"cod:">>).
+-define(KATCHUP_VERIFICATION_ATTEMPT_LIST_KEY, <<"kval:">>).
+-define(KATCHUP_VERIFICATION_ATTEMPT_ID_KEY, <<"kvai:">>).
 -define(VERIFICATION_ATTEMPT_LIST_KEY, <<"val:">>).
 -define(VERIFICATION_ATTEMPT_ID_KEY, <<"vai:">>).
 -define(INCREMENTAL_TS_KEY, <<"ITS:">>).
@@ -151,6 +154,7 @@
 -define(PHONE_CC_KEY, <<"pcc:">>).
 -define(HASHCASH_KEY, <<"hca:">>).
 -define(PHONE_ATTEMPT_KEY, <<"pca:">>).
+-define(PHONE_KATCHUP_ATTEMPT_KEY, <<"pkaa:">>).
 
 -define(GW_SCORE_KEY, <<"scr:">>).
 -define(GW_SCORE_KEY_NEW, <<"scrn:">>).

@@ -15,7 +15,7 @@
 -export([
     check_ua/1,
     check_name/1,
-    check_sms_code/5,
+    check_sms_code/6,
     check_hashcash_solution/2,
     check_attempts_by_ip/1,
     check_attempts_by_static_key/1
@@ -95,7 +95,7 @@ process([<<"registration">>, <<"register2">>],
     Phone = normalize_by_version(RawPhone, UserAgent),
     Name = maps:get(<<"name">>, Payload),
     Result = #{
-            uid => util_uid:generate_uid(),
+            uid => util_uid:generate_uid(UserAgent),
             phone => Phone,
             name => Name,
             result => ok
@@ -321,7 +321,8 @@ process_register_request(#{raw_phone := RawPhone, name := Name, ua := UserAgent,
         CampaignId = maps:get(campaign_id, RequestData, <<"undefined">>),
         check_ua(UserAgent),
         Phone = normalize_by_version(RawPhone, UserAgent),
-        check_sms_code(Phone, ClientIP, Protocol, Code, RemoteStaticKey),
+        AppType = util_ua:get_app_type(UserAgent),
+        check_sms_code(Phone, AppType, ClientIP, Protocol, Code, RemoteStaticKey),
         ok = otp_checker:otp_delivered(Phone, ClientIP, Protocol, RemoteStaticKey),
         LName = check_name(Name),
         SEdPubBin = base64:decode(SEdPubB64),
@@ -679,9 +680,9 @@ log_otp_request(RawPhone, Method, UserAgent, ClientIP, Protocol) ->
 
 
 %% Throws error if the code is wrong
--spec check_sms_code(phone(), binary(), atom(), binary(), binary()) -> ok.
-check_sms_code(Phone, ClientIP, Protocol, Code, RemoteStaticKey) ->
-    check_excessive_sms_code_attempts(Phone, ClientIP, RemoteStaticKey),
+-spec check_sms_code(phone(), app_type(), binary(), atom(), binary(), binary()) -> ok.
+check_sms_code(Phone, AppType, ClientIP, Protocol, Code, RemoteStaticKey) ->
+    check_excessive_sms_code_attempts(Phone, AppType, ClientIP, RemoteStaticKey),
     IsGoogleAndValid = util_sms:is_google_request(Phone, ClientIP, Protocol) andalso
         Code =:= ?SPECIAL_OTP_GOOGLE,
     IsAppleAndValid = util_sms:is_apple_request(Phone, ClientIP, Protocol) andalso
@@ -691,7 +692,7 @@ check_sms_code(Phone, ClientIP, Protocol, Code, RemoteStaticKey) ->
             ?INFO("Matched OTP for Google/Apple, Phone: ~p, IP: ~p, Code: ~p", [Phone, ClientIP, Code]),
             ok;
         false ->
-            case mod_sms:verify_sms(Phone, Code) of
+            case mod_sms:verify_sms(Phone, AppType, Code) of
                 match -> 
                     ?DEBUG("Code match phone:~s code:~s", [Phone, Code]),
                     ok;
@@ -702,21 +703,21 @@ check_sms_code(Phone, ClientIP, Protocol, Code, RemoteStaticKey) ->
     end.
 
 % Throws error if too many attempts
--spec check_excessive_sms_code_attempts(Phone :: binary(), ClientIP :: binary(), StaticKey :: binary()) -> ok | no_return().
-check_excessive_sms_code_attempts(Phone, IP, StaticKey) ->
+-spec check_excessive_sms_code_attempts(Phone :: binary(), AppType :: app_type(), ClientIP :: binary(), StaticKey :: binary()) -> ok | no_return().
+check_excessive_sms_code_attempts(Phone, AppType, IP, StaticKey) ->
     case util:is_monitor_phone(Phone) of
         true -> ok;
         false ->
-            check_attempts_by_phone(Phone),
+            check_attempts_by_phone(Phone, AppType),
             check_attempts_by_ip(IP),
             check_attempts_by_static_key(StaticKey)
     end,
     ok.
 
 
--spec check_attempts_by_phone(Phone :: binary()) -> ok | no_return().
-check_attempts_by_phone(Phone) ->
-    NumAttempts = model_phone:add_phone_code_attempt(Phone, util:now()),
+-spec check_attempts_by_phone(Phone :: binary(), AppType :: app_type()) -> ok | no_return().
+check_attempts_by_phone(Phone, AppType) ->
+    NumAttempts = model_phone:add_phone_code_attempt(Phone, AppType, util:now()),
     ?INFO("Phone: ~s has made ~p attempts to guess the sms code", [Phone, NumAttempts]),
     MaxSMSAttempts = case util:is_test_number(Phone) of
         true -> ?DEV_MAX_SMS_CODE_ATTEMPTS;

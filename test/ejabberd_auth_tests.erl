@@ -49,14 +49,26 @@ ha_try_register(_) ->
     ?_assert(model_accounts:account_exists(Uid)),
     ?_assert(ejabberd_auth:check_spub(Uid, ?SPUB)),
     ?_assertEqual({ok, ?PHONE}, model_accounts:get_phone(Uid)),
-    ?_assertEqual({ok, Uid}, model_phone:get_uid(?PHONE)),
+    ?_assertEqual({ok, Uid}, model_phone:get_uid(?PHONE, ?HALLOAPP)),
     ?_assertEqual({ok, ?NAME}, model_accounts:get_name(Uid)),
-    ?_assertEqual({ok, ?UA}, model_accounts:get_signup_user_agent(Uid))].
+    ?_assertEqual({ok, ?UA}, model_accounts:get_signup_user_agent(Uid)),
+    ?_assertEqual(?HALLOAPP, util_uid:get_app_type(Uid))].
+
+ka_try_register(_) ->
+    {ok, SPub, Uid} = ejabberd_auth:ha_try_register(?PHONE, ?SPUB, ?NAME, <<"Katchup/iOS1.2.93">>, <<>>),
+    [?_assertEqual(?SPUB, SPub),
+    ?_assert(model_accounts:account_exists(Uid)),
+    ?_assert(ejabberd_auth:check_spub(Uid, ?SPUB)),
+    ?_assertEqual({ok, ?PHONE}, model_accounts:get_phone(Uid)),
+    ?_assertEqual({ok, Uid}, model_phone:get_uid(?PHONE, ?KATCHUP)),
+    ?_assertEqual({ok, ?NAME}, model_accounts:get_name(Uid)),
+    ?_assertEqual({ok, <<"Katchup/iOS1.2.93">>}, model_accounts:get_signup_user_agent(Uid)),
+    ?_assertEqual(?KATCHUP, util_uid:get_app_type(Uid))].
 
 
 try_enroll(_) ->
-    {ok, AttemptId, _} = ejabberd_auth:try_enroll(?PHONE, ?CODE, <<>>),
-    [?_assertEqual({ok, ?CODE}, model_phone:get_sms_code2(?PHONE, AttemptId))].
+    {ok, AttemptId, _} = ejabberd_auth:try_enroll(?PHONE, ?HALLOAPP, ?CODE, <<>>),
+    [?_assertEqual({ok, ?CODE}, model_phone:get_sms_code2(?PHONE, ?HALLOAPP, AttemptId))].
 
 
 user_exists(_) ->
@@ -84,6 +96,7 @@ ejabberd_auth_test_() ->
     [tutil:setup_foreach(fun setup/0, [
         fun check_spub/1,
         fun ha_try_register/1,
+        fun ka_try_register/1,
         fun try_enroll/1,
         fun remove_user/1
         ]),

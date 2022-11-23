@@ -45,7 +45,7 @@ check_accounts_run(Key, State) ->
                 undefined ->
                     ?ERROR("Uid: ~p, Phone is undefined!", [Uid]);
                 _ ->
-                    {ok, PhoneUid} = model_phone:get_uid(Phone),
+                    {ok, PhoneUid} = model_phone:get_uid(Phone, halloapp),
                     case PhoneUid =:= Uid of
                         true -> ok;
                         false ->
@@ -76,7 +76,7 @@ log_account_info_run(Key, State) ->
                     {ok, Friends} = model_friends:get_friends(Uid),
                     {ok, Contacts} = model_contacts:get_contacts(Uid),
                     IsSelfContact = model_contacts:is_contact(Uid, Phone),
-                    UidContacts = model_phone:get_uids(Contacts),
+                    UidContacts = model_phone:get_uids(Contacts, halloapp),
                     case IsSelfContact of
                         true -> NumUidContacts = length(maps:to_list(UidContacts)) - 1;
                         false -> NumUidContacts = length(maps:to_list(UidContacts))
@@ -107,7 +107,7 @@ check_phone_numbers_run(Key, State) ->
     case Result of
         {match, [[_FullKey, Phone]]} ->
             ?INFO("phone number: ~p", [Phone]),
-            {ok, Uid} = model_phone:get_uid(Phone),
+            {ok, Uid} = model_phone:get_uid(Phone, halloapp),
             case Uid of
                 undefined ->
                     ?ERROR("Phone: ~p, Uid is undefined!", [Uid]);
@@ -276,7 +276,7 @@ log_recent_account_info_run2(Key, State) ->
                             {ok, Friends} = model_friends:get_friends(Uid),
                             {ok, Contacts} = model_contacts:get_contacts(Uid),
                             IsSelfContact = model_contacts:is_contact(Uid, Phone),
-                            UidContacts = model_phone:get_uids(Contacts),
+                            UidContacts = model_phone:get_uids(Contacts, halloapp),
                             case IsSelfContact of
                                 true -> NumUidContacts = length(maps:to_list(UidContacts)) - 1;
                                 false -> NumUidContacts = length(maps:to_list(UidContacts))

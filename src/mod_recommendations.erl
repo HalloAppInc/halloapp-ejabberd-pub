@@ -121,7 +121,7 @@ generate_friend_recos(Uid, Phone) ->
             sets:from_list(ReversePhones)
         ])),
     ContactPhones3 = [Phone2 || Phone2 <- ContactPhones2, Phone2 =/= undefined],
-    PhoneToUidMap = model_phone:get_uids(ContactPhones3),
+    PhoneToUidMap = model_phone:get_uids(ContactPhones3, halloapp),
     ContactUids = maps:values(PhoneToUidMap),
     {ok, Friends} = model_friends:get_friends(Uid),
     RealFriends = model_accounts:filter_nonexisting_uids(lists:delete(Uid, Friends)),
@@ -323,7 +323,7 @@ generate_invite_recos(Uid, Ouids) ->
         MainContacts),
 
     CommonContacts = maps:keys(CommonContactsMap),
-    CommonUidsMap = model_phone:get_uids(CommonContacts),
+    CommonUidsMap = model_phone:get_uids(CommonContacts, halloapp),
 
     NewInvites = [{Ph, maps:get(Ph, CommonContactsMap)} || Ph <- CommonContacts, 
             maps:get(Ph, CommonUidsMap, undefined) =:= undefined andalso 

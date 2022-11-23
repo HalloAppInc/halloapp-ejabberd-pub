@@ -115,10 +115,11 @@ process_local_iq(#pb_iq{} = IQ) ->
 log_delete_account(Account, Reason, Feedback) ->
     Platform = Account#account.client_version,
     Uid = Account#account.uid,
+    AppType = util_uid:get_app_type(Uid),
     Phone = Account#account.phone,
     {ok, Friends} = model_friends:get_friends(Uid),
     {ok, Contacts} = model_contacts:get_contacts(Uid),
-    UidContacts = model_phone:get_uids(Contacts),
+    UidContacts = model_phone:get_uids(Contacts, AppType),
     NumContacts = length(Contacts),
     NumUidContacts = length(maps:to_list(UidContacts)),
     NumFriends = length(Friends),

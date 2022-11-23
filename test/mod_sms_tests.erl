@@ -12,6 +12,7 @@
 -include_lib("eunit/include/eunit.hrl").
 -include("sms.hrl").
 -include("logger.hrl").
+-include("ha_types.hrl").
 
 -define(PHONE, <<"14703381473">>).
 -define(TEST_PHONE, <<"16175550000">>).
@@ -59,7 +60,7 @@ choose_other_gateway_test() ->
     tutil:meck_init(mbird_verify, send_sms, fun(_,_,_,_) -> {error, sms_fail, retry} end),
     tutil:meck_init(telesign, send_sms, fun(_,_,_,_) -> {error, sms_fail, retry} end),
     tutil:meck_init(clickatell, send_sms, fun(_,_,_,_) -> {error, sms_fail, retry} end),
-    {error, _, sms_fail} = mod_sms:smart_send(?PHONE, ?PHONE, <<>>, <<>>, sms, <<>>, []),
+    {error, _, sms_fail} = mod_sms:smart_send(?PHONE, ?PHONE, <<>>, <<"HalloApp/iOS1.2.93">>, sms, <<>>, []),
     % check if all gateways were attempted
     ?assert(meck:called(twilio, send_sms, ['_','_','_','_'])),
     ?assert(meck:called(twilio_verify, send_sms, ['_','_','_','_'])),
@@ -84,7 +85,7 @@ choose_other_gateway_test() ->
     tutil:meck_init(telesign, send_sms, fun(_,_,_,_) -> {error, sms_fail, retry} end),
     tutil:meck_init(clickatell, send_sms, fun(_,_,_,_) -> {error, sms_fail, retry} end),
     {ok, #gateway_response{gateway = twilio_verify}} =
-        mod_sms:smart_send(?PHONE, ?PHONE, <<>>, <<>>, sms, <<>>, [TwilGtwy, TVerifyGtwy, MbirdGtwy, MbirdVerifyGtwy, TelesignGtwy, ClickatellGtwy]),
+        mod_sms:smart_send(?PHONE, ?PHONE, <<>>, <<"HalloApp/iOS1.2.93">>, sms, <<>>, [TwilGtwy, TVerifyGtwy, MbirdGtwy, MbirdVerifyGtwy, TelesignGtwy, ClickatellGtwy]),
     ?assert(meck:called(twilio, send_sms, ['_','_','_','_']) orelse
             meck:called(mbird, send_sms, ['_','_','_','_']) orelse
             meck:called(mbird_verify, send_sms, ['_','_','_','_']) orelse
@@ -94,7 +95,7 @@ choose_other_gateway_test() ->
     % Test restricted country gateways
     tutil:meck_init(mod_libphonenumber, get_cc, fun(_) -> <<"CN">> end),
     {ok, #gateway_response{gateway = twilio_verify}} =
-        mod_sms:smart_send(?PHONE, ?PHONE, <<>>, <<>>, sms, <<>>, []),
+        mod_sms:smart_send(?PHONE, ?PHONE, <<>>, <<"HalloApp/iOS1.2.93">>, sms, <<>>, []),
     tutil:meck_finish(mod_libphonenumber),
     tutil:meck_finish(clickatell),
     tutil:meck_finish(telesign),
@@ -106,22 +107,26 @@ choose_other_gateway_test() ->
 
 
 disable_otp_after_success_test() ->
-    {ok, AttemptId1, _} = model_phone:add_sms_code2(?PHONE, ?CODE1),
-    ok = model_phone:add_gateway_response(?PHONE, AttemptId1,
+    {ok, AttemptId1, _} = model_phone:add_sms_code2(?PHONE, ?KATCHUP, ?CODE1),
+    ok = model_phone:add_gateway_response(?PHONE, ?KATCHUP, AttemptId1,
         #gateway_response{gateway = twilio, gateway_id = ?SID1, status = sent}),
     %% Sleep for 1 seconds so the timestamp for Attempt1 and Attempt2 is different.
     timer:sleep(timer:seconds(1)),
-    {ok, AttemptId2, _} = model_phone:add_sms_code2(?PHONE, ?CODE2),
-    ok = model_phone:add_gateway_response(?PHONE, AttemptId2,
+    {ok, AttemptId2, _} = model_phone:add_sms_code2(?PHONE, ?KATCHUP, ?CODE2),
+    ok = model_phone:add_gateway_response(?PHONE, ?KATCHUP, AttemptId2,
         #gateway_response{gateway = twilio, gateway_id = ?SID2, status = sent}),
-    ?assertEqual(match, mod_sms:verify_sms(?PHONE, ?CODE1)),
-    ?assertEqual(match, mod_sms:verify_sms(?PHONE, ?CODE1)),
-    ?assertEqual(match, mod_sms:verify_sms(?PHONE, ?CODE2)),
+    ?assertEqual(match, mod_sms:verify_sms(?PHONE, ?KATCHUP, ?CODE1)),
+    ?assertEqual(match, mod_sms:verify_sms(?PHONE, ?KATCHUP, ?CODE1)),
+    ?assertEqual(match, mod_sms:verify_sms(?PHONE, ?KATCHUP, ?CODE2)),
+    ?assertEqual(nomatch, mod_sms:verify_sms(?PHONE, ?HALLOAPP, ?CODE1)),
+    ?assertEqual(nomatch, mod_sms:verify_sms(?PHONE, ?HALLOAPP, ?CODE2)),
 
     %% Invalidate old codes.
-    ok = model_phone:invalidate_old_attempts(?PHONE),
-    ?assertEqual(nomatch, mod_sms:verify_sms(?PHONE, ?CODE1)),
-    ?assertEqual(nomatch, mod_sms:verify_sms(?PHONE, ?CODE2)),
+    ok = model_phone:invalidate_old_attempts(?PHONE, ?KATCHUP),
+    ?assertEqual(nomatch, mod_sms:verify_sms(?PHONE, ?KATCHUP, ?CODE1)),
+    ?assertEqual(nomatch, mod_sms:verify_sms(?PHONE, ?KATCHUP, ?CODE2)),
+    ?assertEqual(nomatch, mod_sms:verify_sms(?PHONE, ?HALLOAPP, ?CODE1)),
+    ?assertEqual(nomatch, mod_sms:verify_sms(?PHONE, ?HALLOAPP, ?CODE2)),
     ok.
 
 max_weight_selection_test() ->

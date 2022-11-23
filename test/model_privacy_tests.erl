@@ -9,6 +9,7 @@
 -author('murali').
 
 -include("account.hrl").
+-include("ha_types.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
 -define(UID1, <<"1">>).
@@ -28,8 +29,8 @@ setup() ->
     tutil:setup(),
     ha_redis:start(),
     clear(),
-    model_phone:add_phone(?PHONE1, ?UID1),
-    model_phone:add_phone(?PHONE2, ?UID2),
+    model_phone:add_phone(?PHONE1, ?HALLOAPP, ?UID1),
+    model_phone:add_phone(?PHONE2, ?HALLOAPP, ?UID2),
     ok.
 
 clear() ->
@@ -310,7 +311,7 @@ block_phone2_test() ->
     ?assertEqual({ok, [?UID2]}, model_privacy:get_blocked_uids2(?UID1)),
     ?assertEqual({ok, [?UID1]}, model_privacy:get_blocked_by_uids2(?UID2)),
 
-    ok = model_phone:add_phone(?UID3, ?PHONE3),
+    ok = model_phone:add_phone(?UID3, ?HALLOAPP, ?PHONE3),
     ?assertEqual(ok, model_privacy:register_user(?UID3, ?PHONE3)),
     ?assertEqual({ok, [?UID2, ?UID3]}, model_privacy:get_blocked_uids2(?UID1)),
     ?assertEqual({ok, [?UID1]}, model_privacy:get_blocked_by_uids2(?UID3)),

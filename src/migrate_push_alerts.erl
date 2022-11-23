@@ -104,7 +104,7 @@ log_account_info(Key, State) ->
                     {ok, Friends} = model_friends:get_friends(Uid),
                     {ok, Contacts} = model_contacts:get_contacts(Uid),
                     IsSelfContact = model_contacts:is_contact(Uid, Phone),
-                    UidContacts = model_phone:get_uids(Contacts),
+                    UidContacts = model_phone:get_uids(Contacts, halloapp),
                     case IsSelfContact of
                         true -> NumUidContacts = length(maps:to_list(UidContacts)) - 1;
                         false -> NumUidContacts = length(maps:to_list(UidContacts))

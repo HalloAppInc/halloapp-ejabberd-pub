@@ -552,7 +552,7 @@ normalize_contacts(UserId, Contacts, UserRegionId) ->
 -spec obtain_user_ids(NormContacts :: [pb_contact()]) -> {[pb_contact()], [pb_contact()]}.
 obtain_user_ids(NormContacts) ->
     ContactPhones = extract_normalized(NormContacts),
-    PhoneUidsMap = model_phone:get_uids(ContactPhones),
+    PhoneUidsMap = model_phone:get_uids(ContactPhones, halloapp),
     lists:foldl(
         fun(#pb_contact{normalized = ContactPhone} = Contact, {UnRegAcc, RegAcc}) ->
             ContactId = maps:get(ContactPhone, PhoneUidsMap, undefined),
@@ -749,7 +749,7 @@ remove_contacts_and_notify(UserId, UserPhone, ContactPhones, ReverseContactSet, 
         IsAccountDeleted :: boolean()) -> ok.
 remove_contact_and_notify(UserId, _UserPhone, ContactPhone, ReverseContactSet, IsAccountDeleted) ->
     Server = util:get_host(),
-    {ok, ContactId} = model_phone:get_uid(ContactPhone),
+    {ok, ContactId} = model_phone:get_uid(ContactPhone, halloapp),
     stat:count("HA/contacts", "remove_contact"),
     case ContactId of
         undefined ->

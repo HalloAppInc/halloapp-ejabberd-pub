@@ -1,6 +1,7 @@
 -ifndef(TUTIL_HRL).
 -define(TUTIL_HRL, 1).
 
+-include("ha_types.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
 % This directive is the magic that auto-exports and calls all functions ending in _testset

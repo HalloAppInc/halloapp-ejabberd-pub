@@ -23,7 +23,7 @@
     send_voice_call/4,
     send_feedback/2,
     get_api_secret/0,
-    verify_code/3,
+    verify_code/4,
     verify_code_internal/3
 ]).
 
@@ -127,14 +127,14 @@ compose_body(Phone, LangId) ->
 send_feedback(_Phone, _AllVerifyInfo) ->
     ok. 
 
--spec verify_code(Phone :: phone(), Code :: binary(), AllVerifyInfo :: [verification_info()])
+-spec verify_code(Phone :: phone(), AppType :: app_type(), Code :: binary(), AllVerifyInfo :: [verification_info()])
         -> {match, verification_info()} | nomatch.
-verify_code(Phone, Code, AllVerifyInfo) ->
+verify_code(Phone, AppType, Code, AllVerifyInfo) ->
     case find_matching_attempt(Phone, Code, AllVerifyInfo) of
         false ->
             nomatch;
         {value, Match} ->
-            ok = model_phone:update_sms_code(Phone, Code, Match#verification_info.attempt_id),
+            ok = model_phone:update_sms_code(Phone, AppType, Code, Match#verification_info.attempt_id),
             {match, Match}
     end.
 

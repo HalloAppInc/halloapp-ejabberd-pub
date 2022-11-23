@@ -105,11 +105,13 @@ handle_call({remove_uid, Uid}, _From, State) ->
     {reply, ok, State};
 
 handle_call({add_phone, Phone}, _From, State) ->
-    add_phone_internal(Phone),
+    add_phone_internal(Phone, halloapp),
+    add_phone_internal(Phone, katchup),
     {reply, ok, State};
 
 handle_call({remove_phone, Phone}, _From, State) ->
-    remove_phone_internal(Phone),
+    remove_phone_internal(Phone, halloapp),
+    remove_phone_internal(Phone, katchup),
     {reply, ok, State};
 
 handle_call({start_trace, Uid}, _From, State) ->
@@ -181,10 +183,10 @@ remove_uid_internal(Uid) ->
 add_phone(Phone) ->
     gen_server:call(?PROC(), {add_phone, Phone}).
 
-add_phone_internal(Phone) ->
+add_phone_internal(Phone, AppType) ->
     ?INFO("Phone: ~s", [Phone]),
-    {ok, Uid} = model_phone:get_uid(Phone),
-    ?INFO("currently we have Uid: ~s registered with Phone: ~s", [Uid, Phone]),
+    {ok, Uid} = model_phone:get_uid(Phone, AppType),
+    ?INFO("currently we have Uid: ~s registered with Phone: ~s, AppType: ~s", [Uid, Phone, AppType]),
     model_accounts:add_phone_to_trace(Phone),
     case Uid of
         undefined ->
@@ -197,10 +199,10 @@ add_phone_internal(Phone) ->
 remove_phone(Phone) ->
     gen_server:call(?PROC(), {remove_phone, Phone}).
 
-remove_phone_internal(Phone) ->
+remove_phone_internal(Phone, AppType) ->
     ?INFO("Phone: ~s", [Phone]),
-    {ok, Uid} = model_phone:get_uid(Phone),
-    ?INFO("currently we have Uid: ~s registered with Phone: ~s", [Uid, Phone]),
+    {ok, Uid} = model_phone:get_uid(Phone, AppType),
+    ?INFO("currently we have Uid: ~s registered with Phone: ~s, AppType: ~p", [Uid, Phone, AppType]),
     model_accounts:remove_phone_from_trace(Phone),
     case Uid of
         undefined ->

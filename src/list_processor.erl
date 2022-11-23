@@ -69,7 +69,7 @@ remove_user(Uid) ->
 -spec validate_phone(PhoneInt :: integer()) -> boolean().
 validate_phone(PhoneInt) ->
     Phone = integer_to_binary(PhoneInt),
-    case model_phone:get_uid(Phone) of
+    case model_phone:get_uid(Phone, halloapp) of
         {ok, undefined} ->
             ?INFO("No Uid for: ~p", [Phone]),
             false;

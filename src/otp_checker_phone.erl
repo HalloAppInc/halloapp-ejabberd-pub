@@ -10,6 +10,7 @@
 -author("nikola").
 -behavior(otp_checker).
 
+-incldue("ha_types.hrl").
 -include("logger.hrl").
 -include("sms.hrl").
 
@@ -21,8 +22,9 @@
 ]).
 
 
-check_otp_request(Phone, _IP, _UserAgent, Method, _Protocol, _RemoteStaticKey) ->
-    case check_otp_request_too_soon(Phone, Method) of
+check_otp_request(Phone, _IP, UserAgent, Method, _Protocol, _RemoteStaticKey) ->
+    AppType = util_ua:get_app_type(UserAgent),
+    case check_otp_request_too_soon(Phone, AppType, Method) of
         false -> ok;
         block -> {block, voice_call_before_sms, undefined};
         {true, Seconds} -> {error, retried_too_soon, Seconds}
@@ -32,8 +34,8 @@ otp_delivered(_Phone, _ClientIP, _Protocol, _RemoteStaticKey) ->
     ok.
 
 
--spec check_otp_request_too_soon(Phone :: binary(), Method :: atom()) -> block | false | {true, integer()}.
-check_otp_request_too_soon(Phone, Method) ->
+-spec check_otp_request_too_soon(Phone :: binary(), AppType :: app_type(), Method :: atom()) -> block | false | {true, integer()}.
+check_otp_request_too_soon(Phone, AppType, Method) ->
     Check = case {config:get_hallo_env(), util:is_test_number(Phone)} of
         {prod, true} -> check;
         {prod, _} -> check;
@@ -43,7 +45,7 @@ check_otp_request_too_soon(Phone, Method) ->
     case Check of
         ok -> false;
         check ->
-            {ok, OldResponses} = model_phone:get_all_gateway_responses(Phone),
+            {ok, OldResponses} = model_phone:get_all_gateway_responses(Phone, AppType),
             is_too_soon(Method, OldResponses)
     end.
 

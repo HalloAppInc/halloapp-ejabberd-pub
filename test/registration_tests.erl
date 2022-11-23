@@ -29,6 +29,11 @@
 -define(NAME11, <<"Elon Musk11">>).
 -define(NAME12, <<"Elon Spammer12">>).
 
+
+%% TODO: This file assumes everything is running in halloapp.
+%% Since the default useragent in ha_client and registration_client is halloapp.
+%% Should fix this.
+
 %% Noise related definitions.
 -define(CURVE_KEY_TYPE, dh25519).
 -record(kp,
@@ -189,7 +194,7 @@ request_and_verify_otp_noise_test(_Conf) ->
     ?assertEqual(ExpectedResponse, ActualResponse),
 
     %% Compose VerifyOtpRequest
-    OtpCode = case model_phone:get_all_verification_info(Phone) of
+    OtpCode = case model_phone:get_all_verification_info(Phone, ?HALLOAPP) of
         {ok, []} -> undefined;
         {ok, [#verification_info{code = Code} | _]} -> Code
     end,
@@ -249,7 +254,7 @@ request_and_verify_otp_noise2_test(_Conf) ->
     ha_client:stop(Client),
 
     %% Compose VerifyOtpRequest
-    OtpCode = case model_phone:get_all_verification_info(Phone) of
+    OtpCode = case model_phone:get_all_verification_info(Phone, ?HALLOAPP) of
         {ok, []} -> undefined;
         {ok, [#verification_info{code = Code} | _]} -> Code
     end,
@@ -307,7 +312,7 @@ request_and_verify_otp_noise3_test(_Conf) ->
     ha_client:stop(Client),
 
     %% Compose VerifyOtpRequest
-    OtpCode = case model_phone:get_all_verification_info(Phone) of
+    OtpCode = case model_phone:get_all_verification_info(Phone, ?HALLOAPP) of
         {ok, []} -> undefined;
         {ok, [#verification_info{code = Code} | _]} -> Code
     end,
@@ -443,7 +448,7 @@ verify_otp_fail_noise_test(_Conf) ->
     ?assertEqual(wrong_sms_code, Response2#pb_verify_otp_response.reason),
 
     VerifyOtpOptions2 = #{name => Name, static_key => SEdPub, signed_phrase => <<>>},
-    OtpCode = case model_phone:get_all_verification_info(Phone) of
+    OtpCode = case model_phone:get_all_verification_info(Phone, ?HALLOAPP) of
         {ok, []} -> undefined;
         {ok, [#verification_info{code = Code} | _]} -> Code
     end,
@@ -486,7 +491,7 @@ too_many_phone_attempts_register_test(_Conf) ->
 
     % trying the right code should fail
     {ok, SMSErr} = registration_client:register(?PHONE12, <<"111111">>, ?NAME12, #{}),
-    ?assertEqual({ok, undefined}, model_phone:get_uid(?PHONE12)),
+    ?assertEqual({ok, undefined}, model_phone:get_uid(?PHONE12, ?HALLOAPP)),
     tutil:meck_finish(mod_halloapp_http_api),
     ok.
 
@@ -510,7 +515,7 @@ too_many_ip_attempts_register_test(_Conf) ->
 
     % trying the right code should fail
     {ok, SMSErr} = registration_client:register(?PHONE13, <<"111111">>, ?NAME11, #{}),
-    ?assertEqual({ok, undefined}, model_phone:get_uid(?PHONE13)),
+    ?assertEqual({ok, undefined}, model_phone:get_uid(?PHONE13, ?HALLOAPP)),
     tutil:meck_finish(mod_halloapp_http_api),
     ok.
 
@@ -530,6 +535,6 @@ too_many_static_key_attempts_register_test(_Conf) ->
 
     % trying the right code should fail
     {ok, SMSErr} = registration_client:register(?PHONE14, <<"111111">>, ?NAME11, #{}),
-    ?assertEqual({ok, undefined}, model_phone:get_uid(?PHONE14)),
+    ?assertEqual({ok, undefined}, model_phone:get_uid(?PHONE14, ?HALLOAPP)),
     tutil:meck_finish(mod_halloapp_http_api),
     ok.

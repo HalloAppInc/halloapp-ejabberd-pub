@@ -134,18 +134,19 @@ check_sms_reg_internal(_TimeWindow, FinalIncrement, FinalIncrement) ->
     ?DEBUG("Stopping"),
     ok;
 
+%% TODO: Split up based on apptype.
 check_sms_reg_internal(TimeWindow, IncrementalTimestamp, FinalIncrement) ->
     ?INFO("~p Processing time slot: ~p, increment: ~p", [TimeWindow,
             IncrementalTimestamp, FinalIncrement]),
     IncrementalAttemptList = model_phone:get_incremental_attempt_list(IncrementalTimestamp),
     lists:foreach(
-        fun({Phone, AttemptId})  ->
-            ?DEBUG("Checking Phone: ~p, AttemptId: ~p", [Phone, AttemptId]),
+        fun({Phone, AppType, AttemptId})  ->
+            ?DEBUG("Checking Phone: ~p, AppType: ~p, AttemptId: ~p", [Phone, AppType, AttemptId]),
             case util:is_test_number(Phone) orelse util:is_google_number(Phone) of
                 true ->
                     ok;
                 false ->
-                    do_check_sms_reg(TimeWindow, Phone, AttemptId)
+                    do_check_sms_reg(TimeWindow, Phone, AppType, AttemptId)
             end
         end, IncrementalAttemptList),
     check_sms_reg_internal(TimeWindow, IncrementalTimestamp - 1, FinalIncrement).
@@ -183,8 +184,8 @@ process_incremental_scoring_data(CurrentIncrement, NumExaminedIncrements, IsNew)
     IncRequired = NumExaminedIncrements < ?MIN_SCORING_INTERVAL_COUNT,
     IncrementMap = #{must_inc => IncRequired},
     lists:foldl(
-        fun({Phone, AttemptId}, AccIncMap)  ->
-            process_attempt_score(Phone, AttemptId, AccIncMap, IsNew)
+        fun({Phone, AppType, AttemptId}, AccIncMap)  ->
+            process_attempt_score(Phone, AppType, AttemptId, AccIncMap, IsNew)
         end, IncrementMap, IncrementalAttemptList),
     case IsNew of
         false -> ok;
@@ -229,22 +230,23 @@ any_key_needs_data('$end_of_table') -> false;
 any_key_needs_data(Key) -> needs_more_data(Key) orelse any_key_needs_data(ets:next(?SCORE_DATA_TABLE,Key)).
 
 
--spec process_attempt_score(Phone :: phone(), AttemptId :: binary(), IncrementMap :: map(), IsNew :: boolean()) -> map().
-process_attempt_score(Phone, AttemptId, IncrementMap, IsNew) -> 
+-spec process_attempt_score(Phone :: phone(), AppType :: app_type(), AttemptId :: binary(), IncrementMap :: map(), IsNew :: boolean()) -> map().
+process_attempt_score(Phone, AppType, AttemptId, IncrementMap, IsNew) -> 
     ?DEBUG("Checking Phone: ~p, AttemptId: ~p", [Phone, AttemptId]),
     IncrementMap2 = case util:is_test_number(Phone) orelse util:is_google_number(Phone) of
         true ->
             IncrementMap;
         false ->
-            process_scoring_datum(Phone, AttemptId, IncrementMap, IsNew)
+            process_scoring_datum(Phone, AppType, AttemptId, IncrementMap, IsNew)
     end,
     IncrementMap2.
 
 
--spec process_scoring_datum(Phone :: phone(), AttemptId :: binary(), IncrementMap :: map(), IsNew :: boolean()) -> map().
-process_scoring_datum(Phone, AttemptId, IncrementMap, IsNew) ->
+%% TODO: Fix this file to use apptype properly.
+-spec process_scoring_datum(Phone :: phone(), AppType :: app_type(), AttemptId :: binary(), IncrementMap :: map(), IsNew :: boolean()) -> map().
+process_scoring_datum(Phone, AppType, AttemptId, IncrementMap, IsNew) ->
     CC = mod_libphonenumber:get_cc(Phone),
-    SMSResponse = model_phone:get_verification_attempt_summary(Phone, AttemptId),
+    SMSResponse = model_phone:get_verification_attempt_summary(Phone, AppType, AttemptId),
     #gateway_response{gateway = Gateway, status = _Status, verified = Success} = SMSResponse,
     GatewayCC = case get_gwcc_atom(Gateway, CC) of
         {ok, GWCC} -> GWCC;
@@ -281,10 +283,10 @@ process_scoring_datum(Phone, AttemptId, IncrementMap, IsNew) ->
     IncrementMap3.
 
 
--spec do_check_sms_reg(TimeWindow :: atom(), Phone :: phone(),AttemptId :: binary()) -> ok.
-do_check_sms_reg(TimeWindow, Phone, AttemptId) ->
+-spec do_check_sms_reg(TimeWindow :: atom(), Phone :: phone(), AppType :: app_type(), AttemptId :: binary()) -> ok.
+do_check_sms_reg(TimeWindow, Phone, AppType, AttemptId) ->
     CC = mod_libphonenumber:get_cc(Phone),
-    SMSResponse = model_phone:get_verification_attempt_summary(Phone, AttemptId),
+    SMSResponse = model_phone:get_verification_attempt_summary(Phone, AppType, AttemptId),
     #gateway_response{gateway = Gateway, status = Status,
             verified = Success} = SMSResponse,
     report_stat(TimeWindow, "otp_attempt", Gateway, CC, Status),

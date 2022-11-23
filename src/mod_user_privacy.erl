@@ -489,7 +489,7 @@ remove_phones_from_privacy_list(Uid, mute, Phones) ->
     stat:count(?STAT_PRIVACY, "unmute_phones", length(Phones)),
     ok;
 remove_phones_from_privacy_list(Uid, block, Phones) ->
-    Ouids = maps:values(model_phone:get_uids(Phones)),
+    Ouids = maps:values(model_phone:get_uids(Phones, halloapp)),
     model_privacy:unblock_phones(Uid, Phones),
     stat:count(?STAT_PRIVACY, "unblock_phones", length(Phones)),
     Server = util:get_host(),
@@ -512,7 +512,7 @@ add_phones_to_privacy_list(Uid, mute, Phones) ->
     stat:count(?STAT_PRIVACY, "mute_phones", length(Phones)),
     ok;
 add_phones_to_privacy_list(Uid, block, Phones) ->
-    Ouids = maps:values(model_phone:get_uids(Phones)),
+    Ouids = maps:values(model_phone:get_uids(Phones, halloapp)),
     model_privacy:block_phones(Uid, Phones),
     stat:count(?STAT_PRIVACY, "block_phones", length(Phones)),
     Server = util:get_host(),

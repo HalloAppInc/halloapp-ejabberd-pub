@@ -15,6 +15,7 @@
 -include("whisper.hrl").
 -include("sms.hrl").
 -include("groups.hrl").
+-include("ha_types.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
 -define(UID, <<"1000000000332736727">>).
@@ -62,19 +63,19 @@ request_and_check_sms_code_test() ->
     setup(),
     tutil:meck_init(ejabberd_router, is_my_host, fun(_) -> true end),
     tutil:meck_init(twilio_verify, send_feedback, fun(_,_) -> ok end),
-    ?assertError(wrong_sms_code, mod_halloapp_http_api:check_sms_code(?TEST_PHONE, ?IP1, noise, ?SMS_CODE, ?STATIC_KEY)),
+    ?assertError(wrong_sms_code, mod_halloapp_http_api:check_sms_code(?TEST_PHONE, ?HALLOAPP, ?IP1, noise, ?SMS_CODE, ?STATIC_KEY)),
     {ok, _, _} = mod_sms:request_sms(?TEST_PHONE, ?UA),
-    ?assertError(wrong_sms_code, mod_halloapp_http_api:check_sms_code(?TEST_PHONE, ?IP1, noise, ?BAD_SMS_CODE, ?STATIC_KEY)),
-    ?assertEqual(ok, mod_halloapp_http_api:check_sms_code(?TEST_PHONE, ?IP1, noise, ?SMS_CODE, ?STATIC_KEY)),
+    ?assertError(wrong_sms_code, mod_halloapp_http_api:check_sms_code(?TEST_PHONE, ?HALLOAPP, ?IP1, noise, ?BAD_SMS_CODE, ?STATIC_KEY)),
+    ?assertEqual(ok, mod_halloapp_http_api:check_sms_code(?TEST_PHONE, ?HALLOAPP, ?IP1, noise, ?SMS_CODE, ?STATIC_KEY)),
     tutil:meck_finish(twilio_verify),
     tutil:meck_finish(ejabberd_router).
 
 
 check_empty_inviter_list_test() ->
     setup(),
-    ?assertEqual({ok, 30, false}, mod_sms:send_otp_to_inviter(?TEST_PHONE, undefined, undefined, undefined)),
+    ?assertEqual({ok, 30, false}, mod_sms:send_otp_to_inviter(?TEST_PHONE, undefined, <<"HalloApp/iOS1.2.93">>, undefined)),
     % making sure something got stored in the db
-    {ok, [_PhoneVerification]} = model_phone:get_all_verification_info(?TEST_PHONE),
+    {ok, [_PhoneVerification]} = model_phone:get_all_verification_info(?TEST_PHONE, ?HALLOAPP),
     ok.
 
 

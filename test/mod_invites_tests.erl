@@ -61,7 +61,7 @@ get_invites_testparallel(_) ->
 % tests existing_user error
 send_invites_error3_testparallel(_) ->
     ok = model_accounts:create_account(?UID2, ?PHONE2, ?NAME2, ?USER_AGENT2),
-    ok = model_phone:add_phone(?PHONE2, ?UID2),
+    ok = model_phone:add_phone(?PHONE2, ?HALLOAPP, ?UID2),
     Actual = mod_invites:process_local_iq(create_invite_iq(?UID1)),
     Expected = [
         #pb_invite{phone = ?PHONE2, result = <<"failed">>, reason = <<"existing_user">>},
@@ -162,7 +162,7 @@ time_until_refresh2_test() ->
 % tests the existing_user error of the request_invite function
 request_invite_error1_testset(_) ->
     ok = model_accounts:create_account(?UID2, ?PHONE2, ?NAME2, ?USER_AGENT2),
-    ok = model_phone:add_phone(?PHONE2, ?UID2),
+    ok = model_phone:add_phone(?PHONE2, ?HALLOAPP, ?UID2),
     InvReq = mod_invites:request_invite(?UID1, ?PHONE2),
     InvRem = mod_invites:get_invites_remaining(?UID1),
     [?_assertEqual({?PHONE2, failed, existing_user}, InvReq),

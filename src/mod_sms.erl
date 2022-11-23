@@ -45,7 +45,7 @@
     request_sms/2,
     request_otp/5,
 %%    check_otp_request_too_soon/2,
-    verify_sms/2,
+    verify_sms/3,
     find_next_ts/1,
     % TODO: move all the testing ones to the -ifdef(TEST)
 %%    is_too_soon/2,  %% for testing
@@ -91,11 +91,12 @@ mod_options(_Host) ->
 %% and allow codes to be valid as long as client is using the same noise-pubkey.
 -spec on_user_first_login(Uid :: uid(), Server :: binary()) -> ok.
 on_user_first_login(Uid, _Server) ->
+    AppType = util_uid:get_app_type(Uid),
     %% This hook is run on a successful login after every registration.
     case model_accounts:get_phone(Uid) of
         {ok, Phone} ->
-            ok = model_phone:invalidate_old_attempts(Phone),
-            ?INFO("Uid: ~s Phone: ~s invalidate_old_attempts", [Uid, Phone]);
+            ok = model_phone:invalidate_old_attempts(Phone, AppType),
+            ?INFO("Uid: ~s Phone: ~s AppType: ~p invalidate_old_attempts", [Uid, Phone, AppType]);
         {error, missing} ->
             ?ERROR("Uid: ~s missing_phone", [Uid])
     end,
@@ -110,24 +111,25 @@ request_sms(Phone, UserAgent) ->
     CampaignId :: binary()) ->
     {ok, non_neg_integer(), boolean()} | {error, term()}.
 request_otp(Phone, LangId, UserAgent, Method, CampaignId) ->
+    AppType = util_ua:get_app_type(UserAgent),
     case {config:get_hallo_env(), util:is_test_number(Phone)} of
         {prod, true} -> send_otp_to_inviter(Phone, LangId, UserAgent, Method);
         {prod, _} -> send_otp(Phone, LangId, Phone, UserAgent, Method, CampaignId);
         {stress, _} -> send_otp(Phone, LangId, Phone, UserAgent, Method, CampaignId);
-        {_,_} -> just_enroll(Phone)
+        {_,_} -> just_enroll(Phone, AppType)
     end.
 
 
 % Just generate and store code for this user. Mostly called for test phones or in localhost/test
--spec just_enroll(Phone :: binary()) -> {ok, integer(), boolean()}.
-just_enroll(Phone) ->
-    {ok, _NewAttemptId, _Timestamp} = ejabberd_auth:try_enroll(Phone, generate_code(Phone), <<>>),
+-spec just_enroll(Phone :: binary(), AppType :: app_type()) -> {ok, integer(), boolean()}.
+just_enroll(Phone, AppType) ->
+    {ok, _NewAttemptId, _Timestamp} = ejabberd_auth:try_enroll(Phone, AppType, generate_code(Phone), <<>>),
     {ok, 30, false}.
 
 
--spec verify_sms(Phone :: phone(), Code :: binary()) -> match | nomatch.
-verify_sms(Phone, Code) ->
-    {ok, AllVerifyInfo} = model_phone:get_all_verification_info(Phone),
+-spec verify_sms(Phone :: phone(), AppType :: app_type(), Code :: binary()) -> match | nomatch.
+verify_sms(Phone, AppType, Code) ->
+    {ok, AllVerifyInfo} = model_phone:get_all_verification_info(Phone, AppType),
     case lists:search(
         fun(FetchedInfo) ->
             #verification_info{status = Status, gateway = Gateway, code = FetchedCode} = FetchedInfo,
@@ -138,25 +140,25 @@ verify_sms(Phone, Code) ->
             false -> lists:foldl(fun(ExtCodeGW, DidMatch) ->
                     case DidMatch of
                         match -> match;
-                        nomatch -> case ExtCodeGW:verify_code(Phone, Code, AllVerifyInfo) of
+                        nomatch -> case ExtCodeGW:verify_code(Phone, AppType, Code, AllVerifyInfo) of
                             nomatch -> nomatch;
-                            {match, ExtCodeMatch} -> add_verification_success(Phone, ExtCodeMatch, AllVerifyInfo)
+                            {match, ExtCodeMatch} -> add_verification_success(Phone, AppType, ExtCodeMatch, AllVerifyInfo)
                         end
                     end
                end, nomatch, sms_gateway_list:external_code_gateways());
             {value, FetchedInfo} ->
-                add_verification_success(Phone, FetchedInfo, AllVerifyInfo)
+                add_verification_success(Phone, AppType, FetchedInfo, AllVerifyInfo)
     end.
 
 
--spec add_verification_success(Phone :: phone(), FetchedInfo :: verification_info(),
+-spec add_verification_success(Phone :: phone(), AppType :: app_type(), FetchedInfo :: verification_info(),
         AllVerifyInfo :: [verification_info()]) -> match.
-add_verification_success(Phone, FetchedInfo, AllVerifyInfo) ->
+add_verification_success(Phone, AppType, FetchedInfo, AllVerifyInfo) ->
     case util:is_monitor_phone(Phone) of
         true -> match;
         false ->
             #verification_info{attempt_id = AttemptId, gateway = Gateway} = FetchedInfo,
-            ok = model_phone:add_verification_success(Phone, AttemptId),
+            ok = model_phone:add_verification_success(Phone, AppType, AttemptId),
             stat:count("HA/registration", "verify_sms", 1,
                 [{gateway, Gateway}, {cc, mod_libphonenumber:get_cc(Phone)}]),
             GatewayAtom = util:to_atom(Gateway),
@@ -177,21 +179,22 @@ add_verification_success(Phone, FetchedInfo, AllVerifyInfo) ->
 -spec send_otp_to_inviter (Phone :: phone(), LangId :: binary(), UserAgent :: binary(), Method ::
     atom()) -> {ok, non_neg_integer(), boolean()} | {error, term()}.
 send_otp_to_inviter(Phone, LangId, UserAgent, Method)->
+    AppType = util_ua:get_app_type(UserAgent),
     {ok, InvitersList} = model_invites:get_inviters_list(Phone),
     case InvitersList of
         [] ->
             ?INFO("No inviter of phone: ~s", [Phone]),
-            just_enroll(Phone);
+            just_enroll(Phone, AppType);
         _ ->
             {Uid, _} = lists:last(InvitersList),
             case model_accounts:get_phone(Uid) of
                 {error, missing} ->
                     ?ERROR("Missing phone of uid: ~s", [Uid]),
-                    just_enroll(Phone);
+                    just_enroll(Phone, AppType);
                 {ok, InviterPhone} ->
                     case test_users:is_test_uid(Uid) of
                         true -> send_otp(InviterPhone, LangId, Phone, UserAgent, Method, <<"undefined">>);
-                        false -> just_enroll(Phone)
+                        false -> just_enroll(Phone, AppType)
                     end
             end
     end. 
@@ -199,7 +202,8 @@ send_otp_to_inviter(Phone, LangId, UserAgent, Method)->
 -spec send_otp(OtpPhone :: phone(), LangId :: binary(), Phone :: phone(), UserAgent :: binary(),
         Method :: method(), CampaignId :: binary()) -> {ok, non_neg_integer(), boolean()} | {error, term()}.
 send_otp(OtpPhone, LangId, Phone, UserAgent, Method, CampaignId) ->
-    {ok, OldResponses} = model_phone:get_all_gateway_responses(Phone),
+    AppType = util_ua:get_app_type(UserAgent),
+    {ok, OldResponses} = model_phone:get_all_gateway_responses(Phone, AppType),
     stat:count("HA/registration", "send_otp"),
     stat:count("HA/registration", "send_otp_by_cc", 1,
         [{cc, mod_libphonenumber:get_cc(Phone)}]),
@@ -210,7 +214,7 @@ send_otp(OtpPhone, LangId, Phone, UserAgent, Method, CampaignId) ->
         {ok, SMSResponse} ->
             ?INFO("Response: ~p", [SMSResponse]),
             #gateway_response{attempt_id = NewAttemptId, attempt_ts = Timestamp} = SMSResponse,
-            model_phone:add_gateway_response(Phone, NewAttemptId, SMSResponse),
+            model_phone:add_gateway_response(Phone, AppType, NewAttemptId, SMSResponse),
             AllResponses = OldResponses ++ [SMSResponse],
             NextTs = find_next_ts(AllResponses),
             IsUndelivered = lists:any(fun(#gateway_response{status = Status}) ->
@@ -375,6 +379,7 @@ filter_gateways(CC, Method, GatewayList) ->
         {error, Gateway :: atom(), sms_fail | voice_call_fail | call_fail | tts_fail}.
 smart_send(OtpPhone, Phone, LangId, UserAgent, Method, CampaignId, OldResponses) ->
     CC = mod_libphonenumber:get_cc(OtpPhone),
+    AppType = util_ua:get_app_type(UserAgent),
 
     {IsFirstAttempt, ChooseFromList} = generate_gateway_list(CC, Method, OldResponses),
 
@@ -401,7 +406,7 @@ smart_send(OtpPhone, Phone, LangId, UserAgent, Method, CampaignId, OldResponses)
     ?INFO("Enrolling: ~s Using Phone: ~s CC: ~s Chosen Gateway: ~p to send ~p Code: ~s",
         [Phone, OtpPhone, CC, PickedGateway2, Method, Code]),
         
-    {ok, NewAttemptId, Timestamp} = ejabberd_auth:try_enroll(Phone, Code, CampaignId),
+    {ok, NewAttemptId, Timestamp} = ejabberd_auth:try_enroll(Phone, AppType, Code, CampaignId),
     CurrentSMSResponse = #gateway_response{attempt_id = NewAttemptId,
         attempt_ts = Timestamp, method = Method, gateway = PickedGateway2},
     smart_send_internal(OtpPhone, Code, LangId, UserAgent, CC, CurrentSMSResponse, ChooseFromList).
