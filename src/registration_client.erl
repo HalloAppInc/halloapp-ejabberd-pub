@@ -133,7 +133,7 @@ hashcash_register(Name, Phone, Options) ->
     Host = maps:get(host, Options, "127.0.0.1"),
     Port = maps:get(port, Options, 5208),
     UserAgent = maps:get(user_agent, Options, ?DEFAULT_UA),
-    AppType = util_ua:get_app_type(UserAgent),
+    AppType = util_ua:get_app_type(util:to_binary(UserAgent)),
     IpProtocol = maps:get(ip_protocol, Options, ?DEFAULT_IP_PROTOCOL),
     ClientOptions = #{host => Host, port => Port, user_agent => UserAgent,
         state => register, ip_protocol => IpProtocol},
