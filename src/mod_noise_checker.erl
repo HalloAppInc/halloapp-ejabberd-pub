@@ -210,19 +210,28 @@ code_change(_OldVsn, State, _Extra) -> {ok, State}.
 %% Internal functions
 %%====================================================================
 
+%% TODO: Extend the checker to run for both app versions.
 get_client_version(#{client_version := CV} = State) ->
     case CV of
         undefined ->
             {ok, Versions} = model_client_version:get_versions(30 * ?DAYS, util:now()),
-            State#{client_version => {lists:last(Versions), util:now()}};
+            State#{client_version => {get_last_halloapp_version(lists:reverse(Versions)), util:now()}};
         {_Version, Ts} ->
             %% update version if it is more than 7 days old
             case (util:now() - Ts) > (7 * ?DAYS) of
                 true ->
                     {ok, Versions} = model_client_version:get_versions(30 * ?DAYS, util:now()),
-                    maps:put(client_version, {lists:last(Versions), util:now()}, State);
+                    maps:put(client_version, {get_last_halloapp_version(lists:reverse(Versions)), util:now()}, State);
                 false -> State
             end
+    end.
+
+
+get_last_halloapp_version([]) -> undefined;
+get_last_halloapp_version([Version | Versions])
+    case util_ua:is_halloapp(Version) of
+        true -> Version;
+        false -> get_last_halloapp_version(Versions)
     end.
 
 

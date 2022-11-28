@@ -58,7 +58,7 @@ stop(_Host) ->
     ejabberd_hooks:delete(re_register_user, halloapp, ?MODULE, re_register_user, 50),
     ejabberd_hooks:delete(account_name_updated, halloapp, ?MODULE, account_name_updated, 50),
     %% Katchup
-    gen_iq_handler:remove_iq_handler(ejabberd_local, katchup, pb_name, ?MODULE, process_local_iq),
+    gen_iq_handler:remove_iq_handler(ejabberd_local, katchup, pb_name),
     ejabberd_hooks:delete(re_register_user, katchup, ?MODULE, re_register_user, 50),
     ejabberd_hooks:delete(account_name_updated, katchup, ?MODULE, katchup_account_name_updated, 50),
     ok.
