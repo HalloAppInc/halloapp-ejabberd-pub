@@ -42,12 +42,12 @@
 -define(AVATAR_CDN, "https://avatar-cdn.halloapp.net/").
 
 
-start(Host, _Opts) ->
-    gen_iq_handler:add_iq_handler(ejabberd_local, Host, pb_export_data, ?MODULE, process_local_iq),
+start(_Host, _Opts) ->
+    gen_iq_handler:add_iq_handler(ejabberd_local, halloapp, pb_export_data, ?MODULE, process_local_iq),
     ok.
 
-stop(Host) ->
-    gen_iq_handler:remove_iq_handler(ejabberd_local, Host, pb_export_data),
+stop(_Host) ->
+    gen_iq_handler:remove_iq_handler(ejabberd_local, halloapp, pb_export_data),
     ok.
 
 depends(_Host, _Opts) ->

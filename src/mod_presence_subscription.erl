@@ -41,23 +41,23 @@
 ]).
 
 
-start(Host, _Opts) ->
-    ejabberd_hooks:add(presence_subs_hook, Host, ?MODULE, presence_subs_hook, 1),
-    ejabberd_hooks:add(unset_presence_hook, Host, ?MODULE, unset_presence_hook, 1),
-    ejabberd_hooks:add(re_register_user, Host, ?MODULE, re_register_user, 50),
-    ejabberd_hooks:add(remove_user, Host, ?MODULE, remove_user, 10),
-    ejabberd_hooks:add(remove_contact, Host, ?MODULE, remove_contact, 50),
-    ejabberd_hooks:add(user_receive_packet, Host, ?MODULE, user_receive_packet, 100),
+start(_Host, _Opts) ->
+    ejabberd_hooks:add(presence_subs_hook, halloapp, ?MODULE, presence_subs_hook, 1),
+    ejabberd_hooks:add(unset_presence_hook, halloapp, ?MODULE, unset_presence_hook, 1),
+    ejabberd_hooks:add(re_register_user, halloapp, ?MODULE, re_register_user, 50),
+    ejabberd_hooks:add(remove_user, halloapp, ?MODULE, remove_user, 10),
+    ejabberd_hooks:add(remove_contact, halloapp, ?MODULE, remove_contact, 50),
+    ejabberd_hooks:add(user_receive_packet, halloapp, ?MODULE, user_receive_packet, 100),
     ok.
 
 
-stop(Host) ->
-    ejabberd_hooks:delete(presence_subs_hook, Host, ?MODULE, presence_subs_hook, 1),
-    ejabberd_hooks:delete(unset_presence_hook, Host, ?MODULE, unset_presence_hook, 1),
-    ejabberd_hooks:delete(re_register_user, Host, ?MODULE, re_register_user, 50),
-    ejabberd_hooks:delete(remove_user, Host, ?MODULE, remove_user, 10),
-    ejabberd_hooks:delete(remove_contact, Host, ?MODULE, remove_contact, 50),
-    ejabberd_hooks:delete(user_receive_packet, Host, ?MODULE, user_receive_packet, 100),
+stop(_Host) ->
+    ejabberd_hooks:delete(presence_subs_hook, halloapp, ?MODULE, presence_subs_hook, 1),
+    ejabberd_hooks:delete(unset_presence_hook, halloapp, ?MODULE, unset_presence_hook, 1),
+    ejabberd_hooks:delete(re_register_user, halloapp, ?MODULE, re_register_user, 50),
+    ejabberd_hooks:delete(remove_user, halloapp, ?MODULE, remove_user, 10),
+    ejabberd_hooks:delete(remove_contact, halloapp, ?MODULE, remove_contact, 50),
+    ejabberd_hooks:delete(user_receive_packet, halloapp, ?MODULE, user_receive_packet, 100),
     ok.
 
 depends(_Host, _Opts) ->

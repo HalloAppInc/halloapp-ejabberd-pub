@@ -33,7 +33,7 @@
     add_iq_handler/6,
     remove_iq_handler/3,
     handle/2,
-    handle/3,
+    handle/4,
     start/1
 ]).
 
@@ -56,44 +56,44 @@ start(Component) ->
     ok.
 
 
--spec add_iq_handler(component(), binary(), atom(), module(), atom()) -> ok.
-add_iq_handler(Component, Host, NS, Module, Function) ->
-    add_iq_handler(Component, Host, NS, Module, Function, 1).
+-spec add_iq_handler(component(), app_type(), atom(), module(), atom()) -> ok.
+add_iq_handler(Component, AppType, NS, Module, Function) ->
+    add_iq_handler(Component, AppType, NS, Module, Function, 1).
 
 
--spec add_iq_handler(component(), binary(), atom(), module(), atom(), integer()) -> ok.
-add_iq_handler(Component, Host, NS, Module, Function, NumArgs) ->
-    ets:insert(Component, {{Host, NS}, Module, Function, NumArgs}),
+-spec add_iq_handler(component(), app_type(), atom(), module(), atom(), integer()) -> ok.
+add_iq_handler(Component, AppType, NS, Module, Function, NumArgs) ->
+    ets:insert(Component, {{AppType, NS}, Module, Function, NumArgs}),
     ok.
 
--spec remove_iq_handler(component(), binary(), atom()) -> ok.
-remove_iq_handler(Component, Host, NS) ->
-    ets:delete(Component, {Host, NS}),
+-spec remove_iq_handler(component(), app_type(), atom()) -> ok.
+remove_iq_handler(Component, AppType, NS) ->
+    ets:delete(Component, {AppType, NS}),
     ok.
 
 -spec handle(state() | atom(), iq()) -> state().
-handle(State, #pb_iq{to_uid = ToUid} = IQ) ->
+handle(State, #pb_iq{to_uid = ToUid, from_uid = FromUid} = IQ) ->
     Component = case ToUid of
         <<"">> -> ejabberd_local;
         _ -> ejabberd_sm
     end,
-    handle(State, Component, IQ).
+    AppType = util_uid:get_app_type(FromUid),
+    handle(State, Component, AppType, IQ).
 
--spec handle(state() | atom(), component(), iq()) -> state().
+-spec handle(state() | atom(), component(), app_type(), iq()) -> state().
 %% TODO(murali@): cleanup and have a simpler module after the transition.
-handle(State, _, #pb_iq{type = T, payload = undefined} = Packet)
+handle(State, _, _, #pb_iq{type = T, payload = undefined} = Packet)
         when T == get; T == set ->
     ErrIq = pb:make_error(Packet, util:err(invalid_iq)),
     halloapp_c2s:route(State, {route, ErrIq});
-handle(State, Component, #pb_iq{type = T, payload = _Payload} = Packet)
+handle(State, Component, AppType, #pb_iq{type = T, payload = _Payload} = Packet)
         when T == get; T == set ->
     PayloadType = util:get_payload_type(Packet),
-    Host = util:get_host(),
-    case ets:lookup(Component, {Host, PayloadType}) of
+    case ets:lookup(Component, {AppType, PayloadType}) of
         [{_, Module, Function, NumArgs}] ->
             %% if we return ignore for our process_local_iq functions:
             %% we need to ensure to send the iq-response back on the same c2s process.
-            case process_iq(Host, Module, Function, NumArgs, Packet, State) of
+            case process_iq(AppType, Module, Function, NumArgs, Packet, State) of
                 {ignore, NewState} -> NewState;
                 {#pb_iq{} = Iq, NewState} -> halloapp_c2s:route(NewState, {route, Iq})
             end;
@@ -102,17 +102,17 @@ handle(State, Component, #pb_iq{type = T, payload = _Payload} = Packet)
             ErrIq = pb:make_error(Packet, util:err(invalid_iq)),
             halloapp_c2s:route(State, {route, ErrIq})
     end;
-handle(State, _, #pb_iq{type = T}) when T == result; T == error ->
+handle(State, _, _, #pb_iq{type = T}) when T == result; T == error ->
     State.
 
 
 -spec process_iq(binary(), atom(), atom(), integer(), iq(), state()) -> {ignore | iq(), state()}.
-process_iq(_Host, Module, Function, NumArgs, IQ, State) ->
+process_iq(AppType, Module, Function, NumArgs, IQ, State) ->
     try process_iq(Module, Function, NumArgs, IQ, State)
     catch ?EX_RULE(Class, Reason, St) ->
         StackTrace = ?EX_STACK(St),
-        ?ERROR("Failed to process iq: ~p~n Stacktrace: ~s", [
-            IQ,
+        ?ERROR("Failed to process iq: ~p~n AppType: ~p Stacktrace: ~s", [
+            IQ, AppType,
             lager:pr_stacktrace(StackTrace, {Class, Reason})]),
         {pb:make_error(IQ, util:err(internal_error)), State}
     end.

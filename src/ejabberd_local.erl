@@ -69,10 +69,11 @@ start_link() ->
 -spec route(stanza()) -> ok.
 route(Packet) ->
     ?DEBUG("Local route:~p", [Packet]),
+    FromUid = pb:get_from(Packet),
     Type = pb:get_type(Packet),
     ToUid = pb:get_to(Packet),
     Payload = pb:get_payload_type(Packet),
-    Server = util:get_host(),
+    AppType = util_uid:get_app_type(FromUid),
     if
         ToUid =/= <<"">> ->
             ejabberd_sm:route(Packet);
@@ -81,15 +82,15 @@ route(Packet) ->
         Type =:= result orelse Type =:= error ->
             ok;
         is_record(Packet, pb_msg), Payload =:= pb_group_chat ->
-            ejabberd_hooks:run(group_message, Server, [Packet]);
+            ejabberd_hooks:run(group_message, AppType, [Packet]);
         is_record(Packet, pb_msg), Payload =:= pb_group_chat_stanza ->
-            ejabberd_hooks:run(group_message, Server, [Packet]);
+            ejabberd_hooks:run(group_message, AppType, [Packet]);
         is_record(Packet, pb_msg), Payload =:= pb_group_chat_retract ->
-            ejabberd_hooks:run(group_message, Server, [Packet]);
+            ejabberd_hooks:run(group_message, AppType, [Packet]);
         is_record(Packet, pb_msg), Type =:= groupchat ->
-            ejabberd_hooks:run(group_message, Server, [Packet]);
+            ejabberd_hooks:run(group_message, AppType, [Packet]);
         true ->
-            ejabberd_hooks:run(local_send_to_resource_hook, Server, [Packet])
+            ejabberd_hooks:run(local_send_to_resource_hook, AppType, [Packet])
     end.
 
 -spec bounce_resource_packet(stanza()) -> ok | stop.
@@ -154,7 +155,7 @@ host_up(Host) ->
         Pid -> Pid
     end,
     ejabberd_router:register_route(Host, Host, {apply, ?MODULE, route}, Owner),
-    ejabberd_hooks:add(local_send_to_resource_hook, Host, ?MODULE, bounce_resource_packet, 100).
+    ejabberd_hooks:add(local_send_to_resource_hook, halloapp, ?MODULE, bounce_resource_packet, 100).
 
 host_down(Host) ->
     Owner = case whereis(?MODULE) of
@@ -162,4 +163,4 @@ host_down(Host) ->
         Pid -> Pid
     end,
     ejabberd_router:unregister_route(Host, Owner),
-    ejabberd_hooks:delete(local_send_to_resource_hook, Host, ?MODULE, bounce_resource_packet, 100).
+    ejabberd_hooks:delete(local_send_to_resource_hook, halloapp, ?MODULE, bounce_resource_packet, 100).

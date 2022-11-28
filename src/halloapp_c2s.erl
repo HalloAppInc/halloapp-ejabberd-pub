@@ -136,8 +136,8 @@ stop(Ref) ->
       (state(), stanza()) -> state().
 send(Pid, Pkt) when is_pid(Pid) ->
     halloapp_stream_in:send(Pid, Pkt);
-send(#{lserver := LServer} = State, Pkt) ->
-    case ejabberd_hooks:run_fold(c2s_filter_send, LServer, {Pkt, State}, []) of
+send(#{app_type := AppType} = State, Pkt) ->
+    case ejabberd_hooks:run_fold(c2s_filter_send, AppType, {Pkt, State}, []) of
         {drop, State1} -> State1;
         {Pkt1, State1} -> halloapp_stream_in:send(State1, Pkt1)
     end.
@@ -162,23 +162,23 @@ set_timeout(State, Timeout) ->
 
 
 -spec host_up(binary()) -> ok.
-host_up(Host) ->
-    ejabberd_hooks:add(pb_c2s_closed, Host, ?MODULE, process_closed, 100),
-    ejabberd_hooks:add(pb_c2s_terminated, Host, ?MODULE, process_terminated, 100),
-    ejabberd_hooks:add(pb_c2s_handle_info, Host, ?MODULE, process_info, 100),
-    ejabberd_hooks:add(pb_c2s_auth_result, Host, ?MODULE, process_auth_result, 100),
-    ejabberd_hooks:add(pb_c2s_handle_cast, Host, ?MODULE, handle_unexpected_cast, 100),
-    ejabberd_hooks:add(pb_c2s_handle_call, Host, ?MODULE, handle_unexpected_call, 100).
+host_up(_Host) ->
+    ejabberd_hooks:add(pb_c2s_closed, halloapp, ?MODULE, process_closed, 100),
+    ejabberd_hooks:add(pb_c2s_terminated, halloapp, ?MODULE, process_terminated, 100),
+    ejabberd_hooks:add(pb_c2s_handle_info, halloapp, ?MODULE, process_info, 100),
+    ejabberd_hooks:add(pb_c2s_auth_result, halloapp, ?MODULE, process_auth_result, 100),
+    ejabberd_hooks:add(pb_c2s_handle_cast, halloapp, ?MODULE, handle_unexpected_cast, 100),
+    ejabberd_hooks:add(pb_c2s_handle_call, halloapp, ?MODULE, handle_unexpected_call, 100).
 
 
 -spec host_down(binary()) -> ok.
-host_down(Host) ->
-    ejabberd_hooks:delete(pb_c2s_closed, Host, ?MODULE, process_closed, 100),
-    ejabberd_hooks:delete(pb_c2s_terminated, Host, ?MODULE, process_terminated, 100),
-    ejabberd_hooks:delete(pb_c2s_handle_info, Host, ?MODULE, process_info, 100),
-    ejabberd_hooks:delete(pb_c2s_auth_result, Host, ?MODULE, process_auth_result, 100),
-    ejabberd_hooks:delete(pb_c2s_handle_cast, Host, ?MODULE, handle_unexpected_cast, 100),
-    ejabberd_hooks:delete(pb_c2s_handle_call, Host, ?MODULE, handle_unexpected_call, 100).
+host_down(_Host) ->
+    ejabberd_hooks:delete(pb_c2s_closed, halloapp, ?MODULE, process_closed, 100),
+    ejabberd_hooks:delete(pb_c2s_terminated, halloapp, ?MODULE, process_terminated, 100),
+    ejabberd_hooks:delete(pb_c2s_handle_info, halloapp, ?MODULE, process_info, 100),
+    ejabberd_hooks:delete(pb_c2s_auth_result, halloapp, ?MODULE, process_auth_result, 100),
+    ejabberd_hooks:delete(pb_c2s_handle_cast, halloapp, ?MODULE, handle_unexpected_cast, 100),
+    ejabberd_hooks:delete(pb_c2s_handle_call, halloapp, ?MODULE, handle_unexpected_call, 100).
 
 
 -spec open_session(state()) -> {ok, state()} | state().
@@ -208,10 +208,11 @@ open_session(#{user := Uid, server := Server, resource := Resource,
 
 -spec check_first_login(Uid :: binary(), Server :: binary()) -> ok.
 check_first_login(Uid, Server) ->
+    AppType = util_uid:get_app_type(Uid),
     case model_auth:set_login(Uid) of
         true ->
             ?INFO("Uid: ~s, on_user_first_login", [Uid]),
-            ejabberd_hooks:run(on_user_first_login, Server, [Uid, Server]);
+            ejabberd_hooks:run(on_user_first_login, AppType, [Uid, Server]);
         false -> ok
     end,
     ok.
@@ -242,13 +243,13 @@ process_info(State, Info) ->
     State.
 
 
-process_incoming_packet(#{lserver := LServer} = State, Packet) ->
+process_incoming_packet(#{lserver := _LServer, app_type := AppType} = State, Packet) ->
     case verify_incoming_packet(State, Packet) of
         allow ->
             %% TODO(murali@): remove temp counts after clients transition.
             stat:count("HA/user_receive_packet", "protobuf"),
             {Packet1, State1} = ejabberd_hooks:run_fold(
-                    user_receive_packet, LServer, {Packet, State}, []),
+                    user_receive_packet, AppType, {Packet, State}, []),
             case Packet1 of
                 drop -> State1;
                 _ -> send(State1, Packet1)
@@ -300,7 +301,7 @@ process_closed(State, Reason) ->
 
 
 %% TODO (murali@): Fix reason to be an atom and cleanup.
-process_terminated(#{sid := SID, socket := Socket, mode := Mode,
+process_terminated(#{sid := SID, socket := Socket, mode := Mode, app_type := AppType,
         jid := JID, user := Uid, server := Server, resource := Resource} = State,
         Reason) ->
     Status = format_reason(State, Reason),
@@ -309,11 +310,11 @@ process_terminated(#{sid := SID, socket := Socket, mode := Mode,
     ejabberd_sm:close_session(SID, Uid, Server, Resource),
     case maps:is_key(pres_last, State) of
         true ->
-            ejabberd_hooks:run(unset_presence_hook, Server, [Uid, Mode, Resource, Reason]);
+            ejabberd_hooks:run(unset_presence_hook, AppType, [Uid, Mode, Resource, Reason]);
         false ->
             ok
     end,
-    State1 = ejabberd_hooks:run_fold(c2s_session_closed, Server, State, []),
+    State1 = ejabberd_hooks:run_fold(c2s_session_closed, AppType, State, []),
     bounce_message_queue(SID, JID),
     State1;
 process_terminated(#{socket := Socket, stop_reason := {tls, _}} = State, Reason) ->
@@ -348,8 +349,8 @@ bind({_Mode, Resource}, State) when Resource =/= ?ANDROID, Resource =/= ?IPHONE,
     {error, invalid_resource, State};
 bind({Mode, _Resource}, State) when Mode =/= active, Mode =/= passive ->
     {error, invalid_mode, State};
-bind({Mode, Resource}, #{user := User, server := Server, access := Access, lserver := LServer,
-        socket := Socket, ip := IP} = State) ->
+bind({Mode, Resource}, #{user := User, server := Server, access := Access, app_type := AppType,
+        lserver := LServer, socket := Socket, ip := IP} = State) ->
     case session_conflict_action(User, Server, Resource, Mode) of
         {closenew, Reason} ->
             {error, Reason, State};
@@ -361,12 +362,12 @@ bind({Mode, Resource}, #{user := User, server := Server, access := Access, lserv
                     State1 = open_session(State#{resource => Resource,
                                  sid => ejabberd_sm:make_sid()}),
                     State2 = ejabberd_hooks:run_fold(
-                           c2s_session_opened, LServer, State1, []),
+                           c2s_session_opened, AppType, State1, []),
                     ?INFO("(~ts) Opened c2s session for ~ts",
                           [halloapp_socket:pp(Socket), jid:encode(JID)]),
                     {ok, State2};
                 deny ->
-                    ejabberd_hooks:run(forbidden_session_hook, LServer, [JID]),
+                    ejabberd_hooks:run(forbidden_session_hook, AppType, [JID]),
                     ?WARNING("(~ts) Forbidden c2s session for ~ts",
                          [halloapp_socket:pp(Socket), jid:encode(JID)]),
                     {error, <<"denied_Access">>, State}
@@ -415,24 +416,24 @@ get_client_version_ttl(ClientVersion, _State) ->
     mod_client_version:get_version_ttl(ClientVersion).
 
 
-handle_stream_end(Reason, #{lserver := LServer} = State) ->
+handle_stream_end(Reason, #{app_type := AppType} = State) ->
     State1 = State#{stop_reason => Reason},
-    ejabberd_hooks:run_fold(pb_c2s_closed, LServer, State1, [Reason]).
+    ejabberd_hooks:run_fold(pb_c2s_closed, AppType, State1, [Reason]).
 
-handle_auth_result(Uid, Result, _PBAuthResult, #{lserver := LServer} = State) ->
-    ejabberd_hooks:run_fold(pb_c2s_auth_result, LServer, State, [Result, Uid]).
+handle_auth_result(Uid, Result, _PBAuthResult, #{app_type := AppType} = State) ->
+    ejabberd_hooks:run_fold(pb_c2s_auth_result, AppType, State, [Result, Uid]).
 
 %% TODO(murali@): fix this hook - need not be called for auth request.
-handle_authenticated_packet(Pkt, #{lserver := LServer} = State) when is_record(Pkt, pb_auth_request) ->
-    ejabberd_hooks:run_fold(c2s_authenticated_packet, LServer, State, [Pkt]);
-handle_authenticated_packet(Pkt1, #{lserver := LServer, jid := JID} = State) ->
+handle_authenticated_packet(Pkt, #{app_type := AppType} = State) when is_record(Pkt, pb_auth_request) ->
+    ejabberd_hooks:run_fold(c2s_authenticated_packet, AppType, State, [Pkt]);
+handle_authenticated_packet(Pkt1, #{app_type := AppType, jid := JID} = State) ->
     State1 = ejabberd_hooks:run_fold(c2s_authenticated_packet,
-                     LServer, State, [Pkt1]),
+                     AppType, State, [Pkt1]),
     #jid{luser = _LUser} = JID,
     %% TODO(murali@): remove temp counts after clients transition.
     stat:count("HA/user_send_packet", "protobuf"),
     {Pkt2, State2} = ejabberd_hooks:run_fold(
-               user_send_packet, LServer, {Pkt1, State1}, []),
+               user_send_packet, AppType, {Pkt1, State1}, []),
     case Pkt2 of
         drop -> State2;
         #pb_iq{} -> process_iq_out(State2, Pkt2);
@@ -443,12 +444,12 @@ handle_authenticated_packet(Pkt1, #{lserver := LServer, jid := JID} = State) ->
     end.
 
 
-handle_recv(BinPkt, Pkt, #{lserver := LServer} = State) ->
-    ejabberd_hooks:run_fold(c2s_handle_recv, LServer, State, [BinPkt, Pkt]).
+handle_recv(BinPkt, Pkt, #{app_type := AppType} = State) ->
+    ejabberd_hooks:run_fold(c2s_handle_recv, AppType, State, [BinPkt, Pkt]).
 
 
-handle_send(BinPkt, Pkt, Result, #{lserver := LServer} = State) ->
-    ejabberd_hooks:run_fold(c2s_handle_send, LServer, State, [BinPkt, Pkt, Result]).
+handle_send(BinPkt, Pkt, Result, #{app_type := AppType} = State) ->
+    ejabberd_hooks:run_fold(c2s_handle_send, AppType, State, [BinPkt, Pkt, Result]).
 
 
 init([State, Opts]) ->
@@ -482,12 +483,12 @@ init([State, Opts]) ->
     ejabberd_hooks:run_fold(c2s_init, {ok, State3}, [Opts]).
 
 
-handle_call(Request, From, #{lserver := LServer} = State) ->
-    ejabberd_hooks:run_fold(pb_c2s_handle_call, LServer, State, [Request, From]).
+handle_call(Request, From, #{app_type := AppType} = State) ->
+    ejabberd_hooks:run_fold(pb_c2s_handle_call, AppType, State, [Request, From]).
 
 
-handle_cast(Msg, #{lserver := LServer} = State) ->
-    ejabberd_hooks:run_fold(pb_c2s_handle_cast, LServer, State, [Msg]).
+handle_cast(Msg, #{app_type := AppType} = State) ->
+    ejabberd_hooks:run_fold(pb_c2s_handle_cast, AppType, State, [Msg]).
 
 
 handle_info(replaced, State) ->
@@ -500,23 +501,23 @@ handle_info({exit, Reason}, #{user := User} = State) ->
 handle_info(activate_session, #{user := Uid, mode := active} = State) ->
     ?WARNING("Uid: ~s, mode is already active in c2s_state", [Uid]),
     State;
-handle_info(activate_session, #{user := Uid, server := Server, mode := passive, sid := SID} = State) ->
+handle_info(activate_session, #{user := Uid, app_type := AppType, mode := passive, sid := SID} = State) ->
     ?INFO("Uid: ~s, pid: ~p, Updating mode from passive to active in c2s_state", [Uid, self()]),
     State1 = State#{mode => active},
-    State2 = ejabberd_hooks:run_fold(user_session_activated, Server, State1, [Uid, SID]),
+    State2 = ejabberd_hooks:run_fold(user_session_activated, AppType, State1, [Uid, SID]),
     State2;
 handle_info({offline_queue_check, LastMsgOrderId, RetryCount, LeftOverMsgIds},
-        #{user := Uid, lserver := Server} = State) ->
+        #{user := Uid, app_type := AppType} = State) ->
     ?INFO("Uid: ~s, offline_queue_check, LastMsgOrderId: ~p, RetryCount: ~p, LeftOverMsgIds: ~p",
         [Uid, LastMsgOrderId, RetryCount, LeftOverMsgIds]),
-    ejabberd_hooks:run_fold(offline_queue_check, Server, State,
+    ejabberd_hooks:run_fold(offline_queue_check, AppType, State,
         [Uid, LastMsgOrderId, RetryCount, LeftOverMsgIds]);
-handle_info(Info, #{lserver := LServer} = State) ->
-    ejabberd_hooks:run_fold(pb_c2s_handle_info, LServer, State, [Info]).
+handle_info(Info, #{app_type := AppType} = State) ->
+    ejabberd_hooks:run_fold(pb_c2s_handle_info, AppType, State, [Info]).
 
 
-terminate(Reason, #{lserver := LServer} = State) ->
-    ejabberd_hooks:run_fold(pb_c2s_terminated, LServer, State, [Reason]).
+terminate(Reason, #{app_type := AppType} = State) ->
+    ejabberd_hooks:run_fold(pb_c2s_terminated, AppType, State, [Reason]).
 
 
 code_change(_OldVsn, State, _Extra) ->
@@ -530,19 +531,19 @@ code_change(_OldVsn, State, _Extra) ->
 
 %% TODO(murali@): move the presence-filter logic to mod_presence or something like that.
 -spec process_presence_out(state(), presence()) -> state().
-process_presence_out(#{user := User, server := Server} = State,
+process_presence_out(#{user := User, server := Server, app_type := AppType} = State,
         #pb_presence{type = Type} = Presence) when Type == subscribe; Type == unsubscribe ->
     %% We run the presence_subs_hook hook,
     %% since these presence stanzas are about updating user's activity status.
-    ejabberd_hooks:run(presence_subs_hook, Server, [User, Server, Presence]),
+    ejabberd_hooks:run(presence_subs_hook, AppType, [User, Server, Presence]),
     State;
 
-process_presence_out(#{sid := _SID, user := Uid, lserver := Server, resource := Resource} = State,
+process_presence_out(#{sid := _SID, user := Uid, lserver := Server, app_type := AppType, resource := Resource} = State,
         #pb_presence{type = Type} = Presence) when Type == available; Type == away ->
     ?INFO("Uid: ~p, Resource: ~p, Type: ~p", [Uid, Resource, Type]),
     %% We run the set_presence_hook,
     %% since these presence stanzas are about updating user's activity status.
-    ejabberd_hooks:run(set_presence_hook, Server, [Uid, Server, Resource, Presence]),
+    ejabberd_hooks:run(set_presence_hook, AppType, [Uid, Server, Resource, Presence]),
     State#{pres_last => Presence, presence => Type, pres_timestamp_ms => util:now_ms()};
 
 process_presence_out(State, _Pres) ->
@@ -567,14 +568,14 @@ process_iq_out(#{user := _Uid, lserver := _Server} = State, #pb_iq{to_uid = ToUi
     end.
 
 
-process_ack_out(#{user := _Uid, lserver := Server} = State, #pb_ack{} = Pkt) ->
+process_ack_out(#{user := _Uid, app_type := AppType} = State, #pb_ack{} = Pkt) ->
     %% We run the user_send_ack hook for the offline module to act on it.
-    ejabberd_hooks:run_fold(user_send_ack, Server, State, [Pkt]).
+    ejabberd_hooks:run_fold(user_send_ack, AppType, State, [Pkt]).
 
 
-process_chatstate_out(#{user := _Uid, lserver := Server} = State, #pb_chat_state{} = Pkt) ->
+process_chatstate_out(#{user := _Uid, app_type := AppType} = State, #pb_chat_state{} = Pkt) ->
     %% We run the user_send_chatstate hook for the chat_state module to act on it.
-    ejabberd_hooks:run_fold(user_send_chatstate, Server, State, [Pkt]).
+    ejabberd_hooks:run_fold(user_send_chatstate, AppType, State, [Pkt]).
 
 
 -spec check_privacy_then_route(state(), stanza()) -> state().
@@ -650,8 +651,8 @@ privacy_check_packet_in(State, Pkt) ->
     end.
 
 -spec privacy_check_packet(state(), stanza(), in | out) -> allow | deny.
-privacy_check_packet(#{lserver := LServer} = State, Pkt, Dir) ->
-    ejabberd_hooks:run_fold(privacy_check_packet, LServer, allow, [State, Pkt, Dir]).
+privacy_check_packet(#{app_type := AppType} = State, Pkt, Dir) ->
+    ejabberd_hooks:run_fold(privacy_check_packet, AppType, allow, [State, Pkt, Dir]).
 
 
 -spec bounce_message_queue(ejabberd_sm:sid(), jid:jid()) -> ok.

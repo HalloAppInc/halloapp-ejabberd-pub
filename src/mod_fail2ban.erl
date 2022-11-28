@@ -129,8 +129,8 @@ depends(_Host, _Opts) ->
 %%%===================================================================
 init([Host|_]) ->
     process_flag(trap_exit, true),
-    ejabberd_hooks:add(c2s_auth_result, Host, ?MODULE, c2s_auth_result, 100),
-    ejabberd_hooks:add(c2s_stream_started, Host, ?MODULE, c2s_stream_started, 100),
+    ejabberd_hooks:add(c2s_auth_result, halloapp, ?MODULE, c2s_auth_result, 100),
+    ejabberd_hooks:add(c2s_stream_started, halloapp, ?MODULE, c2s_stream_started, 100),
     erlang:send_after(?CLEAN_INTERVAL, self(), clean),
     {ok, #state{host = Host}}.
 
@@ -155,8 +155,8 @@ handle_info(_Info, State) ->
     {noreply, State}.
 
 terminate(_Reason, #state{host = Host}) ->
-    ejabberd_hooks:delete(c2s_auth_result, Host, ?MODULE, c2s_auth_result, 100),
-    ejabberd_hooks:delete(c2s_stream_started, Host, ?MODULE, c2s_stream_started, 100),
+    ejabberd_hooks:delete(c2s_auth_result, halloapp, ?MODULE, c2s_auth_result, 100),
+    ejabberd_hooks:delete(c2s_stream_started, halloapp, ?MODULE, c2s_stream_started, 100),
     case gen_mod:is_loaded_elsewhere(Host, ?MODULE) of
 	true ->
 	    ok;

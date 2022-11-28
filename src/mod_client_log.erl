@@ -42,15 +42,15 @@
 %% gen_mod callbacks
 %%====================================================================
 
-start(Host, _Opts) ->
+start(_Host, _Opts) ->
     ?INFO("start ~w", [?MODULE]),
-    gen_iq_handler:add_iq_handler(ejabberd_local, Host, pb_client_log, ?MODULE, process_local_iq, 2),
+    gen_iq_handler:add_iq_handler(ejabberd_local, halloapp, pb_client_log, ?MODULE, process_local_iq, 2),
     ok.
 
 
-stop(Host) ->
+stop(_Host) ->
     ?INFO("stop ~w", [?MODULE]),
-    gen_iq_handler:remove_iq_handler(ejabberd_local, Host, pb_client_log),
+    gen_iq_handler:remove_iq_handler(ejabberd_local, halloapp, pb_client_log),
     ok.
 
 depends(_Host, _Opts) ->

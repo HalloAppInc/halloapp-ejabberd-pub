@@ -31,22 +31,22 @@
 ]).
 
 
-start(Host, _Opts) ->
+start(_Host, _Opts) ->
     ?INFO("start", []),
-    gen_iq_handler:add_iq_handler(ejabberd_local, Host, pb_group_feed_item, ?MODULE, process_local_iq),
-    gen_iq_handler:add_iq_handler(ejabberd_local, Host, pb_history_resend, ?MODULE, process_local_iq),
-    ejabberd_hooks:add(re_register_user, Host, ?MODULE, re_register_user, 50),
-    ejabberd_hooks:add(group_member_added, Host, ?MODULE, group_member_added, 50),
-    ejabberd_hooks:add(user_send_packet, Host, ?MODULE, user_send_packet, 50),
+    gen_iq_handler:add_iq_handler(ejabberd_local, halloapp, pb_group_feed_item, ?MODULE, process_local_iq),
+    gen_iq_handler:add_iq_handler(ejabberd_local, halloapp, pb_history_resend, ?MODULE, process_local_iq),
+    ejabberd_hooks:add(re_register_user, halloapp, ?MODULE, re_register_user, 50),
+    ejabberd_hooks:add(group_member_added, halloapp, ?MODULE, group_member_added, 50),
+    ejabberd_hooks:add(user_send_packet, halloapp, ?MODULE, user_send_packet, 50),
     ok.
 
-stop(Host) ->
+stop(_Host) ->
     ?INFO("stop", []),
-    ejabberd_hooks:delete(re_register_user, Host, ?MODULE, re_register_user, 50),
-    ejabberd_hooks:delete(group_member_added, Host, ?MODULE, group_member_added, 50),
-    ejabberd_hooks:delete(user_send_packet, Host, ?MODULE, user_send_packet, 50),
-    gen_iq_handler:remove_iq_handler(ejabberd_local, Host, pb_group_feed_item),
-    gen_iq_handler:remove_iq_handler(ejabberd_local, Host, pb_history_resend),
+    ejabberd_hooks:delete(re_register_user, halloapp, ?MODULE, re_register_user, 50),
+    ejabberd_hooks:delete(group_member_added, halloapp, ?MODULE, group_member_added, 50),
+    ejabberd_hooks:delete(user_send_packet, halloapp, ?MODULE, user_send_packet, 50),
+    gen_iq_handler:remove_iq_handler(ejabberd_local, halloapp, pb_group_feed_item),
+    gen_iq_handler:remove_iq_handler(ejabberd_local, halloapp, pb_history_resend),
     ok.
 
 reload(_Host, _NewOpts, _OldOpts) ->
@@ -232,7 +232,7 @@ publish_post(Gid, Uid, PostId, PayloadBase64, PostTag, GroupFeedSt) ->
         PayloadBase64 :: binary(), PostTag :: post_tag(), GroupFeedSt :: pb_group_feed_item())
             -> {ok, pb_group_feed_item()} | {error, atom()}.
 publish_post_unsafe(GroupInfo, Uid, PostId, PayloadBase64, PostTag, GroupFeedSt) ->
-    Server = util:get_host(),
+    AppType = util_uid:get_app_type(Uid),
     AudienceType = group,
     Gid = GroupInfo#group_info.gid,
     AudienceList = model_groups:get_member_uids(Gid),
@@ -246,7 +246,7 @@ publish_post_unsafe(GroupInfo, Uid, PostId, PayloadBase64, PostTag, GroupFeedSt)
             TimestampMs = util:now_ms(),
             ok = model_feed:publish_post(PostId, Uid, PayloadBase64, PostTag,
                     AudienceType, AudienceList, TimestampMs, Gid),
-            ejabberd_hooks:run(group_feed_item_published, Server, [Gid, Uid, Uid, PostId, post, sets:size(AudienceSet), MediaCounters]),
+            ejabberd_hooks:run(group_feed_item_published, AppType, [Gid, Uid, Uid, PostId, post, sets:size(AudienceSet), MediaCounters]),
             {ok, TimestampMs};
         {ok, ExistingPost} ->
             ?INFO("Uid: ~s Gid: ~s PostId: ~s already published", [Gid, Uid, PostId]),
@@ -288,7 +288,7 @@ publish_comment(Gid, Uid, CommentId, PostId, ParentCommentId, PayloadBase64, Gro
           PostId :: binary(), ParentCommentId :: binary(), PayloadBase64 :: binary(),
           GroupFeedSt :: pb_group_feed_item()) -> {ok, pb_group_feed_item()} | {error, atom()}.
 publish_comment_unsafe(GroupInfo, Uid, CommentId, PostId, ParentCommentId, PayloadBase64, GroupFeedSt) ->
-    Server = util:get_host(),
+    AppType = util_uid:get_app_type(Uid),
     Gid = GroupInfo#group_info.gid,
     {ok, SenderName} = model_accounts:get_name(Uid),
     MediaCounters = GroupFeedSt#pb_group_feed_item.item#pb_comment.media_counters,
@@ -321,7 +321,7 @@ publish_comment_unsafe(GroupInfo, Uid, CommentId, PostId, ParentCommentId, Paylo
 
             ok = model_feed:publish_comment(CommentId, PostId, Uid,
                     ParentCommentId, CommentType, PayloadBase64, TimestampMs),
-            ejabberd_hooks:run(group_feed_item_published, Server,
+            ejabberd_hooks:run(group_feed_item_published, AppType,
                     [Gid, Uid, PostOwnerUid, CommentId, CommentType, sets:size(AudienceSet), MediaCounters]),
 
             NewGroupFeedSt = make_pb_group_feed_item(GroupInfo, Uid,
@@ -336,7 +336,7 @@ publish_comment_unsafe(GroupInfo, Uid, CommentId, PostId, ParentCommentId, Paylo
         GroupFeedSt :: pb_group_feed_item()) -> {ok, pb_group_feed_item()} | {error, atom()}.
 retract_post(Gid, Uid, PostId, GroupFeedSt) ->
     ?INFO("Gid: ~s Uid: ~s", [Gid, Uid]),
-    Server = util:get_host(),
+    AppType = util_uid:get_app_type(Uid),
     case model_groups:check_member(Gid, Uid) of
         false ->
             %% also possible the group does not exists
@@ -364,7 +364,7 @@ retract_post(Gid, Uid, PostId, GroupFeedSt) ->
 
                             TimestampMs = util:now_ms(),
                             ok = model_feed:retract_post(PostId, Uid),
-                            ejabberd_hooks:run(group_feed_item_retracted, Server,
+                            ejabberd_hooks:run(group_feed_item_retracted, AppType,
                                     [Gid, Uid, PostId, post]),
 
                             NewGroupFeedSt = make_pb_group_feed_item(GroupInfo, Uid,
@@ -381,7 +381,7 @@ retract_post(Gid, Uid, PostId, GroupFeedSt) ->
         GroupFeedSt :: pb_group_feed_item()) -> {ok, pb_group_feed_item()} | {error, atom()}.
 retract_comment(Gid, Uid, CommentId, PostId, GroupFeedSt) ->
     ?INFO("Gid: ~s Uid: ~s", [Gid, Uid]),
-    Server = util:get_host(),
+    AppType = util_uid:get_app_type(Uid),
     case model_groups:check_member(Gid, Uid) of
         false ->
             %% also possible the group does not exists
@@ -405,7 +405,7 @@ retract_comment(Gid, Uid, CommentId, PostId, GroupFeedSt) ->
 
                             TimestampMs = util:now_ms(),
                             ok = model_feed:retract_comment(CommentId, PostId),
-                            ejabberd_hooks:run(group_feed_item_retracted, Server,
+                            ejabberd_hooks:run(group_feed_item_retracted, AppType,
                                     [Gid, Uid, CommentId, comment]),
 
                             NewGroupFeedSt = make_pb_group_feed_item(GroupInfo, Uid,
@@ -580,7 +580,7 @@ check_and_share_group_feed(Gid, Uid) ->
 %% TODO(murali@): Similar logic exists in mod_feed as well.
 -spec share_group_feed(Gid :: binary(), Uid :: binary()) -> ok.
 share_group_feed(Gid, Uid) ->
-    Server = util:get_host(),
+    AppType = util_uid:get_app_type(Uid),
     {ok, FeedItems} = model_feed:get_entire_group_feed(Gid),
     {FilteredPosts, FilteredComments} = filter_group_feed_items(Uid, FeedItems),
     %% Add the touid to the audience list so that they can comment on these posts.
@@ -595,7 +595,7 @@ share_group_feed(Gid, Uid) ->
     ?INFO("sending Gid: ~s ToUid: ~s ~p posts and ~p comments",
             [Gid, Uid, length(PostStanzas), length(CommentStanzas)]),
     ?INFO("sending Gid: ~s ToUid: ~s posts: ~p", [Gid, Uid, FilteredPostIds]),
-    ejabberd_hooks:run(group_feed_share_old_items, Server,
+    ejabberd_hooks:run(group_feed_share_old_items, AppType,
             [Gid, Uid, length(PostStanzas), length(CommentStanzas)]),
     case PostStanzas of
         [] -> ok;

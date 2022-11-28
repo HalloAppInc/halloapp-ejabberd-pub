@@ -27,14 +27,14 @@
 %% gen_mod API.
 %%====================================================================
 
-start(Host, _Opts) ->
+start(_Host, _Opts) ->
     ?INFO("start", []),
-    gen_iq_handler:add_iq_handler(ejabberd_local, Host, pb_client_mode, ?MODULE, process_local_iq, 2),
+    gen_iq_handler:add_iq_handler(ejabberd_local, halloapp, pb_client_mode, ?MODULE, process_local_iq, 2),
     ok.
 
-stop(Host) ->
+stop(_Host) ->
     ?INFO("stop", []),
-    gen_iq_handler:remove_iq_handler(ejabberd_local, Host, pb_client_mode),
+    gen_iq_handler:remove_iq_handler(ejabberd_local, halloapp, pb_client_mode),
     ok.
 
 depends(_Host, _Opts) ->

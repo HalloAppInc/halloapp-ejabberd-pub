@@ -25,13 +25,13 @@
 %%% gen_mod API
 %%%===================================================================
 
-start(Host, _Opts) ->
+start(_Host, _Opts) ->
     ?DEBUG("start", []),
-    ejabberd_hooks:add(user_send_packet, Host, ?MODULE, user_send_packet, 90).
+    ejabberd_hooks:add(user_send_packet, halloapp, ?MODULE, user_send_packet, 90).
 
-stop(Host) ->
+stop(_Host) ->
     ?DEBUG("stop", []),
-    ejabberd_hooks:delete(user_send_packet, Host, ?MODULE, user_send_packet, 90).
+    ejabberd_hooks:delete(user_send_packet, halloapp, ?MODULE, user_send_packet, 90).
 
 depends(_Host, _Opts) ->
     [].

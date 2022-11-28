@@ -28,23 +28,23 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-start(Host, _Opts) ->
+start(_Host, _Opts) ->
     ?INFO("start", []),
-    gen_iq_handler:add_iq_handler(ejabberd_local, Host, pb_group_stanza, ?MODULE, process_local_iq),
-    gen_iq_handler:add_iq_handler(ejabberd_local, Host, pb_groups_stanza, ?MODULE, process_local_iq),
-    gen_iq_handler:add_iq_handler(ejabberd_local, Host, pb_upload_group_avatar, ?MODULE, process_local_iq),
-    gen_iq_handler:add_iq_handler(ejabberd_local, Host, pb_group_invite_link, ?MODULE, process_local_iq),
-    ejabberd_hooks:add(group_message, Host, ?MODULE, send_group_message, 50),
+    gen_iq_handler:add_iq_handler(ejabberd_local, halloapp, pb_group_stanza, ?MODULE, process_local_iq),
+    gen_iq_handler:add_iq_handler(ejabberd_local, halloapp, pb_groups_stanza, ?MODULE, process_local_iq),
+    gen_iq_handler:add_iq_handler(ejabberd_local, halloapp, pb_upload_group_avatar, ?MODULE, process_local_iq),
+    gen_iq_handler:add_iq_handler(ejabberd_local, halloapp, pb_group_invite_link, ?MODULE, process_local_iq),
+    ejabberd_hooks:add(group_message, halloapp, ?MODULE, send_group_message, 50),
     ok.
 
 
-stop(Host) ->
+stop(_Host) ->
     ?INFO("stop", []),
-    gen_iq_handler:remove_iq_handler(ejabberd_local, Host, pb_group_stanza),
-    gen_iq_handler:remove_iq_handler(ejabberd_local, Host, pb_groups_stanza),
-    gen_iq_handler:remove_iq_handler(ejabberd_local, Host, pb_upload_group_avatar),
-    gen_iq_handler:remove_iq_handler(ejabberd_local, Host, pb_group_invite_link),
-    ejabberd_hooks:delete(group_message, Host, ?MODULE, send_group_message, 50),
+    gen_iq_handler:remove_iq_handler(ejabberd_local, halloapp, pb_group_stanza),
+    gen_iq_handler:remove_iq_handler(ejabberd_local, halloapp, pb_groups_stanza),
+    gen_iq_handler:remove_iq_handler(ejabberd_local, halloapp, pb_upload_group_avatar),
+    gen_iq_handler:remove_iq_handler(ejabberd_local, halloapp, pb_group_invite_link),
+    ejabberd_hooks:delete(group_message, halloapp, ?MODULE, send_group_message, 50),
     ok.
 
 

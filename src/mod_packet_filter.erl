@@ -32,18 +32,18 @@
 %% gen_mod API.
 %%====================================================================
 
-start(Host, _Opts) ->
+start(_Host, _Opts) ->
     ?INFO("mod_packet_filter: start", []),
-    ejabberd_hooks:add(offline_message_version_filter, Host, ?MODULE, offline_message_version_filter, 50),
-    ejabberd_hooks:add(push_version_filter, Host, ?MODULE, push_version_filter, 50),
-    ejabberd_hooks:add(user_send_packet, Host, ?MODULE, user_send_packet, 100),
+    ejabberd_hooks:add(offline_message_version_filter, halloapp, ?MODULE, offline_message_version_filter, 50),
+    ejabberd_hooks:add(push_version_filter, halloapp, ?MODULE, push_version_filter, 50),
+    ejabberd_hooks:add(user_send_packet, halloapp, ?MODULE, user_send_packet, 100),
     ok.
 
-stop(Host) ->
+stop(_Host) ->
     ?INFO("mod_packet_filter: stop", []),
-    ejabberd_hooks:delete(user_send_packet, Host, ?MODULE, user_send_packet, 100),
-    ejabberd_hooks:delete(offline_message_version_filter, Host, ?MODULE, offline_message_version_filter, 50),
-    ejabberd_hooks:delete(push_version_filter, Host, ?MODULE, push_version_filter, 50),
+    ejabberd_hooks:delete(user_send_packet, halloapp, ?MODULE, user_send_packet, 100),
+    ejabberd_hooks:delete(offline_message_version_filter, halloapp, ?MODULE, offline_message_version_filter, 50),
+    ejabberd_hooks:delete(push_version_filter, halloapp, ?MODULE, push_version_filter, 50),
     ok.
 
 depends(_Host, _Opts) ->

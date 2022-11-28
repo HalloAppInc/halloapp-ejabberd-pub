@@ -49,26 +49,26 @@
     finish_sync/3
 ]).
 
-start(Host, _Opts) ->
+start(_Host, _Opts) ->
     ?INFO("start: ~w", [?MODULE]),
     create_contact_options_table(),
     ok = model_contacts:init(),
-    gen_iq_handler:add_iq_handler(ejabberd_local, Host, pb_contact_list, ?MODULE, process_local_iq),
-    ejabberd_hooks:add(remove_user, Host, ?MODULE, remove_user, 40),
-    ejabberd_hooks:add(re_register_user, Host, ?MODULE, re_register_user, 100),
-    ejabberd_hooks:add(register_user, Host, ?MODULE, register_user, 50),
-    ejabberd_hooks:add(block_uids, Host, ?MODULE, block_uids, 50),
-    ejabberd_hooks:add(unblock_uids, Host, ?MODULE, unblock_uids, 50),
+    gen_iq_handler:add_iq_handler(ejabberd_local, halloapp, pb_contact_list, ?MODULE, process_local_iq),
+    ejabberd_hooks:add(remove_user, halloapp, ?MODULE, remove_user, 40),
+    ejabberd_hooks:add(re_register_user, halloapp, ?MODULE, re_register_user, 100),
+    ejabberd_hooks:add(register_user, halloapp, ?MODULE, register_user, 50),
+    ejabberd_hooks:add(block_uids, halloapp, ?MODULE, block_uids, 50),
+    ejabberd_hooks:add(unblock_uids, halloapp, ?MODULE, unblock_uids, 50),
     ok.
 
-stop(Host) ->
+stop(_Host) ->
     ?INFO("stop: ~w", [?MODULE]),
-    gen_iq_handler:remove_iq_handler(ejabberd_local, Host, pb_contact_list),
-    ejabberd_hooks:delete(remove_user, Host, ?MODULE, remove_user, 40),
-    ejabberd_hooks:delete(re_register_user, Host, ?MODULE, re_register_user, 100),
-    ejabberd_hooks:delete(register_user, Host, ?MODULE, register_user, 50),
-    ejabberd_hooks:delete(block_uids, Host, ?MODULE, block_uids, 50),
-    ejabberd_hooks:delete(unblock_uids, Host, ?MODULE, unblock_uids, 50),
+    gen_iq_handler:remove_iq_handler(ejabberd_local, halloapp, pb_contact_list),
+    ejabberd_hooks:delete(remove_user, halloapp, ?MODULE, remove_user, 40),
+    ejabberd_hooks:delete(re_register_user, halloapp, ?MODULE, re_register_user, 100),
+    ejabberd_hooks:delete(register_user, halloapp, ?MODULE, register_user, 50),
+    ejabberd_hooks:delete(block_uids, halloapp, ?MODULE, block_uids, 50),
+    ejabberd_hooks:delete(unblock_uids, halloapp, ?MODULE, unblock_uids, 50),
     delete_contact_options_table(),
     ok.
 
@@ -692,14 +692,16 @@ add_friend(Uid, Server, Ouid, WasBlocked) ->
 
 -spec add_friend_hook(Uid :: binary(), Server :: binary(), Ouid :: binary(), WasBlocked :: boolean()) -> ok.
 add_friend_hook(Uid, Server, Ouid, WasBlocked) ->
-    ejabberd_hooks:run(add_friend, Server, [Uid, Server, Ouid, WasBlocked]).
+    AppType = util_uid:get_app_type(Uid),
+    ejabberd_hooks:run(add_friend, AppType, [Uid, Server, Ouid, WasBlocked]).
 
 
 -spec remove_friend(Uid :: binary(), Server :: binary(), Ouid :: binary()) -> ok.
 remove_friend(Uid, Server, Ouid) ->
+    AppType = util_uid:get_app_type(Uid),
     ?INFO("~p is no longer friends with ~p", [Uid, Ouid]),
     model_friends:remove_friend(Uid, Ouid),
-    ejabberd_hooks:run(remove_friend, Server, [Uid, Server, Ouid]).
+    ejabberd_hooks:run(remove_friend, AppType, [Uid, Server, Ouid]).
 
 
 -spec extract_normalized(Contacts :: [pb_contact()]) -> [binary()].
@@ -748,6 +750,7 @@ remove_contacts_and_notify(UserId, UserPhone, ContactPhones, ReverseContactSet, 
         ContactPhone :: binary(), ReverseContactSet :: sets:set(binary()),
         IsAccountDeleted :: boolean()) -> ok.
 remove_contact_and_notify(UserId, _UserPhone, ContactPhone, ReverseContactSet, IsAccountDeleted) ->
+    AppType = util_uid:get_app_type(UserId),
     Server = util:get_host(),
     {ok, ContactId} = model_phone:get_uid(ContactPhone, halloapp),
     stat:count("HA/contacts", "remove_contact"),
@@ -768,7 +771,7 @@ remove_contact_and_notify(UserId, _UserPhone, ContactPhone, ReverseContactSet, I
                     end;
                 false -> ok
             end,
-            ejabberd_hooks:run(remove_contact, Server, [UserId, Server, ContactId])
+            ejabberd_hooks:run(remove_contact, AppType, [UserId, Server, ContactId])
     end.
 
 

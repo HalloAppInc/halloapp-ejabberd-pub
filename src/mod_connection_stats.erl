@@ -60,8 +60,8 @@ reload(_Host, _NewOpts, _OldOpts) ->
 %% TODO(murali@): If keeping a list of uids in a process memory becomes expensive.
 %% Then we need to get rid of connected_users key.
 init([Host|_]) ->
-    ejabberd_hooks:add(sm_register_connection_hook, Host, ?MODULE, sm_register_connection_hook, 50),
-    ejabberd_hooks:add(sm_remove_connection_hook, Host, ?MODULE, sm_remove_connection_hook, 50),
+    ejabberd_hooks:add(sm_register_connection_hook, halloapp, ?MODULE, sm_register_connection_hook, 50),
+    ejabberd_hooks:add(sm_remove_connection_hook, halloapp, ?MODULE, sm_remove_connection_hook, 50),
     State = #{
         host => Host,
         count => 0,    %% tracks connected users count.
@@ -72,9 +72,9 @@ init([Host|_]) ->
     {ok, State}.
 
 
-terminate(_Reason, #{host := Host} = _State) ->
-    ejabberd_hooks:delete(sm_register_connection_hook, Host, ?MODULE, sm_register_connection_hook, 50),
-    ejabberd_hooks:delete(sm_remove_connection_hook, Host, ?MODULE, sm_remove_connection_hook, 50),
+terminate(_Reason, #{host := _Host} = _State) ->
+    ejabberd_hooks:delete(sm_register_connection_hook, halloapp, ?MODULE, sm_register_connection_hook, 50),
+    ejabberd_hooks:delete(sm_remove_connection_hook, halloapp, ?MODULE, sm_remove_connection_hook, 50),
     ok.
 
 code_change(_OldVsn, State, _Extra) ->

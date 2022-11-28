@@ -25,12 +25,12 @@
 ]).
 
 
-start(Host, _Opts) ->
-    ejabberd_hooks:add(user_send_packet, Host, ?MODULE, user_send_packet, 25),
+start(_Host, _Opts) ->
+    ejabberd_hooks:add(user_send_packet, halloapp, ?MODULE, user_send_packet, 25),
     ok.
 
-stop(Host) ->
-    ejabberd_hooks:delete(user_send_packet, Host, ?MODULE, user_send_packet, 25),
+stop(_Host) ->
+    ejabberd_hooks:delete(user_send_packet, halloapp, ?MODULE, user_send_packet, 25),
     ok.
 
 reload(_Host, _NewOpts, _OldOpts) ->

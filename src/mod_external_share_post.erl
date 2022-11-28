@@ -26,12 +26,12 @@
 ]).
 
 
-start(Host, _Opts) ->
-    gen_iq_handler:add_iq_handler(ejabberd_local, Host, pb_external_share_post, ?MODULE, process_local_iq),
+start(_Host, _Opts) ->
+    gen_iq_handler:add_iq_handler(ejabberd_local, halloapp, pb_external_share_post, ?MODULE, process_local_iq),
     ok.
 
-stop(Host) ->
-    gen_iq_handler:remove_iq_handler(ejabberd_local, Host, pb_external_share_post),
+stop(_Host) ->
+    gen_iq_handler:remove_iq_handler(ejabberd_local, halloapp, pb_external_share_post),
     ok.
 
 reload(_Host, _NewOpts, _OldOpts) ->

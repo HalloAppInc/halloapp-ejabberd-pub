@@ -144,11 +144,11 @@ route(Packet) ->
 
 -spec check_privacy_and_dest_uid(Packet :: message()) -> allow | {deny, atom()}.
 check_privacy_and_dest_uid(#pb_msg{to_uid = ToUid, type = _Type} = Packet) ->
-    LServer = util:get_host(),
+    AppType = util_uid:get_app_type(ToUid),
     case ejabberd_auth:user_exists(ToUid) of
         true ->
             %% remove state from privacy_check_packet hook.
-            case ejabberd_hooks:run_fold(privacy_check_packet, LServer, allow,
+            case ejabberd_hooks:run_fold(privacy_check_packet, AppType, allow,
                     [undefined, Packet, in]) of
                 allow -> allow;
                 deny -> {deny, privacy_violation};
@@ -160,14 +160,14 @@ check_privacy_and_dest_uid(#pb_msg{to_uid = ToUid, type = _Type} = Packet) ->
 
 % Store the message in the offline store.
 -spec store_offline_message(message()) -> message().
-store_offline_message(#pb_msg{} = Packet) ->
-    LServer = util:get_host(),
-    ejabberd_hooks:run_fold(store_message_hook, LServer, Packet, []).
+store_offline_message(#pb_msg{to_uid = ToUid} = Packet) ->
+    AppType = util_uid:get_app_type(ToUid),
+    ejabberd_hooks:run_fold(store_message_hook, AppType, Packet, []).
 
 
-push_message(#pb_msg{} = Packet) ->
-    Server = util:get_host(),
-    ejabberd_hooks:run_fold(push_message_hook, Server, Packet, []).
+push_message(#pb_msg{to_uid = ToUid} = Packet) ->
+    AppType = util_uid:get_app_type(ToUid),
+    ejabberd_hooks:run_fold(push_message_hook, AppType, Packet, []).
 
 
 -spec open_session(sid(), binary(), binary(), binary(), prio(), mode(), info()) -> ok.
@@ -179,9 +179,10 @@ open_session(SID, User, Server, Resource, Priority, Mode, Info) ->
     IPInfo = proplists:get_value(ip, Info),
     IP = util:parse_ip_address(IPInfo),
     CC = mod_geodb:lookup(IP),
-    ?INFO("U: ~p R: ~p Mode: ~p, ClientVersion: ~p, IP: ~s, CC: ~s",
-        [User, Resource, Mode, ClientVersion, IP, CC]),
-    ejabberd_hooks:run(sm_register_connection_hook, JID#jid.lserver, [SID, JID, Mode, Info]).
+    AppType = util_uid:get_app_type(User),
+    ?INFO("U: ~p R: ~p Mode: ~p, AppType: ~p, ClientVersion: ~p, IP: ~s, CC: ~s",
+        [User, Resource, Mode, AppType, ClientVersion, IP, CC]),
+    ejabberd_hooks:run(sm_register_connection_hook, AppType, [SID, JID, Mode, Info]).
 
 
 -spec close_session(sid(), binary(), binary(), binary()) -> ok.
@@ -189,6 +190,7 @@ close_session(SID, User, Server, Resource) ->
     ?INFO("SID: ~p User: ~p", [SID, User]),
     JID = jid:make(User, Server, Resource),
     Sessions = get_sessions(User, Server, Resource),
+    AppType = util_uid:get_app_type(User),
     {Mode, Info} = case lists:keyfind(SID, #session.sid, Sessions) of
         #session{mode = M, info = I} = Session ->
             delete_session(Session),
@@ -198,7 +200,7 @@ close_session(SID, User, Server, Resource) ->
             {undefined, []}
     end,
     %% TODO(murali@): Fix this hook to only have SID and JID here.
-    ejabberd_hooks:run(sm_remove_connection_hook, JID#jid.lserver, [SID, JID, Mode, Info]),
+    ejabberd_hooks:run(sm_remove_connection_hook, AppType, [SID, JID, Mode, Info]),
     ok.
 
 -spec bounce_sm_packet({warn | term(), stanza()}) -> any().
@@ -351,12 +353,12 @@ code_change(_OldVsn, State, _Extra) -> {ok, State}.
 
 -spec host_up(binary()) -> ok.
 host_up(Host) ->
-    ejabberd_hooks:add(bounce_sm_packet, Host, ?MODULE, bounce_sm_packet, 100),
+    ejabberd_hooks:add(bounce_sm_packet, halloapp, ?MODULE, bounce_sm_packet, 100),
     halloapp_c2s:host_up(Host).
 
 -spec host_down(binary()) -> ok.
 host_down(Host) ->
-    ejabberd_hooks:delete(bounce_sm_packet, Host,
+    ejabberd_hooks:delete(bounce_sm_packet, halloapp,
               ejabberd_sm, bounce_sm_packet, 100),
     halloapp_c2s:host_down(Host).
 
@@ -643,12 +645,13 @@ do_route(To, Term) ->
 -spec do_route(stanza()) -> any().
 do_route(#pb_msg{} = Packet) ->
     route_message(Packet);
-do_route(#pb_iq{to_uid = <<"">>} = Packet) ->
-    Server = util:get_host(),
-    ejabberd_hooks:run_fold(bounce_sm_packet, Server, {pass, Packet}, []);
+do_route(#pb_iq{to_uid = <<"">>, from_uid = FromUid} = Packet) ->
+    AppType = util_uid:get_app_type(FromUid),
+    ejabberd_hooks:run_fold(bounce_sm_packet, AppType, {pass, Packet}, []);
 do_route(Packet) ->
     ?DEBUG("Processing packet: ~p", [Packet]),
     LUser = pb:get_to(Packet),
+    AppType = util_uid:get_app_type(LUser),
     LServer = util:get_host(),
     LResource = <<>>,
     case get_active_sessions(LUser, LServer, LResource) of
@@ -656,13 +659,13 @@ do_route(Packet) ->
             case Packet of
             #pb_presence{} ->
                 ejabberd_hooks:run_fold(bounce_sm_packet,
-                            LServer, {pass, Packet}, []);
+                            AppType, {pass, Packet}, []);
             #pb_chat_state{} ->
                 ejabberd_hooks:run_fold(bounce_sm_packet,
-                            LServer, {pass, Packet}, []);
+                            AppType, {pass, Packet}, []);
             _ ->
                 ejabberd_hooks:run_fold(bounce_sm_packet,
-                            LServer, {warn, Packet}, [])
+                            AppType, {warn, Packet}, [])
             end;
         Ss ->
             Session = lists:max(Ss),
@@ -676,6 +679,7 @@ do_route(Packet) ->
 route_message(#pb_msg{} = Packet) ->
     MsgId = pb:get_id(Packet),
     LUser = pb:get_to(Packet),
+    AppType = util_uid:get_app_type(LUser),
     LServer = util:get_host(),
     %% Ignore presence information and just rely on the connection state.
     case check_privacy_and_dest_uid(Packet) of
@@ -695,7 +699,7 @@ route_message(#pb_msg{} = Packet) ->
                     % NOTE: message will be lost if the dest PID dies while routing
                     halloapp_c2s:route(Pid, {route, Packet}),
                     %% This hook can now be used to send push notifications for messages always.
-                    ejabberd_hooks:run(push_message_always_hook, LServer, [Packet])
+                    ejabberd_hooks:run(push_message_always_hook, AppType, [Packet])
             end;
         {deny, privacy_violation} ->
             %% Ignore the packet and stop routing it now.

@@ -50,17 +50,17 @@ process_local_iq(#pb_iq{from_uid = Uid} = IQ) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-start(Host, _Opts) ->
+start(_Host, _Opts) ->
     ?INFO("start"),
-    gen_iq_handler:add_iq_handler(ejabberd_local, Host, pb_start_call, ?MODULE, process_local_iq),
-    gen_iq_handler:add_iq_handler(ejabberd_local, Host, pb_get_call_servers, ?MODULE, process_local_iq),
+    gen_iq_handler:add_iq_handler(ejabberd_local, halloapp, pb_start_call, ?MODULE, process_local_iq),
+    gen_iq_handler:add_iq_handler(ejabberd_local, halloapp, pb_get_call_servers, ?MODULE, process_local_iq),
     ok.
 
 
-stop(Host) ->
+stop(_Host) ->
     ?INFO("stop"),
-    gen_iq_handler:remove_iq_handler(ejabberd_local, Host, pb_start_call),
-    gen_iq_handler:remove_iq_handler(ejabberd_local, Host, pb_get_call_servers),
+    gen_iq_handler:remove_iq_handler(ejabberd_local, halloapp, pb_start_call),
+    gen_iq_handler:remove_iq_handler(ejabberd_local, halloapp, pb_get_call_servers),
     ok.
 
 

@@ -35,14 +35,14 @@
 
 % TODO: add tests after the migration to Redis is done.
 
-start(Host, _Opts) ->
-    ejabberd_hooks:add(c2s_session_opened, Host, ?MODULE, c2s_session_opened, 50),
-    gen_iq_handler:add_iq_handler(ejabberd_local, Host, pb_client_version, ?MODULE, process_local_iq),
+start(_Host, _Opts) ->
+    ejabberd_hooks:add(c2s_session_opened, halloapp, ?MODULE, c2s_session_opened, 50),
+    gen_iq_handler:add_iq_handler(ejabberd_local, halloapp, pb_client_version, ?MODULE, process_local_iq),
     ok.
 
-stop(Host) ->
-    ejabberd_hooks:delete(c2s_session_opened, Host, ?MODULE, c2s_session_opened, 50),
-    gen_iq_handler:remove_iq_handler(ejabberd_local, Host, pb_client_version),
+stop(_Host) ->
+    ejabberd_hooks:delete(c2s_session_opened, halloapp, ?MODULE, c2s_session_opened, 50),
+    gen_iq_handler:remove_iq_handler(ejabberd_local, halloapp, pb_client_version),
     ok.
 
 depends(_Host, _Opts) ->

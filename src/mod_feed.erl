@@ -41,18 +41,18 @@
 ]).
 
 
-start(Host, _Opts) ->
-    gen_iq_handler:add_iq_handler(ejabberd_local, Host, pb_feed_item, ?MODULE, process_local_iq),
-    ejabberd_hooks:add(add_friend, Host, ?MODULE, add_friend, 50),
-    ejabberd_hooks:add(remove_user, Host, ?MODULE, remove_user, 50),
-    ejabberd_hooks:add(user_send_packet, Host, ?MODULE, user_send_packet, 50),
+start(_Host, _Opts) ->
+    gen_iq_handler:add_iq_handler(ejabberd_local, halloapp, pb_feed_item, ?MODULE, process_local_iq),
+    ejabberd_hooks:add(add_friend, halloapp, ?MODULE, add_friend, 50),
+    ejabberd_hooks:add(remove_user, halloapp, ?MODULE, remove_user, 50),
+    ejabberd_hooks:add(user_send_packet, halloapp, ?MODULE, user_send_packet, 50),
     ok.
 
-stop(Host) ->
-    gen_iq_handler:remove_iq_handler(ejabberd_local, Host, pb_feed_item),
-    ejabberd_hooks:delete(add_friend, Host, ?MODULE, add_friend, 50),
-    ejabberd_hooks:delete(remove_user, Host, ?MODULE, remove_user, 50),
-    ejabberd_hooks:delete(user_send_packet, Host, ?MODULE, user_send_packet, 50),
+stop(_Host) ->
+    gen_iq_handler:remove_iq_handler(ejabberd_local, halloapp, pb_feed_item),
+    ejabberd_hooks:delete(add_friend, halloapp, ?MODULE, add_friend, 50),
+    ejabberd_hooks:delete(remove_user, halloapp, ?MODULE, remove_user, 50),
+    ejabberd_hooks:delete(user_send_packet, halloapp, ?MODULE, user_send_packet, 50),
     ok.
 
 reload(_Host, _NewOpts, _OldOpts) ->
@@ -327,7 +327,7 @@ publish_post(_Uid, _PostId, _PayloadBase64, public_post, _PSATag, _AudienceList,
 publish_post(Uid, PostId, PayloadBase64, public_moment, PSATag, _AudienceList, HomeFeedSt)
         when PSATag =:= undefined; PSATag =:= <<>> ->
     ?INFO("Uid: ~s, public_moment PostId: ~s", [Uid, PostId]),
-    Server = util:get_host(),
+    AppType = util_uid:get_app_type(Uid),
     MediaCounters = HomeFeedSt#pb_feed_item.item#pb_post.media_counters,
     MomentInfo = HomeFeedSt#pb_feed_item.item#pb_post.moment_info,
     %% Store only the audience to be broadcasted to.
@@ -336,7 +336,7 @@ publish_post(Uid, PostId, PayloadBase64, public_moment, PSATag, _AudienceList, H
             TimestampMs = util:now_ms(),
             ?INFO("Uid: ~s PostId ~p published as public_moment: ~p", [Uid, PostId]),
             ok = model_feed:publish_moment(PostId, Uid, PayloadBase64, public_moment, all, [], TimestampMs, MomentInfo),
-            ejabberd_hooks:run(feed_item_published, Server,
+            ejabberd_hooks:run(feed_item_published, AppType,
                 [Uid, Uid, PostId, post, public_moment, all, 0, MediaCounters]),
             {ok, TimestampMs};
         {ok, ExistingPost} ->
@@ -347,7 +347,7 @@ publish_post(Uid, PostId, PayloadBase64, public_moment, PSATag, _AudienceList, H
 publish_post(Uid, PostId, PayloadBase64, PostTag, PSATag, AudienceList, HomeFeedSt)
         when PSATag =:= undefined; PSATag =:= <<>> ->
     ?INFO("Uid: ~s, PostId: ~s", [Uid, PostId]),
-    Server = util:get_host(),
+    AppType = util_uid:get_app_type(Uid),
     Action = publish,
     FeedAudienceType = AudienceList#pb_audience.type,
     FilteredAudienceList1 = AudienceList#pb_audience.uids,
@@ -369,7 +369,7 @@ publish_post(Uid, PostId, PayloadBase64, PostTag, PSATag, AudienceList, HomeFeed
                     ok = model_feed:publish_post(PostId, Uid, PayloadBase64, PostTag,
                             FeedAudienceType, FilteredAudienceList2, TimestampMs)
             end,
-            ejabberd_hooks:run(feed_item_published, Server,
+            ejabberd_hooks:run(feed_item_published, AppType,
                 [Uid, Uid, PostId, post, PostTag, FeedAudienceType, FeedAudienceSize, MediaCounters]),
             {ok, TimestampMs};
         {ok, ExistingPost} ->
@@ -388,14 +388,14 @@ publish_post(Uid, PostId, PayloadBase64, PostTag, PSATag, _AudienceList, HomeFee
     end.
 
 publish_psa_post(Uid, PostId, PayloadBase64, PostTag, PSATag, HomeFeedSt) ->
-    Server = util:get_host(),
+    AppType = util_uid:get_app_type(Uid),
     MediaCounters = HomeFeedSt#pb_feed_item.item#pb_post.media_counters,
     {ok, FinalTimestampMs} = case model_feed:get_post(PostId) of
         {error, missing} ->
             TimestampMs = util:now_ms(),
             ?INFO("Uid: ~s PostId ~p published PSA Post to ~p", [Uid, PostId, PSATag]),
             ok = model_feed:publish_psa_post(PostId, Uid, PayloadBase64, PostTag, PSATag, TimestampMs),
-            ejabberd_hooks:run(feed_item_published, Server, [Uid, Uid, PostId, post, PostTag, all, -1, MediaCounters]),
+            ejabberd_hooks:run(feed_item_published, AppType, [Uid, Uid, PostId, post, PostTag, all, -1, MediaCounters]),
             {ok, TimestampMs};
         {ok, ExistingPost} ->
             ?INFO("Uid: ~s PostId: ~s already published", [Uid, PostId]),
@@ -445,7 +445,7 @@ broadcast_post(Uid, FeedAudienceList, HomeFeedSt, TimestampMs) ->
         HomeFeedSt :: pb_feed_item()) -> {ok, integer()} | {error, any()}.
 publish_comment(PublisherUid, CommentId, PostId, ParentCommentId, PayloadBase64, HomeFeedSt) ->
     ?INFO("Uid: ~s, CommentId: ~s, PostId: ~s", [PublisherUid, CommentId, PostId]),
-    Server = util:get_host(),
+    AppType = util_uid:get_app_type(PublisherUid),
     Action = publish,
     MediaCounters = HomeFeedSt#pb_feed_item.item#pb_comment.media_counters,
     CommentType = HomeFeedSt#pb_feed_item.item#pb_comment.comment_type,
@@ -477,7 +477,7 @@ publish_comment(PublisherUid, CommentId, PostId, ParentCommentId, PayloadBase64,
                     NewPushList = [PostOwnerUid, PublisherUid | ParentPushList],
                     ok = model_feed:publish_comment(CommentId, PostId, PublisherUid,
                             ParentCommentId, CommentType, PayloadBase64, TimestampMs),
-                    ejabberd_hooks:run(feed_item_published, Server,
+                    ejabberd_hooks:run(feed_item_published, AppType,
                         [PublisherUid, PostOwnerUid, CommentId, CommentType, undefined,
                         Post#post.audience_type, sets:size(FeedAudienceSet), MediaCounters]),
                     broadcast_comment(CommentId, PostId, ParentCommentId, PublisherUid, HomeFeedSt,
@@ -512,7 +512,7 @@ broadcast_comment(CommentId, PostId, ParentCommentId, PublisherUid,
 -spec retract_post(Uid :: uid(), PostId :: binary()) -> {ok, integer()} | {error, any()}.
 retract_post(Uid, PostId) ->
     ?INFO("Uid: ~s, PostId: ~s", [Uid, PostId]),
-    Server = util:get_host(),
+    AppType = util_uid:get_app_type(Uid),
     Action = retract,
     case model_feed:get_post(PostId) of
         {error, missing} ->
@@ -531,7 +531,7 @@ retract_post(Uid, PostId) ->
                     FeedAudienceSet = get_feed_audience_set(Action, Uid, ExistingPost#post.audience_list),
                     PushSet = sets:new(),
                     broadcast_event(Uid, FeedAudienceSet, PushSet, ResultStanza, []),
-                    ejabberd_hooks:run(feed_item_retracted, Server, [Uid, PostId, post]),
+                    ejabberd_hooks:run(feed_item_retracted, AppType, [Uid, PostId, post]),
 
                     {ok, TimestampMs}
             end
@@ -542,7 +542,7 @@ retract_post(Uid, PostId) ->
         PostId :: binary(), HomeFeedSt :: pb_feed_item()) -> {ok, integer()} | {error, any()}.
 retract_comment(PublisherUid, CommentId, PostId, HomeFeedSt) ->
     ?INFO("Uid: ~s, CommentId: ~s, PostId: ~s", [PublisherUid, CommentId, PostId]),
-    Server = util:get_host(),
+    AppType = util_uid:get_app_type(PublisherUid),
     Action = retract,
     case model_feed:get_comment_data(PostId, CommentId, undefined) of
         {{error, missing}, _, _} ->
@@ -573,7 +573,7 @@ retract_comment(PublisherUid, CommentId, PostId, HomeFeedSt) ->
                                     ParentCommentId, PublisherUid, HomeFeedSt, TimestampMs),
                             PushSet = sets:new(),
                             broadcast_event(PublisherUid, FeedAudienceSet, PushSet, ResultStanza, []),
-                            ejabberd_hooks:run(feed_item_retracted, Server,[PublisherUid, CommentId, comment]),
+                            ejabberd_hooks:run(feed_item_retracted, AppType,[PublisherUid, CommentId, comment]),
 
                             {ok, TimestampMs};
 
@@ -772,9 +772,9 @@ get_public_moments(Tag, TimestampMs, Cursor, Limit, PublicMoments) ->
 
 
 -spec send_old_items(FromUid :: uid(), ToUid :: uid(), Server :: binary()) -> ok.
-send_old_items(FromUid, ToUid, Server) ->
+send_old_items(FromUid, ToUid, _Server) ->
     ?INFO("sending old items of ~s, to ~s", [FromUid, ToUid]),
-
+    AppType = util_uid:get_app_type(FromUid),
     {ok, FeedItems} = model_feed:get_7day_user_feed(FromUid),
     {FilteredPosts, FilteredComments} = filter_feed_items(ToUid, FeedItems),
     PostStanzas = lists:map(fun convert_posts_to_feed_items/1, FilteredPosts),
@@ -789,7 +789,7 @@ send_old_items(FromUid, ToUid, Server) ->
     ?INFO("sending FromUid: ~s ToUid: ~s posts: ~p",
         [FromUid, ToUid, FilteredPostIds]),
 
-    ejabberd_hooks:run(feed_share_old_items, Server,
+    ejabberd_hooks:run(feed_share_old_items, AppType,
         [FromUid, ToUid, length(PostStanzas), length(CommentStanzas)]),
 
     case PostStanzas of

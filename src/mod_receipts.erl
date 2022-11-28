@@ -32,11 +32,11 @@
     get_thread_id/1
 ]).
 
-start(Host, _Opts) ->
-    ejabberd_hooks:add(user_ack_packet, Host, ?MODULE, user_ack_packet, 10).
+start(_Host, _Opts) ->
+    ejabberd_hooks:add(user_ack_packet, halloapp, ?MODULE, user_ack_packet, 10).
 
-stop(Host) ->
-    ejabberd_hooks:delete(user_ack_packet, Host, ?MODULE, user_ack_packet, 10).
+stop(_Host) ->
+    ejabberd_hooks:delete(user_ack_packet, halloapp, ?MODULE, user_ack_packet, 10).
 
 depends(_Host, _Opts) ->
     [].

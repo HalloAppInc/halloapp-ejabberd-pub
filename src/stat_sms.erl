@@ -140,7 +140,17 @@ check_sms_reg_internal(TimeWindow, IncrementalTimestamp, FinalIncrement) ->
             IncrementalTimestamp, FinalIncrement]),
     IncrementalAttemptList = model_phone:get_incremental_attempt_list(IncrementalTimestamp),
     lists:foreach(
-        fun({Phone, AppType, AttemptId})  ->
+        fun({Phone, AttemptId}) ->
+            AppType = halloapp,
+            ?DEBUG("Checking Phone: ~p, AppType: ~p, AttemptId: ~p", [Phone, AppType, AttemptId]),
+            case util:is_test_number(Phone) orelse util:is_google_number(Phone) of
+                true ->
+                    ok;
+                false ->
+                    do_check_sms_reg(TimeWindow, Phone, AppType, AttemptId)
+            end;
+
+           ({Phone, AppType, AttemptId})  ->
             ?DEBUG("Checking Phone: ~p, AppType: ~p, AttemptId: ~p", [Phone, AppType, AttemptId]),
             case util:is_test_number(Phone) orelse util:is_google_number(Phone) of
                 true ->

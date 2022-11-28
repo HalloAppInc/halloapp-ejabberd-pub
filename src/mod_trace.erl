@@ -41,24 +41,24 @@
 start(Host, Opts) ->
     ?INFO("starting", []),
     gen_mod:start_child(?MODULE, Host, Opts, ?PROC()),
-    ejabberd_hooks:add(c2s_session_opened, Host, ?MODULE, c2s_session_opened, 0),
-    ejabberd_hooks:add(c2s_session_closed, Host, ?MODULE, c2s_session_closed, 0),
-    ejabberd_hooks:add(c2s_handle_recv, Host, ?MODULE, c2s_handle_recv, 0),
-    ejabberd_hooks:add(c2s_handle_send, Host, ?MODULE, c2s_handle_send, 0),
-    ejabberd_hooks:add(register_user, Host, ?MODULE, register_user, 10),
-    ejabberd_hooks:add(remove_user, Host, ?MODULE, remove_user, 50),
+    ejabberd_hooks:add(c2s_session_opened, halloapp, ?MODULE, c2s_session_opened, 0),
+    ejabberd_hooks:add(c2s_session_closed, halloapp, ?MODULE, c2s_session_closed, 0),
+    ejabberd_hooks:add(c2s_handle_recv, halloapp, ?MODULE, c2s_handle_recv, 0),
+    ejabberd_hooks:add(c2s_handle_send, halloapp, ?MODULE, c2s_handle_send, 0),
+    ejabberd_hooks:add(register_user, halloapp, ?MODULE, register_user, 10),
+    ejabberd_hooks:add(remove_user, halloapp, ?MODULE, remove_user, 50),
     ok.
 
 
-stop(Host) ->
+stop(_Host) ->
     ?INFO("stopping", []),
     gen_mod:stop_child(?PROC()),
-    ejabberd_hooks:delete(remove_user, Host, ?MODULE, remove_user, 50),
-    ejabberd_hooks:delete(register_user, Host, ?MODULE, register_user, 10),
-    ejabberd_hooks:delete(c2s_handle_send, Host, ?MODULE, c2s_handle_send, 0),
-    ejabberd_hooks:delete(c2s_handle_recv, Host, ?MODULE, c2s_handle_recv, 0),
-    ejabberd_hooks:delete(c2s_session_closed, Host, ?MODULE, c2s_session_closed, 0),
-    ejabberd_hooks:delete(c2s_session_opened, Host, ?MODULE, c2s_session_opened, 0),
+    ejabberd_hooks:delete(remove_user, halloapp, ?MODULE, remove_user, 50),
+    ejabberd_hooks:delete(register_user, halloapp, ?MODULE, register_user, 10),
+    ejabberd_hooks:delete(c2s_handle_send, halloapp, ?MODULE, c2s_handle_send, 0),
+    ejabberd_hooks:delete(c2s_handle_recv, halloapp, ?MODULE, c2s_handle_recv, 0),
+    ejabberd_hooks:delete(c2s_session_closed, halloapp, ?MODULE, c2s_session_closed, 0),
+    ejabberd_hooks:delete(c2s_session_opened, halloapp, ?MODULE, c2s_session_opened, 0),
     ok.
 
 

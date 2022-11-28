@@ -30,12 +30,12 @@
 ]).
 
 
-start(Host, _Opts) ->
-    ejabberd_hooks:add(user_send_packet, Host, ?MODULE, user_send_packet, 50),
+start(_Host, _Opts) ->
+    ejabberd_hooks:add(user_send_packet, halloapp, ?MODULE, user_send_packet, 50),
     ok.
 
-stop(Host) ->
-    ejabberd_hooks:delete(user_send_packet, Host, ?MODULE, user_send_packet, 50),
+stop(_Host) ->
+    ejabberd_hooks:delete(user_send_packet, halloapp, ?MODULE, user_send_packet, 50),
     ok.
 
 reload(_Host, _NewOpts, _OldOpts) ->
@@ -61,7 +61,7 @@ user_send_packet({#pb_msg{id = MsgId, to_uid = ToUid, from_uid = FromUid,
 
 user_send_packet({#pb_msg{id = MsgId, to_uid = ToUid, from_uid = FromUid,
         payload = Payload} = Packet, State} = _Acc) ->
-    LServer = util:get_host(),
+    AppType = util_uid:get_app_type(FromUid),
     PayloadType = util:get_payload_type(Packet),
     ?INFO("Uid: ~s sending ~p message to ~s MsgId: ~s", [FromUid, PayloadType, ToUid, MsgId]),
     Packet1 = if
@@ -73,7 +73,7 @@ user_send_packet({#pb_msg{id = MsgId, to_uid = ToUid, from_uid = FromUid,
             case is_record(Payload, pb_chat_stanza) of
                 true ->
                     MediaCounters = Payload#pb_chat_stanza.media_counters,
-                    ejabberd_hooks:run(user_send_im, LServer, [FromUid, MsgId, ToUid, MediaCounters]);
+                    ejabberd_hooks:run(user_send_im, AppType, [FromUid, MsgId, ToUid, MediaCounters]);
                 false -> ok
             end,
             set_sender_info(Packet);

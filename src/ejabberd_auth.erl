@@ -104,12 +104,14 @@ user_exists(User) ->
 
 -spec re_register_user(User :: binary(), Server :: binary(), Phone :: binary(), CampaignId :: binary()) -> ok.
 re_register_user(User, Server, Phone, CampaignId) ->
-    ejabberd_hooks:run(re_register_user, Server, [User, Server, Phone, CampaignId]).
+    AppType = util_uid:get_app_type(User),
+    ejabberd_hooks:run(re_register_user, AppType, [User, Server, Phone, CampaignId]).
 
 
 -spec remove_user(binary(), binary()) -> ok.
 remove_user(User, Server) ->
-    ejabberd_hooks:run(remove_user, Server, [User, Server]),
+    AppType = util_uid:get_app_type(User),
+    ejabberd_hooks:run(remove_user, AppType, [User, Server]),
     ha_remove_user(User).
 
 
@@ -126,7 +128,7 @@ check_and_register_internal(Phone, Server, Cred, Name, UserAgent, CampaignId) ->
         {ok, undefined} ->
             case ha_try_register(Phone, Cred, Name, UserAgent, CampaignId) of
                 {ok, _, UserId} ->
-                    ejabberd_hooks:run(register_user, Server, [UserId, Server, Phone, CampaignId]),
+                    ejabberd_hooks:run(register_user, AppType, [UserId, Server, Phone, CampaignId]),
                     {ok, UserId, register};
                 Err -> Err
             end;

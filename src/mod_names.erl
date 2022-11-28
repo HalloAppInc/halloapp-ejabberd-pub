@@ -40,16 +40,16 @@
 
 
 
-start(Host, _Opts) ->
-    gen_iq_handler:add_iq_handler(ejabberd_local, Host, pb_name, ?MODULE, process_local_iq),
-    ejabberd_hooks:add(re_register_user, Host, ?MODULE, re_register_user, 50),
-    ejabberd_hooks:add(user_name_updated, Host, ?MODULE, user_name_updated, 50),
+start(_Host, _Opts) ->
+    gen_iq_handler:add_iq_handler(ejabberd_local, halloapp, pb_name, ?MODULE, process_local_iq),
+    ejabberd_hooks:add(re_register_user, halloapp, ?MODULE, re_register_user, 50),
+    ejabberd_hooks:add(user_name_updated, halloapp, ?MODULE, user_name_updated, 50),
     ok.
 
-stop(Host) ->
-    gen_iq_handler:remove_iq_handler(ejabberd_local, Host, pb_name),
-    ejabberd_hooks:delete(re_register_user, Host, ?MODULE, re_register_user, 50),
-    ejabberd_hooks:delete(user_name_updated, Host, ?MODULE, user_name_updated, 50),
+stop(_Host) ->
+    gen_iq_handler:remove_iq_handler(ejabberd_local, halloapp, pb_name),
+    ejabberd_hooks:delete(re_register_user, halloapp, ?MODULE, re_register_user, 50),
+    ejabberd_hooks:delete(user_name_updated, halloapp, ?MODULE, user_name_updated, 50),
     ok.
 
 depends(_Host, _Opts) ->
@@ -121,9 +121,9 @@ user_name_updated(Uid, Name) ->
 -spec set_name(Uid :: binary(), Name :: binary()) -> ok.
 set_name(Uid, Name) ->
     ?INFO("Uid: ~p, Name: ~p", [Uid, Name]),
-    Server = util:get_host(),
+    AppType = util_uid:get_app_type(Uid),
     ok = model_accounts:set_name(Uid, Name),
-    ejabberd_hooks:run(user_name_updated, Server, [Uid, Name]),
+    ejabberd_hooks:run(user_name_updated, AppType, [Uid, Name]),
     ok.
 
 

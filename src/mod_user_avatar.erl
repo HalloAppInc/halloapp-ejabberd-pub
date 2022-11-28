@@ -34,24 +34,24 @@
 ]).
 
 
-start(Host, _Opts) ->
+start(_Host, _Opts) ->
     ?INFO("start ~w", [?MODULE]),
-    gen_iq_handler:add_iq_handler(ejabberd_local, Host, pb_avatar, ?MODULE, process_local_iq),
-    gen_iq_handler:add_iq_handler(ejabberd_local, Host, pb_avatars, ?MODULE, process_local_iq),
-    gen_iq_handler:add_iq_handler(ejabberd_local, Host, pb_upload_avatar, ?MODULE, process_local_iq),
+    gen_iq_handler:add_iq_handler(ejabberd_local, halloapp, pb_avatar, ?MODULE, process_local_iq),
+    gen_iq_handler:add_iq_handler(ejabberd_local, halloapp, pb_avatars, ?MODULE, process_local_iq),
+    gen_iq_handler:add_iq_handler(ejabberd_local, halloapp, pb_upload_avatar, ?MODULE, process_local_iq),
     % remove_user hook should run, before the redis data is deleted.
     % Otherwise we will not know what the old avatar_id was to delete from S3.
-    ejabberd_hooks:add(remove_user, Host, ?MODULE, remove_user, 10),
-    ejabberd_hooks:add(user_avatar_published, Host, ?MODULE, user_avatar_published, 50),
+    ejabberd_hooks:add(remove_user, halloapp, ?MODULE, remove_user, 10),
+    ejabberd_hooks:add(user_avatar_published, halloapp, ?MODULE, user_avatar_published, 50),
     ok.
 
-stop(Host) ->
+stop(_Host) ->
     ?INFO("stop ~w", [?MODULE]),
-    ejabberd_hooks:delete(user_avatar_published, Host, ?MODULE, user_avatar_published, 50),
-    ejabberd_hooks:delete(remove_user, Host, ?MODULE, remove_user, 10),
-    gen_iq_handler:remove_iq_handler(ejabberd_local, Host, pb_avatar),
-    gen_iq_handler:remove_iq_handler(ejabberd_local, Host, pb_avatars),
-    gen_iq_handler:remove_iq_handler(ejabberd_local, Host, pb_upload_avatar),
+    ejabberd_hooks:delete(user_avatar_published, halloapp, ?MODULE, user_avatar_published, 50),
+    ejabberd_hooks:delete(remove_user, halloapp, ?MODULE, remove_user, 10),
+    gen_iq_handler:remove_iq_handler(ejabberd_local, halloapp, pb_avatar),
+    gen_iq_handler:remove_iq_handler(ejabberd_local, halloapp, pb_avatars),
+    gen_iq_handler:remove_iq_handler(ejabberd_local, halloapp, pb_upload_avatar),
     ok.
 
 
@@ -206,7 +206,8 @@ update_user_avatar(UserId, Server, AvatarId) ->
         AvatarId ->
             model_accounts:set_avatar_id(UserId, AvatarId)
     end,
-    ejabberd_hooks:run(user_avatar_published, Server, [UserId, Server, AvatarId]),
+    AppType = util_uid:get_app_type(UserId),
+    ejabberd_hooks:run(user_avatar_published, AppType, [UserId, Server, AvatarId]),
     delete_avatar_s3(OldAvatarId),
     ok.
 

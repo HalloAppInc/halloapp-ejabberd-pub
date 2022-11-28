@@ -81,15 +81,15 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-start(Host, _Opts) ->
+start(_Host, _Opts) ->
     ?INFO("start", []),
-    ejabberd_hooks:add(remove_user, Host, ?MODULE, remove_user, 50),
+    ejabberd_hooks:add(remove_user, halloapp, ?MODULE, remove_user, 50),
     ok.
 
 
-stop(Host) ->
+stop(_Host) ->
     ?INFO("stop", []),
-    ejabberd_hooks:delete(remove_user, Host, ?MODULE, remove_user, 50),
+    ejabberd_hooks:delete(remove_user, halloapp, ?MODULE, remove_user, 50),
     ok.
 
 
@@ -602,6 +602,7 @@ set_background(Gid, Uid, Background) ->
             when Ts :: non_neg_integer().
 send_chat_message(MsgId, Gid, Uid, MessagePayload) ->
     ?INFO("Gid: ~s Uid: ~s", [Gid, Uid]),
+    AppType = util_uid:get_app_type(Uid),
     case model_groups:check_member(Gid, Uid) of
         false ->
             %% also possible the group does not exists
@@ -612,7 +613,6 @@ send_chat_message(MsgId, Gid, Uid, MessagePayload) ->
             {ok, SenderName} = model_accounts:get_name(Uid),
             GroupMessage = make_chat_message(GroupInfo, Uid, SenderName, MessagePayload, Ts),
             ?INFO("Fan Out MSG: ~p", [GroupMessage]),
-            Server = util:get_host(),
             Packet = #pb_msg{
                 id = MsgId,
                 type = groupchat,
@@ -622,7 +622,7 @@ send_chat_message(MsgId, Gid, Uid, MessagePayload) ->
             ReceiverUids = lists:delete(Uid, MUids),
             stat:count(?STAT_NS, "send_im"),
             stat:count(?STAT_NS, "recv_im", length(ReceiverUids)),
-            ejabberd_hooks:run(user_send_group_im, Server, [Gid, Uid, MsgId, ReceiverUids]),
+            ejabberd_hooks:run(user_send_group_im, AppType, [Gid, Uid, MsgId, ReceiverUids]),
             broadcast_packet(Uid, ReceiverUids, Packet),
             {ok, Ts}
     end.
@@ -929,7 +929,7 @@ add_members_unsafe_2(Gid, Uid, MemberUids) ->
     {ValidMemberUids, InvalidMemberUids} = split_max_groups_count(GoodUids),
     RedisResults = model_groups:add_members(Gid, ValidMemberUids, Uid),
     AddResults = lists:zip(ValidMemberUids, RedisResults),
-    Server = util:get_host(),
+    AppType = util_uid:get_app_type(Uid),
     AddResultsByMember = maps:from_list(AddResults),
     InvalidMembers = sets:from_list(InvalidMemberUids),
     Results = lists:map(
@@ -945,7 +945,7 @@ add_members_unsafe_2(Gid, Uid, MemberUids) ->
                 false ->
                     {OUid, add, already_member};
                 true ->
-                    ejabberd_hooks:run(group_member_added, Server, [Gid, OUid, Uid]),
+                    ejabberd_hooks:run(group_member_added, AppType, [Gid, OUid, Uid]),
                     {OUid, add, ok}
             end
         end,

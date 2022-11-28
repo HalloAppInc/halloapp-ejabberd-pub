@@ -38,12 +38,12 @@
 %% gen_mod functions
 %%====================================================================
 
-start(Host, _Opts) ->
-    gen_iq_handler:add_iq_handler(ejabberd_local, Host, pb_props, ?MODULE, process_local_iq, 2),
+start(_Host, _Opts) ->
+    gen_iq_handler:add_iq_handler(ejabberd_local, halloapp, pb_props, ?MODULE, process_local_iq, 2),
     ok.
 
-stop(Host) ->
-    gen_iq_handler:remove_iq_handler(ejabberd_local, Host, pb_props),
+stop(_Host) ->
+    gen_iq_handler:remove_iq_handler(ejabberd_local, halloapp, pb_props),
     ok.
 
 depends(_Host, _Opts) ->

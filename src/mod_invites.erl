@@ -55,16 +55,16 @@
 %% gen_mod functions
 %%====================================================================
 
-start(Host, _Opts) ->
-    gen_iq_handler:add_iq_handler(ejabberd_local, Host, pb_invites_request, ?MODULE, process_local_iq),
-    ejabberd_hooks:add(register_user, Host, ?MODULE, register_user, 50),
+start(_Host, _Opts) ->
+    gen_iq_handler:add_iq_handler(ejabberd_local, halloapp, pb_invites_request, ?MODULE, process_local_iq),
+    ejabberd_hooks:add(register_user, halloapp, ?MODULE, register_user, 50),
     init_pre_invite_string_table(),
     init_invite_string_table(),
     ok.
 
-stop(Host) ->
-    gen_iq_handler:remove_iq_handler(ejabberd_local, Host, pb_invites_request),
-    ejabberd_hooks:delete(register_user, Host, ?MODULE, register_user, 50),
+stop(_Host) ->
+    gen_iq_handler:remove_iq_handler(ejabberd_local, halloapp, pb_invites_request),
+    ejabberd_hooks:delete(register_user, halloapp, ?MODULE, register_user, 50),
     try
         ets:delete(?INVITE_STRINGS_TABLE),
         ets:delete(?PRE_INVITE_STRINGS_TABLE)

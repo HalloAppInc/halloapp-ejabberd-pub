@@ -41,22 +41,22 @@
 %% gen_mod API.
 %%====================================================================
 
-start(Host, _Opts) ->
+start(_Host, _Opts) ->
     ?INFO("start", []),
-    gen_iq_handler:add_iq_handler(ejabberd_local, Host, pb_privacy_list, ?MODULE, process_local_iq),
-    gen_iq_handler:add_iq_handler(ejabberd_local, Host, pb_privacy_lists, ?MODULE, process_local_iq),
-    ejabberd_hooks:add(privacy_check_packet, Host, ?MODULE, privacy_check_packet, 30),
-    ejabberd_hooks:add(register_user, Host, ?MODULE, register_user, 50),
-    ejabberd_hooks:add(remove_user, Host, ?MODULE, remove_user, 50),
+    gen_iq_handler:add_iq_handler(ejabberd_local, halloapp, pb_privacy_list, ?MODULE, process_local_iq),
+    gen_iq_handler:add_iq_handler(ejabberd_local, halloapp, pb_privacy_lists, ?MODULE, process_local_iq),
+    ejabberd_hooks:add(privacy_check_packet, halloapp, ?MODULE, privacy_check_packet, 30),
+    ejabberd_hooks:add(register_user, halloapp, ?MODULE, register_user, 50),
+    ejabberd_hooks:add(remove_user, halloapp, ?MODULE, remove_user, 50),
     ok.
 
-stop(Host) ->
+stop(_Host) ->
     ?INFO("stop", []),
-    gen_iq_handler:remove_iq_handler(ejabberd_local, Host, pb_privacy_list),
-    gen_iq_handler:remove_iq_handler(ejabberd_local, Host, pb_privacy_lists),
-    ejabberd_hooks:delete(privacy_check_packet, Host, ?MODULE, privacy_check_packet, 30),
-    ejabberd_hooks:delete(register_user, Host, ?MODULE, register_user, 50),
-    ejabberd_hooks:delete(remove_user, Host, ?MODULE, remove_user, 50),
+    gen_iq_handler:remove_iq_handler(ejabberd_local, halloapp, pb_privacy_list),
+    gen_iq_handler:remove_iq_handler(ejabberd_local, halloapp, pb_privacy_lists),
+    ejabberd_hooks:delete(privacy_check_packet, halloapp, ?MODULE, privacy_check_packet, 30),
+    ejabberd_hooks:delete(register_user, halloapp, ?MODULE, register_user, 50),
+    ejabberd_hooks:delete(remove_user, halloapp, ?MODULE, remove_user, 50),
     ok.
 
 depends(_Host, _Opts) ->
@@ -444,10 +444,11 @@ remove_uids_from_privacy_list(Uid, mute, Ouids) ->
     stat:count(?STAT_PRIVACY, "unmute", length(Ouids)),
     ok;
 remove_uids_from_privacy_list(Uid, block, Ouids) ->
+    AppType = util_uid:get_app_type(Uid),
     model_privacy:unblock_uids(Uid, Ouids),
     stat:count(?STAT_PRIVACY, "unblock", length(Ouids)),
     Server = util:get_host(),
-    ejabberd_hooks:run(unblock_uids, Server, [Uid, Server, Ouids]).
+    ejabberd_hooks:run(unblock_uids, AppType, [Uid, Server, Ouids]).
 
 
 -spec add_uids_to_privacy_list(Uid :: binary(),
@@ -466,8 +467,9 @@ add_uids_to_privacy_list(Uid, mute, Ouids) ->
     stat:count(?STAT_PRIVACY, "mute", length(Ouids)),
     ok;
 add_uids_to_privacy_list(Uid, block, Ouids) ->
+    AppType = util_uid:get_app_type(Uid),
     Server = util:get_host(),
-    ejabberd_hooks:run(block_uids, Server, [Uid, Server, Ouids]),
+    ejabberd_hooks:run(block_uids, AppType, [Uid, Server, Ouids]),
     model_privacy:block_uids(Uid, Ouids),
     stat:count(?STAT_PRIVACY, "block", length(Ouids)),
     ok.
@@ -492,8 +494,9 @@ remove_phones_from_privacy_list(Uid, block, Phones) ->
     Ouids = maps:values(model_phone:get_uids(Phones, halloapp)),
     model_privacy:unblock_phones(Uid, Phones),
     stat:count(?STAT_PRIVACY, "unblock_phones", length(Phones)),
+    AppType = util_uid:get_app_type(Uid),
     Server = util:get_host(),
-    ejabberd_hooks:run(unblock_uids, Server, [Uid, Server, Ouids]).
+    ejabberd_hooks:run(unblock_uids, AppType, [Uid, Server, Ouids]).
 
 
 -spec add_phones_to_privacy_list(Uid :: binary(),
@@ -515,8 +518,9 @@ add_phones_to_privacy_list(Uid, block, Phones) ->
     Ouids = maps:values(model_phone:get_uids(Phones, halloapp)),
     model_privacy:block_phones(Uid, Phones),
     stat:count(?STAT_PRIVACY, "block_phones", length(Phones)),
+    AppType = util_uid:get_app_type(Uid),
     Server = util:get_host(),
-    ejabberd_hooks:run(block_uids, Server, [Uid, Server, Ouids]),
+    ejabberd_hooks:run(block_uids, AppType, [Uid, Server, Ouids]),
     ok.
 
 

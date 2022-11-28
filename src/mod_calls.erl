@@ -33,20 +33,20 @@
 %%%   gen_mod API                                                                              %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-start(Host, _Opts) ->
+start(_Host, _Opts) ->
     ?INFO("start"),
-    ejabberd_hooks:add(user_receive_packet, Host, ?MODULE, user_receive_packet, 50),
-    ejabberd_hooks:add(user_send_packet, Host, ?MODULE, user_send_packet, 50),
-    ejabberd_hooks:add(push_message_always_hook, Host, ?MODULE, push_message_always_hook, 50),
-    ejabberd_hooks:add(set_presence_hook, Host, ?MODULE, set_presence_hook, 50),
+    ejabberd_hooks:add(user_receive_packet, halloapp, ?MODULE, user_receive_packet, 50),
+    ejabberd_hooks:add(user_send_packet, halloapp, ?MODULE, user_send_packet, 50),
+    ejabberd_hooks:add(push_message_always_hook, halloapp, ?MODULE, push_message_always_hook, 50),
+    ejabberd_hooks:add(set_presence_hook, halloapp, ?MODULE, set_presence_hook, 50),
     ok.
 
-stop(Host) ->
+stop(_Host) ->
     ?INFO("stop"),
-    ejabberd_hooks:delete(user_send_packet, Host, ?MODULE, user_send_packet, 50),
-    ejabberd_hooks:delete(user_receive_packet, Host, ?MODULE, user_receive_packet, 50),
-    ejabberd_hooks:delete(push_message_always_hook, Host, ?MODULE, push_message_always_hook, 50),
-    ejabberd_hooks:delete(set_presence_hook, Host, ?MODULE, set_presence_hook, 50),
+    ejabberd_hooks:delete(user_send_packet, halloapp, ?MODULE, user_send_packet, 50),
+    ejabberd_hooks:delete(user_receive_packet, halloapp, ?MODULE, user_receive_packet, 50),
+    ejabberd_hooks:delete(push_message_always_hook, halloapp, ?MODULE, push_message_always_hook, 50),
+    ejabberd_hooks:delete(set_presence_hook, halloapp, ?MODULE, set_presence_hook, 50),
     ok.
 
 depends(_Host, _Opts) -> [].

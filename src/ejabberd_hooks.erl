@@ -47,6 +47,7 @@
 	 terminate/2]).
 
 -include("logger.hrl").
+-include("ha_types.hrl").
 -include("ejabberd_stacktrace.hrl").
 
 -record(state, {}).
@@ -64,36 +65,36 @@ start_link() ->
 add(Hook, Function, Seq) when is_function(Function) ->
     add(Hook, global, undefined, Function, Seq).
 
--spec add(atom(), HostOrModule :: binary() | atom(), fun() | atom() , integer()) -> ok.
-add(Hook, Host, Function, Seq) when is_function(Function) ->
-    add(Hook, Host, undefined, Function, Seq);
+-spec add(atom(), AppType :: atom(), fun() | atom() , integer()) -> ok.
+add(Hook, AppType, Function, Seq) when is_function(Function) ->
+    add(Hook, AppType, undefined, Function, Seq);
 
 %% @doc Add a module and function to this hook.
 %% The integer sequence is used to sort the calls: low number is called before high number.
 add(Hook, Module, Function, Seq) ->
     add(Hook, global, Module, Function, Seq).
 
--spec add(atom(), binary() | global, atom(), atom() | fun(), integer()) -> ok.
-add(Hook, Host, Module, Function, Seq) ->
-    gen_server:call(?MODULE, {add, Hook, Host, Module, Function, Seq}).
+-spec add(atom(), app_type() | global, atom(), atom() | fun(), integer()) -> ok.
+add(Hook, AppType, Module, Function, Seq) ->
+    gen_server:call(?MODULE, {add, Hook, AppType, Module, Function, Seq}).
 
 -spec delete(atom(), fun(), integer()) -> ok.
 %% @doc See del/4.
 delete(Hook, Function, Seq) when is_function(Function) ->
     delete(Hook, global, undefined, Function, Seq).
 
--spec delete(atom(), binary() | atom(), atom() | fun(), integer()) -> ok.
-delete(Hook, Host, Function, Seq) when is_function(Function) ->
-    delete(Hook, Host, undefined, Function, Seq);
+-spec delete(atom(), atom(), atom() | fun(), integer()) -> ok.
+delete(Hook, AppType, Function, Seq) when is_function(Function) ->
+    delete(Hook, AppType, undefined, Function, Seq);
 
 %% @doc Delete a module and function from this hook.
 %% It is important to indicate exactly the same information than when the call was added.
 delete(Hook, Module, Function, Seq) ->
     delete(Hook, global, Module, Function, Seq).
 
--spec delete(atom(), binary() | global, atom(), atom() | fun(), integer()) -> ok.
-delete(Hook, Host, Module, Function, Seq) ->
-    gen_server:call(?MODULE, {delete, Hook, Host, Module, Function, Seq}).
+-spec delete(atom(), app_type() | global, atom(), atom() | fun(), integer()) -> ok.
+delete(Hook, AppType, Module, Function, Seq) ->
+    gen_server:call(?MODULE, {delete, Hook, AppType, Module, Function, Seq}).
 
 -spec run(atom(), list()) -> ok.
 %% @doc Run the calls of this hook in order, don't care about function results.
@@ -101,9 +102,9 @@ delete(Hook, Host, Module, Function, Seq) ->
 run(Hook, Args) ->
     run(Hook, global, Args).
 
--spec run(atom(), binary() | global, list()) -> ok.
-run(Hook, Host, Args) ->
-    try ets:lookup(hooks, {Hook, Host}) of
+-spec run(atom(), app_type() | global, list()) -> ok.
+run(Hook, AppType, Args) ->
+    try ets:lookup(hooks, {Hook, AppType}) of
 	[{_, Ls}] ->
 	    run1(Ls, Hook, Args);
 	[] ->
@@ -121,9 +122,9 @@ run(Hook, Host, Args) ->
 run_fold(Hook, Val, Args) ->
     run_fold(Hook, global, Val, Args).
 
--spec run_fold(atom(), binary() | global, T, list()) -> T.
-run_fold(Hook, Host, Val, Args) ->
-    try ets:lookup(hooks, {Hook, Host}) of
+-spec run_fold(atom(), app_type() | global, T, list()) -> T.
+run_fold(Hook, AppType, Val, Args) ->
+    try ets:lookup(hooks, {Hook, AppType}) of
 	[{_, Ls}] ->
 	    run_fold1(Ls, Hook, Val, Args);
 	[] ->
@@ -139,42 +140,42 @@ init([]) ->
     _ = ets:new(hooks, [named_table, {read_concurrency, true}]),
     {ok, #state{}}.
 
-handle_call({add, Hook, Host, Module, Function, Seq}, _From, State) ->
+handle_call({add, Hook, AppType, Module, Function, Seq}, _From, State) ->
     HookFormat = {Seq, Module, Function},
-    Reply = handle_add(Hook, Host, HookFormat),
+    Reply = handle_add(Hook, AppType, HookFormat),
     {reply, Reply, State};
-handle_call({delete, Hook, Host, Module, Function, Seq}, _From, State) ->
+handle_call({delete, Hook, AppType, Module, Function, Seq}, _From, State) ->
     HookFormat = {Seq, Module, Function},
-    Reply = handle_delete(Hook, Host, HookFormat),
+    Reply = handle_delete(Hook, AppType, HookFormat),
     {reply, Reply, State};
 handle_call(Request, From, State) ->
     ?WARNING("Unexpected call from ~p: ~p", [From, Request]),
     {noreply, State}.
 
 -spec handle_add(atom(), atom(), hook()) -> ok.
-handle_add(Hook, Host, El) ->
-    case ets:lookup(hooks, {Hook, Host}) of
+handle_add(Hook, AppType, El) ->
+    case ets:lookup(hooks, {Hook, AppType}) of
         [{_, Ls}] ->
             case lists:member(El, Ls) of
                 true ->
                     ok;
                 false ->
                     NewLs = lists:merge(Ls, [El]),
-                    ets:insert(hooks, {{Hook, Host}, NewLs}),
+                    ets:insert(hooks, {{Hook, AppType}, NewLs}),
                     ok
             end;
         [] ->
             NewLs = [El],
-            ets:insert(hooks, {{Hook, Host}, NewLs}),
+            ets:insert(hooks, {{Hook, AppType}, NewLs}),
             ok
     end.
 
 -spec handle_delete(atom(), atom(), hook()) -> ok.
-handle_delete(Hook, Host, El) ->
-    case ets:lookup(hooks, {Hook, Host}) of
+handle_delete(Hook, AppType, El) ->
+    case ets:lookup(hooks, {Hook, AppType}) of
         [{_, Ls}] ->
             NewLs = lists:delete(El, Ls),
-            ets:insert(hooks, {{Hook, Host}, NewLs}),
+            ets:insert(hooks, {{Hook, AppType}, NewLs}),
             ok;
         [] ->
             ok

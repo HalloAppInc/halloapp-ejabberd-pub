@@ -159,7 +159,8 @@ handle_info({iq_reply, #pb_iq{}, SessionInfo}, State) ->
 %% handler for when the device doesn't respond to a ping w/in 30s.
 handle_info({iq_reply, timeout, SessionInfo}, State) ->
     ?INFO("ping_timeout, Uid: ~s, SessionInfo: ~p", [SessionInfo#session_info.uid, SessionInfo]),
-    ejabberd_hooks:run(user_ping_timeout, State#state.host, [SessionInfo]),
+    AppType = util_uid:get_app_type(SessionInfo#session_info.uid),
+    ejabberd_hooks:run(user_ping_timeout, AppType, [SessionInfo]),
     User = SessionInfo#session_info.uid,
     Resource = SessionInfo#session_info.resource,
     case ejabberd_sm:get_session_pid(User, State#state.host, Resource) of
@@ -251,28 +252,28 @@ init_state(Host, _Opts) ->
     }.
 
 
-register_hooks(Host) ->
-    ejabberd_hooks:add(sm_register_connection_hook, Host, ?MODULE, sm_register_connection_hook, 100),
-    ejabberd_hooks:add(sm_remove_connection_hook, Host, ?MODULE, sm_remove_connection_hook, 100),
-    ejabberd_hooks:add(user_send_packet, Host, ?MODULE, user_send_packet, 50),
-    ejabberd_hooks:add(user_session_activated, Host, ?MODULE, user_session_activated, 50).
+register_hooks(_Host) ->
+    ejabberd_hooks:add(sm_register_connection_hook, halloapp, ?MODULE, sm_register_connection_hook, 100),
+    ejabberd_hooks:add(sm_remove_connection_hook, halloapp, ?MODULE, sm_remove_connection_hook, 100),
+    ejabberd_hooks:add(user_send_packet, halloapp, ?MODULE, user_send_packet, 50),
+    ejabberd_hooks:add(user_session_activated, halloapp, ?MODULE, user_session_activated, 50).
 
 
-unregister_hooks(Host) ->
-    ejabberd_hooks:delete(sm_remove_connection_hook, Host, ?MODULE, sm_remove_connection_hook, 100),
-    ejabberd_hooks:delete(sm_register_connection_hook, Host, ?MODULE, sm_register_connection_hook, 100),
-    ejabberd_hooks:delete(user_send_packet, Host, ?MODULE, user_send_packet, 50),
-    ejabberd_hooks:delete(user_session_activated, Host, ?MODULE, user_session_activated, 50).
+unregister_hooks(_Host) ->
+    ejabberd_hooks:delete(sm_remove_connection_hook, halloapp, ?MODULE, sm_remove_connection_hook, 100),
+    ejabberd_hooks:delete(sm_register_connection_hook, halloapp, ?MODULE, sm_register_connection_hook, 100),
+    ejabberd_hooks:delete(user_send_packet, halloapp, ?MODULE, user_send_packet, 50),
+    ejabberd_hooks:delete(user_session_activated, halloapp, ?MODULE, user_session_activated, 50).
 
 
-register_iq_handlers(Host) ->
-    gen_iq_handler:add_iq_handler(ejabberd_sm, Host, pb_ping, ?MODULE, iq_ping),
-    gen_iq_handler:add_iq_handler(ejabberd_local, Host, pb_ping, ?MODULE, iq_ping).
+register_iq_handlers(_Host) ->
+    gen_iq_handler:add_iq_handler(ejabberd_sm, halloapp, pb_ping, ?MODULE, iq_ping),
+    gen_iq_handler:add_iq_handler(ejabberd_local, halloapp, pb_ping, ?MODULE, iq_ping).
 
 
-unregister_iq_handlers(Host) ->
-    gen_iq_handler:remove_iq_handler(ejabberd_local, Host, pb_ping),
-    gen_iq_handler:remove_iq_handler(ejabberd_sm, Host, pb_ping).
+unregister_iq_handlers(_Host) ->
+    gen_iq_handler:remove_iq_handler(ejabberd_local, halloapp, pb_ping),
+    gen_iq_handler:remove_iq_handler(ejabberd_sm, halloapp, pb_ping).
 
 
 -spec add_timer(SessionInfo :: session_info(), State :: state()) -> state().

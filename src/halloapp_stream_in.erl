@@ -496,6 +496,7 @@ init_state(#{socket := Socket, mod := Mod} = State, Opts) ->
             user => <<"">>,
             server => <<"">>,
             resource => <<"">>,
+            app_type => <<>>,
             lserver => <<"">>},
     case try Mod:init([State1, Opts])
     catch _:undef -> {ok, State1}
@@ -598,8 +599,10 @@ process_stream_authentication(#pb_auth_request{uid = Uid, client_mode = ClientMo
     end,
     Mode = ClientMode#pb_client_mode.mode,
     ClientVersion = PbClientVersion#pb_client_version.version,
+    AppType = util_uid:get_app_type(ClientVersion),
     State1 = State#{
         user => Uid,
+        app_type => AppType,
         client_version => ClientVersion,
         resource => Resource,
         mode => Mode,

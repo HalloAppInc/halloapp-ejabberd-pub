@@ -81,27 +81,27 @@ mod_options(_Host) ->
 
 init([Host|_]) ->
     ?INFO("mod_offline_halloapp: init", []),
-    ejabberd_hooks:add(store_message_hook, Host, ?MODULE, store_message_hook, 50),
-    ejabberd_hooks:add(user_receive_packet, Host, ?MODULE, user_receive_packet, 100),
-    ejabberd_hooks:add(user_send_ack, Host, ?MODULE, user_send_ack, 50),
-    ejabberd_hooks:add(c2s_session_opened, Host, ?MODULE, c2s_session_opened, 100),
-    ejabberd_hooks:add(user_session_activated, Host, ?MODULE, user_session_activated, 50),
-    ejabberd_hooks:add(offline_queue_check, Host, ?MODULE, offline_queue_check, 50),
-    ejabberd_hooks:add(remove_user, Host, ?MODULE, remove_user, 50),
-    ejabberd_hooks:add(c2s_session_closed, Host, ?MODULE, c2s_session_closed, 100),
+    ejabberd_hooks:add(store_message_hook, halloapp, ?MODULE, store_message_hook, 50),
+    ejabberd_hooks:add(user_receive_packet, halloapp, ?MODULE, user_receive_packet, 100),
+    ejabberd_hooks:add(user_send_ack, halloapp, ?MODULE, user_send_ack, 50),
+    ejabberd_hooks:add(c2s_session_opened, halloapp, ?MODULE, c2s_session_opened, 100),
+    ejabberd_hooks:add(user_session_activated, halloapp, ?MODULE, user_session_activated, 50),
+    ejabberd_hooks:add(offline_queue_check, halloapp, ?MODULE, offline_queue_check, 50),
+    ejabberd_hooks:add(remove_user, halloapp, ?MODULE, remove_user, 50),
+    ejabberd_hooks:add(c2s_session_closed, halloapp, ?MODULE, c2s_session_closed, 100),
     {ok, #{host => Host}}.
 
 
-terminate(_Reason, #{host := Host} = _State) ->
+terminate(_Reason, #{host := _Host} = _State) ->
     ?INFO("mod_offline_halloapp: terminate", []),
-    ejabberd_hooks:delete(store_message_hook, Host, ?MODULE, store_message_hook, 50),
-    ejabberd_hooks:delete(user_receive_packet, Host, ?MODULE, user_receive_packet, 100),
-    ejabberd_hooks:delete(user_send_ack, Host, ?MODULE, user_send_ack, 50),
-    ejabberd_hooks:delete(c2s_session_opened, Host, ?MODULE, c2s_session_opened, 100),
-    ejabberd_hooks:delete(user_session_activated, Host, ?MODULE, user_session_activated, 50),
-    ejabberd_hooks:delete(offline_queue_check, Host, ?MODULE, offline_queue_check, 50),
-    ejabberd_hooks:delete(remove_user, Host, ?MODULE, remove_user, 50),
-    ejabberd_hooks:delete(c2s_session_closed, Host, ?MODULE, c2s_session_closed, 100),
+    ejabberd_hooks:delete(store_message_hook, halloapp, ?MODULE, store_message_hook, 50),
+    ejabberd_hooks:delete(user_receive_packet, halloapp, ?MODULE, user_receive_packet, 100),
+    ejabberd_hooks:delete(user_send_ack, halloapp, ?MODULE, user_send_ack, 50),
+    ejabberd_hooks:delete(c2s_session_opened, halloapp, ?MODULE, c2s_session_opened, 100),
+    ejabberd_hooks:delete(user_session_activated, halloapp, ?MODULE, user_session_activated, 50),
+    ejabberd_hooks:delete(offline_queue_check, halloapp, ?MODULE, offline_queue_check, 50),
+    ejabberd_hooks:delete(remove_user, halloapp, ?MODULE, remove_user, 50),
+    ejabberd_hooks:delete(c2s_session_closed, halloapp, ?MODULE, c2s_session_closed, 100),
     ok.
 
 
@@ -177,7 +177,7 @@ user_send_ack(State, #pb_ack{id = MsgId, from_uid = Uid} = Ack) ->
 accept_ack(#{offline_queue_params := #{window := Window, pending_acks  := PendingAcks} = OfflineQueueParams,
         offline_queue_cleared := IsOfflineQueueCleared, mode := Mode} = State,
         #pb_ack{id = MsgId, from_uid = Uid} = Ack) ->
-    Server = util:get_host(),
+    AppType = util_uid:get_app_type(Uid),
     {ok, OfflineMessage} = model_messages:get_message(Uid, MsgId),
     case OfflineMessage of
         undefined ->
@@ -190,7 +190,7 @@ accept_ack(#{offline_queue_params := #{window := Window, pending_acks  := Pendin
             CountTagValue = "retry" ++ util:to_list(RetryCount - 1),
             stat:count("HA/offline_messages", "retry_count", 1, [{count, CountTagValue}]),
             ok = model_messages:ack_message(Uid, MsgId),
-            ejabberd_hooks:run(user_ack_packet, Server, [Ack, OfflineMessage]),
+            ejabberd_hooks:run(user_ack_packet, AppType, [Ack, OfflineMessage]),
             State1 = State#{offline_queue_params := OfflineQueueParams#{pending_acks => PendingAcks - 1}},
 
             ?INFO("Uid: ~s, Window: ~p, PendingAcks: ~p, offline_queue_cleared: ~p",
@@ -529,11 +529,12 @@ do_send_offline_messages(Uid, MsgsToSend) ->
 %% This function must always run on user's c2s process only!
 -spec mark_offline_queue_cleared(UserId :: binary(), Server :: binary(),
         NewLastMsgOrderId :: integer(), State :: state()) -> state().
-mark_offline_queue_cleared(UserId, Server, NewLastMsgOrderId, State) ->
+mark_offline_queue_cleared(UserId, _Server, NewLastMsgOrderId, State) ->
     %% TODO(murali@): use end_of_queue marker for time to clear out the offline queue.
     {EndOfQueueMsgId, QueueTrimmed} = send_end_of_queue_marker(UserId),
     schedule_offline_queue_check(UserId, NewLastMsgOrderId, 0, []),
-    ejabberd_hooks:run(offline_queue_cleared, Server, [UserId, NewLastMsgOrderId]),
+    AppType = util_uid:get_app_type(UserId),
+    ejabberd_hooks:run(offline_queue_cleared, AppType, [UserId, NewLastMsgOrderId]),
     State#{
         offline_queue_cleared => true,
         end_of_queue_msg_id => EndOfQueueMsgId,
@@ -623,8 +624,8 @@ filter_messages(ClientVersion, #offline_message{msg_id = MsgId, to_uid = Uid,
 %% Check version rules for this user, version and filter accordingly.
 filter_messages(ClientVersion, #offline_message{msg_id = MsgId,
         to_uid = Uid, content_type = ContentType} = OfflineMessage) ->
-    Server = util:get_host(),
-    case ejabberd_hooks:run_fold(offline_message_version_filter, Server, allow,
+    AppType = util_uid:get_app_type(Uid),
+    case ejabberd_hooks:run_fold(offline_message_version_filter, AppType, allow,
             [Uid, ClientVersion, OfflineMessage]) of
         allow -> true;
         deny ->

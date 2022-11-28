@@ -31,16 +31,16 @@
 %% gen_mod API.
 %%====================================================================
 
-start(Host, _Opts) ->
+start(_Host, _Opts) ->
     ?DEBUG("mod_push_notifications: start", []),
-    ejabberd_hooks:add(push_message_hook, Host, ?MODULE, push_message_hook, 50),
+    ejabberd_hooks:add(push_message_hook, halloapp, ?MODULE, push_message_hook, 50),
     ejabberd_hooks:add(event_push_received, ?MODULE, event_push_received, 50),
     ok.
 
-stop(Host) ->
+stop(_Host) ->
     ?DEBUG("mod_push_notifications: stop", []),
     ejabberd_hooks:delete(event_push_received, ?MODULE, event_push_received, 50),
-    ejabberd_hooks:delete(push_message_hook, Host, ?MODULE, push_message_hook, 50),
+    ejabberd_hooks:delete(push_message_hook, halloapp, ?MODULE, push_message_hook, 50),
     ok.
 
 depends(_Host, _Opts) ->
@@ -104,10 +104,10 @@ push_message(#pb_msg{id = MsgId, to_uid = User} = Message, PushInfo, ios) ->
 
 -spec push_message_internal(Message :: message(), PushInfo :: push_info()) -> ok.
 push_message_internal(#pb_msg{id = MsgId, to_uid = User} = Message, PushInfo) ->
-    Server = util:get_host(),
+    AppType = util_uid:get_app_type(User),
     log_invalid_langId(PushInfo),
     ClientVersion = PushInfo#push_info.client_version,
-    case ejabberd_hooks:run_fold(push_version_filter, Server, allow, [User, PushInfo, Message]) of
+    case ejabberd_hooks:run_fold(push_version_filter, AppType, allow, [User, PushInfo, Message]) of
         allow ->
             ?INFO("Uid: ~s, MsgId: ~p", [User, MsgId]),
             push_message(Message, PushInfo);

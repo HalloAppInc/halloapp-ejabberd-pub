@@ -547,10 +547,10 @@ process_admin(Host, #request{lang = Lang} = Request, AJID) ->
     Res = case Host of
 	      global ->
 		  ejabberd_hooks:run_fold(
-		    webadmin_page_main, Host, [], [Request]);
+		    webadmin_page_main, halloapp, [], [Request]);
 	      _ ->
 		  ejabberd_hooks:run_fold(
-		    webadmin_page_host, Host, [], [Host, Request])
+		    webadmin_page_host, halloapp, [], [Host, Request])
 	  end,
     case Res of
       [] ->
@@ -889,7 +889,7 @@ user_info(User, Server, Query, Lang) ->
 		 ?INPUTT(<<"submit">>, <<"chpassword">>,
 			 ?T("Change Password"))],
     UserItems = ejabberd_hooks:run_fold(webadmin_user,
-					LServer, [], [User, Server, Lang]),
+					halloapp, [], [User, Server, Lang]),
     LastActivity = case ejabberd_sm:get_user_resources(User,
 						       Server)
 		       of
@@ -950,7 +950,7 @@ user_parse_query1(<<"removeuser">>, User, Server,
     ejabberd_auth:remove_user(User, Server), ok;
 user_parse_query1(Action, User, Server, Query) ->
     case ejabberd_hooks:run_fold(webadmin_user_parse_query,
-				 Server, [], [Action, User, Server, Query])
+				 halloapp, [], [Action, User, Server, Query])
 	of
       [] -> nothing;
       Res -> Res
@@ -1419,10 +1419,10 @@ get_node(global, Node, [<<"update">>], Query, _Lang) ->
 get_node(Host, Node, NPath, Query, Lang) ->
     Res = case Host of
 	      global ->
-		  ejabberd_hooks:run_fold(webadmin_page_node, Host, [],
+		  ejabberd_hooks:run_fold(webadmin_page_node, halloapp, [],
 					  [Node, NPath, Query, Lang]);
 	      _ ->
-		  ejabberd_hooks:run_fold(webadmin_page_hostnode, Host, [],
+		  ejabberd_hooks:run_fold(webadmin_page_hostnode, halloapp, [],
 					  [Host, Node, NPath, Query, Lang])
 	  end,
     case Res of
@@ -1801,10 +1801,10 @@ make_server_menu(HostMenu, NodeMenu, Lang, JID) ->
     {Base, <<"">>, Fixed2}.
 
 get_menu_items_hook({hostnode, Host, Node}, Lang) ->
-    ejabberd_hooks:run_fold(webadmin_menu_hostnode, Host,
+    ejabberd_hooks:run_fold(webadmin_menu_hostnode, halloapp,
 			    [], [Host, Node, Lang]);
 get_menu_items_hook({host, Host}, Lang) ->
-    ejabberd_hooks:run_fold(webadmin_menu_host, Host, [],
+    ejabberd_hooks:run_fold(webadmin_menu_host, halloapp, [],
 			    [Host, Lang]);
 get_menu_items_hook({node, Node}, Lang) ->
     ejabberd_hooks:run_fold(webadmin_menu_node, [],

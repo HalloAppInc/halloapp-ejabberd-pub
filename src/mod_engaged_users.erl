@@ -40,18 +40,18 @@
 -endif.
 
 
-start(Host, _Opts) ->
-    ejabberd_hooks:add(group_feed_item_published, Host, ?MODULE, group_feed_item_published, 50),
-    ejabberd_hooks:add(feed_item_published, Host, ?MODULE, feed_item_published, 50),
-    ejabberd_hooks:add(user_send_im, Host, ?MODULE, user_send_im, 50),
-    ejabberd_hooks:add(user_send_group_im, Host, ?MODULE, user_send_group_im, 50),
+start(_Host, _Opts) ->
+    ejabberd_hooks:add(group_feed_item_published, halloapp, ?MODULE, group_feed_item_published, 50),
+    ejabberd_hooks:add(feed_item_published, halloapp, ?MODULE, feed_item_published, 50),
+    ejabberd_hooks:add(user_send_im, halloapp, ?MODULE, user_send_im, 50),
+    ejabberd_hooks:add(user_send_group_im, halloapp, ?MODULE, user_send_group_im, 50),
     ok.
 
-stop(Host) ->
-    ejabberd_hooks:delete(group_feed_item_published, Host, ?MODULE, group_feed_item_published, 50),
-    ejabberd_hooks:delete(feed_item_published, Host, ?MODULE, feed_item_published, 50),
-    ejabberd_hooks:delete(user_send_im, Host, ?MODULE, user_send_im, 50),
-    ejabberd_hooks:delete(user_send_group_im, Host, ?MODULE, user_send_group_im, 50),
+stop(_Host) ->
+    ejabberd_hooks:delete(group_feed_item_published, halloapp, ?MODULE, group_feed_item_published, 50),
+    ejabberd_hooks:delete(feed_item_published, halloapp, ?MODULE, feed_item_published, 50),
+    ejabberd_hooks:delete(user_send_im, halloapp, ?MODULE, user_send_im, 50),
+    ejabberd_hooks:delete(user_send_group_im, halloapp, ?MODULE, user_send_group_im, 50),
     ok.
 
 reload(_Host, _NewOpts, _OldOpts) ->

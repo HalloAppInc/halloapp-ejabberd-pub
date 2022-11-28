@@ -5,6 +5,7 @@
 %%%-------------------------------------------------------------------
 
 -include("server.hrl").
+-include("ha_types.hrl").
 
 -ifndef(PACKETS_H).
 -define(PACKETS_H, 1).
