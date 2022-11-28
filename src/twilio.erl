@@ -82,14 +82,9 @@ send_sms(Phone, Code, LangId, UserAgent) ->
 
 -spec send_voice_call(Phone :: phone(), Code :: binary(), LangId :: binary(),
         UserAgent :: binary()) -> {ok, gateway_response()} | {error, voice_call_fail, retry | no_retry}.
-send_voice_call(Phone, Code, LangId, _UserAgent) ->
+send_voice_call(Phone, Code, LangId, UserAgent) ->
     AccountSid = get_account_sid(util:is_test_number(Phone)),
-    {VoiceMsgBin, TranslatedLangId} = case is_voice_lang_available(LangId) of
-        true ->
-            mod_translate:translate(<<"server.voicecall.verification">>, LangId);
-        false ->
-            mod_translate:translate(<<"server.voicecall.verification">>, ?ENG_LANG_ID)
-    end,
+    {VoiceMsgBin, TranslatedLangId} = resolve_voice_lang(LangId, UserAgent),
     TwilioLangId = get_twilio_lang(TranslatedLangId),
     DigitByDigit = string:trim(re:replace(Code, ".", "& . . ", [global, {return,list}])),
     VoiceMsg = io_lib:format("~s . . ~s . ", [VoiceMsgBin, DigitByDigit]),
@@ -260,6 +255,22 @@ get_from_phone(IsTestNum) ->
     case IsTestNum of
         true -> ?FROM_TEST_PHONE;
         false -> util_sms:lookup_from_phone(twilio_options)
+    end.
+
+resolve_voice_lang(LangId, UserAgent) ->
+    TranslationString = case util_ua:is_halloapp(UserAgent) of
+        true -> <<"server.voicecall.verification">>;
+        false ->
+            case util_ua:is_katchup(UserAgent) of
+                true -> <<"server.katchup.voicecall.verification">>;
+                false -> <<"server.voicecall.verification">>
+            end
+    end,
+    case is_voice_lang_available(LangId) of
+        true ->
+            mod_translate:translate(TranslationString, LangId);
+        false ->
+            mod_translate:translate(TranslationString, ?ENG_LANG_ID)
     end.
 
 -spec is_voice_lang_available(LangId :: binary()) -> boolean().

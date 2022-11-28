@@ -60,6 +60,7 @@
     spub_info/1,
     get_sms_codes/1,
     send_moment_notification/1,
+    send_moment_notification/2,
     send_invite/2,
     reset_sms_backoff/1,
     delete_account/1,

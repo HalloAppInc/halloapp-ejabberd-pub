@@ -112,13 +112,8 @@ send_sms(Phone, Code, LangId, UserAgent) ->
 
 -spec send_voice_call(Phone :: phone(), Code :: binary(), LangId :: binary(), UserAgent :: binary()) ->
         {ok, gateway_response()} | {error, voice_call_fail, retry | no_retry}.
-send_voice_call(Phone, Code, LangId, _UserAgent) ->
-    {VoiceMsgBin, TranslatedLangId} = case is_voice_lang_available(LangId) of
-        true ->
-            mod_translate:translate(<<"server.voicecall.verification">>, LangId);
-        false ->
-            mod_translate:translate(<<"server.voicecall.verification">>, ?ENG_LANG_ID)
-    end,
+send_voice_call(Phone, Code, LangId, UserAgent) ->
+    {VoiceMsgBin, TranslatedLangId} = resolve_voice_lang(LangId, UserAgent),
     MbirdLangId = get_mbird_lang(TranslatedLangId),
     DigitByDigit = string:trim(re:replace(Code, ".", "& . . ", [global, {return,list}])),
     VoiceMsg = io_lib:format("~s . . ~s . ", [VoiceMsgBin, DigitByDigit]),
@@ -262,6 +257,22 @@ get_from_phone(Phone) ->
         _ -> util_sms:lookup_from_phone(mbird_options)
     end.
 
+
+resolve_voice_lang(LangId, UserAgent) ->
+    TranslationString = case util_ua:is_halloapp(UserAgent) of
+        true -> <<"server.voicecall.verification">>;
+        false ->
+            case util_ua:is_katchup(UserAgent) of
+                true -> <<"server.katchup.voicecall.verification">>;
+                false -> <<"server.voicecall.verification">>
+            end
+    end,
+    case is_voice_lang_available(LangId) of
+        true ->
+            mod_translate:translate(TranslationString, LangId);
+        false ->
+            mod_translate:translate(TranslationString, ?ENG_LANG_ID)
+    end.
 
 -spec is_voice_lang_available(LangId :: binary()) -> boolean().
 is_voice_lang_available(LangId) ->

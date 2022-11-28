@@ -12,6 +12,7 @@
 -include_lib("stdlib/include/assert.hrl").
 -include("logger.hrl").
 -include("time.hrl").
+-include("sms.hrl").
 
 -export([
     init_helper/2,
@@ -22,7 +23,8 @@
     get_sms_message/3,
     is_apple_request/3,
     is_google_request/3,
-    is_hashcash_enabled/2
+    is_hashcash_enabled/2,
+    resolve_sms_lang/2
 ]).
 
 -spec init_helper(GWOptions :: atom(), FromPhoneList :: [string() | binary()]) -> ok.
@@ -89,10 +91,21 @@ get_response_code(ResBody) ->
 -spec get_sms_message(UserAgent :: binary(), Code :: binary(), LangId :: binary()) 
         -> {Msg :: io_lib:chars(), TranslatedLangId :: binary()}.
 get_sms_message(UserAgent, Code, LangId) ->
-    {SmsMsgBin, TranslatedLangId} = mod_translate:translate(<<"server.sms.verification">>, LangId),
+    {SmsMsgBin, TranslatedLangId} = resolve_sms_lang(LangId, UserAgent),
     AppHash = util_ua:get_app_hash(UserAgent),
     Msg = io_lib:format("~ts: ~s~n~n~n~s", [SmsMsgBin, Code, AppHash]),
     {Msg, TranslatedLangId}.
+
+resolve_sms_lang(LangId, UserAgent) ->
+    TranslationString = case util_ua:is_halloapp(UserAgent) of
+        true -> <<"server.sms.verification">>;
+        false ->
+            case util_ua:is_katchup(UserAgent) of
+                true -> <<"server.katchup.sms.verification">>;
+                false -> <<"server.sms.verification">>
+            end
+    end,
+    mod_translate:translate(TranslationString, LangId).
 
 -spec is_apple_request(Phone :: binary(), IP :: binary(), Protocol :: atom()) -> boolean().
 is_apple_request(Phone, _IP, Protocol) ->
