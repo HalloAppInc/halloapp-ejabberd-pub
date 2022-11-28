@@ -228,7 +228,7 @@ get_client_version(#{client_version := CV} = State) ->
 
 
 get_last_halloapp_version([]) -> undefined;
-get_last_halloapp_version([Version | Versions])
+get_last_halloapp_version([Version | Versions]) ->
     case util_ua:is_halloapp(Version) of
         true -> Version;
         false -> get_last_halloapp_version(Versions)
