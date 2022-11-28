@@ -504,6 +504,10 @@ cast(Pid, Msg) ->
 check_and_count(ClientIP, Namespace, Metric, Value, Tags) ->
     case lists:member(ClientIP, mod_aws:get_stest_ips()) of
         true -> ok;
-        false -> stat:count(Namespace, Metric, Value, Tags)
+        false ->
+            case lists:member(ClientIP, mod_aws:get_stest_ips_v6()) of
+                true -> ok;
+                false -> stat:count(Namespace, Metric, Value, Tags)
+            end
     end.
 

@@ -42,7 +42,8 @@
     get_secret_value/2,
     get_ejabberd_machines/0,
     get_ip/1,
-    get_stest_ips/0
+    get_stest_ips/0,
+    get_stest_ips_v6/0
 ]).
 
 %% Hooks
@@ -250,4 +251,10 @@ get_stest_ips() ->
             end
         end,
         get_ejabberd_machines()).
+
+
+%% TODO: Fix this.
+-spec get_stest_ips_v6() -> [string()].
+get_stest_ips_v6() ->
+    ["2600:1f18:1b30:6300:6fae:a209:b50:1ada"].
 
