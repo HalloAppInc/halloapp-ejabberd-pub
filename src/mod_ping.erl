@@ -253,27 +253,47 @@ init_state(Host, _Opts) ->
 
 
 register_hooks(_Host) ->
+    %% HalloApp
     ejabberd_hooks:add(sm_register_connection_hook, halloapp, ?MODULE, sm_register_connection_hook, 100),
     ejabberd_hooks:add(sm_remove_connection_hook, halloapp, ?MODULE, sm_remove_connection_hook, 100),
     ejabberd_hooks:add(user_send_packet, halloapp, ?MODULE, user_send_packet, 50),
-    ejabberd_hooks:add(user_session_activated, halloapp, ?MODULE, user_session_activated, 50).
+    ejabberd_hooks:add(user_session_activated, halloapp, ?MODULE, user_session_activated, 50),
+    %% Katchup
+    ejabberd_hooks:add(sm_register_connection_hook, katchup, ?MODULE, sm_register_connection_hook, 100),
+    ejabberd_hooks:add(sm_remove_connection_hook, katchup, ?MODULE, sm_remove_connection_hook, 100),
+    ejabberd_hooks:add(user_send_packet, katchup, ?MODULE, user_send_packet, 50),
+    ejabberd_hooks:add(user_session_activated, katchup, ?MODULE, user_session_activated, 50).
 
 
 unregister_hooks(_Host) ->
+    %% HalloApp
     ejabberd_hooks:delete(sm_remove_connection_hook, halloapp, ?MODULE, sm_remove_connection_hook, 100),
     ejabberd_hooks:delete(sm_register_connection_hook, halloapp, ?MODULE, sm_register_connection_hook, 100),
     ejabberd_hooks:delete(user_send_packet, halloapp, ?MODULE, user_send_packet, 50),
-    ejabberd_hooks:delete(user_session_activated, halloapp, ?MODULE, user_session_activated, 50).
+    ejabberd_hooks:delete(user_session_activated, halloapp, ?MODULE, user_session_activated, 50),
+    %% Katchup
+    ejabberd_hooks:delete(sm_remove_connection_hook, katchup, ?MODULE, sm_remove_connection_hook, 100),
+    ejabberd_hooks:delete(sm_register_connection_hook, katchup, ?MODULE, sm_register_connection_hook, 100),
+    ejabberd_hooks:delete(user_send_packet, katchup, ?MODULE, user_send_packet, 50),
+    ejabberd_hooks:delete(user_session_activated, katchup, ?MODULE, user_session_activated, 50).
 
 
 register_iq_handlers(_Host) ->
+    %% HalloApp
     gen_iq_handler:add_iq_handler(ejabberd_sm, halloapp, pb_ping, ?MODULE, iq_ping),
-    gen_iq_handler:add_iq_handler(ejabberd_local, halloapp, pb_ping, ?MODULE, iq_ping).
+    gen_iq_handler:add_iq_handler(ejabberd_local, halloapp, pb_ping, ?MODULE, iq_ping),
+    %% Katchup
+    gen_iq_handler:add_iq_handler(ejabberd_sm, katchup, pb_ping, ?MODULE, iq_ping),
+    gen_iq_handler:add_iq_handler(ejabberd_local, katchup, pb_ping, ?MODULE, iq_ping).
 
 
 unregister_iq_handlers(_Host) ->
+    %% HalloApp
     gen_iq_handler:remove_iq_handler(ejabberd_local, halloapp, pb_ping),
-    gen_iq_handler:remove_iq_handler(ejabberd_sm, halloapp, pb_ping).
+    gen_iq_handler:remove_iq_handler(ejabberd_sm, halloapp, pb_ping),
+    %% Katchup
+    gen_iq_handler:remove_iq_handler(ejabberd_local, katchup, pb_ping),
+    gen_iq_handler:remove_iq_handler(ejabberd_sm, katchup, pb_ping).
 
 
 -spec add_timer(SessionInfo :: session_info(), State :: state()) -> state().

@@ -163,22 +163,38 @@ set_timeout(State, Timeout) ->
 
 -spec host_up(binary()) -> ok.
 host_up(_Host) ->
+    %% HalloApp
     ejabberd_hooks:add(pb_c2s_closed, halloapp, ?MODULE, process_closed, 100),
     ejabberd_hooks:add(pb_c2s_terminated, halloapp, ?MODULE, process_terminated, 100),
     ejabberd_hooks:add(pb_c2s_handle_info, halloapp, ?MODULE, process_info, 100),
     ejabberd_hooks:add(pb_c2s_auth_result, halloapp, ?MODULE, process_auth_result, 100),
     ejabberd_hooks:add(pb_c2s_handle_cast, halloapp, ?MODULE, handle_unexpected_cast, 100),
-    ejabberd_hooks:add(pb_c2s_handle_call, halloapp, ?MODULE, handle_unexpected_call, 100).
+    ejabberd_hooks:add(pb_c2s_handle_call, halloapp, ?MODULE, handle_unexpected_call, 100),
+    %% Katchup
+    ejabberd_hooks:add(pb_c2s_closed, katchup, ?MODULE, process_closed, 100),
+    ejabberd_hooks:add(pb_c2s_terminated, katchup, ?MODULE, process_terminated, 100),
+    ejabberd_hooks:add(pb_c2s_handle_info, katchup, ?MODULE, process_info, 100),
+    ejabberd_hooks:add(pb_c2s_auth_result, katchup, ?MODULE, process_auth_result, 100),
+    ejabberd_hooks:add(pb_c2s_handle_cast, katchup, ?MODULE, handle_unexpected_cast, 100),
+    ejabberd_hooks:add(pb_c2s_handle_call, katchup, ?MODULE, handle_unexpected_call, 100).
 
 
 -spec host_down(binary()) -> ok.
 host_down(_Host) ->
+    %% HalloApp
     ejabberd_hooks:delete(pb_c2s_closed, halloapp, ?MODULE, process_closed, 100),
     ejabberd_hooks:delete(pb_c2s_terminated, halloapp, ?MODULE, process_terminated, 100),
     ejabberd_hooks:delete(pb_c2s_handle_info, halloapp, ?MODULE, process_info, 100),
     ejabberd_hooks:delete(pb_c2s_auth_result, halloapp, ?MODULE, process_auth_result, 100),
     ejabberd_hooks:delete(pb_c2s_handle_cast, halloapp, ?MODULE, handle_unexpected_cast, 100),
-    ejabberd_hooks:delete(pb_c2s_handle_call, halloapp, ?MODULE, handle_unexpected_call, 100).
+    ejabberd_hooks:delete(pb_c2s_handle_call, halloapp, ?MODULE, handle_unexpected_call, 100),
+    %% Katchup
+    ejabberd_hooks:delete(pb_c2s_closed, katchup, ?MODULE, process_closed, 100),
+    ejabberd_hooks:delete(pb_c2s_terminated, katchup, ?MODULE, process_terminated, 100),
+    ejabberd_hooks:delete(pb_c2s_handle_info, katchup, ?MODULE, process_info, 100),
+    ejabberd_hooks:delete(pb_c2s_auth_result, katchup, ?MODULE, process_auth_result, 100),
+    ejabberd_hooks:delete(pb_c2s_handle_cast, katchup, ?MODULE, handle_unexpected_cast, 100),
+    ejabberd_hooks:delete(pb_c2s_handle_call, katchup, ?MODULE, handle_unexpected_call, 100).
 
 
 -spec open_session(state()) -> {ok, state()} | state().
@@ -228,13 +244,16 @@ check_first_login(Uid, Server) ->
 process_info(State, {route, Packet}) ->
     process_incoming_packet(State, Packet);
 process_info(State, {route_pb, PbBin}) ->
+    AppType = maps:get(app_type, State, undefined),
     case enif_protobuf:decode(PbBin, pb_packet) of
         #pb_packet{} = Pkt ->
             ?DEBUG("Recieved protobuf msg: ~p", [Pkt]),
             stat:count("HA/ejabberd", "recv_packet", 1, [{result, ok}, {type, pb}]),
+            stat:count("HA/ejabberd", "recv_packet_by_app", 1, [{result, ok}, {type, pb}, {app_type, AppType}]),
             process_incoming_packet(State, Pkt#pb_packet.stanza);
         {error, _} ->
             stat:count("HA/ejabberd", "recv_packet", 1, [{result, error}, {type, pb}]),
+            stat:count("HA/ejabberd", "recv_packet_by_app", 1, [{result, error}, {type, pb}, {app_type, AppType}]),
             ?ERROR("Failed to decode packet ~p", [PbBin]),
             State
     end;
@@ -248,6 +267,7 @@ process_incoming_packet(#{lserver := _LServer, app_type := AppType} = State, Pac
         allow ->
             %% TODO(murali@): remove temp counts after clients transition.
             stat:count("HA/user_receive_packet", "protobuf"),
+            stat:count("HA/user_receive_packet_by_app", "protobuf", 1, [{app_type, AppType}]),
             {Packet1, State1} = ejabberd_hooks:run_fold(
                     user_receive_packet, AppType, {Packet, State}, []),
             case Packet1 of
@@ -270,14 +290,16 @@ handle_unexpected_cast(State, Msg) ->
 
 -spec process_auth_result(State :: state(), true | {false, Reason :: atom()},
         User :: uid()) -> state().
-process_auth_result(#{socket := Socket, ip := IP, resource := Resource} = State, true, User) ->
+process_auth_result(#{socket := Socket, ip := IP, resource := Resource,
+        app_type := AppType} = State, true, User) ->
     ?INFO("(~ts) Accepted c2s authentication for ~ts from ~ts resource: ~ts",
         [halloapp_socket:pp(Socket), User, Resource,
             ejabberd_config:may_hide_data(misc:ip_to_list(IP))]),
     stat:count("HA/auth", "success", 1),
+    stat:count("HA/auth", "success_by_app", 1, [{app_type, AppType}]),
     State;
-process_auth_result(#{socket := Socket, ip := IP, lserver := _LServer, resource := Resource} = State,
-        {false, Reason}, User) ->
+process_auth_result(#{socket := Socket, ip := IP, lserver := _LServer,
+        app_type := AppType, resource := Resource} = State, {false, Reason}, User) ->
     ClientVersion = maps:get(client_version, State, undefined),
     Format = "(~ts) Failed c2s authentication ~ts from ~ts: resource: ~ts v:~ts Reason: ~ts",
     Args = [halloapp_socket:pp(Socket), User,
@@ -293,6 +315,7 @@ process_auth_result(#{socket := Socket, ip := IP, lserver := _LServer, resource 
             ?WARNING(Format, Args)
     end,
     stat:count("HA/auth", "failure", 1, [{reason, Reason}]),
+    stat:count("HA/auth", "failure_by_app", 1, [{reason, Reason}, {app_type, AppType}]),
     State.
 
 

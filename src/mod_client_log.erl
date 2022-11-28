@@ -45,12 +45,14 @@
 start(_Host, _Opts) ->
     ?INFO("start ~w", [?MODULE]),
     gen_iq_handler:add_iq_handler(ejabberd_local, halloapp, pb_client_log, ?MODULE, process_local_iq, 2),
+    gen_iq_handler:add_iq_handler(ejabberd_local, katchup, pb_client_log, ?MODULE, process_local_iq, 2),
     ok.
 
 
 stop(_Host) ->
     ?INFO("stop ~w", [?MODULE]),
     gen_iq_handler:remove_iq_handler(ejabberd_local, halloapp, pb_client_log),
+    gen_iq_handler:remove_iq_handler(ejabberd_local, katchup, pb_client_log),
     ok.
 
 depends(_Host, _Opts) ->
@@ -89,7 +91,8 @@ process_local_iq(#pb_iq{} = IQ, _State) ->
 -spec process_client_count_log_st(Uid :: maybe(uid()), ClientLogSt :: pb_client_log(),
         Platform :: maybe(client_type())) -> ok | error.
 process_client_count_log_st(Uid, ClientLogsSt, Platform) ->
-    ServerDims = [{"platform", atom_to_list(Platform)}],
+    AppType = util_uid:get_app_type(Uid),
+    ServerDims = [{"platform", atom_to_list(Platform)}, {"app_type", util:to_list(AppType)}],
     Counts = ClientLogsSt#pb_client_log.counts,
     Events = ClientLogsSt#pb_client_log.events,
     ?INFO("Uid: ~s counts: ~p, events: ~p", [Uid, length(Counts), length(Events)]),
@@ -151,6 +154,8 @@ process_events(Uid, Events) ->
 -spec process_event(Uid :: maybe(uid()), Event :: pb_event_data()) -> ok.
 process_event(Uid, #pb_event_data{edata = Edata} = Event) ->
     try
+        AppType = util_uid:get_app_type(Uid),
+        _AppTypeBin = util:to_binary(AppType),
         Namespace = get_namespace(Edata),
         FullNamespace = full_namespace(Namespace),
         validate_namespace(FullNamespace),
@@ -166,6 +171,8 @@ process_event(Uid, #pb_event_data{edata = Edata} = Event) ->
                 {binary_to_integer(Uid), CC1}
         end,
         Event2 = Event#pb_event_data{uid = UidInt, timestamp_ms = TsMs, cc = CC},
+        %% TODO: fix these event hooks in other modules.
+        % Event3 = ejabberd_hooks:run_fold(util:to_atom(<<AppTypeBin/binary, "_event_", Namespace/binary>>), Event2, []),
         Event3 = ejabberd_hooks:run_fold(util:to_atom(<<"event_", Namespace/binary>>), Event2, []),
         case enif_protobuf:encode(Event3) of
             {error, Reason1} ->

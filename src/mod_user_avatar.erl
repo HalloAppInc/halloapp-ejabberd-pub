@@ -36,6 +36,7 @@
 
 start(_Host, _Opts) ->
     ?INFO("start ~w", [?MODULE]),
+    %% HalloApp
     gen_iq_handler:add_iq_handler(ejabberd_local, halloapp, pb_avatar, ?MODULE, process_local_iq),
     gen_iq_handler:add_iq_handler(ejabberd_local, halloapp, pb_avatars, ?MODULE, process_local_iq),
     gen_iq_handler:add_iq_handler(ejabberd_local, halloapp, pb_upload_avatar, ?MODULE, process_local_iq),
@@ -43,15 +44,28 @@ start(_Host, _Opts) ->
     % Otherwise we will not know what the old avatar_id was to delete from S3.
     ejabberd_hooks:add(remove_user, halloapp, ?MODULE, remove_user, 10),
     ejabberd_hooks:add(user_avatar_published, halloapp, ?MODULE, user_avatar_published, 50),
+    %% Katchup
+    gen_iq_handler:add_iq_handler(ejabberd_local, katchup, pb_avatar, ?MODULE, process_local_iq),
+    gen_iq_handler:add_iq_handler(ejabberd_local, katchup, pb_avatars, ?MODULE, process_local_iq),
+    gen_iq_handler:add_iq_handler(ejabberd_local, katchup, pb_upload_avatar, ?MODULE, process_local_iq),
+    ejabberd_hooks:add(remove_user, katchup, ?MODULE, remove_user, 10),
+    ejabberd_hooks:add(user_avatar_published, katchup, ?MODULE, user_avatar_published, 50),
     ok.
 
 stop(_Host) ->
     ?INFO("stop ~w", [?MODULE]),
+    %% HalloApp
     ejabberd_hooks:delete(user_avatar_published, halloapp, ?MODULE, user_avatar_published, 50),
     ejabberd_hooks:delete(remove_user, halloapp, ?MODULE, remove_user, 10),
     gen_iq_handler:remove_iq_handler(ejabberd_local, halloapp, pb_avatar),
     gen_iq_handler:remove_iq_handler(ejabberd_local, halloapp, pb_avatars),
     gen_iq_handler:remove_iq_handler(ejabberd_local, halloapp, pb_upload_avatar),
+    %% Katchup
+    ejabberd_hooks:delete(user_avatar_published, katchup, ?MODULE, user_avatar_published, 50),
+    ejabberd_hooks:delete(remove_user, katchup, ?MODULE, remove_user, 10),
+    gen_iq_handler:remove_iq_handler(ejabberd_local, katchup, pb_avatar),
+    gen_iq_handler:remove_iq_handler(ejabberd_local, katchup, pb_avatars),
+    gen_iq_handler:remove_iq_handler(ejabberd_local, katchup, pb_upload_avatar),
     ok.
 
 

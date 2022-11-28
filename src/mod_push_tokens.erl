@@ -37,19 +37,31 @@
 
 start(_Host, _Opts) ->
     ?INFO("start", []),
+    %% HalloApp
     gen_iq_handler:add_iq_handler(ejabberd_local, halloapp, pb_push_register, ?MODULE, process_local_iq),
     gen_iq_handler:add_iq_handler(ejabberd_local, halloapp, pb_notification_prefs, ?MODULE, process_local_iq),
     ejabberd_hooks:add(re_register_user, halloapp, ?MODULE, re_register_user, 10),
     ejabberd_hooks:add(remove_user, halloapp, ?MODULE, remove_user, 10),
+    %% Katchup
+    gen_iq_handler:add_iq_handler(ejabberd_local, katchup, pb_push_register, ?MODULE, process_local_iq),
+    gen_iq_handler:add_iq_handler(ejabberd_local, katchup, pb_notification_prefs, ?MODULE, process_local_iq),
+    ejabberd_hooks:add(re_register_user, katchup, ?MODULE, re_register_user, 10),
+    ejabberd_hooks:add(remove_user, katchup, ?MODULE, remove_user, 10),
     ok.
 
 
 stop(_Host) ->
     ?INFO("stop", []),
+    %% HalloApp
     gen_iq_handler:remove_iq_handler(ejabberd_local, halloapp, pb_push_register),
     gen_iq_handler:remove_iq_handler(ejabberd_local, halloapp, pb_notification_prefs),
     ejabberd_hooks:delete(re_register_user, halloapp, ?MODULE, re_register_user, 10),
     ejabberd_hooks:delete(remove_user, halloapp, ?MODULE, remove_user, 10),
+    %% Katchup
+    gen_iq_handler:remove_iq_handler(ejabberd_local, katchup, pb_push_register),
+    gen_iq_handler:remove_iq_handler(ejabberd_local, katchup, pb_notification_prefs),
+    ejabberd_hooks:delete(re_register_user, katchup, ?MODULE, re_register_user, 10),
+    ejabberd_hooks:delete(remove_user, katchup, ?MODULE, remove_user, 10),
     ok.
 
 

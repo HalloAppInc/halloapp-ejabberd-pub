@@ -43,20 +43,34 @@
 
 start(_Host, _Opts) ->
     ?INFO("start", []),
+    %% HalloApp
     gen_iq_handler:add_iq_handler(ejabberd_local, halloapp, pb_privacy_list, ?MODULE, process_local_iq),
     gen_iq_handler:add_iq_handler(ejabberd_local, halloapp, pb_privacy_lists, ?MODULE, process_local_iq),
     ejabberd_hooks:add(privacy_check_packet, halloapp, ?MODULE, privacy_check_packet, 30),
     ejabberd_hooks:add(register_user, halloapp, ?MODULE, register_user, 50),
     ejabberd_hooks:add(remove_user, halloapp, ?MODULE, remove_user, 50),
+    %% Katchup
+    gen_iq_handler:add_iq_handler(ejabberd_local, katchup, pb_privacy_list, ?MODULE, process_local_iq),
+    gen_iq_handler:add_iq_handler(ejabberd_local, katchup, pb_privacy_lists, ?MODULE, process_local_iq),
+    ejabberd_hooks:add(privacy_check_packet, katchup, ?MODULE, privacy_check_packet, 30),
+    ejabberd_hooks:add(register_user, katchup, ?MODULE, register_user, 50),
+    ejabberd_hooks:add(remove_user, katchup, ?MODULE, remove_user, 50),
     ok.
 
 stop(_Host) ->
     ?INFO("stop", []),
+    %% HalloApp
     gen_iq_handler:remove_iq_handler(ejabberd_local, halloapp, pb_privacy_list),
     gen_iq_handler:remove_iq_handler(ejabberd_local, halloapp, pb_privacy_lists),
     ejabberd_hooks:delete(privacy_check_packet, halloapp, ?MODULE, privacy_check_packet, 30),
     ejabberd_hooks:delete(register_user, halloapp, ?MODULE, register_user, 50),
     ejabberd_hooks:delete(remove_user, halloapp, ?MODULE, remove_user, 50),
+    %% Katchup
+    gen_iq_handler:remove_iq_handler(ejabberd_local, katchup, pb_privacy_list),
+    gen_iq_handler:remove_iq_handler(ejabberd_local, katchup, pb_privacy_lists),
+    ejabberd_hooks:delete(privacy_check_packet, katchup, ?MODULE, privacy_check_packet, 30),
+    ejabberd_hooks:delete(register_user, katchup, ?MODULE, register_user, 50),
+    ejabberd_hooks:delete(remove_user, katchup, ?MODULE, remove_user, 50),
     ok.
 
 depends(_Host, _Opts) ->
@@ -133,16 +147,27 @@ process_local_iq(#pb_iq{} = IQ) ->
         Packet :: stanza(), Dir :: in | out) -> allow | deny | {stop, deny}.
 %% When routing, handle privacy_checks from the receiver's perspective for messages.
 %% This hook runs just before storing these message stanzas.
-privacy_check_packet(allow, _State, #pb_msg{} = Packet, in = Dir) ->
+privacy_check_packet(allow, _State, #pb_msg{id = Id} = Packet, in = Dir) ->
     FromUid = pb:get_from(Packet),
+    ToUid = pb:get_to(Packet),
     PayloadType = pb:get_payload_type(Packet),
     case FromUid =:= undefined orelse FromUid =:= <<>> of
         true -> allow;  %% Allow server generated messages.
         false ->
-            %% Else check payload and inspect these messages.
-            case is_payload_always_allowed(PayloadType) of
-                true -> allow;
-                false -> check_blocked(Packet, Dir)
+            %% Block message packets between users of different app-types.
+            FromUidAppType = util_uid:get_app_type(FromUid),
+            ToUidAppType = util_uid:get_app_type(ToUid),
+            case FromUidAppType =:= ToUidAppType of
+                false ->
+                    ?INFO("Blocked PayloadType: ~p Id: ~p, from-uid: ~s to-uid: ~s",
+                        [PayloadType, Id, FromUid, ToUid]),
+                    deny;
+                true ->
+                    %% Else check payload and inspect these messages.
+                    case is_payload_always_allowed(PayloadType) of
+                        true -> allow;
+                        false -> check_blocked(Packet, Dir)
+                    end
             end
     end;
 

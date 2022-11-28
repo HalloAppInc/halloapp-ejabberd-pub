@@ -81,6 +81,7 @@ mod_options(_Host) ->
 
 init([Host|_]) ->
     ?INFO("mod_offline_halloapp: init", []),
+    %% HalloApp
     ejabberd_hooks:add(store_message_hook, halloapp, ?MODULE, store_message_hook, 50),
     ejabberd_hooks:add(user_receive_packet, halloapp, ?MODULE, user_receive_packet, 100),
     ejabberd_hooks:add(user_send_ack, halloapp, ?MODULE, user_send_ack, 50),
@@ -89,11 +90,21 @@ init([Host|_]) ->
     ejabberd_hooks:add(offline_queue_check, halloapp, ?MODULE, offline_queue_check, 50),
     ejabberd_hooks:add(remove_user, halloapp, ?MODULE, remove_user, 50),
     ejabberd_hooks:add(c2s_session_closed, halloapp, ?MODULE, c2s_session_closed, 100),
+    %% Katchup
+    ejabberd_hooks:add(store_message_hook, katchup, ?MODULE, store_message_hook, 50),
+    ejabberd_hooks:add(user_receive_packet, katchup, ?MODULE, user_receive_packet, 100),
+    ejabberd_hooks:add(user_send_ack, katchup, ?MODULE, user_send_ack, 50),
+    ejabberd_hooks:add(c2s_session_opened, katchup, ?MODULE, c2s_session_opened, 100),
+    ejabberd_hooks:add(user_session_activated, katchup, ?MODULE, user_session_activated, 50),
+    ejabberd_hooks:add(offline_queue_check, katchup, ?MODULE, offline_queue_check, 50),
+    ejabberd_hooks:add(remove_user, katchup, ?MODULE, remove_user, 50),
+    ejabberd_hooks:add(c2s_session_closed, katchup, ?MODULE, c2s_session_closed, 100),
     {ok, #{host => Host}}.
 
 
 terminate(_Reason, #{host := _Host} = _State) ->
     ?INFO("mod_offline_halloapp: terminate", []),
+    %% HalloApp
     ejabberd_hooks:delete(store_message_hook, halloapp, ?MODULE, store_message_hook, 50),
     ejabberd_hooks:delete(user_receive_packet, halloapp, ?MODULE, user_receive_packet, 100),
     ejabberd_hooks:delete(user_send_ack, halloapp, ?MODULE, user_send_ack, 50),
@@ -102,6 +113,15 @@ terminate(_Reason, #{host := _Host} = _State) ->
     ejabberd_hooks:delete(offline_queue_check, halloapp, ?MODULE, offline_queue_check, 50),
     ejabberd_hooks:delete(remove_user, halloapp, ?MODULE, remove_user, 50),
     ejabberd_hooks:delete(c2s_session_closed, halloapp, ?MODULE, c2s_session_closed, 100),
+    %% Katchup
+    ejabberd_hooks:delete(store_message_hook, katchup, ?MODULE, store_message_hook, 50),
+    ejabberd_hooks:delete(user_receive_packet, katchup, ?MODULE, user_receive_packet, 100),
+    ejabberd_hooks:delete(user_send_ack, katchup, ?MODULE, user_send_ack, 50),
+    ejabberd_hooks:delete(c2s_session_opened, katchup, ?MODULE, c2s_session_opened, 100),
+    ejabberd_hooks:delete(user_session_activated, katchup, ?MODULE, user_session_activated, 50),
+    ejabberd_hooks:delete(offline_queue_check, katchup, ?MODULE, offline_queue_check, 50),
+    ejabberd_hooks:delete(remove_user, katchup, ?MODULE, remove_user, 50),
+    ejabberd_hooks:delete(c2s_session_closed, katchup, ?MODULE, c2s_session_closed, 100),
     ok.
 
 

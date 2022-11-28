@@ -34,16 +34,26 @@
 
 start(_Host, _Opts) ->
     ?INFO("mod_packet_filter: start", []),
+    %% HalloApp
     ejabberd_hooks:add(offline_message_version_filter, halloapp, ?MODULE, offline_message_version_filter, 50),
     ejabberd_hooks:add(push_version_filter, halloapp, ?MODULE, push_version_filter, 50),
     ejabberd_hooks:add(user_send_packet, halloapp, ?MODULE, user_send_packet, 100),
+    %% Katchup
+    ejabberd_hooks:add(offline_message_version_filter, katchup, ?MODULE, offline_message_version_filter, 50),
+    ejabberd_hooks:add(push_version_filter, katchup, ?MODULE, push_version_filter, 50),
+    ejabberd_hooks:add(user_send_packet, katchup, ?MODULE, user_send_packet, 100),
     ok.
 
 stop(_Host) ->
     ?INFO("mod_packet_filter: stop", []),
+    %% HalloApp
     ejabberd_hooks:delete(user_send_packet, halloapp, ?MODULE, user_send_packet, 100),
     ejabberd_hooks:delete(offline_message_version_filter, halloapp, ?MODULE, offline_message_version_filter, 50),
     ejabberd_hooks:delete(push_version_filter, halloapp, ?MODULE, push_version_filter, 50),
+    %% Katchup
+    ejabberd_hooks:delete(user_send_packet, katchup, ?MODULE, user_send_packet, 100),
+    ejabberd_hooks:delete(offline_message_version_filter, katchup, ?MODULE, offline_message_version_filter, 50),
+    ejabberd_hooks:delete(push_version_filter, katchup, ?MODULE, push_version_filter, 50),
     ok.
 
 depends(_Host, _Opts) ->

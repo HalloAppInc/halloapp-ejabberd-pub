@@ -34,22 +34,33 @@
     mod_options/1,
     process_local_iq/1,
     re_register_user/4,
-    user_name_updated/2,
+    account_name_updated/2,
+    katchup_account_name_updated/2,
     check_name/1
 ]).
 
 
 
 start(_Host, _Opts) ->
+    %% HalloApp
     gen_iq_handler:add_iq_handler(ejabberd_local, halloapp, pb_name, ?MODULE, process_local_iq),
     ejabberd_hooks:add(re_register_user, halloapp, ?MODULE, re_register_user, 50),
-    ejabberd_hooks:add(user_name_updated, halloapp, ?MODULE, user_name_updated, 50),
+    ejabberd_hooks:add(account_name_updated, halloapp, ?MODULE, account_name_updated, 50),
+    %% Katchup
+    gen_iq_handler:add_iq_handler(ejabberd_local, katchup, pb_name, ?MODULE, process_local_iq),
+    ejabberd_hooks:add(re_register_user, katchup, ?MODULE, re_register_user, 50),
+    ejabberd_hooks:add(account_name_updated, katchup, ?MODULE, katchup_account_name_updated, 50),
     ok.
 
 stop(_Host) ->
+    %% HalloApp
     gen_iq_handler:remove_iq_handler(ejabberd_local, halloapp, pb_name),
     ejabberd_hooks:delete(re_register_user, halloapp, ?MODULE, re_register_user, 50),
-    ejabberd_hooks:delete(user_name_updated, halloapp, ?MODULE, user_name_updated, 50),
+    ejabberd_hooks:delete(account_name_updated, halloapp, ?MODULE, account_name_updated, 50),
+    %% Katchup
+    gen_iq_handler:remove_iq_handler(ejabberd_local, katchup, pb_name, ?MODULE, process_local_iq),
+    ejabberd_hooks:delete(re_register_user, katchup, ?MODULE, re_register_user, 50),
+    ejabberd_hooks:delete(account_name_updated, katchup, ?MODULE, katchup_account_name_updated, 50),
     ok.
 
 depends(_Host, _Opts) ->
@@ -91,8 +102,8 @@ re_register_user(UserId, _Server, _Phone, _CampaignId) ->
 
 
 % TODO: (nikola): need common test.
--spec user_name_updated(Uid :: binary(), Name :: binary()) -> ok.
-user_name_updated(Uid, Name) ->
+-spec account_name_updated(Uid :: binary(), Name :: binary()) -> ok.
+account_name_updated(Uid, Name) ->
     {ok, Phone} = model_accounts:get_phone(Uid),
     % TODO: (nikola): I feel like we should be notifying the contacts instead of the reverse contacts
     % The reverse contacts have phonebook name so they will not care about our push name.
@@ -114,6 +125,12 @@ user_name_updated(Uid, Name) ->
         end, UidsToNotify).
 
 
+-spec katchup_account_name_updated(Uid :: binary(), Name :: binary()) -> ok.
+katchup_account_name_updated(_Uid, _Name) ->
+    %% TODO: Wip.
+    ok.
+
+
 %%====================================================================
 %% internal functions
 %%====================================================================
@@ -123,7 +140,7 @@ set_name(Uid, Name) ->
     ?INFO("Uid: ~p, Name: ~p", [Uid, Name]),
     AppType = util_uid:get_app_type(Uid),
     ok = model_accounts:set_name(Uid, Name),
-    ejabberd_hooks:run(user_name_updated, AppType, [Uid, Name]),
+    ejabberd_hooks:run(account_name_updated, AppType, [Uid, Name]),
     ok.
 
 

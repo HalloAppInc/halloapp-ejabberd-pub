@@ -45,16 +45,29 @@
 
 
 start(_Host, _Opts) ->
+    %% HalloApp
     ejabberd_hooks:add(set_presence_hook, halloapp, ?MODULE, set_presence_hook, 1),
     ejabberd_hooks:add(unset_presence_hook, halloapp, ?MODULE, unset_presence_hook, 1),
     ejabberd_hooks:add(register_user, halloapp, ?MODULE, register_user, 50),
-    ejabberd_hooks:add(sm_register_connection_hook, halloapp, ?MODULE, sm_register_connection_hook, 50).
+    ejabberd_hooks:add(sm_register_connection_hook, halloapp, ?MODULE, sm_register_connection_hook, 50),
+    %% Katchup
+    ejabberd_hooks:add(set_presence_hook, katchup, ?MODULE, set_presence_hook, 1),
+    ejabberd_hooks:add(unset_presence_hook, katchup, ?MODULE, unset_presence_hook, 1),
+    ejabberd_hooks:add(register_user, katchup, ?MODULE, register_user, 50),
+    ejabberd_hooks:add(sm_register_connection_hook, katchup, ?MODULE, sm_register_connection_hook, 50).
 
 stop(_Host) ->
+    %% HalloApp
     ejabberd_hooks:delete(set_presence_hook, halloapp, ?MODULE, set_presence_hook, 1),
     ejabberd_hooks:delete(unset_presence_hook, halloapp, ?MODULE, unset_presence_hook, 1),
     ejabberd_hooks:delete(register_user, halloapp, ?MODULE, register_user, 50),
-    ejabberd_hooks:delete(sm_register_connection_hook, halloapp, ?MODULE, sm_register_connection_hook, 50).
+    ejabberd_hooks:delete(sm_register_connection_hook, halloapp, ?MODULE, sm_register_connection_hook, 50),
+    %% Katchup
+    ejabberd_hooks:delete(set_presence_hook, katchup, ?MODULE, set_presence_hook, 1),
+    ejabberd_hooks:delete(unset_presence_hook, katchup, ?MODULE, unset_presence_hook, 1),
+    ejabberd_hooks:delete(register_user, katchup, ?MODULE, register_user, 50),
+    ejabberd_hooks:delete(sm_register_connection_hook, katchup, ?MODULE, sm_register_connection_hook, 50).
+
 
 depends(_Host, _Opts) ->
     [].

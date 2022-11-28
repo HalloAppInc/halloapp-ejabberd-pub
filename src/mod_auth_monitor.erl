@@ -53,15 +53,23 @@
 start(Host, Opts) ->
     ?INFO("start ~w", [?MODULE]),
     gen_mod:start_child(?MODULE, Host, Opts, ?PROC()),
+    %% HalloApp
     ejabberd_hooks:add(pb_c2s_auth_result, halloapp, ?MODULE, process_auth_result, 50),
     ejabberd_hooks:add(c2s_auth_result, halloapp, ?MODULE, process_auth_result, 50),
+    %% Katchup
+    ejabberd_hooks:add(pb_c2s_auth_result, katchup, ?MODULE, process_auth_result, 50),
+    ejabberd_hooks:add(c2s_auth_result, katchup, ?MODULE, process_auth_result, 50),
     ok.
 
 stop(_Host) ->
     ?INFO("stop ~w", [?MODULE]),
     gen_mod:stop_child(?PROC()),
+    %% HalloApp
     ejabberd_hooks:delete(pb_c2s_auth_result, halloapp, ?MODULE, process_auth_result, 50),
     ejabberd_hooks:delete(c2s_auth_result, halloapp, ?MODULE, process_auth_result, 50),
+    %% Katchup
+    ejabberd_hooks:delete(pb_c2s_auth_result, katchup, ?MODULE, process_auth_result, 50),
+    ejabberd_hooks:delete(c2s_auth_result, katchup, ?MODULE, process_auth_result, 50),
     ok.
 
 depends(_Host, _Opts) ->

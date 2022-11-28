@@ -27,10 +27,12 @@
 
 start(_Host, _Opts) ->
     ejabberd_hooks:add(user_send_packet, halloapp, ?MODULE, user_send_packet, 25),
+    ejabberd_hooks:add(user_send_packet, katchup, ?MODULE, user_send_packet, 25),
     ok.
 
 stop(_Host) ->
     ejabberd_hooks:delete(user_send_packet, halloapp, ?MODULE, user_send_packet, 25),
+    ejabberd_hooks:delete(user_send_packet, katchup, ?MODULE, user_send_packet, 25),
     ok.
 
 reload(_Host, _NewOpts, _OldOpts) ->

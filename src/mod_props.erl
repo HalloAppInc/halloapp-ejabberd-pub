@@ -40,10 +40,12 @@
 
 start(_Host, _Opts) ->
     gen_iq_handler:add_iq_handler(ejabberd_local, halloapp, pb_props, ?MODULE, process_local_iq, 2),
+    gen_iq_handler:add_iq_handler(ejabberd_local, katchup, pb_props, ?MODULE, process_local_iq, 2),
     ok.
 
 stop(_Host) ->
     gen_iq_handler:remove_iq_handler(ejabberd_local, halloapp, pb_props),
+    gen_iq_handler:remove_iq_handler(ejabberd_local, katchup, pb_props),
     ok.
 
 depends(_Host, _Opts) ->

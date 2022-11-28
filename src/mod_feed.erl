@@ -42,10 +42,16 @@
 
 
 start(_Host, _Opts) ->
+    %% HalloApp
     gen_iq_handler:add_iq_handler(ejabberd_local, halloapp, pb_feed_item, ?MODULE, process_local_iq),
     ejabberd_hooks:add(add_friend, halloapp, ?MODULE, add_friend, 50),
     ejabberd_hooks:add(remove_user, halloapp, ?MODULE, remove_user, 50),
     ejabberd_hooks:add(user_send_packet, halloapp, ?MODULE, user_send_packet, 50),
+    %% Katchup
+    gen_iq_handler:add_iq_handler(ejabberd_local, katchup, pb_feed_item, ?MODULE, process_local_iq),
+    ejabberd_hooks:add(add_friend, katchup, ?MODULE, add_friend, 50),
+    ejabberd_hooks:add(remove_user, katchup, ?MODULE, remove_user, 50),
+    ejabberd_hooks:add(user_send_packet, katchup, ?MODULE, user_send_packet, 50),
     ok.
 
 stop(_Host) ->
@@ -53,6 +59,11 @@ stop(_Host) ->
     ejabberd_hooks:delete(add_friend, halloapp, ?MODULE, add_friend, 50),
     ejabberd_hooks:delete(remove_user, halloapp, ?MODULE, remove_user, 50),
     ejabberd_hooks:delete(user_send_packet, halloapp, ?MODULE, user_send_packet, 50),
+    %% Katchup
+    gen_iq_handler:remove_iq_handler(ejabberd_local, katchup, pb_feed_item),
+    ejabberd_hooks:delete(add_friend, katchup, ?MODULE, add_friend, 50),
+    ejabberd_hooks:delete(remove_user, katchup, ?MODULE, remove_user, 50),
+    ejabberd_hooks:delete(user_send_packet, katchup, ?MODULE, user_send_packet, 50),
     ok.
 
 reload(_Host, _NewOpts, _OldOpts) ->
@@ -236,10 +247,19 @@ process_local_iq(#pb_iq{payload = #pb_public_feed_request{public_feed_content_ty
 -spec add_friend(Uid :: uid(), Server :: binary(), Ouid :: uid(), WasBlocked :: boolean()) -> ok.
 add_friend(Uid, _Server, Ouid, false) ->
     ?INFO("Uid: ~s, Ouid: ~s", [Uid, Ouid]),
-    % Posts from Uid to Ouid
-    % send_old_items(Uid, Ouid, Server),
-    % Posts from Ouid to Uid
-    % send_old_items(Ouid, Uid, Server),
+    UidAppType = util_uid:get_app_type(Uid),
+    OuidAppType = util_uid:get_app_type(Ouid),
+    case UidAppType =:= OuidAppType andalso UidAppType =:= katchup of
+        true ->
+            %% TODO: WIP
+            ok;
+            % % Posts from Uid to Ouid
+            % send_old_items(Uid, Ouid, Server),
+            % % Posts from Ouid to Uid
+            % send_old_items(Ouid, Uid, Server),
+        false ->
+            ok
+    end,
     ok;
 add_friend(_Uid, _Server, _Ouid, true) ->
     ok.

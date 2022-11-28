@@ -354,12 +354,13 @@ code_change(_OldVsn, State, _Extra) -> {ok, State}.
 -spec host_up(binary()) -> ok.
 host_up(Host) ->
     ejabberd_hooks:add(bounce_sm_packet, halloapp, ?MODULE, bounce_sm_packet, 100),
+    ejabberd_hooks:add(bounce_sm_packet, katchup, ?MODULE, bounce_sm_packet, 100),
     halloapp_c2s:host_up(Host).
 
 -spec host_down(binary()) -> ok.
 host_down(Host) ->
-    ejabberd_hooks:delete(bounce_sm_packet, halloapp,
-              ejabberd_sm, bounce_sm_packet, 100),
+    ejabberd_hooks:delete(bounce_sm_packet, halloapp, ejabberd_sm, bounce_sm_packet, 100),
+    ejabberd_hooks:delete(bounce_sm_packet, katchup, ejabberd_sm, bounce_sm_packet, 100),
     halloapp_c2s:host_down(Host).
 
 % Close down all the c2s processes 

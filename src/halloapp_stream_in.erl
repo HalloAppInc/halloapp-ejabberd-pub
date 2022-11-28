@@ -627,8 +627,10 @@ process_auth_request(#pb_auth_request{uid = Uid, pwd = Pwd, client_mode = Client
     end,
     Mode = ClientMode#pb_client_mode.mode,
     ClientVersion = PbClientVersion#pb_client_version.version,
+    AppType = util_uid:get_app_type(ClientVersion),
     State1 = State#{
         user => Uid,
+        app_type => AppType,
         client_version => ClientVersion,
         resource => Resource,
         mode => Mode,

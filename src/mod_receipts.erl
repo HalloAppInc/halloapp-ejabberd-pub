@@ -33,10 +33,12 @@
 ]).
 
 start(_Host, _Opts) ->
-    ejabberd_hooks:add(user_ack_packet, halloapp, ?MODULE, user_ack_packet, 10).
+    ejabberd_hooks:add(user_ack_packet, halloapp, ?MODULE, user_ack_packet, 10),
+    ejabberd_hooks:add(user_ack_packet, katchup, ?MODULE, user_ack_packet, 10).
 
 stop(_Host) ->
-    ejabberd_hooks:delete(user_ack_packet, halloapp, ?MODULE, user_ack_packet, 10).
+    ejabberd_hooks:delete(user_ack_packet, halloapp, ?MODULE, user_ack_packet, 10),
+    ejabberd_hooks:delete(user_ack_packet, katchup, ?MODULE, user_ack_packet, 10).
 
 depends(_Host, _Opts) ->
     [].

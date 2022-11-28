@@ -34,6 +34,7 @@
 start(_Host, _Opts) ->
     ?DEBUG("mod_push_notifications: start", []),
     ejabberd_hooks:add(push_message_hook, halloapp, ?MODULE, push_message_hook, 50),
+    ejabberd_hooks:add(push_message_hook, katchup, ?MODULE, push_message_hook, 50),
     ejabberd_hooks:add(event_push_received, ?MODULE, event_push_received, 50),
     ok.
 
@@ -41,6 +42,7 @@ stop(_Host) ->
     ?DEBUG("mod_push_notifications: stop", []),
     ejabberd_hooks:delete(event_push_received, ?MODULE, event_push_received, 50),
     ejabberd_hooks:delete(push_message_hook, halloapp, ?MODULE, push_message_hook, 50),
+    ejabberd_hooks:delete(push_message_hook, katchup, ?MODULE, push_message_hook, 50),
     ok.
 
 depends(_Host, _Opts) ->

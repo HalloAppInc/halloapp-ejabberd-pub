@@ -28,10 +28,12 @@
 
 start(_Host, _Opts) ->
     gen_iq_handler:add_iq_handler(ejabberd_local, halloapp, pb_external_share_post, ?MODULE, process_local_iq),
+    gen_iq_handler:add_iq_handler(ejabberd_local, katchup, pb_external_share_post, ?MODULE, process_local_iq),
     ok.
 
 stop(_Host) ->
     gen_iq_handler:remove_iq_handler(ejabberd_local, halloapp, pb_external_share_post),
+    gen_iq_handler:remove_iq_handler(ejabberd_local, katchup, pb_external_share_post),
     ok.
 
 reload(_Host, _NewOpts, _OldOpts) ->
@@ -104,6 +106,7 @@ store_share_post(_Uid, _PostBlob, ExpireIn, _OgTagInfo, _Iter) when ExpireIn =< 
     {error, invalid_expires_in};
 store_share_post(Uid, PostBlob, ExpireIn, OgTagInfo, Iter) ->
     IsDev = dev_users:is_dev_uid(Uid),
+    AppType = util_uid:get_app_type(Uid),
     Title = case OgTagInfo of
         undefined -> undefined;
         _ -> OgTagInfo#pb_og_tag_info.title
@@ -128,6 +131,8 @@ store_share_post(Uid, PostBlob, ExpireIn, OgTagInfo, Iter) ->
                 true ->
                     stat:count("HA/share_post", "store"),
                     stat:count("HA/share_post_by_dev", "store", 1, [{is_dev, IsDev}]),
+                    stat:count("HA/share_post_by_app", "store", 1, [{app_type, AppType}]),
+                    stat:count("HA/share_post_by_app_dev", "store", 1, [{is_dev, IsDev}, {app_type, AppType}]),
                     {ok, BlobId};
                 false ->
                     ?INFO("BlobId: ~s already exists, trying again, Iter: ~p", [BlobId, Iter + 1]),
@@ -140,8 +145,11 @@ store_share_post(Uid, PostBlob, ExpireIn, OgTagInfo, Iter) ->
 delete_share_post(Uid, BlobId) ->
     ?INFO("Uid: ~s, BlobId: ~s", [Uid, BlobId]),
     IsDev = dev_users:is_dev_uid(Uid),
+    AppType = util_uid:get_app_type(Uid),
     stat:count("HA/share_post", "delete"),
     stat:count("HA/share_post_by_dev", "delete", 1, [{is_dev, IsDev}]),
+    stat:count("HA/share_post_by_app", "delete", 1, [{app_type, AppType}]),
+    stat:count("HA/share_post_by_app_dev", "delete", 1, [{is_dev, IsDev}, {app_type, AppType}]),
     model_feed:delete_external_share_post(BlobId).
 
 -spec get_share_post(BlobId :: binary()) -> {ok, pb_external_share_post_container()} | {error, any()}.
