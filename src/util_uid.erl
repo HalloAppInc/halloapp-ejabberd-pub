@@ -42,7 +42,7 @@
 -type generate_uid_result() :: {ok, uid()} | {error, invalid_region | invalid_shard}.
 
 
--spec get_app_type(RawUserAgent :: binary()) -> maybe(app_type()).
+-spec get_app_type(RawUserAgent :: maybe(binary())) -> maybe(app_type()).
 get_app_type(undefined) -> undefined;
 get_app_type(Uid) ->
     case Uid of

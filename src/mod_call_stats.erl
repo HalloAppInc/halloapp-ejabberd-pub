@@ -28,11 +28,11 @@
 
 
 start(_Host, _Opts) ->
-    ejabberd_hooks:add(event_call, ?MODULE, event_call, 50),
+    ejabberd_hooks:add(event_call, halloapp, ?MODULE, event_call, 50),
     ok.
 
 stop(_Host) ->
-    ejabberd_hooks:delete(event_call, ?MODULE, event_call, 50),
+    ejabberd_hooks:delete(event_call, halloapp, ?MODULE, event_call, 50),
     ok.
 
 depends(_Host, _Opts) ->

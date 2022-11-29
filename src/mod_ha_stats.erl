@@ -76,7 +76,7 @@ start(Host, Opts) ->
     ejabberd_hooks:add(user_send_packet, halloapp, ?MODULE, user_send_packet, 50),
     ejabberd_hooks:add(user_receive_packet, halloapp, ?MODULE, user_receive_packet, 50),
     ejabberd_hooks:add(feed_share_old_items, halloapp, ?MODULE, feed_share_old_items, 50),
-    ejabberd_hooks:add(event_fab_action, ?MODULE, event_fab_action, 50),
+    ejabberd_hooks:add(event_fab_action, halloapp, ?MODULE, event_fab_action, 50),
     gen_mod:start_child(?MODULE, Host, Opts, ?PROC()),
     ok.
 
@@ -94,7 +94,7 @@ stop(_Host) ->
     ejabberd_hooks:delete(feed_item_retracted, halloapp, ?MODULE, feed_item_retracted, 50),
     ejabberd_hooks:delete(group_feed_item_retracted, halloapp, ?MODULE, group_feed_item_retracted, 50),
     ejabberd_hooks:delete(feed_share_old_items, halloapp, ?MODULE, feed_share_old_items, 50),
-    ejabberd_hooks:delete(event_fab_action, ?MODULE, event_fab_action, 50),
+    ejabberd_hooks:delete(event_fab_action, halloapp, ?MODULE, event_fab_action, 50),
     gen_mod:stop_child(?PROC()),
     ok.
 

@@ -127,8 +127,14 @@ process_count(Uid, #pb_count{namespace = Namespace, metric = Metric, count = Cou
         % TODO: make sure to override duplicate keys in Tags with ServerTags
         %% TODO(murali@): remove these logs eventually.
         ?INFO("~s, ~s, ~s, ~p, ~p", [FullNamespace, Metric, Uid, Tags2, Count]),
+        AppType = case Uid of
+            undefined -> halloapp;
+            Uid ->
+                UidAppType = util_uid:get_app_type(Uid),
+                UidAppType
+        end,
         HookName = util:to_atom(<<"count_", FullNamespace/binary>>),
-        {Metric2, Count2, Tags3} = ejabberd_hooks:run_fold(HookName, {Metric, Count, Tags2}, []),
+        {Metric2, Count2, Tags3} = ejabberd_hooks:run_fold(HookName, AppType, {Metric, Count, Tags2}, []),
         stat:count(binary_to_list(FullNamespace), binary_to_list(Metric2), Count2, Tags3),
         log_count(FullNamespace, Metric2, Uid, Tags3, Count2),
         ok
@@ -159,21 +165,18 @@ process_event(Uid, #pb_event_data{edata = Edata} = Event) ->
         validate_namespace(FullNamespace),
         TsMs = util:now_ms(),
         Date = util:tsms_to_date(TsMs), % for knowing which log file to add to
-        {UidInt, CC} = case Uid of
-            undefined -> {0, <<"ZZ">>};
+        {UidInt, CC, AppType} = case Uid of
+            undefined -> {0, <<"ZZ">>, halloapp};
             Uid ->
-                % AppType = util_uid:get_app_type(Uid),
-                % _AppTypeBin = util:to_binary(AppType),
                 CC1 = case model_accounts:get_phone(Uid) of
                     {ok, Phone} -> mod_libphonenumber:get_cc(Phone);
                     {error, missing} -> <<"ZZ">>
                 end,
-                {binary_to_integer(Uid), CC1}
+                UidAppType = util_uid:get_app_type(Uid),
+                {binary_to_integer(Uid), CC1, UidAppType}
         end,
         Event2 = Event#pb_event_data{uid = UidInt, timestamp_ms = TsMs, cc = CC},
-        %% TODO: fix these event hooks in other modules.
-        % Event3 = ejabberd_hooks:run_fold(util:to_atom(<<AppTypeBin/binary, "_event_", Namespace/binary>>), Event2, []),
-        Event3 = ejabberd_hooks:run_fold(util:to_atom(<<"event_", Namespace/binary>>), Event2, []),
+        Event3 = ejabberd_hooks:run_fold(util:to_atom(<<"event_", Namespace/binary>>), AppType, Event2, []),
         case enif_protobuf:encode(Event3) of
             {error, Reason1} ->
                 ?ERROR("Failed to process event ~p, Event: ~p", [Reason1, Event3]),
