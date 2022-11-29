@@ -91,8 +91,8 @@ process_local_iq(#pb_iq{} = IQ, _State) ->
 -spec process_client_count_log_st(Uid :: maybe(uid()), ClientLogSt :: pb_client_log(),
         Platform :: maybe(client_type())) -> ok | error.
 process_client_count_log_st(Uid, ClientLogsSt, Platform) ->
-    AppType = util_uid:get_app_type(Uid),
-    ServerDims = [{"platform", atom_to_list(Platform)}, {"app_type", util:to_list(AppType)}],
+    % AppType = util_uid:get_app_type(Uid),
+    ServerDims = [{"platform", atom_to_list(Platform)}],
     Counts = ClientLogsSt#pb_client_log.counts,
     Events = ClientLogsSt#pb_client_log.events,
     ?INFO("Uid: ~s counts: ~p, events: ~p", [Uid, length(Counts), length(Events)]),
@@ -154,8 +154,6 @@ process_events(Uid, Events) ->
 -spec process_event(Uid :: maybe(uid()), Event :: pb_event_data()) -> ok.
 process_event(Uid, #pb_event_data{edata = Edata} = Event) ->
     try
-        AppType = util_uid:get_app_type(Uid),
-        _AppTypeBin = util:to_binary(AppType),
         Namespace = get_namespace(Edata),
         FullNamespace = full_namespace(Namespace),
         validate_namespace(FullNamespace),
@@ -164,6 +162,8 @@ process_event(Uid, #pb_event_data{edata = Edata} = Event) ->
         {UidInt, CC} = case Uid of
             undefined -> {0, <<"ZZ">>};
             Uid ->
+                % AppType = util_uid:get_app_type(Uid),
+                % _AppTypeBin = util:to_binary(AppType),
                 CC1 = case model_accounts:get_phone(Uid) of
                     {ok, Phone} -> mod_libphonenumber:get_cc(Phone);
                     {error, missing} -> <<"ZZ">>
