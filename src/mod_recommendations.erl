@@ -107,8 +107,9 @@ check_and_schedule() ->
 -spec generate_friend_recos(Uid :: uid(), Phone :: binary()) -> 
         {ok, [{string(), integer(), binary(), binary(), integer()}]}.
 generate_friend_recos(Uid, Phone) ->
+    AppType = util_uid:get_app_type(Uid),
     %% Get list of users that have Phone in their list of contacts.
-    {ok, ReverseUids} = model_contacts:get_contact_uids(Phone),
+    {ok, ReverseUids} = model_contacts:get_contact_uids(Phone, AppType),
     ReversePhones = model_accounts:get_phones(ReverseUids),
 
     %% Get Uid's list of contacts.

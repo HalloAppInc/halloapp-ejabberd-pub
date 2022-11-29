@@ -104,10 +104,11 @@ re_register_user(UserId, _Server, _Phone, _CampaignId) ->
 % TODO: (nikola): need common test.
 -spec account_name_updated(Uid :: binary(), Name :: binary()) -> ok.
 account_name_updated(Uid, Name) ->
+    AppType = util_uid:get_app_type(Uid),
     {ok, Phone} = model_accounts:get_phone(Uid),
     % TODO: (nikola): I feel like we should be notifying the contacts instead of the reverse contacts
     % The reverse contacts have phonebook name so they will not care about our push name.
-    {ok, ContactUids} = model_contacts:get_contact_uids(Phone),
+    {ok, ContactUids} = model_contacts:get_contact_uids(Phone, AppType),
     GroupUidsSet = mod_groups:get_all_group_members(Uid),
     UidsToNotifySet = sets:union(sets:from_list(ContactUids), GroupUidsSet),
     UidsToNotify = sets:to_list(UidsToNotifySet),

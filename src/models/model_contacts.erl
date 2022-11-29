@@ -17,7 +17,7 @@
 -export([reverse_phone_hash_key/1]).
 -endif.
 
--export([contacts_key/1, sync_key/2, reverse_key/1]).
+-export([contacts_key/1, sync_key/2, reverse_key/2]).
 
 
 %% API
@@ -37,9 +37,9 @@
     count_contacts/1,
     get_sync_contacts/2,
     count_sync_contacts/2,
-    get_contact_uids/1,
-    get_contact_uids_size/1,
-    get_contacts_uids_size/1,
+    get_contact_uids/2,
+    get_contact_uids_size/2,
+    get_contacts_uids_size/2,
     get_potential_reverse_contact_uids/1,
     hash_phone/1,
     get_contact_hash_salt/0,
@@ -70,10 +70,11 @@ add_contact(Uid, Contact) ->
 add_contacts(_Uid, []) ->
     ok;
 add_contacts(Uid, ContactList) ->
+    AppType = util_uid:get_app_type(Uid),
     {ok, _Res} = q(["SADD", contacts_key(Uid) | ContactList]),
     ReverseKeyCommands = lists:map(
         fun(Contact) ->
-            ["SADD", reverse_key(Contact), Uid]
+            ["SADD", reverse_key(Contact, AppType), Uid]
         end, ContactList),
     qmn(ReverseKeyCommands),
     ok.
@@ -103,10 +104,11 @@ remove_contact(Uid, Contact) ->
 remove_contacts(_Uid, []) ->
     ok;
 remove_contacts(Uid, ContactList) ->
+    AppType = util_uid:get_app_type(Uid),
     {ok, _Res} = q(["SREM", contacts_key(Uid) | ContactList]),
     Commands = lists:map(
         fun(Contact) ->
-            ["SREM", reverse_key(Contact), Uid]
+            ["SREM", reverse_key(Contact, AppType), Uid]
         end, ContactList),
     qmn(Commands),
     ok.
@@ -114,10 +116,11 @@ remove_contacts(Uid, ContactList) ->
 
 -spec remove_all_contacts(Uid :: uid()) -> ok  | {error, any()}.
 remove_all_contacts(Uid) ->
+    AppType = util_uid:get_app_type(Uid),
     {ok, ContactList} = q(["SMEMBERS", contacts_key(Uid)]),
     Commands = lists:map(
         fun(Contact) ->
-            ["SREM", reverse_key(Contact), Uid]
+            ["SREM", reverse_key(Contact, AppType), Uid]
         end, ContactList),
     qmn(Commands),
     {ok, _Res} = q(["DEL", contacts_key(Uid)]),
@@ -137,6 +140,7 @@ sync_contacts(Uid, Sid, ContactList) ->
 
 -spec finish_sync(Uid :: uid(), Sid :: binary()) -> ok  | {error, any()}.
 finish_sync(Uid, Sid) ->
+    AppType = util_uid:get_app_type(Uid),
     case q(["PERSIST", sync_key(Uid, Sid)]) of
         {ok, <<"0">>} ->
             %% Can happen in rare case if the client takes 31 days to complete the sync.
@@ -146,11 +150,11 @@ finish_sync(Uid, Sid) ->
             {ok, AddedContactList} = q(["SDIFF", sync_key(Uid, Sid), contacts_key(Uid)]),
             ReverseKeyCommands1 = lists:map(
                 fun(Contact) ->
-                    ["SREM", reverse_key(Contact), Uid]
+                    ["SREM", reverse_key(Contact, AppType), Uid]
                 end, RemovedContactList),
             ReverseKeyCommands2 = lists:map(
                 fun(Contact) ->
-                    ["SADD", reverse_key(Contact), Uid]
+                    ["SADD", reverse_key(Contact, AppType), Uid]
                 end, AddedContactList),
             qmn(ReverseKeyCommands1 ++ ReverseKeyCommands2),
 
@@ -202,11 +206,11 @@ count_sync_contacts(Uid, Sid) ->
     {ok, binary_to_integer(Res)}.
 
 
--spec get_contact_uids(Contact :: binary() | [binary()]) -> {ok, [binary()] | map()} | {error, any()}.
-get_contact_uids(Contacts) when is_list(Contacts) -> 
+-spec get_contact_uids(Contact :: binary() | [binary()], AppType :: app_type()) -> {ok, [binary()] | map()} | {error, any()}.
+get_contact_uids(Contacts, AppType) when is_list(Contacts) ->
     Commands = lists:map(
         fun (Contact) ->
-            ["SMEMBERS", reverse_key(Contact)]
+            ["SMEMBERS", reverse_key(Contact, AppType)]
         end,
         Contacts),
     Res = qmn(Commands),
@@ -216,21 +220,21 @@ get_contact_uids(Contacts) when is_list(Contacts) ->
         end, #{}, lists:zip(Contacts, Res)),
     {ok, Result};
 
-get_contact_uids(Contact) ->
-    {ok, Res} = q(["SMEMBERS", reverse_key(Contact)]),
+get_contact_uids(Contact, AppType) ->
+    {ok, Res} = q(["SMEMBERS", reverse_key(Contact, AppType)]),
     {ok, Res}.
 
 
--spec get_contact_uids_size(Contact :: binary()) -> non_neg_integer() | {error, any()}.
-get_contact_uids_size(Contact) ->
-    {ok, Res} = q(["SCARD", reverse_key(Contact)]),
+-spec get_contact_uids_size(Contact :: binary(), AppType :: app_type()) -> non_neg_integer() | {error, any()}.
+get_contact_uids_size(Contact, AppType) ->
+    {ok, Res} = q(["SCARD", reverse_key(Contact, AppType)]),
     binary_to_integer(Res).
 
 
--spec get_contacts_uids_size(Contacts :: [binary()]) -> map() | {error, any()}.
-get_contacts_uids_size([]) -> #{};
-get_contacts_uids_size(Contacts) ->
-    Commands = lists:map(fun(Contact) -> ["SCARD", reverse_key(Contact)] end, Contacts),
+-spec get_contacts_uids_size(Contacts :: [binary()], AppType :: app_type()) -> map() | {error, any()}.
+get_contacts_uids_size([], _AppType) -> #{};
+get_contacts_uids_size(Contacts, AppType) ->
+    Commands = lists:map(fun(Contact) -> ["SCARD", reverse_key(Contact, AppType)] end, Contacts),
     Res = qmn(Commands),
     Result = lists:foldl(
         fun({Contact, {ok, Size}}, Acc) ->
@@ -303,9 +307,12 @@ sync_key(Uid, Sid) ->
     <<?SYNC_KEY/binary, <<"{">>/binary, Uid/binary, <<"}:">>/binary, Sid/binary>>.
 
 
--spec reverse_key(Phone :: phone()) -> binary().
-reverse_key(Phone) ->
-    <<?REVERSE_KEY/binary, <<"{">>/binary, Phone/binary, <<"}">>/binary>>.
+-spec reverse_key(Phone :: phone(), AppType :: app_type()) -> binary().
+reverse_key(Phone, AppType) ->
+    case AppType of
+        halloapp -> <<?REVERSE_KEY/binary, <<"{">>/binary, Phone/binary, <<"}">>/binary>>;
+        katchup -> <<?KATCHUP_REVERSE_KEY/binary, <<"{">>/binary, Phone/binary, <<"}">>/binary>>
+    end.
 
 
 -spec reverse_phone_hash_key(Phone :: phone()) -> binary().

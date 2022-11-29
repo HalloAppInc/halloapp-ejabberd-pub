@@ -35,7 +35,7 @@ remove_unregistered_numbers_run(Key, State) ->
             case Uid of
                 undefined ->
                     ?INFO("Removing key ~s, phone: ~s", [Key, Phone]),
-                    {ok, ContactUids} = model_contacts:get_contact_uids(Phone),
+                    {ok, ContactUids} = model_contacts:get_contact_uids(Phone, halloapp),
                     Command = ["DEL", Key],
                     case DryRun of
                         true ->
@@ -209,7 +209,7 @@ cleanup_reverse_index_run(Key, State) ->
     Result = re:run(Key, "^rev:{([0-9]+)}$", [global, {capture, all, binary}]),
     case Result of
         {match, [[ReverseKey, Phone]]} ->
-            {ok, ContactUids} = model_contacts:get_contact_uids(Phone),
+            {ok, ContactUids} = model_contacts:get_contact_uids(Phone, halloapp),
             % _NumContactUids = length(ContactUids),
             lists:foreach(
                 fun(ContactUid) ->

@@ -29,26 +29,29 @@ clear() ->
 keys_test() ->
     ?assertEqual(<<"con:{1000000000376503286}">>, model_contacts:contacts_key(?UID)),
     ?assertEqual(<<"sync:{1000000000376503286}:dbd22016">>, model_contacts:sync_key(?UID, ?SID)),
-    ?assertEqual(<<"rev:{14705551473}">>, model_contacts:reverse_key(?CONTACT1)),
+    ?assertEqual(<<"rev:{14705551473}">>, model_contacts:reverse_key(?CONTACT1, halloapp)),
+    ?assertEqual(<<"krev:{14705551473}">>, model_contacts:reverse_key(?CONTACT1, katchup)),
     ?assertNotEqual(<<"rph:{14705551473}">>, model_contacts:reverse_phone_hash_key(?CONTACT1)),
     ok.
 
 
 add_contact_test() ->
     setup(),
+    AppType = util_uid:get_app_type(?UID),
     {ok, []} = model_contacts:get_contacts(?UID),
     ?assertEqual(0, model_contacts:count_contacts(?UID)),
-    {ok, []} = model_contacts:get_contact_uids(?CONTACT1),
+    {ok, []} = model_contacts:get_contact_uids(?CONTACT1, AppType),
     ok = model_contacts:add_contact(?UID, ?CONTACT1),
     %% Test con:{uid}
     {ok, [?CONTACT1]} = model_contacts:get_contacts(?UID),
     ?assertEqual(1, model_contacts:count_contacts(?UID)),
     %% Test rev:{phone}
-    {ok, [?UID]} = model_contacts:get_contact_uids(?CONTACT1).
+    {ok, [?UID]} = model_contacts:get_contact_uids(?CONTACT1, AppType).
 
 
 add_contacts_test() ->
     setup(),
+    AppType = util_uid:get_app_type(?UID),
     ok = model_contacts:add_contacts(?UID, []),
     {ok, []} = model_contacts:get_contacts(?UID),
     ?assertEqual(0, model_contacts:count_contacts(?UID)),
@@ -56,11 +59,11 @@ add_contacts_test() ->
     %% Test con:{uid}
     {ok, [?CONTACT1, ?CONTACT2]} = model_contacts:get_contacts(?UID),
     ?assertEqual(2, model_contacts:count_contacts(?UID)),
-    {ok, []} = model_contacts:get_contact_uids(?CONTACT3),
+    {ok, []} = model_contacts:get_contact_uids(?CONTACT3, AppType),
     %% Test rev:{phone}
-    {ok, [?UID]} = model_contacts:get_contact_uids(?CONTACT1),
-    {ok, [?UID]} = model_contacts:get_contact_uids(?CONTACT2),
-    {ok, []} = model_contacts:get_contact_uids(?CONTACT3).
+    {ok, [?UID]} = model_contacts:get_contact_uids(?CONTACT1, AppType),
+    {ok, [?UID]} = model_contacts:get_contact_uids(?CONTACT2, AppType),
+    {ok, []} = model_contacts:get_contact_uids(?CONTACT3, AppType).
 
 
 get_contacts_test() ->
@@ -80,6 +83,7 @@ get_contacts_test() ->
 
 remove_contact_test() ->
     setup(),
+    AppType = util_uid:get_app_type(?UID),
     ok = model_contacts:add_contact(?UID, ?CONTACT1),
     ok = model_contacts:add_contact(?UID, ?CONTACT2),
     ok = model_contacts:remove_contact(?UID, ?CONTACT1),
@@ -87,12 +91,13 @@ remove_contact_test() ->
     {ok, [?CONTACT2]} = model_contacts:get_contacts(?UID),
     ?assertEqual(1, model_contacts:count_contacts(?UID)),
     %% Test rev:{phone}
-    {ok, []} = model_contacts:get_contact_uids(?CONTACT1),
-    {ok, [?UID]} = model_contacts:get_contact_uids(?CONTACT2).
+    {ok, []} = model_contacts:get_contact_uids(?CONTACT1, AppType),
+    {ok, [?UID]} = model_contacts:get_contact_uids(?CONTACT2, AppType).
 
 
 remove_contacts_test() ->
     setup(),
+    AppType = util_uid:get_app_type(?UID),
     ok = model_contacts:add_contact(?UID, ?CONTACT1),
     ok = model_contacts:add_contact(?UID, ?CONTACT2),
     ok = model_contacts:remove_contacts(?UID, []),
@@ -103,12 +108,13 @@ remove_contacts_test() ->
     {ok, []} = model_contacts:get_contacts(?UID),
     ?assertEqual(0, model_contacts:count_contacts(?UID)),
     %% Test rev:{phone}
-    {ok, []} = model_contacts:get_contact_uids(?CONTACT1),
-    {ok, []} = model_contacts:get_contact_uids(?CONTACT2).
+    {ok, []} = model_contacts:get_contact_uids(?CONTACT1, AppType),
+    {ok, []} = model_contacts:get_contact_uids(?CONTACT2, AppType).
 
 
 remove_all_contacts_test() ->
     setup(),
+    AppType = util_uid:get_app_type(?UID),
     ok = model_contacts:add_contact(?UID, ?CONTACT1),
     ok = model_contacts:add_contact(?UID, ?CONTACT2),
      %% Test con:{uid}
@@ -119,8 +125,8 @@ remove_all_contacts_test() ->
     {ok, []} = model_contacts:get_contacts(?UID),
     ?assertEqual(0, model_contacts:count_contacts(?UID)),
     %% Test rev:{phone}
-    {ok, []} = model_contacts:get_contact_uids(?CONTACT1),
-    {ok, []} = model_contacts:get_contact_uids(?CONTACT2).
+    {ok, []} = model_contacts:get_contact_uids(?CONTACT1, AppType),
+    {ok, []} = model_contacts:get_contact_uids(?CONTACT2, AppType).
 
 
 empty_sync_contacts_test() ->
@@ -138,6 +144,7 @@ empty_sync_contacts_test() ->
 
 sync_contacts_test() ->
     setup(),
+    AppType = util_uid:get_app_type(?UID),
     ok = model_contacts:add_contact(?UID, ?CONTACT1),
     ok = model_contacts:add_contact(?UID, ?CONTACT2),
     ok = model_contacts:sync_contacts(?UID, ?SID, [?CONTACT3]),
@@ -146,14 +153,14 @@ sync_contacts_test() ->
     %% Test con:{uid}
     {ok, [?CONTACT1, ?CONTACT2]} = model_contacts:get_contacts(?UID),
     %% Test rev:{phone}
-    {ok, [?UID]} = model_contacts:get_contact_uids(?CONTACT1),
-    {ok, [?UID]} = model_contacts:get_contact_uids(?CONTACT2),
+    {ok, [?UID]} = model_contacts:get_contact_uids(?CONTACT1, AppType),
+    {ok, [?UID]} = model_contacts:get_contact_uids(?CONTACT2, AppType),
     ok = model_contacts:finish_sync(?UID, ?SID),
     %% Test con:{uid}
     {ok, [?CONTACT3]} = model_contacts:get_contacts(?UID),
     %% Test rev:{phone}
-    {ok, []} = model_contacts:get_contact_uids(?CONTACT1),
-    {ok, []} = model_contacts:get_contact_uids(?CONTACT2).
+    {ok, []} = model_contacts:get_contact_uids(?CONTACT1, AppType),
+    {ok, []} = model_contacts:get_contact_uids(?CONTACT2, AppType).
 
 
 is_contact_test() ->
@@ -166,34 +173,37 @@ is_contact_test() ->
 
 get_contact_uids_multi_test() ->
     setup(),
+    AppType = util_uid:get_app_type(?UID),
     ?assertEqual(
         {ok, #{?CONTACT1 => [], ?CONTACT2 => []}}, 
-        model_contacts:get_contact_uids([?CONTACT1, ?CONTACT2])),
+        model_contacts:get_contact_uids([?CONTACT1, ?CONTACT2], AppType)),
     ok = model_contacts:add_contacts(?UID, [?CONTACT1, ?CONTACT2]),
     ok = model_contacts:add_contacts(?UID2, [?CONTACT1]),
     ?assertEqual(
         {ok, #{?CONTACT1 => [?UID, ?UID2], ?CONTACT2 => [?UID]}}, 
-        model_contacts:get_contact_uids([?CONTACT1, ?CONTACT2])),
+        model_contacts:get_contact_uids([?CONTACT1, ?CONTACT2], AppType)),
     ok.
 
 get_contact_uids_size_test() ->
     setup(),
-    ?assertEqual(0, model_contacts:get_contact_uids_size(?CONTACT1)),
+    AppType = util_uid:get_app_type(?UID),
+    ?assertEqual(0, model_contacts:get_contact_uids_size(?CONTACT1, AppType)),
     ok = model_contacts:add_contacts(?UID, [?CONTACT1, ?CONTACT2]),
-    ?assertEqual(1, model_contacts:get_contact_uids_size(?CONTACT1)),
+    ?assertEqual(1, model_contacts:get_contact_uids_size(?CONTACT1, AppType)),
     ok = model_contacts:add_contacts(?UID2, [?CONTACT1, ?CONTACT2]),
-    ?assertEqual(2, model_contacts:get_contact_uids_size(?CONTACT1)),
+    ?assertEqual(2, model_contacts:get_contact_uids_size(?CONTACT1, AppType)),
     ok.
 
 
 get_contacts_uids_size_test() ->
     setup(),
-    ?assertEqual(#{}, model_contacts:get_contacts_uids_size([])),
+    AppType = util_uid:get_app_type(?UID),
+    ?assertEqual(#{}, model_contacts:get_contacts_uids_size([], AppType)),
     ok = model_contacts:add_contacts(?UID, [?CONTACT1, ?CONTACT2]),
     ok = model_contacts:add_contacts(?UID2, [?CONTACT1]),
     ResMap = #{?CONTACT1 => 2, ?CONTACT2 => 1},
-    ResMap = model_contacts:get_contacts_uids_size([?CONTACT1, ?CONTACT2]),
-    ResMap = model_contacts:get_contacts_uids_size([?CONTACT1, ?CONTACT2, ?CONTACT3]),
+    ResMap = model_contacts:get_contacts_uids_size([?CONTACT1, ?CONTACT2], AppType),
+    ResMap = model_contacts:get_contacts_uids_size([?CONTACT1, ?CONTACT2, ?CONTACT3], AppType),
     ok.
 
 

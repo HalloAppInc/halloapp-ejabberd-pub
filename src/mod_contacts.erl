@@ -200,8 +200,9 @@ process_full_sync_iq(#pb_iq{from_uid = UserId, type = set, payload = #pb_contact
 remove_user(Uid, _Server) ->
     ?INFO("Uid: ~p", [Uid]),
     {ok, Phone} = model_accounts:get_phone(Uid),
+    AppType = util_uid:get_app_type(Uid),
     remove_all_contacts(Uid, true),
-    {ok, ContactUids} = model_contacts:get_contact_uids(Phone),
+    {ok, ContactUids} = model_contacts:get_contact_uids(Phone, AppType),
     lists:foreach(
         fun(ContactId) ->
             notify_contact_about_user(<<>>, Phone, ContactId, none, normal, delete_notice)
@@ -237,7 +238,8 @@ register_user(UserId, _Server, Phone, _CampaignId) ->
 
 -spec send_new_user_notifications(UserId :: binary(), UserPhone :: binary()) -> ok.
 send_new_user_notifications(UserId, Phone) ->
-    {ok, ContactUids} = model_contacts:get_contact_uids(Phone),
+    AppType = util_uid:get_app_type(UserId),
+    {ok, ContactUids} = model_contacts:get_contact_uids(Phone, AppType),
     stat:count("HA/contacts", "add_contact", length(ContactUids)),
     %% Fetch all inviter phone numbers.
     {ok, InvitersList} = model_invites:get_inviters_list(Phone),
@@ -358,11 +360,12 @@ remove_all_contacts(UserId, IsAccountDeleted) ->
 
 -spec finish_sync(UserId :: binary(), Server :: binary(), SyncId :: binary()) -> ok.
 finish_sync(UserId, _Server, SyncId) ->
+    AppType = util_uid:get_app_type(UserId),
     StartTime = os:system_time(microsecond), 
     UserPhone = get_phone(UserId),
     {ok, OldContactList} = model_contacts:get_contacts(UserId),
     {ok, NewContactList} = model_contacts:get_sync_contacts(UserId, SyncId),
-    {ok, OldReverseContactList} = model_contacts:get_contact_uids(UserPhone),
+    {ok, OldReverseContactList} = model_contacts:get_contact_uids(UserPhone, AppType),
     {ok, BlockedUids} = model_privacy:get_blocked_uids2(UserId),
     {ok, BlockedByUids} = model_privacy:get_blocked_by_uids2(UserId),
     {ok, OldFriendUids} = model_friends:get_friends(UserId),
@@ -455,9 +458,10 @@ normalize_and_insert_contacts(UserId, _Server, Contacts, SyncId) ->
     Time1 = os:system_time(microsecond),
     ?INFO("Uid: ~p, NumContacts: ~p", [UserId, length(Contacts)]),
     UserPhone = get_phone(UserId),
+    AppType = util_uid:get_app_type(UserId),
     UserRegionId = mod_libphonenumber:get_region_id(UserPhone),
     {ok, OldContactList} = model_contacts:get_contacts(UserId),
-    {ok, OldReverseContactList} = model_contacts:get_contact_uids(UserPhone),
+    {ok, OldReverseContactList} = model_contacts:get_contact_uids(UserPhone, AppType),
     {ok, BlockedUids} = model_privacy:get_blocked_uids2(UserId),
     {ok, BlockedByUids} = model_privacy:get_blocked_by_uids2(UserId),
     {ok, OldFriendUidScores} = model_friends:get_friend_scores(UserId),
@@ -567,7 +571,8 @@ obtain_user_ids(NormContacts) ->
 
 %% Sets potential friends for un-registered contacts.
 -spec obtain_potential_friends(Uid :: binary(), FriendUidScores :: #{binary() => integer()}, UnRegisteredContacts :: [pb_contact()]) -> [pb_contact()].
-obtain_potential_friends(_Uid, FriendUidScores, UnRegisteredContacts) ->
+obtain_potential_friends(Uid, FriendUidScores, UnRegisteredContacts) ->
+    AppType = util_uid:get_app_type(Uid),
     FriendsByScore = lists:sort(
         fun({_Uid1, Score1}, {_Uid2, Score2}) -> 
             Score1 > Score2 
@@ -584,7 +589,7 @@ obtain_potential_friends(_Uid, FriendUidScores, UnRegisteredContacts) ->
 
     ContactPhones = extract_normalized(UnRegisteredContacts),
     PhoneToInvitersMap = model_invites:get_inviters_list(ContactPhones),
-    PhoneToContactsMap = model_contacts:get_contacts_uids_size(ContactPhones),
+    PhoneToContactsMap = model_contacts:get_contacts_uids_size(ContactPhones, AppType),
     lists:map(
         fun(#pb_contact{normalized = ContactPhone} = Contact) ->
             NumInviters = length(maps:get(ContactPhone, PhoneToInvitersMap, [])),
@@ -727,8 +732,9 @@ remove_contact_phones(UserId, ContactPhones) ->
 -spec remove_contact_phones(
         UserId :: binary(), ContactPhones :: [binary()], IsAccountDeleted :: boolean()) -> ok.
 remove_contact_phones(UserId, ContactPhones, IsAccountDeleted) ->
+    AppType = util_uid:get_app_type(UserId),
     UserPhone = get_phone(UserId),
-    {ok, ReverseContactList} = model_contacts:get_contact_uids(UserPhone),
+    {ok, ReverseContactList} = model_contacts:get_contact_uids(UserPhone, AppType),
     ReverseContactSet = sets:from_list(ReverseContactList),
     model_contacts:remove_contacts(UserId, ContactPhones),
     remove_contacts_and_notify(UserId, UserPhone, ContactPhones, ReverseContactSet, IsAccountDeleted).

@@ -120,6 +120,7 @@
 -define(SYNC_KEY, <<"sync:">>).
 -define(PAST_SYNC_KEY, <<"psyn:">>).
 -define(REVERSE_KEY, <<"rev:">>).
+-define(KATCHUP_REVERSE_KEY, <<"krev:">>).
 -define(PHONE_HASH_KEY, <<"rph:">>).
 -define(NOT_INVITED_PHONES_KEY, <<"not_invited_phones:">>).
 
