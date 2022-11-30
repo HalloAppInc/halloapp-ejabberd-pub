@@ -61,7 +61,7 @@ mod_options(_Host) ->
 process_local_iq(#pb_iq{from_uid = Uid, type = get,
         payload = #pb_relationship_list{type = normal} = RelationshipList} = IQ) ->
     {ok, FriendUids} = model_friends:get_friends(Uid),
-    {UserInfos, friends} = get_user_info_from_uid(FriendUids, normal),
+    UserInfos = get_user_info_from_uid(FriendUids, normal),
     pb:make_iq_result(IQ, RelationshipList#pb_relationship_list{users = UserInfos});
 
 
@@ -69,7 +69,7 @@ process_local_iq(#pb_iq{from_uid = Uid, type = get,
 process_local_iq(#pb_iq{from_uid = Uid, type = get,
         payload = #pb_relationship_list{type = incoming} = RelationshipList} = IQ) ->
     IncomingFriendUids = model_friends:get_incoming_friends(Uid),
-    {UserInfos, incoming} = get_user_info_from_uid(IncomingFriendUids, incoming),
+    UserInfos = get_user_info_from_uid(IncomingFriendUids, incoming),
     pb:make_iq_result(IQ, RelationshipList#pb_relationship_list{users = UserInfos});
 
 
@@ -77,7 +77,7 @@ process_local_iq(#pb_iq{from_uid = Uid, type = get,
 process_local_iq(#pb_iq{from_uid = Uid, type = get,
         payload = #pb_relationship_list{type = outgoing} = RelationshipList} = IQ) ->
     OutgoingFriendUids = model_friends:get_outgoing_friends(Uid),
-    {UserInfos, outgoing} = get_user_info_from_uid(OutgoingFriendUids, outgoing),
+    UserInfos = get_user_info_from_uid(OutgoingFriendUids, outgoing),
     pb:make_iq_result(IQ, RelationshipList#pb_relationship_list{users = UserInfos});
 
 
@@ -85,7 +85,7 @@ process_local_iq(#pb_iq{from_uid = Uid, type = get,
 process_local_iq(#pb_iq{from_uid = Uid, type = get,
         payload = #pb_relationship_list{type = blocked} = RelationshipList} = IQ) ->
     BlockedUids = model_friends:get_blocked_uids(Uid),
-    {UserInfos, blocked} = get_user_info_from_uid(BlockedUids, blocked),
+    UserInfos = get_user_info_from_uid(BlockedUids, blocked),
     pb:make_iq_result(IQ, RelationshipList#pb_relationship_list{users = UserInfos});
 
 
