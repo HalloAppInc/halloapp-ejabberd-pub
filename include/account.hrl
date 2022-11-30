@@ -31,7 +31,8 @@
     device :: maybe(binary()),
     os_version :: maybe(binary()),
     last_ipaddress :: maybe(binary()),
-    avatar_id :: maybe(binary())
+    avatar_id :: maybe(binary()),
+    username :: maybe(binary())
 }).
 
 -type account() :: #account{}.

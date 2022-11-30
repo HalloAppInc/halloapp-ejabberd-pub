@@ -162,7 +162,12 @@
     scan/3,
     update_zone_offset_tag/3,
     get_zone_offset_tag_uids/1,
-    delete_zone_offset_tag/2
+    delete_zone_offset_tag/2,
+    is_username_available/1,
+    set_username/2,
+    get_username/1,
+    get_username_uid/1,
+    search_username_prefix/2
 ]).
 
 %%====================================================================
@@ -198,6 +203,8 @@
 -define(FIELD_HUAWEI_TOKEN, <<"ht">>).
 -define(FIELD_DEVICE, <<"dvc">>).
 -define(FIELD_OS_VERSION, <<"osv">>).
+-define(FIELD_USERNAME, <<"un">>).
+-define(FIELD_USERNAME_UID, <<"unu">>).
 
 %% Field to capture creation of list with inactive uids and their deletion.
 -define(FIELD_INACTIVE_UIDS_STATUS, <<"ius">>).
@@ -263,12 +270,12 @@ delete_account(Uid) ->
     case q(["HMGET", account_key(Uid), ?FIELD_PHONE,
             ?FIELD_CREATION_TIME, ?FIELD_LAST_REGISTRATION_TIME, ?FIELD_LAST_ACTIVITY, ?FIELD_ACTIVITY_STATUS,
             ?FIELD_USER_AGENT, ?FIELD_CAMPAIGN_ID, ?FIELD_CLIENT_VERSION, ?FIELD_PUSH_LANGUAGE_ID,
-            ?FIELD_DEVICE, ?FIELD_OS_VERSION]) of
+            ?FIELD_DEVICE, ?FIELD_OS_VERSION, ?FIELD_USERNAME]) of
         {ok, [undefined | _]} ->
             ?WARNING("Looks like it is already deleted, Uid: ~p", [Uid]),
             ok;
         {ok, [_Phone, CreationTsMsBin, RegistrationTsMsBin, LastActivityTsMs, ActivityStatus,
-                UserAgent, CampaignId, ClientVersion, LangId, Device, OsVersion]} ->
+                UserAgent, CampaignId, ClientVersion, LangId, Device, OsVersion, Username]} ->
             [{ok, _}, RenameResult, {ok, _}, DecrResult] = qp([
                 ["HSET", deleted_uid_key(Uid),
                             ?FIELD_CREATION_TIME, CreationTsMsBin,
@@ -280,11 +287,16 @@ delete_account(Uid) ->
                             ?FIELD_CLIENT_VERSION, ClientVersion,
                             ?FIELD_DELETION_TIME, integer_to_binary(DeletionTsMs),
                             ?FIELD_DEVICE, Device,
-                            ?FIELD_OS_VERSION, OsVersion],
+                            ?FIELD_OS_VERSION, OsVersion,
+                            ?FIELD_USERNAME, Username],
                 ["RENAME", account_key(Uid), deleted_account_key(Uid)],
                 ["EXPIRE", deleted_account_key(Uid), ?DELETED_ACCOUNT_TTL],
                 ["DECR", count_accounts_key(Uid)]
             ]),
+            case Username =/= undefined andalso util_uid:get_app_type(Uid) =/= halloapp of
+                true -> delete_username_index(Username);
+                false -> ok
+            end,
             case RenameResult of
                 {ok, <<"OK">>} ->
                     ?INFO("Uid: ~s deleted", [Uid]);
@@ -390,7 +402,6 @@ get_avatar_id(Uid) ->
     {ok, Res} = q(["HGET", account_key(Uid), ?FIELD_AVATAR_ID]),
     {ok, Res}.
 
-
 -spec get_avatar_id_binary(Uid :: uid()) -> binary().
 get_avatar_id_binary(Uid) ->
     {ok, AvatarId} = get_avatar_id(Uid),
@@ -398,6 +409,88 @@ get_avatar_id_binary(Uid) ->
         undefined ->  <<>>;
         _ -> AvatarId
     end.
+
+
+-spec is_username_available(Username :: binary()) -> boolean() | {error, any()}.
+is_username_available(Username) ->
+    {ok, Res} = q(["HGET", username_uid_key(Username), ?FIELD_USERNAME_UID]),
+    Res =:= undefined.
+
+
+-spec set_username(Uid :: uid(), Username :: binary()) -> true | {false, any()} | {error, any()}.
+set_username(Uid, Username) ->
+    case is_valid_username(Username) of
+        true -> set_valid_username(Uid, Username);
+        Err -> Err
+    end.
+
+is_valid_username(Username) when byte_size(Username) =< 2 ->
+    {false, tooshort};
+is_valid_username(Username) when byte_size(Username) > 40 ->
+    {false, toolong};
+is_valid_username(Username) ->
+    case re:run(Username, "^[a-z][a-z0-9]*$") of
+        nomatch -> {false, badexpr};
+        {match, _} -> true
+    end.
+
+set_valid_username(Uid, Username) ->
+    {ok, NotExists} = q(["HSETNX", username_uid_key(Username), ?FIELD_USERNAME_UID, Uid]),
+    case NotExists =:= <<"1">> of
+        true ->
+            delete_old_username(Uid),
+            {ok, _} = q(["HSET", account_key(Uid), ?FIELD_USERNAME, Username]),
+            add_username_prefix(Username, byte_size(Username)),
+            true;
+        false ->
+            {false, notuniq}
+    end. 
+
+
+-spec get_username(Uid :: uid()) -> {ok, maybe(binary())} | {error, any()}.
+get_username(Uid) ->
+    {ok, Res} = q(["HGET", account_key(Uid), ?FIELD_USERNAME]),
+    {ok, Res}.
+
+-spec get_username_uid(Username :: binary()) -> {ok, maybe(binary())} | {error, any()}.
+get_username_uid(Username) ->
+    {ok, Res} = q(["HGET", username_uid_key(Username), ?FIELD_USERNAME_UID]),
+    {ok, Res}.
+
+-spec delete_old_username(Uid :: uid()) -> ok | {error, any()}.
+delete_old_username(Uid) ->
+    {ok, OldUsername} = get_username(Uid),
+    case OldUsername =/= undefined of
+        false -> ok;
+        true ->
+            delete_username_index(OldUsername)
+    end.
+
+
+-spec delete_username_index(Username :: binary()) -> ok | {error, any()}.
+delete_username_index(Username) ->
+    {ok, _} = q(["HDEL", username_uid_key(Username), ?FIELD_USERNAME_UID]),
+    delete_username_prefix(Username, byte_size(Username)),
+    ok.
+
+add_username_prefix(_Username, PrefixLen) when PrefixLen =< 2 ->
+    ok;
+add_username_prefix(Username, PrefixLen) ->
+    <<UsernamePrefix:PrefixLen/binary, _T/binary>> = Username,
+    {ok, _Res} = q(["ZADD", username_index_key(UsernamePrefix), 1, Username]),
+    add_username_prefix(Username, PrefixLen - 1).
+
+delete_username_prefix(_Username, PrefixLen) when PrefixLen =< 2 ->
+    ok;
+delete_username_prefix(Username, PrefixLen) ->
+    <<UsernamePrefix:PrefixLen/binary, _T/binary>> = Username,
+    {ok, _Res} = q(["ZREM", username_index_key(UsernamePrefix), Username]),
+    delete_username_prefix(Username, PrefixLen - 1).
+
+-spec search_username_prefix(Prefix :: binary(), Limit :: integer()) -> {ok, [binary()]} | {error, any()}.
+search_username_prefix(Prefix, Limit) ->
+    {ok, Usernames} = q(["ZRANGEBYLEX", username_index_key(Prefix), "-", "+", "LIMIT", 0, Limit]),
+    {ok, Usernames}.
 
 
 -spec get_phone(Uid :: uid()) -> {ok, binary()} | {error, missing}.
@@ -592,7 +685,8 @@ get_account(Uid) ->
                     device = maps:get(?FIELD_DEVICE, M, undefined),
                     os_version = maps:get(?FIELD_OS_VERSION, M, undefined),
                     last_ipaddress = util:to_list(maps:get(?FIELD_LAST_IPADDRESS, M, undefined)),
-                    avatar_id = maps:get(?FIELD_AVATAR_ID, M, undefined)
+                    avatar_id = maps:get(?FIELD_AVATAR_ID, M, undefined),
+                    username = maps:get(?FIELD_USERNAME, M, undefined)
                 },
             {ok, Account}
     end.
@@ -1456,4 +1550,10 @@ geo_tag_key(Uid) ->
 zone_offset_tag_key(Slot, ZoneOffsetTag) ->
     SlotBin = util:to_binary(Slot),
     <<?ZONE_OFFSET_TAG_KEY/binary, "{", SlotBin/binary, "}:", ZoneOffsetTag/binary>>.
+
+username_index_key(UsernamePrefix) ->
+    <<?USERNAME_INDEX_KEY/binary, "{", UsernamePrefix/binary, "}">>.
+
+username_uid_key(Username) ->
+    <<?USERNAME_KEY/binary, "{", Username/binary, "}">>.
 

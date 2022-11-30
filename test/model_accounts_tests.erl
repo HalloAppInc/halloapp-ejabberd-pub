@@ -106,6 +106,14 @@
 
 -define(ZONE_OFFSET1, -28800).
 -define(ZONE_OFFSET3, 28800).
+
+-define(USERNAME1, <<"username1">>).
+-define(USERNAME2, <<"usernaem1">>).
+-define(USERNAME3, <<"nusernaem1">>).
+-define(USERNAMEPFIX1, <<"use">>).
+-define(USERNAMEPFIX2, <<"userna">>).
+-define(USERNAMEPFIX3, <<"username1">>).
+-define(USERNAMEPFIX4, <<"usernaem1">>).
 %% ----------------------------------------------
 %% Key Tests
 %% ----------------------------------------------
@@ -581,6 +589,35 @@ moment_notification_test(_) ->
     [?_assert(model_accounts:mark_moment_notification_sent(?UID1, ?POSTID1)),
     ?_assertNot(model_accounts:mark_moment_notification_sent(?UID1, ?POSTID1))].
 
+username_test(_) ->
+    [?_assertEqual({false, tooshort}, model_accounts:set_username(?UID1, <<"ab">>)),
+    ?_assertEqual({false, badexpr}, model_accounts:set_username(?UID1, <<"1ab">>)),
+    ?_assertEqual({false, badexpr}, model_accounts:set_username(?UID1, <<"Abc">>)),
+    ?_assertEqual({false, badexpr}, model_accounts:set_username(?UID1, <<"aAbc">>)),
+    ?_assert(model_accounts:is_username_available(?USERNAME1)),
+    ?_assert(model_accounts:set_username(?UID1, ?USERNAME1)),
+    ?_assertEqual({false, notuniq}, model_accounts:set_username(?UID1, ?USERNAME1)),
+    ?_assertNot(model_accounts:is_username_available(?USERNAME1)),
+    ?_assertEqual({ok, ?USERNAME1}, model_accounts:get_username(?UID1)),
+    ?_assertEqual({ok, ?UID1}, model_accounts:get_username_uid(?USERNAME1)),
+    ?_assert(model_accounts:set_username(?UID1, ?USERNAME2)),
+    ?_assertEqual({ok, ?USERNAME2}, model_accounts:get_username(?UID1)),
+    ?_assertEqual({ok, undefined}, model_accounts:get_username_uid(?USERNAME1)),
+    ?_assert(model_accounts:is_username_available(?USERNAME1)),
+    ?_assertNot(model_accounts:is_username_available(?USERNAME2)),
+    ?_assert(model_accounts:set_username(?UID1, ?USERNAME1)),
+    ?_assert(model_accounts:set_username(?UID2, ?USERNAME2)),
+    ?_assertEqual({ok, [?USERNAME2, ?USERNAME1]}, model_accounts:search_username_prefix(?USERNAMEPFIX1, 10)),
+    ?_assertEqual({ok, [?USERNAME2, ?USERNAME1]}, model_accounts:search_username_prefix(?USERNAMEPFIX2, 10)),
+    ?_assertEqual({ok, [?USERNAME1]}, model_accounts:search_username_prefix(?USERNAMEPFIX3, 10)),
+    ?_assertEqual({ok, [?USERNAME2]}, model_accounts:search_username_prefix(?USERNAMEPFIX4, 10)),
+    ?_assert(model_accounts:set_username(?UID1, ?USERNAME3)),
+    ?_assertEqual({ok, [?USERNAME2]}, model_accounts:search_username_prefix(?USERNAMEPFIX1, 10)),
+    ?_assertEqual({ok, [?USERNAME2]}, model_accounts:search_username_prefix(?USERNAMEPFIX2, 10)),
+    ?_assertEqual({ok, []}, model_accounts:search_username_prefix(?USERNAMEPFIX3, 10)),
+    ?_assertEqual({ok, [?USERNAME2]}, model_accounts:search_username_prefix(?USERNAMEPFIX4, 10))].
+
+
 geo_tag_test(_) ->
     TagToExpire = 'GEO0',
     ExpiredTime = util:now() - ?GEO_TAG_EXPIRATION,
@@ -633,7 +670,8 @@ api_test_() ->
         fun count/1,
         fun check_account_exists/1,
         fun check_uid_to_delete/1,
-        fun voip_and_push_tokens/1
+        fun voip_and_push_tokens/1,
+        fun username_test/1
     ]),
     tutil:in_parallel(fun setup_accounts/0, fun tutil:cleanup/1, [
         fun get_signup_user_agent/1,

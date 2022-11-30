@@ -62,6 +62,9 @@
 -define(MARKETING_TAG_KEY, <<"mta:">>).
 -define(ZONE_OFFSET_TAG_KEY, <<"zot:">>).
 
+-define(USERNAME_KEY, <<"usu:">>).
+-define(USERNAME_INDEX_KEY, <<"usi:">>).
+
 -define(STATIC_KEY_KEY, <<"skk:">>).
 
 -define(REVERSE_STATIC_KEY_KEY, <<"rskk:">>).
