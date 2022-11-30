@@ -172,6 +172,7 @@ modules:
   mod_sms: {}
   mod_user_session: {}
   mod_contacts: {}
+  mod_katchup_contacts: {}
   mod_names: {}
   mod_server_ts: {}
   mod_chat: {}
