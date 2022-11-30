@@ -292,9 +292,9 @@ generate_uid() ->
 
 generate_uid(AppType) ->
     {ok, Uid} = case AppType of
-                    ?KATCHUP -> util_uid:generate_uid("Katchup");
-                    _ -> util_uid:generate_uid("HalloApp")
-                end,
+        ?KATCHUP -> util_uid:generate_uid("Katchup");
+        _ -> util_uid:generate_uid("HalloApp")
+    end,
     Uid.
 
 
