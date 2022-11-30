@@ -37,6 +37,8 @@
     meck_finish/1,
     load_protobuf/0,
     cleardb/1,
+    generate_uid/0,
+    generate_uid/1,
     get_result_iq_sub_el/1,
     assert_empty_result_iq/1,
     get_error_iq_sub_el/1,
@@ -284,6 +286,17 @@ control_wrapper(OuterControl, InnerControl, Instantiators) ->
 %%====================================================================
 %% Common test helpers
 %%====================================================================
+
+generate_uid() ->
+    generate_uid(?HALLOAPP).
+
+generate_uid(AppType) ->
+    {ok, Uid} = case AppType of
+                    ?KATCHUP -> util_uid:generate_uid("Katchup");
+                    _ -> util_uid:generate_uid("HalloApp")
+                end,
+    Uid.
+
 
 get_result_iq_sub_el(#pb_iq{} = IQ) ->
     ?assertEqual(result, IQ#pb_iq.type),

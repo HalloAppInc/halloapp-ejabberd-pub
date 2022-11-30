@@ -127,6 +127,10 @@
 
 %% RedisAccounts (model_friends)
 -define(FRIENDS_KEY, <<"fr:">>).
+-define(ADDED_KEY, <<"add:">>).
+-define(PENDING_KEY, <<"pnd:">>).
+-define(BLOCKED_KEY, <<"blk">>).
+-define(BLOCKED_BY_KEY, <<"bkb">>).
 
 
 %% RedisMessages
