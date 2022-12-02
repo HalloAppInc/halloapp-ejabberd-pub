@@ -195,7 +195,10 @@ process_incremental_scoring_data(CurrentIncrement, NumExaminedIncrements, IsNew)
     IncrementMap = #{must_inc => IncRequired},
     lists:foldl(
         fun({Phone, AppType, AttemptId}, AccIncMap)  ->
-            process_attempt_score(Phone, AppType, AttemptId, AccIncMap, IsNew)
+                process_attempt_score(Phone, AppType, AttemptId, AccIncMap, IsNew);
+            ({Phone, AttemptId}, AccIncMap) ->
+                AppType = halloapp,
+                process_attempt_score(Phone, AppType, AttemptId, AccIncMap, IsNew)
         end, IncrementMap, IncrementalAttemptList),
     case IsNew of
         false -> ok;
