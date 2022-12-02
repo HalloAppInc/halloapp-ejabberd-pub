@@ -266,7 +266,9 @@ get_client_based_props(PropMap, halloapp, ios, ClientVersion) ->
     PropMap12 = maps:update(location_sharing, Result10, PropMap11),
     Result11 = util_ua:is_version_greater_than(ClientVersion, <<"HalloApp/iOS1.26.318">>),
     PropMap13 = maps:update(post_reactions, Result11, PropMap12),
-    PropMap13;
+    PropMap14 = maps:update(background_upload, Result11, PropMap13),
+    PropMap15 = maps:update(moment_external_share, Result11, PropMap14),
+    PropMap15;
 
 get_client_based_props(PropMap, halloapp, undefined, _) ->
     maps:update(groups, false, PropMap);
