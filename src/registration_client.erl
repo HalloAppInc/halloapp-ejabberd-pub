@@ -16,7 +16,7 @@
 -include("sms.hrl").
 
 -define(DEFAULT_IP_PROTOCOL, inet).  %% 'inet' signals to prepare the socket using ipv4
--define(DEFAULT_UA, "HalloApp/iOS1.25.302").
+-define(DEFAULT_UA, "HalloApp/iOS1.27.321").
 -define(DEFAULT_HOST, "localhost").
 -define(DEFAULT_PORT, "5580").
 
