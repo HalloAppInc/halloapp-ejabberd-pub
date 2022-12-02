@@ -1704,8 +1704,7 @@ enum FriendStatus {
     NONE = 0;
     OUTGOING = 1;
     INCOMING = 2;
-    IGNORED = 3;
-    FRIENDS = 4;
+    FRIENDS = 3;
 }
 
 message UserInfo {
@@ -1733,8 +1732,47 @@ message RelationshipList {
     enum Type {
         NORMAL = 0;
         INCOMING = 1;
-        BLOCKED = 2;
+        OUTGOING = 2;
+        BLOCKED = 3;
     }
     Type type = 1;
     repeated UserInfo users = 2;
 }
+
+message UsernameRequest {
+  enum Action {                 
+    IS_AVAILABLE = 0;
+    SET = 1;
+  }
+  Action action = 1;
+  string username = 2;
+}
+
+message UsernameResponse {
+  enum Result {
+      OK = 0;
+      FAIL = 1;
+  }
+  Result result = 1;
+  enum Reason {
+      TOOSHORT = 0;
+      TOOLONG = 1;
+      BADEXPR = 2;
+      NOTUNIQ = 3;
+  }
+  Reason reason = 2;
+}
+
+message SearchRequest {
+  string username_string = 1;
+}
+
+message SearchResponse {
+  enum Result {
+      OK = 0;
+      FAIL = 1;
+  }
+  Result result = 1;
+  repeated UserInfo search_result = 2;
+}
+

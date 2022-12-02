@@ -167,6 +167,7 @@
     set_username/2,
     get_username/1,
     get_username_uid/1,
+    get_username_uids/1,
     search_username_prefix/2
 ]).
 
@@ -419,22 +420,6 @@ is_username_available(Username) ->
 
 -spec set_username(Uid :: uid(), Username :: binary()) -> true | {false, any()} | {error, any()}.
 set_username(Uid, Username) ->
-    case is_valid_username(Username) of
-        true -> set_valid_username(Uid, Username);
-        Err -> Err
-    end.
-
-is_valid_username(Username) when byte_size(Username) =< 2 ->
-    {false, tooshort};
-is_valid_username(Username) when byte_size(Username) > 40 ->
-    {false, toolong};
-is_valid_username(Username) ->
-    case re:run(Username, "^[a-z][a-z0-9]*$") of
-        nomatch -> {false, badexpr};
-        {match, _} -> true
-    end.
-
-set_valid_username(Uid, Username) ->
     {ok, NotExists} = q(["HSETNX", username_uid_key(Username), ?FIELD_USERNAME_UID, Uid]),
     case NotExists =:= <<"1">> of
         true ->
@@ -454,8 +439,22 @@ get_username(Uid) ->
 
 -spec get_username_uid(Username :: binary()) -> {ok, maybe(binary())} | {error, any()}.
 get_username_uid(Username) ->
-    {ok, Res} = q(["HGET", username_uid_key(Username), ?FIELD_USERNAME_UID]),
-    {ok, Res}.
+    Map = get_username_uids([Username]),
+    {ok, maps:get(Username, Map, undefined)}.
+
+-spec get_username_uids(Usernames :: [binary()]) -> map() | {error, any()}.
+get_username_uids([]) -> #{};
+get_username_uids(Usernames) ->
+    Commands = lists:map(fun(Username) -> ["HGET", username_uid_key(Username), ?FIELD_USERNAME_UID] end, Usernames),
+    Res = qmn(Commands),
+    Result = lists:foldl(
+        fun({Username, {ok, Uid}}, Acc) ->
+            case Uid of
+                undefined -> Acc;
+                _ -> Acc#{Username => Uid}
+            end
+        end, #{}, lists:zip(Usernames, Res)),
+    Result.
 
 -spec delete_old_username(Uid :: uid()) -> ok | {error, any()}.
 delete_old_username(Uid) ->

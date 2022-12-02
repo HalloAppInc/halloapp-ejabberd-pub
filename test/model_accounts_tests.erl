@@ -590,19 +590,28 @@ moment_notification_test(_) ->
     ?_assertNot(model_accounts:mark_moment_notification_sent(?UID1, ?POSTID1))].
 
 username_test(_) ->
-    [?_assertEqual({false, tooshort}, model_accounts:set_username(?UID1, <<"ab">>)),
-    ?_assertEqual({false, badexpr}, model_accounts:set_username(?UID1, <<"1ab">>)),
-    ?_assertEqual({false, badexpr}, model_accounts:set_username(?UID1, <<"Abc">>)),
-    ?_assertEqual({false, badexpr}, model_accounts:set_username(?UID1, <<"aAbc">>)),
+    ExpectedRes1 = [
+        #pb_user_info{uid = ?UID2, username = ?USERNAME2, name = ?NAME2, avatar_id = ?AVATAR_ID2},
+        #pb_user_info{uid = ?UID1, username = ?USERNAME1, name = ?NAME1, avatar_id = ?AVATAR_ID1}
+    ],
+    ExpectedRes2 = [
+        #pb_user_info{uid = ?UID1, username = ?USERNAME1, name = ?NAME1, avatar_id = ?AVATAR_ID1}
+    ],
+    [?_assertEqual({false, tooshort}, mod_username:is_valid_username(<<"ab">>)),
+    ?_assertEqual({false, badexpr}, mod_username:is_valid_username(<<"1ab">>)),
+    ?_assertEqual({false, badexpr}, mod_username:is_valid_username(<<"Abc">>)),
+    ?_assertEqual({false, badexpr}, mod_username:is_valid_username(<<"aAbc">>)),
     ?_assert(model_accounts:is_username_available(?USERNAME1)),
     ?_assert(model_accounts:set_username(?UID1, ?USERNAME1)),
     ?_assertEqual({false, notuniq}, model_accounts:set_username(?UID1, ?USERNAME1)),
     ?_assertNot(model_accounts:is_username_available(?USERNAME1)),
     ?_assertEqual({ok, ?USERNAME1}, model_accounts:get_username(?UID1)),
     ?_assertEqual({ok, ?UID1}, model_accounts:get_username_uid(?USERNAME1)),
+    ?_assertEqual(#{?USERNAME1 => ?UID1}, model_accounts:get_username_uids([?USERNAME1])),
     ?_assert(model_accounts:set_username(?UID1, ?USERNAME2)),
     ?_assertEqual({ok, ?USERNAME2}, model_accounts:get_username(?UID1)),
     ?_assertEqual({ok, undefined}, model_accounts:get_username_uid(?USERNAME1)),
+    ?_assertEqual(#{}, model_accounts:get_username_uids([?USERNAME1])),
     ?_assert(model_accounts:is_username_available(?USERNAME1)),
     ?_assertNot(model_accounts:is_username_available(?USERNAME2)),
     ?_assert(model_accounts:set_username(?UID1, ?USERNAME1)),
@@ -615,7 +624,16 @@ username_test(_) ->
     ?_assertEqual({ok, [?USERNAME2]}, model_accounts:search_username_prefix(?USERNAMEPFIX1, 10)),
     ?_assertEqual({ok, [?USERNAME2]}, model_accounts:search_username_prefix(?USERNAMEPFIX2, 10)),
     ?_assertEqual({ok, []}, model_accounts:search_username_prefix(?USERNAMEPFIX3, 10)),
-    ?_assertEqual({ok, [?USERNAME2]}, model_accounts:search_username_prefix(?USERNAMEPFIX4, 10))].
+    ?_assertEqual({ok, [?USERNAME2]}, model_accounts:search_username_prefix(?USERNAMEPFIX4, 10)),
+    ?_assertOk(model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1, ?CAMPAIGN_ID, ?TS1)),
+    ?_assertOk(model_accounts:create_account(?UID2, ?PHONE2, ?NAME2, ?USER_AGENT2, ?CAMPAIGN_ID, ?TS2)),
+    ?_assert(model_accounts:set_username(?UID1, ?USERNAME1)),
+    ?_assertOk(model_accounts:set_avatar_id(?UID1, ?AVATAR_ID1)),
+    ?_assertOk(model_accounts:set_avatar_id(?UID2, ?AVATAR_ID2)),
+    ?_assertEqual(ExpectedRes1, mod_search:search_username_prefix(?USERNAMEPFIX1, ?UID3)),
+    ?_assertOk(model_friends:block(?UID2, ?UID3)),
+    ?_assertEqual(ExpectedRes2, mod_search:search_username_prefix(?USERNAMEPFIX1, ?UID3))
+    ].
 
 
 geo_tag_test(_) ->
