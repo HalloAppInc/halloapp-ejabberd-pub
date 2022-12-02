@@ -61,7 +61,7 @@ mod_options(_Host) ->
 process_local_iq(#pb_iq{from_uid = Uid, type = get,
         payload = #pb_relationship_list{type = normal} = RelationshipList} = IQ) ->
     {ok, FriendUids} = model_friends:get_friends(Uid),
-    UserInfos = get_user_info_from_uid(FriendUids, normal),
+    UserInfos = get_user_info_from_uid(FriendUids, friends),
     pb:make_iq_result(IQ, RelationshipList#pb_relationship_list{users = UserInfos});
 
 
@@ -71,7 +71,6 @@ process_local_iq(#pb_iq{from_uid = Uid, type = get,
     IncomingFriendUids = model_friends:get_incoming_friends(Uid),
     UserInfos = get_user_info_from_uid(IncomingFriendUids, incoming),
     pb:make_iq_result(IQ, RelationshipList#pb_relationship_list{users = UserInfos});
-
 
 %% get RelationshipList (type = outgoing)
 process_local_iq(#pb_iq{from_uid = Uid, type = get,
@@ -105,7 +104,7 @@ process_local_iq(#pb_iq{from_uid = Uid,
             case model_friends:is_blocked_any(Uid, Ouid) of
                 false ->
                     model_friends:add_friend(Uid, Ouid),
-                    {OUserInfo, friends} = get_user_info_from_uid(Ouid, friends),
+                    OUserInfo = get_user_info_from_uid(Ouid, friends),
                     ok = notify_friendship_change(Uid, Ouid, add, friends),
                     ejabberd_hooks:run(add_friend, ?KATCHUP, [Uid, util:get_host(), Ouid, false]),
                     ?INFO("~s added ~s, end result: friends", [Uid, Ouid]),
@@ -223,7 +222,7 @@ remove_user(Uid, _Server) ->
 
 notify_friendship_change(Uid, Ouid, Action, Status) when Status =:= incoming orelse Status =:= friends ->
     %% Notify Ouid that Uid has changed the status of the friendship
-    {UserInfo, Status} = get_user_info_from_uid(Uid, Status),
+    UserInfo = get_user_info_from_uid(Uid, Status),
     RelationshipAction = #pb_relationship_action{
         action = Action,
         uid = Uid,
@@ -252,9 +251,9 @@ send_msg(From, To, Payload) ->
     ejabberd_router:route(Msg).
 
 
+-spec get_user_info_from_uid(uid() | list(uid()), Status :: atom()) -> pb_user_info() | list(pb_user_info()).
 get_user_info_from_uid(Uids, Status) when is_list(Uids) ->
-    {Result, Status} = lists:mapfoldl(fun get_user_info_from_uid/2, Status, Uids),
-    Result;
+    lists:map(fun(Uid) -> get_user_info_from_uid(Uid, Status) end, Uids);
 
 get_user_info_from_uid(Uid, Status) ->
     %% TODO: should have a fun in model_accounts to fetch these all at once
