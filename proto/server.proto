@@ -140,7 +140,8 @@ message ContactSyncError {
 message MomentInfo {
     int64 notification_timestamp = 1; // timestamp received from the server in the notification.
     int64 time_taken = 2; // Time taken on the moment camera to capture the moment.
-    int64 num_takes = 3; // Number of times a moment has been captured and discarded.
+    int64 num_takes = 3; // Number of times a moment has been captured.
+    int64 num_selfie_takes = 4; // Number of times the selfie view has been captured.
 }
 
 message MediaCounters {
@@ -1022,6 +1023,10 @@ message Iq {
         PublicFeedResponse public_feed_response = 48;
         RelationshipAction relationship_action = 49;
         RelationshipList relationship_list = 50;
+        UsernameRequest username_request = 51;
+        UsernameResponse username_response = 52;
+        SearchRequest search_request = 53;
+        SearchResponse search_response = 54;
     }
     int64 to_uid = 29 [ebin = true];    // only for server use
     int64 from_uid = 30 [ebin = true];    // only for server use
