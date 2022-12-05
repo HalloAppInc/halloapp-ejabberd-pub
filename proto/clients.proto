@@ -94,6 +94,26 @@ message ChatContext {
   uint32 forward_count = 6;
 }
 
+
+message KMomentContainer {
+  oneof moment {
+    Image image = 1;
+    Video video = 2;
+  }
+  Video live_selfie = 3;
+  PositionInfo selfie_position_info = 4;
+}
+
+
+// These are the co-ordinates for the center of the selfie view on the moment.
+// TopLeft is the origin with 0,0 and BottomRight is at 1,1.
+// These positions don't change for right-to-left languages.
+message PositionInfo {
+  double x = 1;
+  double y = 2;
+}
+
+
 message PostContainer {
   oneof post {
     Text text = 1;
@@ -119,6 +139,7 @@ message CommentContainer {
     Album album = 3;
     VoiceNote voice_note = 4;
     Reaction reaction = 5;
+    Sticker sticker = 6;
   }
 }
 
@@ -131,12 +152,18 @@ message Container {
   PostContainer post_container = 4;
   CommentContainer comment_container = 5;
   ChatContainer chat_container = 6;
+  KMomentContainer k_moment_container = 7;
 }
 
 message Text {
   string text = 1;
   repeated Mention mentions = 2;
   Link link = 3;
+}
+
+message Sticker {
+ string text = 1;
+ string color = 2;
 }
 
 message ContactCard {
