@@ -49,6 +49,11 @@ start(_Host, _Opts) ->
     gen_iq_handler:add_iq_handler(ejabberd_local, halloapp, pb_trunc_whisper_keys_collection, ?MODULE, process_local_iq),
     ejabberd_hooks:add(c2s_session_opened, halloapp, ?MODULE, c2s_session_opened, 50),
     ejabberd_hooks:add(remove_user, halloapp, ?MODULE, remove_user, 40),
+    gen_iq_handler:add_iq_handler(ejabberd_local, katchup, pb_whisper_keys, ?MODULE, process_local_iq),
+    gen_iq_handler:add_iq_handler(ejabberd_local, katchup, pb_whisper_keys_collection, ?MODULE, process_local_iq),
+    gen_iq_handler:add_iq_handler(ejabberd_local, katchup, pb_trunc_whisper_keys_collection, ?MODULE, process_local_iq),
+    ejabberd_hooks:add(c2s_session_opened, katchup, ?MODULE, c2s_session_opened, 50),
+    ejabberd_hooks:add(remove_user, katchup, ?MODULE, remove_user, 40),
     ok.
 
 stop(_Host) ->
@@ -57,6 +62,11 @@ stop(_Host) ->
     gen_iq_handler:remove_iq_handler(ejabberd_local, halloapp, pb_trunc_whisper_keys_collection),
     ejabberd_hooks:delete(c2s_session_opened, halloapp, ?MODULE, c2s_session_opened, 50),
     ejabberd_hooks:delete(remove_user, halloapp, ?MODULE, remove_user, 40),
+    gen_iq_handler:remove_iq_handler(ejabberd_local, katchup, pb_whisper_keys),
+    gen_iq_handler:remove_iq_handler(ejabberd_local, katchup, pb_whisper_keys_collection),
+    gen_iq_handler:remove_iq_handler(ejabberd_local, katchup, pb_trunc_whisper_keys_collection),
+    ejabberd_hooks:delete(c2s_session_opened, katchup, ?MODULE, c2s_session_opened, 50),
+    ejabberd_hooks:delete(remove_user, katchup, ?MODULE, remove_user, 40),
     ok.
 
 depends(_Host, _Opts) ->
