@@ -130,8 +130,6 @@
 
 %% RedisAccounts (model_friends)
 -define(FRIENDS_KEY, <<"fr:">>).
--define(ADDED_KEY, <<"add:">>).  %% only used by mod_friends
--define(PENDING_KEY, <<"pnd:">>).  %% only used by mod_friends
 -define(FOLLOWER_KEY, <<"fwr:">>).
 -define(FOLLOWING_KEY, <<"fwg:">>).
 -define(BLOCKED_KEY, <<"blk">>).

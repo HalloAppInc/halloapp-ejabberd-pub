@@ -347,9 +347,8 @@ normalize_and_insert_contacts(UserId, _Server, Contacts, SyncId) ->
     UserPhone = get_phone(UserId),
     AppType = util_uid:get_app_type(UserId),
     UserRegionId = mod_libphonenumber:get_region_id(UserPhone),
-    %% TODO: Update these -- murali before merging..
-    BlockedUids = model_friends:get_blocked_uids(UserId),
-    BlockedByUids = model_friends:get_blocked_by_uids(UserId),
+    BlockedUids = model_follow:get_blocked_uids(UserId),
+    BlockedByUids = model_follow:get_blocked_by_uids(UserId),
     BlockedUidSet = sets:from_list(BlockedUids ++ BlockedByUids),
 
     %% Firstly, normalize all phone numbers received.

@@ -212,10 +212,10 @@ setup_relationships() ->
     model_follow:follow(Uid4, Uid1),
     model_follow:follow(Uid5, Uid1),
     %% Uid1 has blocked Uid6 and Uid7
-    model_friends:block(Uid1, Uid6),
-    model_friends:block(Uid1, Uid7),
+    model_follow:block(Uid1, Uid6),
+    model_follow:block(Uid1, Uid7),
     %% Uid1 is blocked by Uid8
-    model_friends:block(Uid8, Uid1),
+    model_follow:block(Uid8, Uid1),
     CleanupInfo#{testdata => {Uid1, Uid2, Uid3, Uid4, Uid5, Uid6, Uid7}}.
 
 
