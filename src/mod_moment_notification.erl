@@ -306,6 +306,7 @@ maybe_send_moment_notification(Uid, Tag) ->
 
 
 send_moment_notification(Uid) ->
+    AppType = util_uid:get_app_type(Uid),
     Packet = #pb_msg{
         id = util_id:new_msg_id(),
         to_uid = Uid,
@@ -314,5 +315,7 @@ send_moment_notification(Uid) ->
             timestamp = util:now()
         }
     },
-    ejabberd_router:route(Packet).
+    ejabberd_router:route(Packet),
+    ejabberd_hooks:run(send_moment_notification, AppType, [Uid]),
+    ok.
  

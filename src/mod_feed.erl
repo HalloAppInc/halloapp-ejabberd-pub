@@ -37,7 +37,9 @@
     remove_user/2,
     get_active_psa_tag_list/0,
     send_old_items/3,
-    share_feed_items/4
+    share_feed_items/4,
+    send_old_moment/2,
+    send_moment_notification/1
 ]).
 
 
@@ -52,6 +54,7 @@ start(_Host, _Opts) ->
     ejabberd_hooks:add(add_friend, katchup, ?MODULE, add_friend, 50),
     ejabberd_hooks:add(remove_user, katchup, ?MODULE, remove_user, 50),
     ejabberd_hooks:add(user_send_packet, katchup, ?MODULE, user_send_packet, 50),
+    ejabberd_hooks:add(send_moment_notification, katchup, ?MODULE, send_moment_notification, 50),
     ok.
 
 stop(_Host) ->
@@ -64,6 +67,7 @@ stop(_Host) ->
     ejabberd_hooks:delete(add_friend, katchup, ?MODULE, add_friend, 50),
     ejabberd_hooks:delete(remove_user, katchup, ?MODULE, remove_user, 50),
     ejabberd_hooks:delete(user_send_packet, katchup, ?MODULE, user_send_packet, 50),
+    ejabberd_hooks:delete(send_moment_notification, katchup, ?MODULE, send_moment_notification, 50),
     ok.
 
 reload(_Host, _NewOpts, _OldOpts) ->
@@ -271,6 +275,19 @@ remove_user(Uid, _Server) ->
     ok.
 
 
+%% we clear all old posts of this user from the server once we send a notification.
+%% since this post is no longer valid from that user.
+%% when a new user follows this user - they should no longer get old posts.
+send_moment_notification(Uid) ->
+    AppType = util_uid:get_app_type(Uid),
+    case AppType of
+        katchup -> model_feed:remove_all_user_posts(Uid);
+        _ -> ok
+    end,
+    ?INFO("Uid: ~p, clearing all old posts for AppType: ~p", [Uid, AppType]),
+    ok.
+
+
 is_psa_tag_allowed(PSATag, Uid) ->
     case is_psa_tag_allowed(PSATag) of
         true -> dev_users:is_psa_admin(Uid);
@@ -370,7 +387,10 @@ publish_post(Uid, PostId, PayloadBase64, PostTag, PSATag, AudienceList, HomeFeed
     AppType = util_uid:get_app_type(Uid),
     Action = publish,
     FeedAudienceType = AudienceList#pb_audience.type,
-    FilteredAudienceList1 = AudienceList#pb_audience.uids,
+    FilteredAudienceList1 = case AppType of
+        halloapp -> AudienceList#pb_audience.uids;
+        katchup -> model_follow:get_all_followers(Uid)
+    end,
     MediaCounters = HomeFeedSt#pb_feed_item.item#pb_post.media_counters,
     MomentInfo = HomeFeedSt#pb_feed_item.item#pb_post.moment_info,
     %% Store only the audience to be broadcasted to.
@@ -791,6 +811,44 @@ get_public_moments(Tag, TimestampMs, Cursor, Limit, PublicMoments) ->
 %%====================================================================
 
 
+send_old_moment(FromUid, ToUid) ->
+    ?INFO("send_old_moment of ~s, to ~s", [FromUid, ToUid]),
+    AppType = util_uid:get_app_type(FromUid),
+    {ok, FeedItems} = model_feed:get_7day_user_feed(FromUid),
+    {LatestMoment, FilteredComments} = filter_latest_moment(ToUid, FeedItems),
+    case LatestMoment of
+        undefined ->
+            ?INFO("No valid moment to sent from ~s, to ~s", [FromUid, ToUid]);
+        _ ->
+            PostStanzas = lists:map(fun convert_posts_to_feed_items/1, [LatestMoment]),
+            CommentStanzas = lists:map(fun convert_comments_to_feed_items/1, FilteredComments),
+
+            %% Add the touid to the audience list so that they can comment on these posts.
+            FilteredPostIds = [LatestMoment#post.id],
+            ok = model_feed:add_uid_to_audience(ToUid, FilteredPostIds),
+
+            ?INFO("sending FromUid: ~s ToUid: ~s ~p posts and ~p comments",
+                [FromUid, ToUid, length(PostStanzas), length(CommentStanzas)]),
+            ?INFO("sending FromUid: ~s ToUid: ~s posts: ~p",
+                [FromUid, ToUid, FilteredPostIds]),
+
+            ejabberd_hooks:run(feed_share_old_items, AppType,
+                [FromUid, ToUid, length(PostStanzas), length(CommentStanzas)]),
+
+            Packet = #pb_msg{
+                id = util_id:new_msg_id(),
+                to_uid = ToUid,
+                type = normal,
+                payload = #pb_feed_items{
+                    uid = FromUid,
+                    items = PostStanzas ++ CommentStanzas
+                }
+            },
+            ejabberd_router:route(Packet),
+            ok
+    end.
+
+
 -spec send_old_items(FromUid :: uid(), ToUid :: uid(), Server :: binary()) -> ok.
 send_old_items(FromUid, ToUid, _Server) ->
     ?INFO("sending old items of ~s, to ~s", [FromUid, ToUid]),
@@ -853,6 +911,35 @@ filter_feed_items(Uid, Items) ->
     {FilteredPosts, FilteredComments}.
 
 
+-spec filter_latest_moment(Uid :: uid(), Items :: [post()] | [comment()]) -> {maybe(post()), [comment()]}.
+filter_latest_moment(_Uid, Items) ->
+    {Posts, Comments} = lists:partition(fun(Item) -> is_record(Item, post) end, Items),
+    LatestMoment = lists:foldl(
+            fun(Post, Acc) ->
+                case Post#post.tag =:= moment of
+                    false -> Acc;
+                    true ->
+                        TsMs = Post#post.ts_ms,
+                        case Acc =/= undefined of
+                            true ->
+                                case Acc#post.ts_ms < TsMs of
+                                    true -> Post;
+                                    false -> Acc
+                                end;
+                            false ->
+                                Post
+                        end
+                end
+            end, undefined, Posts),
+    case LatestMoment of
+        undefined -> {undefined, []};
+        _ ->
+            FilteredComments = lists:filter(
+                fun(Comment) -> Comment#comment.post_id =:= LatestMoment#post.id end, Comments),
+            {LatestMoment, FilteredComments}
+    end.
+
+
 %% TODO(murali@): Check if post-ids are related to this user only.
 -spec share_feed_items(Uid :: uid(), FriendUid :: uid(),
         Server :: binary(), PostIds :: [binary()]) -> ok.
@@ -897,31 +984,52 @@ get_posts_and_comments(PostIds) ->
 
 -spec get_feed_audience_set(Action :: event_type(), Uid :: uid(), AudienceList :: [uid()]) -> set().
 get_feed_audience_set(Action, Uid, AudienceList) ->
-    {ok, BlockedUids} = model_privacy:get_blocked_uids2(Uid),
-    {ok, FriendUids} = model_friends:get_friends(Uid),
-    AudienceSet = sets:from_list(AudienceList),
+    AppType = util_uid:get_app_type(Uid),
+    case AppType of
+        %% Katchup
+        katchup ->
+            BlockedUids = model_follow:get_blocked_uids(Uid),
+            FollowerUids = model_follow:get_all_followers(Uid),
+            AudienceSet = sets:from_list(AudienceList),
 
-    %% Intersect the audience-set with friends.
-    %% post-owner's uid is already included in the audience,
-    %% but it may be removed during intersection.
-    NewAudienceSet = sets:intersection(AudienceSet, sets:from_list(FriendUids)),
-    FinalAudienceSet = case Action of
-        publish -> sets:subtract(NewAudienceSet, sets:from_list(BlockedUids));
-        retract -> AudienceSet
-    end,
-    %% Always add Uid to the audience set.
-    sets:add_element(Uid, FinalAudienceSet).
+            %% Intersect the audience-set with followers.
+            %% post-owner's uid is already included in the audience,
+            %% but it may be removed during intersection.
+            NewAudienceSet = sets:intersection(AudienceSet, sets:from_list(FollowerUids)),
+            FinalAudienceSet = case Action of
+                publish -> sets:subtract(NewAudienceSet, sets:from_list(BlockedUids));
+                retract -> AudienceSet
+            end,
+            sets:add_element(Uid, FinalAudienceSet);
+        %% HalloApp
+        halloapp ->
+            {ok, BlockedUids} = model_privacy:get_blocked_uids2(Uid),
+            {ok, FriendUids} = model_friends:get_friends(Uid),
+            AudienceSet = sets:from_list(AudienceList),
+
+            %% Intersect the audience-set with friends.
+            %% post-owner's uid is already included in the audience,
+            %% but it may be removed during intersection.
+            NewAudienceSet = sets:intersection(AudienceSet, sets:from_list(FriendUids)),
+            FinalAudienceSet = case Action of
+                publish -> sets:subtract(NewAudienceSet, sets:from_list(BlockedUids));
+                retract -> AudienceSet
+            end,
+            %% Always add Uid to the audience set.
+            sets:add_element(Uid, FinalAudienceSet)
+    end.
 
 
 -spec convert_posts_to_feed_items(post()) -> pb_feed_item().
-convert_posts_to_feed_items(#post{id = PostId, uid = Uid, payload = PayloadBase64, ts_ms = TimestampMs, moment_info = MomentInfo}) ->
+convert_posts_to_feed_items(#post{id = PostId, uid = Uid, payload = PayloadBase64, ts_ms = TimestampMs, tag = PostTag, moment_info = MomentInfo}) ->
     Post = #pb_post{
         id = PostId,
         publisher_uid = Uid,
         publisher_name = model_accounts:get_name_binary(Uid),
         payload = base64:decode(PayloadBase64),
         timestamp = util:ms_to_sec(TimestampMs),
-        moment_info = MomentInfo
+        moment_info = MomentInfo,
+        tag = PostTag
     },
     #pb_feed_item{
         action = share,
@@ -930,7 +1038,7 @@ convert_posts_to_feed_items(#post{id = PostId, uid = Uid, payload = PayloadBase6
 
 -spec convert_comments_to_feed_items(comment()) -> pb_feed_item().
 convert_comments_to_feed_items(#comment{id = CommentId, post_id = PostId, publisher_uid = PublisherUid,
-        parent_id = ParentId, payload = PayloadBase64, ts_ms = TimestampMs}) ->
+        parent_id = ParentId, payload = PayloadBase64, ts_ms = TimestampMs, comment_type = CommentType}) ->
     Comment = #pb_comment{
         id = CommentId,
         post_id = PostId,
@@ -938,7 +1046,8 @@ convert_comments_to_feed_items(#comment{id = CommentId, post_id = PostId, publis
         publisher_name = model_accounts:get_name_binary(PublisherUid),
         parent_comment_id = ParentId,
         payload = base64:decode(PayloadBase64),
-        timestamp = util:ms_to_sec(TimestampMs)
+        timestamp = util:ms_to_sec(TimestampMs),
+        comment_type = CommentType
     },
     #pb_feed_item{
         action = share,
