@@ -1028,6 +1028,8 @@ message Iq {
         UsernameResponse username_response = 53;
         SearchRequest search_request = 54;
         SearchResponse search_response = 55;
+        FollowSuggestionsRequest follow_suggestions_request = 56;
+        FollowSuggestionsResponse follow_suggestions_response = 57;
     }
     int64 to_uid = 29 [ebin = true];    // only for server use
     int64 from_uid = 30 [ebin = true];    // only for server use
@@ -1803,5 +1805,37 @@ message SearchResponse {
   }
   Result result = 1;
   repeated UserProfile search_result = 2;
+}
+
+message FollowSuggestionsRequest {
+  enum Action {
+    GET = 0;
+    REJECT = 1;
+  } 
+  Action action = 1;
+
+  repeated int64 rejected_uids = 2 [ebin = true];
+}
+
+message SuggestedProfile {
+  UserProfile user_profile = 1;
+  enum Reason {
+    UNKNOWN_REASON = 0;
+    DIRECT_CONTACT = 1;
+    FOF = 2;
+    CAMPUS = 3;
+  }
+  Reason reason = 2;
+  // Lower rank is better.
+  int32 rank = 3;
+}
+
+message FollowSuggestionsResponse {
+  enum Result {
+    OK = 0;
+    FAIL = 1;
+  }
+  Result result = 1;
+  repeated SuggestedProfile suggested_profiles = 2;
 }
 

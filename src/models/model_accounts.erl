@@ -33,6 +33,8 @@
 
 -define(MARKETING_TAG_TTL, 90 * ?DAYS).
 
+-define(REJECTED_SUGGESTION_EXPIRATION, 90 * ?DAYS).
+
 -ifdef(TEST).
 -export([
     deleted_account_key/1,
@@ -169,7 +171,9 @@
     get_username_uid/1,
     get_username_uids/1,
     search_username_prefix/2,
-    get_user_profiles/2
+    get_user_profiles/2,
+    add_rejected_suggestions/2,
+    get_all_rejected_suggestions/1
 ]).
 
 %%====================================================================
@@ -1451,6 +1455,22 @@ get_all_geo_tags(Uid) ->
             undefined
     end.
 
+-spec add_rejected_suggestions(Uid :: uid(), Ouids :: [uid()]) -> ok.
+add_rejected_suggestions(Uid, Ouids) ->
+    Now = util:now(),
+    ExpiredTs = Now - ?REJECTED_SUGGESTION_EXPIRATION,
+    Key = rejected_suggestion_key(Uid),
+    Commands = lists:map(fun(Ouid) -> ["ZADD", Key, Now, Ouid] end, Ouids),
+    qp(Commands ++ [["EXPIRE", Key, ?REJECTED_SUGGESTION_EXPIRATION],
+        ["ZREMRANGEBYSCORE", Key, "-inf", ExpiredTs]]),
+    ok.
+
+-spec get_all_rejected_suggestions(Uid :: uid()) -> {ok, maybe([uid()])} | {error, any()}.
+get_all_rejected_suggestions(Uid) ->
+    Key = rejected_suggestion_key(Uid),
+    ExpiredTs = util:now() - ?REJECTED_SUGGESTION_EXPIRATION,
+    q(["ZREVRANGEBYSCORE", Key, "+inf", util:to_list(ExpiredTs)]).
+
 -spec add_marketing_tag(Uid :: uid(), Tag :: binary()) -> ok.
 add_marketing_tag(Uid, Tag) ->
     Timestamp = util:now(),
@@ -1582,6 +1602,11 @@ marketing_tag_key(Uid) ->
 
 geo_tag_key(Uid) ->
     <<?GEO_TAG_KEY/binary, "{", Uid/binary, "}">>.
+
+
+rejected_suggestion_key(Uid) ->
+    <<?REJECTED_SUGGESTIONS_KEY/binary, "{", Uid/binary, "}">>.
+
 
 zone_offset_tag_key(Slot, ZoneOffsetTag) ->
     SlotBin = util:to_binary(Slot),

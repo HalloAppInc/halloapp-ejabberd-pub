@@ -589,6 +589,10 @@ moment_notification_test(_) ->
     [?_assert(model_accounts:mark_moment_notification_sent(?UID1, ?POSTID1)),
     ?_assertNot(model_accounts:mark_moment_notification_sent(?UID1, ?POSTID1))].
 
+rejected_suggestions_test(_) ->
+    [?_assertOk(model_accounts:add_rejected_suggestions(?UID1, [?UID2])),
+    ?_assertEqual({ok, [?UID2]}, model_accounts:get_all_rejected_suggestions(?UID1))].
+
 username_test(_) ->
     ExpectedRes1 = [
         #pb_user_profile{uid = ?UID2, username = ?USERNAME2, name = ?NAME2, avatar_id = ?AVATAR_ID2},
@@ -714,6 +718,7 @@ api_test_() ->
         fun marketing_tag/1,
         fun psa_tag_test/1,
         fun moment_notification_test/1,
+        fun rejected_suggestions_test/1,
         fun geo_tag_test/1,
         fun zone_offset_tag_test/1
     ])].

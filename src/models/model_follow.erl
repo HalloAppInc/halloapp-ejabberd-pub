@@ -27,8 +27,10 @@
     is_follower/2,
     get_following/3,
     get_all_following/1,
+    get_following_count/1,
     get_followers/3,
     get_all_followers/1,
+    get_followers_count/1,
     remove_all_following/1,
     remove_all_followers/1,
     block/2,
@@ -101,6 +103,10 @@ get_following(Uid, Cursor, Limit) ->
 get_all_following(Uid) ->
     get_all_internal(following_key(Uid)).
 
+-spec get_following_count(Uid :: uid()) -> integer().
+get_following_count(Uid) ->
+    get_count_internal(following_key(Uid)).
+
 
 %% Get everyone following Uid (paginated)
 -spec get_followers(Uid :: uid(), Cursor :: binary(), Limit :: pos_integer()) ->
@@ -113,6 +119,10 @@ get_followers(Uid, Cursor, Limit) ->
 -spec get_all_followers(Uid :: uid()) -> list(uid()).
 get_all_followers(Uid) ->
     get_all_internal(follower_key(Uid)).
+
+-spec get_followers_count(Uid :: uid()) -> integer().
+get_followers_count(Uid) ->
+    get_count_internal(follower_key(Uid)).
 
 -spec remove_all_following(Uid :: uid()) -> {ok, list(uid())}.
 remove_all_following(Uid) ->
@@ -264,6 +274,9 @@ get_all_internal(Key) ->
     {Res, _} = get_all(Key, <<>>, -1),
     Res.
 
+get_count_internal(Key) ->
+    {ok, RawCount} = q(["ZCARD", Key]),
+    binary_to_integer(RawCount).
 
 q(Command) -> ecredis:q(ecredis_friends, Command).
 qp(Commands) -> ecredis:qp(ecredis_friends, Commands).

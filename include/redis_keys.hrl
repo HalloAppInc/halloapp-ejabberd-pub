@@ -70,6 +70,7 @@
 -define(REVERSE_STATIC_KEY_KEY, <<"rskk:">>).
 
 -define(GEO_TAG_KEY, <<"geo:">>).
+-define(REJECTED_SUGGESTIONS_KEY, <<"rjs:">>).
 
 % old deleted/deprecated keys
 %%-define(INVITES_KEY, <<"inv:">>).

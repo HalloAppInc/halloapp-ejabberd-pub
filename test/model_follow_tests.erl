@@ -80,6 +80,7 @@ get_all_following_testparallel() ->
         ?_assertNotEqual(<<>>, get_cursor(model_follow:get_following(Uid1, <<>>, ?USERS_PER_PAGE))),
         ?_assertEqual({[Uid3, Uid2], <<>>}, model_follow:get_following(Uid1,
             get_cursor(model_follow:get_following(Uid1, <<>>, ?USERS_PER_PAGE)), ?USERS_PER_PAGE)),
+        ?_assertEqual(5, model_follow:get_following_count(Uid1)),
         ?_assertEqual([Uid6, Uid5, Uid4, Uid3, Uid2],
             model_follow:get_all_following(Uid1))
     ].
@@ -106,6 +107,7 @@ block_unblock_testparallel() ->
         %% UID 1 should have: UID2 following, UID3 follower
         ?_assertEqual([Uid2], model_follow:get_all_following(Uid1)),
         ?_assertEqual([Uid3], model_follow:get_all_followers(Uid1)),
+        ?_assertEqual(1, model_follow:get_following_count(Uid1)),
         %% UID2, UID3 block UID1 :(
         ?_assertOk(model_follow:block(Uid2, Uid1)),
         ?_assert(model_follow:is_blocked(Uid2, Uid1)),
@@ -125,6 +127,7 @@ block_unblock_testparallel() ->
         %% UID1 should have no following or followers
         ?_assertEqual([], model_follow:get_all_following(Uid1)),
         ?_assertEqual([], model_follow:get_all_followers(Uid1)),
+        ?_assertEqual(0, model_follow:get_following_count(Uid1)),
         %% UID2, UID3 unblock UID1 :)
         ?_assertOk(model_follow:unblock(Uid2, Uid1)),
         ?_assertNot(model_follow:is_blocked(Uid2, Uid1)),
@@ -139,7 +142,8 @@ block_unblock_testparallel() ->
         ?_assertEqual([], model_follow:get_blocked_uids(Uid3)),
         %% UID1 should have no following or followers
         ?_assertEqual([], model_follow:get_all_following(Uid1)),
-        ?_assertEqual([], model_follow:get_all_followers(Uid1))
+        ?_assertEqual([], model_follow:get_all_followers(Uid1)),
+        ?_assertEqual(0, model_follow:get_following_count(Uid1))
     ].
 
 %%====================================================================

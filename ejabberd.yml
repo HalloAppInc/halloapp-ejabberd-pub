@@ -227,6 +227,7 @@ modules:
   mod_username: {}
   mod_search: {}
   mod_follow: {}
+  mod_follow_suggestions: {}
 
 ### Local Variables:
 ### mode: yaml
