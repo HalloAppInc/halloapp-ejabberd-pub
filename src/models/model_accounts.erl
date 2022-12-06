@@ -168,7 +168,8 @@
     get_username/1,
     get_username_uid/1,
     get_username_uids/1,
-    search_username_prefix/2
+    search_username_prefix/2,
+    get_user_profiles/2
 ]).
 
 %%====================================================================
@@ -1078,6 +1079,42 @@ get_broadcast_uids(Uid) ->
     {ok, Buids} = q(["SMEMBERS", broadcast_key(Uid)]),
     {ok, Buids}.
 
+
+-spec get_user_profiles(uid(), uid() | list(uid())) -> pb_user_profile() | list(pb_user_profile()).
+get_user_profiles(Uid, Ouids) ->
+    {Res, Uid} = get_user_profiles_internal(Ouids, Uid),
+    Res.
+
+get_user_profiles_internal(Ouids, Uid) when is_list(Ouids) ->
+    lists:mapfoldl(fun get_user_profiles_internal/2, Uid, Ouids);
+
+get_user_profiles_internal(Ouid, Uid) ->
+    [{ok, Username}, {ok, Name}, {ok, AvatarId}, {ok, IsFollower}, {ok, IsFollowing}] = qmn([
+        ["HGET", account_key(Ouid), ?FIELD_USERNAME],
+        ["HGET", account_key(Ouid), ?FIELD_NAME],
+        ["HGET", account_key(Ouid), ?FIELD_AVATAR_ID],
+        ["ZSCORE", model_follow:follower_key(Uid), Ouid],
+        ["ZSCORE", model_follow:following_key(Uid), Ouid]
+    ]),
+    FollowerStatus = case util_redis:decode_int(IsFollower) of
+                         undefined -> none;
+                         0 -> none;
+                         _ -> following
+                     end,
+    FollowingStatus = case util_redis:decode_int(IsFollowing) of
+                          undefined -> none;
+                          0 -> none;
+                          _ -> following
+                      end,
+    UserProfile = #pb_user_profile{
+        uid = Ouid,
+        username = Username,
+        name = Name,
+        avatar_id = AvatarId,
+        follower_status = FollowerStatus,
+        following_status = FollowingStatus
+    },
+    {UserProfile, Uid}.
 
 %%====================================================================
 %% Counts related API

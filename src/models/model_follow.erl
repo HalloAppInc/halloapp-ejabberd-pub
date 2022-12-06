@@ -29,13 +29,19 @@
     get_all_following/1,
     get_followers/3,
     get_all_followers/1,
+    remove_all_following/1,
+    remove_all_followers/1,
     block/2,
     unblock/2,
     is_blocked/2,
     is_blocked_by/2,
     is_blocked_any/2,
     get_blocked_uids/1,
-    get_blocked_by_uids/1
+    get_blocked_by_uids/1,
+    remove_all_blocked_uids/1,
+    remove_all_blocked_by_uids/1,
+    follower_key/1,
+    following_key/1
 ]).
 
 %%====================================================================
@@ -108,6 +114,33 @@ get_followers(Uid, Cursor, Limit) ->
 get_all_followers(Uid) ->
     get_all_internal(follower_key(Uid)).
 
+-spec remove_all_following(Uid :: uid()) -> {ok, list(uid())}.
+remove_all_following(Uid) ->
+    Following = get_all_following(Uid),
+    Commands = lists:map(
+        fun(Ouid) ->
+            ["ZREM", follower_key(Ouid), Uid]
+        end,
+        Following
+    ),
+    {ok, _} = q(["DEL", following_key(Uid)]),
+    _Result = qmn(Commands),
+    {ok, Following}.
+
+
+-spec remove_all_followers(Uid :: uid()) -> {ok, list(uid())}.
+remove_all_followers(Uid) ->
+    Followers = get_all_followers(Uid),
+    Commands = lists:map(
+        fun(Ouid) ->
+            ["ZREM", following_key(Ouid), Uid]
+        end,
+        Followers
+    ),
+    {ok, _} = q(["DEL", follower_key(Uid)]),
+    _Result = qmn(Commands),
+    {ok, Followers}.
+
 
 %% Uid blocks Ouid
 -spec block(Uid :: uid(), Ouid :: uid()) -> ok.
@@ -171,6 +204,34 @@ get_blocked_uids(Uid) ->
 get_blocked_by_uids(Uid) ->
     {ok, Res} = q(["SMEMBERS", blocked_by_key(Uid)]),
     Res.
+
+
+-spec remove_all_blocked_uids(Uid :: uid()) -> ok.
+remove_all_blocked_uids(Uid) ->
+    BlockedUsers = get_blocked_uids(Uid),
+    CommandsList = lists:map(
+        fun(Ouid) ->
+            {["SREM", blocked_key(Uid), Ouid], ["SREM", blocked_by_key(Ouid), Uid]}
+        end,
+        BlockedUsers),
+    {BlockedList, BlockedByList} = lists:unzip(CommandsList),
+    _BlockedResults = qp(BlockedList),
+    _BlockedByResults = qmn(BlockedByList),
+    ok.
+
+
+-spec remove_all_blocked_by_uids(Uid :: uid()) -> ok.
+remove_all_blocked_by_uids(Uid) ->
+    BlockedByUsers = get_blocked_by_uids(Uid),
+    CommandsList = lists:map(
+        fun(Ouid) ->
+            {["SREM", blocked_by_key(Uid), Ouid], ["SREM", blocked_key(Ouid), Uid]}
+        end,
+        BlockedByUsers),
+    {BlockedByList, BlockedList} = lists:unzip(CommandsList),
+    _BlockedResults = qmn(BlockedList),
+    _BlockedByResults = qp(BlockedByList),
+    ok.
 
 %%====================================================================
 %% Internal functions

@@ -143,6 +143,128 @@ block_unblock_testparallel() ->
     ].
 
 %%====================================================================
+%% Remove all * tests
+%%====================================================================
+
+
+remove_all_blocked_testset() ->
+    Uid1 = tutil:generate_uid(?KATCHUP),
+    Uid2 = tutil:generate_uid(?KATCHUP),
+    Uid3 = tutil:generate_uid(?KATCHUP),
+    Uid4 = tutil:generate_uid(?KATCHUP),
+    [
+        %% Uid1 blocks everyone, Uid2 blocks Uid1
+        ?_assertOk(model_follow:block(Uid1, Uid2)),
+        ?_assertOk(model_follow:block(Uid1, Uid3)),
+        ?_assertOk(model_follow:block(Uid1, Uid4)),
+        ?_assertOk(model_follow:block(Uid2, Uid1)),
+        ?_assert(model_follow:is_blocked(Uid1, Uid2)),
+        ?_assert(model_follow:is_blocked(Uid1, Uid3)),
+        ?_assert(model_follow:is_blocked(Uid1, Uid4)),
+        ?_assert(model_follow:is_blocked(Uid2, Uid1)),
+        ?_assert(model_follow:is_blocked_by(Uid2, Uid1)),
+        ?_assert(model_follow:is_blocked_by(Uid3, Uid1)),
+        ?_assert(model_follow:is_blocked_by(Uid4, Uid1)),
+        ?_assert(model_follow:is_blocked_by(Uid1, Uid2)),
+        %% Remove all of Uid1's blocks
+        ?_assertOk(model_follow:remove_all_blocked_uids(Uid1)),
+        %% Uid1 should be blocking no one and no one should be blocked by Uid1
+        %% Uid2 should still have Uid3 blocked
+        ?_assertNot(model_follow:is_blocked(Uid1, Uid2)),
+        ?_assertNot(model_follow:is_blocked(Uid1, Uid3)),
+        ?_assertNot(model_follow:is_blocked(Uid1, Uid4)),
+        ?_assert(model_follow:is_blocked(Uid2, Uid1)),
+        ?_assertNot(model_follow:is_blocked_by(Uid2, Uid1)),
+        ?_assertNot(model_follow:is_blocked_by(Uid3, Uid1)),
+        ?_assertNot(model_follow:is_blocked_by(Uid4, Uid1)),
+        ?_assert(model_follow:is_blocked_by(Uid1, Uid2))
+    ].
+
+
+remove_all_blocked_by_testset() ->
+    Uid1 = tutil:generate_uid(?KATCHUP),
+    Uid2 = tutil:generate_uid(?KATCHUP),
+    Uid3 = tutil:generate_uid(?KATCHUP),
+    Uid4 = tutil:generate_uid(?KATCHUP),
+    [
+        %% Everyone blocks Uid1, Uid1 blocks Uid2
+        ?_assertOk(model_follow:block(Uid2, Uid1)),
+        ?_assertOk(model_follow:block(Uid3, Uid1)),
+        ?_assertOk(model_follow:block(Uid4, Uid1)),
+        ?_assertOk(model_follow:block(Uid1, Uid2)),
+        ?_assert(model_follow:is_blocked(Uid2, Uid1)),
+        ?_assert(model_follow:is_blocked(Uid3, Uid1)),
+        ?_assert(model_follow:is_blocked(Uid4, Uid1)),
+        ?_assert(model_follow:is_blocked(Uid1, Uid2)),
+        ?_assert(model_follow:is_blocked_by(Uid1, Uid2)),
+        ?_assert(model_follow:is_blocked_by(Uid1, Uid3)),
+        ?_assert(model_follow:is_blocked_by(Uid1, Uid4)),
+        ?_assert(model_follow:is_blocked_by(Uid2, Uid1)),
+        %% Remove all of Uid1's blocks
+        ?_assertOk(model_follow:remove_all_blocked_by_uids(Uid1)),
+        %% Uid1 should be blocking no one and no one should be blocked by Uid1
+        %% Uid2 should still have Uid3 blocked
+        ?_assertNot(model_follow:is_blocked(Uid2, Uid1)),
+        ?_assertNot(model_follow:is_blocked(Uid3, Uid1)),
+        ?_assertNot(model_follow:is_blocked(Uid4, Uid1)),
+        ?_assert(model_follow:is_blocked(Uid1, Uid2)),
+        ?_assertNot(model_follow:is_blocked_by(Uid1, Uid2)),
+        ?_assertNot(model_follow:is_blocked_by(Uid1, Uid3)),
+        ?_assertNot(model_follow:is_blocked_by(Uid1, Uid4)),
+        ?_assert(model_follow:is_blocked_by(Uid2, Uid1))
+    ].
+
+
+remove_all_following_testset() ->
+    Uid1 = tutil:generate_uid(?KATCHUP),
+    Uid2 = tutil:generate_uid(?KATCHUP),
+    Uid3 = tutil:generate_uid(?KATCHUP),
+    Uid4 = tutil:generate_uid(?KATCHUP),
+    [
+        %% Uid1 follows everyone, Uid2 follows Uid1
+        ?_assertOk(model_follow:follow(Uid1, Uid2)),
+        ?_assertOk(model_follow:follow(Uid1, Uid3)),
+        ?_assertOk(model_follow:follow(Uid1, Uid4)),
+        ?_assertOk(model_follow:follow(Uid2, Uid1)),
+        ?_assert(model_follow:is_following(Uid1, Uid2)),
+        ?_assert(model_follow:is_following(Uid1, Uid3)),
+        ?_assert(model_follow:is_following(Uid1, Uid4)),
+        ?_assert(model_follow:is_following(Uid2, Uid1)),
+        %% Remove all of Uid1's following
+        ?_assertMatch({ok, _}, model_follow:remove_all_following(Uid1)),
+        %% Uid1 should be following no one; Uid2 should still follow Uid1
+        ?_assertNot(model_follow:is_following(Uid1, Uid2)),
+        ?_assertNot(model_follow:is_following(Uid1, Uid3)),
+        ?_assertNot(model_follow:is_following(Uid1, Uid4)),
+        ?_assert(model_follow:is_following(Uid2, Uid1))
+    ].
+
+
+remove_all_followers_testset() ->
+    Uid1 = tutil:generate_uid(?KATCHUP),
+    Uid2 = tutil:generate_uid(?KATCHUP),
+    Uid3 = tutil:generate_uid(?KATCHUP),
+    Uid4 = tutil:generate_uid(?KATCHUP),
+    [
+        %% Everyone follows Uid1, Uid1 follows Uid2
+        ?_assertOk(model_follow:follow(Uid2, Uid1)),
+        ?_assertOk(model_follow:follow(Uid3, Uid1)),
+        ?_assertOk(model_follow:follow(Uid4, Uid1)),
+        ?_assertOk(model_follow:follow(Uid1, Uid2)),
+        ?_assert(model_follow:is_follower(Uid1, Uid2)),
+        ?_assert(model_follow:is_follower(Uid1, Uid3)),
+        ?_assert(model_follow:is_follower(Uid1, Uid4)),
+        ?_assert(model_follow:is_follower(Uid2, Uid1)),
+        %% Remove all of Uid1's following
+        ?_assertMatch({ok, _}, model_follow:remove_all_followers(Uid1)),
+        %% Uid1 should be following no one; Uid2 should still follow Uid1
+        ?_assertNot(model_follow:is_follower(Uid1, Uid2)),
+        ?_assertNot(model_follow:is_follower(Uid1, Uid3)),
+        ?_assertNot(model_follow:is_follower(Uid1, Uid4)),
+        ?_assert(model_follow:is_follower(Uid2, Uid1))
+    ].
+
+%%====================================================================
 %% Helper functions
 %%====================================================================
 
