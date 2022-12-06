@@ -224,6 +224,8 @@ modules:
   mod_recommendations: {}
   mod_reporting: {}
   mod_moment_notification: {}
+  mod_username: {}
+  mod_search: {}
 
 ### Local Variables:
 ### mode: yaml
