@@ -18,7 +18,8 @@
 
 %% TODO: Should move away from having the key in the codebase.
 %% Unfortunately one of the dependencies needs it in a file as of now. we can fix it eventually.
--define(GOOGLE_SERVICE_KEY_FILE, "google_service_key.json").
+-define(HALLOAPP_GOOGLE_SERVICE_KEY_FILE, "halloapp_google_service_key.json").
+-define(KATCHUP_GOOGLE_SERVICE_KEY_FILE, "katchup_google_service_key.json").
 -define(REFRESH_TIME_MS, 30 * ?MINUTES_MS).    %% 30 minutes.
 -define(FCM_URL_PREFIX, <<"https://fcm.googleapis.com/v1/projects/">>).
 -define(FCM_URL_SUFFIX, <<"/messages:send">>).
@@ -58,8 +59,12 @@ mod_options(_Host) ->
 %%====================================================================
 
 init([Host|_]) ->
-    ServiceKeyFilePath = filename:join(misc:data_dir(), ?GOOGLE_SERVICE_KEY_FILE),
-    State = reload_access_token(#{service_key_file => ServiceKeyFilePath}),
+    HalloappServiceKeyFilePath = filename:join(misc:data_dir(), ?HALLOAPP_GOOGLE_SERVICE_KEY_FILE),
+    KatchupServiceKeyFilePath = filename:join(misc:data_dir(), ?KATCHUP_GOOGLE_SERVICE_KEY_FILE),
+    State = reload_access_token(#{
+        halloapp_key_file => HalloappServiceKeyFilePath,
+        katchup_key_file => KatchupServiceKeyFilePath
+    }),
     {ok, State#{host => Host, pending_map => #{}}}.
 
 
@@ -80,12 +85,13 @@ handle_cast({push_message_item, PushMessageItem}, State) ->
     Id = PushMessageItem#push_message_item.id,
     Uid = PushMessageItem#push_message_item.uid,
     Token = PushMessageItem#push_message_item.push_info#push_info.token,
+    AppType = util_uid:get_app_type(Uid),
     case Token =:= undefined orelse Token =:= <<>> of
         true ->
             ?INFO("Ignoring push for Uid: ~p MsgId: ~p due to invalid token: ~p", [Uid, Id, Token]),
             {noreply, State};
         false ->
-            NewState = push_message_item(PushMessageItem, State),
+            NewState = push_message_item(AppType, PushMessageItem, State),
             {noreply, NewState}
     end;
 handle_cast(refresh_token, State) ->
@@ -125,25 +131,54 @@ handle_info(Request, State) ->
 
 
 -spec reload_access_token(State :: map()) -> map().
-reload_access_token(#{service_key_file := ServiceKeyFilePath} = State) ->
-    ?INFO("reload_access_token, service_key_file: ~p", [ServiceKeyFilePath]),
+reload_access_token(#{halloapp_key_file := HalloappKeyFilePath,
+        katchup_key_file := KatchupKeyFilePath} = State) ->
+    ?INFO("reload_access_token, halloapp_key_file: ~p, katchup_key_file: ~p",
+        [HalloappKeyFilePath, KatchupKeyFilePath]),
     cancel_token_timer(State),
+    State1 = reload_token(halloapp, State),
+    State2 = reload_token(katchup, State1),
+    State2#{
+        token_tref => erlang:send_after(?REFRESH_TIME_MS, self(), refresh_token)
+    }.
+
+
+reload_token(AppType, #{halloapp_key_file := HalloappKeyFilePath,
+        katchup_key_file := KatchupKeyFilePath} = State) ->
+    ServiceKeyFilePath = case AppType of
+        halloapp -> HalloappKeyFilePath;
+        katchup -> KatchupKeyFilePath
+    end,
     {ok, SecretBin} = file:read_file(ServiceKeyFilePath),
     #{project_id := ProjectId} = jsx:decode(SecretBin, [return_maps, {labels, atom}]),
     {ok, #{access_token := AccessToken}} = google_oauth:get_access_token(ServiceKeyFilePath, ?SCOPE_URL),
     AuthToken = util:to_list(<<"Bearer ", AccessToken/binary>>),
     ?DEBUG("AuthToken: ~p, ~p", [AccessToken, AuthToken]),
     FcmUrl = util:to_list(<<?FCM_URL_PREFIX/binary, ProjectId/binary, ?FCM_URL_SUFFIX/binary>>),
-    State#{
-        fcm_url => FcmUrl,
-        auth_token => AuthToken,
-        token_tref => erlang:send_after(?REFRESH_TIME_MS, self(), refresh_token)
-    }.
+    case AppType of
+        halloapp ->
+            State#{
+                halloapp_fcm_url => FcmUrl,
+                halloapp_auth_token => AuthToken
+            };
+        katchup ->
+            State#{
+                katchup_fcm_url => FcmUrl,
+                katchup_auth_token => AuthToken
+            }
+    end.
 
 
--spec push_message_item(PushMessageItem :: push_message_item(), State :: map()) -> map().
-push_message_item(PushMessageItem, #{fcm_url := FcmUrl,
-        auth_token := AuthToken, pending_map := PendingMap} = State) ->
+-spec push_message_item(AppType :: app_type(), PushMessageItem :: push_message_item(), State :: map()) -> map().
+push_message_item(AppType, PushMessageItem, #{pending_map := PendingMap} = State) ->
+    FcmUrl = case AppType of
+        halloapp -> maps:get(halloapp_fcm_url, State);
+        katchup -> maps:get(katchup_fcm_url, State)
+    end,
+    AuthToken = case AppType of
+        halloapp -> maps:get(halloapp_auth_token, State);
+        katchup -> maps:get(katchup_auth_token, State)
+    end,
     PushMetadata = push_util:parse_metadata(PushMessageItem#push_message_item.message),
     Id = PushMessageItem#push_message_item.id,
     Uid = PushMessageItem#push_message_item.uid,
