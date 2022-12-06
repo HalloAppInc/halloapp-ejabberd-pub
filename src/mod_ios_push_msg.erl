@@ -32,17 +32,20 @@
 -define(APNS_TOPIC, <<"apns-topic">>).
 -define(APNS_PUSH_TYPE, <<"apns-push-type">>).
 -define(APNS_COLLAPSE_ID, <<"apns-collapse-id">>).
--define(APP_BUNDLE_ID, <<"com.halloapp.hallo">>).
--define(APP_VOIP_BUNDLE_ID, <<"com.halloapp.hallo.voip">>).
+-define(HALLOAPP_BUNDLE_ID, <<"com.halloapp.hallo">>).
+-define(KATCHUP_BUNDLE_ID, <<"com.halloapp.katchup">>).
+-define(HALLOAPP_VOIP_BUNDLE_ID, <<"com.halloapp.hallo.voip">>).
 
 %% APNS gateway and certificate details.
 -define(APNS_GATEWAY, "api.push.apple.com").
 -define(APNS_PORT, 443).
--define(APNS_CERTFILE_SM, <<"apns_prod.pem">>).
+-define(HALLOAPP_CERTFILE_SM, <<"apns_prod.pem">>).
 -define(APNS_DEV_GATEWAY, "api.sandbox.push.apple.com").
 -define(APNS_DEV_PORT, 443).
--define(APNS_DEV_CERTFILE_SM, <<"apns_dev.pem">>).
--define(APNS_VOIP_CERTFILE_SM, <<"voip_prod.pem">>).
+-define(HALLOAPP_DEV_CERTFILE_SM, <<"apns_dev.pem">>).
+-define(HALLOAPP_VOIP_CERTFILE_SM, <<"voip_prod.pem">>).
+-define(KATCHUP_CERTFILE_SM, <<"katchup_apns_prod.pem">>).
+-define(KATCHUP_DEV_CERTFILE_SM, <<"katchup_apns_dev.pem">>).
 
 %% gen_mod API
 -export([start/2, stop/1, reload/3, depends/2, mod_options/1]).
@@ -78,10 +81,12 @@ mod_options(_Host) ->
 %%====================================================================
 
 init([Host|_]) ->
-    {Pid, Mon} = connect_to_apns(prod),
-    {DevPid, DevMon} = connect_to_apns(dev),
-    {VoipPid, VoipMon} = connect_to_apns(voip_prod),
-    {VoipDevPid, VoipDevMon} = connect_to_apns(voip_dev),
+    {Pid, Mon} = connect_to_apns(halloapp, prod),
+    {DevPid, DevMon} = connect_to_apns(halloapp, dev),
+    {VoipPid, VoipMon} = connect_to_apns(halloapp, voip_prod),
+    {VoipDevPid, VoipDevMon} = connect_to_apns(halloapp, voip_dev),
+    {KatchupPid, KatchupMon} = connect_to_apns(katchup, prod),
+    {KatchupDevPid, KatchupDevMon} = connect_to_apns(katchup, dev),
     {NoiseStaticKey, NoiseCertificate} = util:get_noise_key_material(),
     %% TODO: Move all voip push logic to its own gen_server.
     {ok, #worker_push_state{
@@ -94,14 +99,19 @@ init([Host|_]) ->
             voip_mon = VoipMon,
             voip_dev_conn = VoipDevPid,
             voip_dev_mon = VoipDevMon,
+            katchup_conn = KatchupPid,
+            katchup_mon = KatchupMon,
+            katchup_dev_conn = KatchupDevPid,
+            katchup_dev_mon = KatchupDevMon,
             noise_static_key = NoiseStaticKey,
             noise_certificate = NoiseCertificate,
             pending_map = #{}}}.
 
 
 terminate(_Reason, #worker_push_state{host = _Host, conn = Pid, mon = Mon, dev_conn = DevPid,
-        dev_mon = DevMon, voip_conn = VoipPid, voip_mon = VoipMon,
-        voip_dev_conn = VoipDevPid, voip_dev_mon = VoipDevMon}) ->
+        dev_mon = DevMon, voip_conn = VoipPid, voip_mon = VoipMon, voip_dev_conn = VoipDevPid,
+        voip_dev_mon = VoipDevMon, katchup_conn = KatchupPid, katchup_mon = KatchupMon,
+        katchup_dev_conn = KatchupDevPid, katchup_dev_mon = KatchupDevMon}) ->
     demonitor(Mon),
     gun:close(Pid),
     demonitor(DevMon),
@@ -110,6 +120,10 @@ terminate(_Reason, #worker_push_state{host = _Host, conn = Pid, mon = Mon, dev_c
     gun:close(VoipPid),
     demonitor(VoipDevMon),
     gun:close(VoipDevPid),
+    demonitor(KatchupMon),
+    gun:close(KatchupPid),
+    demonitor(KatchupDevMon),
+    gun:close(KatchupDevPid),
     ok.
 
 % Should never be called
@@ -142,26 +156,38 @@ handle_cast(Request, State) ->
 handle_info({'DOWN', Mon, process, Pid, Reason},
         #worker_push_state{conn = Pid, mon = Mon} = State) ->
     ?INFO("prod gun_down pid: ~p, mon: ~p, reason: ~p", [Pid, Mon, Reason]),
-    {NewPid, NewMon} = connect_to_apns(prod),
+    {NewPid, NewMon} = connect_to_apns(halloapp, prod),
     {noreply, State#worker_push_state{conn = NewPid, mon = NewMon}};
 
 handle_info({'DOWN', DevMon, process, DevPid, Reason},
         #worker_push_state{dev_conn = DevPid, dev_mon = DevMon} = State) ->
     ?INFO("dev gun_down pid: ~p, mon: ~p, reason: ~p", [DevPid, DevMon, Reason]),
-    {NewDevPid, NewDevMon} = connect_to_apns(dev),
+    {NewDevPid, NewDevMon} = connect_to_apns(halloapp, dev),
     {noreply, State#worker_push_state{dev_conn = NewDevPid, dev_mon = NewDevMon}};
 
 handle_info({'DOWN', VoipMon, process, VoipPid, Reason},
         #worker_push_state{voip_conn = VoipPid, voip_mon = VoipMon} = State) ->
     ?INFO("voip_prod gun_down pid: ~p, mon: ~p, reason: ~p", [VoipPid, VoipMon, Reason]),
-    {NewVoipPid, NewVoipMon} = connect_to_apns(voip_prod),
+    {NewVoipPid, NewVoipMon} = connect_to_apns(halloapp, voip_prod),
     {noreply, State#worker_push_state{voip_conn = NewVoipPid, voip_mon = NewVoipMon}};
 
 handle_info({'DOWN', VoipDevMon, process, VoipDevPid, Reason},
         #worker_push_state{voip_dev_conn = VoipDevPid, voip_dev_mon = VoipDevMon} = State) ->
     ?INFO("voip_dev gun_down pid: ~p, mon: ~p, reason: ~p", [VoipDevPid, VoipDevMon, Reason]),
-    {NewVoipDevPid, NewVoipDevMon} = connect_to_apns(voip_dev),
+    {NewVoipDevPid, NewVoipDevMon} = connect_to_apns(halloapp, voip_dev),
     {noreply, State#worker_push_state{voip_dev_conn = NewVoipDevPid, voip_dev_mon = NewVoipDevMon}};
+
+handle_info({'DOWN', KatchupMon, process, KatchupPid, Reason},
+        #worker_push_state{katchup_conn = KatchupPid, katchup_mon = KatchupMon} = State) ->
+    ?INFO("prod gun_down katchup_pid: ~p, katchup_mon: ~p, reason: ~p", [KatchupPid, KatchupMon, Reason]),
+    {NewKatchupPid, NewKatchupMon} = connect_to_apns(katchup, prod),
+    {noreply, State#worker_push_state{katchup_conn = NewKatchupPid, katchup_mon = NewKatchupMon}};
+
+handle_info({'DOWN', KatchupDevMon, process, KatchupDevPid, Reason},
+        #worker_push_state{katchup_dev_conn = KatchupDevPid, katchup_dev_mon = KatchupDevMon} = State) ->
+    ?INFO("dev gun_down katchup_pid: ~p, katchup_mon: ~p, reason: ~p", [KatchupDevPid, KatchupDevMon, Reason]),
+    {NewKatchupDevPid, NewKatchupDevMon} = connect_to_apns(katchup, dev),
+    {noreply, State#worker_push_state{katchup_dev_conn = NewKatchupDevPid, katchup_dev_mon = NewKatchupDevMon}};
 
 handle_info({'DOWN', _Mon, process, Pid, Reason}, State) ->
     ?ERROR("down message from gun pid: ~p, reason: ~p", [Pid, Reason]),
@@ -339,6 +365,7 @@ encrypt_message_bin(Uid, MsgBin, #worker_push_state{noise_static_key = S, noise_
         State :: worker_push_state()) -> {ok, worker_push_state()} |
         {ignored, worker_push_state()} | {{error, any()}, worker_push_state()}.
 send_post_request_to_apns(Uid, ApnsId, ContentId, PayloadBin, PushType, EndpointType, PushMessageItem, State) ->
+    AppType = util_uid:get_app_type(Uid),
     MsgId = PushMessageItem#push_message_item.id,
     Priority = get_priority(EndpointType, PushType),
     DevicePath = get_device_path(EndpointType, PushMessageItem#push_message_item.push_info),
@@ -347,12 +374,12 @@ send_post_request_to_apns(Uid, ApnsId, ContentId, PayloadBin, PushType, Endpoint
         {?APNS_ID, ApnsId},
         {?APNS_PRIORITY, integer_to_binary(Priority)},
         {?APNS_EXPIRY, integer_to_binary(ExpiryTime)},
-        {?APNS_TOPIC, get_bundle_id(EndpointType)},
+        {?APNS_TOPIC, get_bundle_id(AppType, EndpointType)},
         {?APNS_PUSH_TYPE, get_apns_push_type(EndpointType, PushType)},
         {?APNS_COLLAPSE_ID, MsgId}
     ],
     ?INFO("Uid: ~s, ApnsId: ~s, ContentId: ~s MsgId: ~s", [Uid, ApnsId, ContentId, MsgId]),
-    case get_pid_to_send(EndpointType, State) of
+    case get_pid_to_send(AppType, EndpointType, State) of
         {undefined, NewState} ->
             ?ERROR("error: invalid_pid to send this push, Uid: ~p, ApnsId: ~p", [Uid, ApnsId]),
             {{error, cannot_connect}, NewState};
@@ -364,34 +391,48 @@ send_post_request_to_apns(Uid, ApnsId, ContentId, PayloadBin, PushType, Endpoint
     end.
 
 
--spec get_pid_to_send(EndpointType :: endpoint_type(),
+-spec get_pid_to_send(AppType :: app_type(), EndpointType :: endpoint_type(),
         State :: worker_push_state()) -> {pid() | undefined, worker_push_state()}.
-get_pid_to_send(prod = EndpointType, #worker_push_state{conn = undefined} = State) ->
-    {Pid, Mon} = connect_to_apns(EndpointType),
+get_pid_to_send(halloapp, prod = EndpointType, #worker_push_state{conn = undefined} = State) ->
+    {Pid, Mon} = connect_to_apns(halloapp, EndpointType),
     {Pid, State#worker_push_state{conn = Pid, mon = Mon}};
-get_pid_to_send(prod, State) ->
+get_pid_to_send(halloapp, prod, State) ->
     {State#worker_push_state.conn, State};
-get_pid_to_send(dev = EndpointType, #worker_push_state{dev_conn = undefined} = State) ->
-    {DevPid, DevMon} = connect_to_apns(EndpointType),
+get_pid_to_send(halloapp, dev = EndpointType, #worker_push_state{dev_conn = undefined} = State) ->
+    {DevPid, DevMon} = connect_to_apns(halloapp, EndpointType),
     {DevPid, State#worker_push_state{dev_conn = DevPid, dev_mon = DevMon}};
-get_pid_to_send(dev, State) ->
+get_pid_to_send(halloapp, dev, State) ->
     {State#worker_push_state.dev_conn, State};
-get_pid_to_send(voip_prod = EndpointType, #worker_push_state{voip_conn = undefined} = State) ->
-    {VoipPid, VoipMon} = connect_to_apns(EndpointType),
+get_pid_to_send(halloapp, voip_prod = EndpointType, #worker_push_state{voip_conn = undefined} = State) ->
+    {VoipPid, VoipMon} = connect_to_apns(halloapp, EndpointType),
     {VoipPid, State#worker_push_state{voip_conn = VoipPid, voip_mon = VoipMon}};
-get_pid_to_send(voip_prod, State) ->
+get_pid_to_send(halloapp, voip_prod, State) ->
     {State#worker_push_state.voip_conn, State};
-get_pid_to_send(voip_dev = EndpointType, #worker_push_state{voip_dev_conn = undefined} = State) ->
-    {VoipDevPid, VoipDevMon} = connect_to_apns(EndpointType),
+get_pid_to_send(halloapp, voip_dev = EndpointType, #worker_push_state{voip_dev_conn = undefined} = State) ->
+    {VoipDevPid, VoipDevMon} = connect_to_apns(halloapp, EndpointType),
     {VoipDevPid, State#worker_push_state{voip_dev_conn = VoipDevPid, voip_dev_mon = VoipDevMon}};
-get_pid_to_send(voip_dev, State) ->
-    {State#worker_push_state.voip_dev_conn, State}.
+get_pid_to_send(halloapp, voip_dev, State) ->
+    {State#worker_push_state.voip_dev_conn, State};
 
--spec get_bundle_id(EndpointType :: endpoint_type()) -> binary().
-get_bundle_id(prod) -> ?APP_BUNDLE_ID;
-get_bundle_id(dev) -> ?APP_BUNDLE_ID;
-get_bundle_id(voip_prod) -> ?APP_VOIP_BUNDLE_ID;
-get_bundle_id(voip_dev) -> ?APP_VOIP_BUNDLE_ID.
+get_pid_to_send(katchup, prod = EndpointType, #worker_push_state{katchup_conn = undefined} = State) ->
+    {Pid, Mon} = connect_to_apns(katchup, EndpointType),
+    {Pid, State#worker_push_state{conn = Pid, mon = Mon}};
+get_pid_to_send(katchup, prod, State) ->
+    {State#worker_push_state.katchup_conn, State};
+get_pid_to_send(katchup, dev = EndpointType, #worker_push_state{katchup_dev_conn = undefined} = State) ->
+    {DevPid, DevMon} = connect_to_apns(katchup, EndpointType),
+    {DevPid, State#worker_push_state{katchup_dev_conn = DevPid, katchup_dev_mon = DevMon}};
+get_pid_to_send(katchup, dev, State) ->
+    {State#worker_push_state.katchup_dev_conn, State}.
+
+
+-spec get_bundle_id(AppType :: app_type(), EndpointType :: endpoint_type()) -> binary().
+get_bundle_id(halloapp, prod) -> ?HALLOAPP_BUNDLE_ID;
+get_bundle_id(halloapp, dev) -> ?HALLOAPP_BUNDLE_ID;
+get_bundle_id(katchup, prod) -> ?KATCHUP_BUNDLE_ID;
+get_bundle_id(katchup, dev) -> ?KATCHUP_BUNDLE_ID;
+get_bundle_id(halloapp, voip_prod) -> ?HALLOAPP_VOIP_BUNDLE_ID;
+get_bundle_id(halloapp, voip_dev) -> ?HALLOAPP_VOIP_BUNDLE_ID.
 
 
 -spec get_priority(EndpointType :: endpoint_type(), PushType :: alertType()) -> integer().
@@ -429,10 +470,10 @@ get_expiry_time(EndpointType, PushMessageItem) ->
         _ -> (PushMessageItem#push_message_item.timestamp_ms div 1000) + ?MESSAGE_EXPIRY_TIME_SEC
     end.
 
--spec connect_to_apns(EndpointType :: endpoint_type()) -> {pid(), reference()} | {undefined, undefined}.
-connect_to_apns(EndpointType) ->
+-spec connect_to_apns(AppType :: app_type(), EndpointType :: endpoint_type()) -> {pid(), reference()} | {undefined, undefined}.
+connect_to_apns(AppType, EndpointType) ->
     ApnsGateway = get_apns_gateway(EndpointType),
-    {Cert, Key} = get_apns_cert(EndpointType),
+    {Cert, Key} = get_apns_cert(AppType, EndpointType),
     ApnsPort = get_apns_port(EndpointType),
     RetryFun = fun retry_function/2,
     Options = #{
@@ -442,21 +483,21 @@ connect_to_apns(EndpointType) ->
         retry_timeout => 10000,             %% Time between retries in milliseconds.
         retry_fun => RetryFun
     },
-    ?INFO("EndpointType: ~s, Gateway: ~s, Port: ~p", [EndpointType, ApnsGateway, ApnsPort]),
+    ?INFO("AppType: ~s, EndpointType: ~s, Gateway: ~s, Port: ~p", [EndpointType, ApnsGateway, ApnsPort]),
     case gun:open(ApnsGateway, ApnsPort, Options) of
         {ok, Pid} ->
             Mon = monitor(process, Pid),
             case gun:await_up(Pid, Mon) of
                 {ok, Protocol} ->
-                    ?INFO("EndpointType: ~s, connection successful pid: ~p, protocol: ~p, monitor: ~p",
-                            [EndpointType, Pid, Protocol, Mon]),
+                    ?INFO("AppType: ~s, EndpointType: ~s, connection successful pid: ~p, protocol: ~p, monitor: ~p",
+                            [AppType, EndpointType, Pid, Protocol, Mon]),
                     {Pid, Mon};
                 {error, Reason} ->
-                    ?ERROR("EndpointType: ~s, Failed to connect to apns: ~p", [EndpointType, Reason]),
+                    ?ERROR("AppType: ~s, EndpointType: ~s, Failed to connect to apns: ~p", [AppType, EndpointType, Reason]),
                     {undefined, undefined}
             end;
         {error, Reason} ->
-            ?ERROR("EndpointType: ~s, Failed to connect to apns: ~p", [EndpointType, Reason]),
+            ?ERROR("AppType: ~s, EndpointType: ~s, Failed to connect to apns: ~p", [AppType, EndpointType, Reason]),
             {undefined, undefined}
     end.
 
@@ -468,16 +509,19 @@ get_apns_gateway(voip_prod) -> ?APNS_GATEWAY;
 get_apns_gateway(voip_dev) -> ?APNS_DEV_GATEWAY.
 
 
--spec get_apns_secret_name(EndpointType :: endpoint_type()) -> binary().
-get_apns_secret_name(prod) -> ?APNS_CERTFILE_SM;
-get_apns_secret_name(dev) -> ?APNS_DEV_CERTFILE_SM;
-get_apns_secret_name(voip_prod) -> ?APNS_VOIP_CERTFILE_SM;
-get_apns_secret_name(voip_dev) -> ?APNS_VOIP_CERTFILE_SM.
+-spec get_apns_secret_name(AppType :: app_type(), EndpointType :: endpoint_type()) -> binary().
+get_apns_secret_name(halloapp, prod) -> ?HALLOAPP_CERTFILE_SM;
+get_apns_secret_name(halloapp, dev) -> ?HALLOAPP_DEV_CERTFILE_SM;
+get_apns_secret_name(halloapp, voip_prod) -> ?HALLOAPP_VOIP_CERTFILE_SM;
+get_apns_secret_name(halloapp, voip_dev) -> ?HALLOAPP_VOIP_CERTFILE_SM;
+
+get_apns_secret_name(katchup, prod) -> ?KATCHUP_CERTFILE_SM;
+get_apns_secret_name(katchup, dev) -> ?KATCHUP_DEV_CERTFILE_SM.
 
 
--spec get_apns_cert(EndpointType :: endpoint_type()) -> tuple().
-get_apns_cert(EndpointType) ->
-    SecretName = get_apns_secret_name(EndpointType),
+-spec get_apns_cert(AppType :: app_type(), EndpointType :: endpoint_type()) -> tuple().
+get_apns_cert(AppType, EndpointType) ->
+    SecretName = get_apns_secret_name(AppType, EndpointType),
     Secret = mod_aws:get_secret(SecretName),
     Arr = public_key:pem_decode(Secret),
     [{_, CertBin, _}, {Asn1Type, KeyBin, _}] = Arr,

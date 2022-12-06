@@ -35,6 +35,10 @@
     voip_mon :: reference(),
     voip_dev_conn :: maybe(pid()),
     voip_dev_mon :: reference(),
+    katchup_conn :: maybe(pid()),
+    katchup_mon :: reference(),
+    katchup_dev_conn :: maybe(pid()),
+    katchup_dev_mon :: reference(),
     noise_static_key :: binary(),
     noise_certificate :: binary(),
     pending_map :: #{}
