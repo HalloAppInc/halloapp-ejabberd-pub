@@ -237,7 +237,7 @@ remove_all_blocked_by_uids(Uid) ->
 %% Internal functions
 %%====================================================================
 
-get_all(Key, Cursor, Limit) when Cursor =:= <<>> ->
+get_all(Key, Cursor, Limit) when Cursor =:= <<>> orelse Cursor =:= undefined ->
     %% TODO: update github ci to redis 6.2 so this command doesn't fail tests
 %%    {ok, RawRes} = q(["ZRANGE", Key, "+inf", "-inf", "BYSCORE", "REV", "LIMIT", 0, Limit, "WITHSCORES"]),
     {ok, RawRes} = q(["ZREVRANGEBYSCORE", Key, "+inf", "-inf", "WITHSCORES", "LIMIT", 0, Limit]),
