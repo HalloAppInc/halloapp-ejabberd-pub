@@ -1070,11 +1070,13 @@ request_phone_logs(Phone) ->
 -spec request_phone_logs(Phone :: binary(), AppType :: app_type()) -> ok.
 request_phone_logs(Phone, AppType) ->
     case model_phone:get_uid(Phone, AppType) of
+        {ok, undefined} ->
+            io:format("No ~s account associated with phone: ~s~n", [AppType, Phone]);
         {ok, Uid} ->
             request_uid_logs(Uid),
-            io:format("Sent request_logs notification to phone: ~s~n", [Phone]);
+            io:format("Sent ~s request_logs notification to phone: ~s~n", [AppType, Phone]);
         _ ->
-            io:format("No account associated with phone: ~s~n", [Phone])
+            io:format("No ~s account associated with phone: ~s~n", [AppType, Phone])
     end.
 
 
