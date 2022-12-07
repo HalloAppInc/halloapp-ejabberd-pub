@@ -39,7 +39,8 @@
     send_old_items/3,
     share_feed_items/4,
     send_old_moment/2,
-    send_moment_notification/1
+    send_moment_notification/1,
+    new_follow_relationship/2
 ]).
 
 
@@ -55,6 +56,7 @@ start(_Host, _Opts) ->
     ejabberd_hooks:add(remove_user, katchup, ?MODULE, remove_user, 50),
     ejabberd_hooks:add(user_send_packet, katchup, ?MODULE, user_send_packet, 50),
     ejabberd_hooks:add(send_moment_notification, katchup, ?MODULE, send_moment_notification, 50),
+    ejabberd_hooks:add(new_follow_relationship, katchup, ?MODULE, new_follow_relationship, 50),
     ok.
 
 stop(_Host) ->
@@ -68,6 +70,7 @@ stop(_Host) ->
     ejabberd_hooks:delete(remove_user, katchup, ?MODULE, remove_user, 50),
     ejabberd_hooks:delete(user_send_packet, katchup, ?MODULE, user_send_packet, 50),
     ejabberd_hooks:delete(send_moment_notification, katchup, ?MODULE, send_moment_notification, 50),
+    ejabberd_hooks:add(new_follow_relationship, katchup, ?MODULE, new_follow_relationship, 50),
     ok.
 
 reload(_Host, _NewOpts, _OldOpts) ->
@@ -285,6 +288,12 @@ send_moment_notification(Uid) ->
         _ -> ok
     end,
     ?INFO("Uid: ~p, clearing all old posts for AppType: ~p", [Uid, AppType]),
+    ok.
+
+
+new_follow_relationship(Uid, Ouid) ->
+    ?INFO("New follow relationship, send old moment fromUid: ~p, ToUid: ~p", [Ouid, Uid]),
+    send_old_moment(Ouid, Uid),
     ok.
 
 
