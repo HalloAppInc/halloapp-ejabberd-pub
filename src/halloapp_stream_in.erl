@@ -599,7 +599,7 @@ process_stream_authentication(#pb_auth_request{uid = Uid, client_mode = ClientMo
     end,
     Mode = ClientMode#pb_client_mode.mode,
     ClientVersion = PbClientVersion#pb_client_version.version,
-    AppType = util_uid:get_app_type(ClientVersion),
+    AppType = util_ua:get_app_type(ClientVersion),
     State1 = State#{
         user => Uid,
         app_type => AppType,
