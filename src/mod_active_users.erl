@@ -16,74 +16,106 @@
 
 %% API
 -export([
-    count_active_users_1day/1,
-    count_active_users_7day/1,
-    count_active_users_28day/1,
-    count_active_users_30day/1,
-    count_recent_active_users/2,
+    count_halloapp_active_users_1day/1,
+    count_katchup_active_users_1day/1,
+    count_halloapp_active_users_7day/1,
+    count_katchup_active_users_7day/1,
+    count_halloapp_active_users_28day/1,
+    count_katchup_active_users_28day/1,
+    count_halloapp_active_users_30day/1,
+    count_katchup_active_users_30day/1,
+    count_recent_active_users/3,
     compute_counts/0,
     update_last_activity/3,
-    update_last_connection/2
+    update_last_connection/3
 ]).
 
 %%====================================================================
 %% API
 %%====================================================================
 
--spec count_active_users_1day(Type :: activity_type()) -> non_neg_integer().
-count_active_users_1day(Type) ->
-    count_recent_active_users(1 * ?DAYS_MS, Type).
+-spec count_halloapp_active_users_1day(Type :: activity_type()) -> non_neg_integer().
+count_halloapp_active_users_1day(Type) ->
+    count_recent_active_users(1 * ?DAYS_MS, Type, ?HALLOAPP).
+
+-spec count_katchup_active_users_1day(Type :: activity_type()) -> non_neg_integer().
+count_katchup_active_users_1day(Type) ->
+    count_recent_active_users(1 * ?DAYS_MS, Type, ?KATCHUP).
 
 
--spec count_active_users_7day(Type :: activity_type()) -> non_neg_integer().
-count_active_users_7day(Type) ->
-    count_recent_active_users(7 * ?DAYS_MS, Type).
+-spec count_halloapp_active_users_7day(Type :: activity_type()) -> non_neg_integer().
+count_halloapp_active_users_7day(Type) ->
+    count_recent_active_users(7 * ?DAYS_MS, Type, ?HALLOAPP).
+
+-spec count_katchup_active_users_7day(Type :: activity_type()) -> non_neg_integer().
+count_katchup_active_users_7day(Type) ->
+    count_recent_active_users(7 * ?DAYS_MS, Type, ?KATCHUP).
 
 
--spec count_active_users_28day(Type :: activity_type()) -> non_neg_integer().
-count_active_users_28day(Type) ->
-    count_recent_active_users(28 * ?DAYS_MS, Type).
+-spec count_halloapp_active_users_28day(Type :: activity_type()) -> non_neg_integer().
+count_halloapp_active_users_28day(Type) ->
+    count_recent_active_users(28 * ?DAYS_MS, Type, ?HALLOAPP).
+
+-spec count_katchup_active_users_28day(Type :: activity_type()) -> non_neg_integer().
+count_katchup_active_users_28day(Type) ->
+    count_recent_active_users(28 * ?DAYS_MS, Type, ?KATCHUP).
 
 
--spec count_active_users_30day(Type :: activity_type()) -> non_neg_integer().
-count_active_users_30day(Type) ->
-    count_recent_active_users(30 * ?DAYS_MS, Type).
+-spec count_halloapp_active_users_30day(Type :: activity_type()) -> non_neg_integer().
+count_halloapp_active_users_30day(Type) ->
+    count_recent_active_users(30 * ?DAYS_MS, Type, ?HALLOAPP).
+
+-spec count_katchup_active_users_30day(Type :: activity_type()) -> non_neg_integer().
+count_katchup_active_users_30day(Type) ->
+    count_recent_active_users(30 * ?DAYS_MS, Type, ?KATCHUP).
 
 
 -spec count_recent_active_users(IntervalMs :: non_neg_integer(),
-        Type :: activity_type()) -> non_neg_integer().
-count_recent_active_users(IntervalMs, Type) ->
+        Type :: activity_type(), AppType :: app_type()) -> non_neg_integer().
+count_recent_active_users(IntervalMs, Type, AppType) ->
     Now = util:now_ms(),
-    model_active_users:count_active_users_between(Type, Now - IntervalMs, Now + (1 * ?MINUTES_MS)).
+    model_active_users:count_active_users_between(Type, Now - IntervalMs, Now + (1 * ?MINUTES_MS), AppType).
 
--spec count_recent_connected_users(IntervalMs :: non_neg_integer()) -> non_neg_integer().
-count_recent_connected_users(IntervalMs) ->
+-spec count_recent_connected_users(IntervalMs :: non_neg_integer(), AppType :: app_type()) -> non_neg_integer().
+count_recent_connected_users(IntervalMs, AppType) ->
     Now = util:now_ms(),
-    model_active_users:count_connected_users_between(Now - IntervalMs, Now + (1 * ?MINUTES_MS)).
+    model_active_users:count_connected_users_between(Now - IntervalMs, Now + (1 * ?MINUTES_MS), AppType).
 
 days_to_count() -> [1, 7, 28, 30].
 
 
 -spec compute_counts() -> ok.
 compute_counts() ->
-    CountFuns = [
-        {fun count_active_users_1day/1, "1day"},
-        {fun count_active_users_7day/1, "7day"},
-        {fun count_active_users_28day/1, "28day"},
-        {fun count_active_users_30day/1, "30day"}
+    CountFunsHA = [
+        {fun count_halloapp_active_users_1day/1, "1day"},
+        {fun count_halloapp_active_users_7day/1, "7day"},
+        {fun count_halloapp_active_users_28day/1, "28day"},
+        {fun count_halloapp_active_users_30day/1, "30day"}
+    ],
+    CountFunsKA = [
+        {fun count_katchup_active_users_1day/1, "1day"},
+        {fun count_katchup_active_users_7day/1, "7day"},
+        {fun count_katchup_active_users_28day/1, "28day"},
+        {fun count_katchup_active_users_30day/1, "30day"}
     ],
     DeviceTypes = model_active_users:active_users_types(),
     [stat:gauge("HA/active_users", Desc ++ "_" ++ atom_to_list(Device), Fun(Device))
-        || {Fun, Desc} <- CountFuns, Device <- DeviceTypes],
+        || {Fun, Desc} <- CountFunsHA, Device <- DeviceTypes],
+    [stat:gauge("KA/active_users", Desc ++ "_" ++ atom_to_list(Device), Fun(Device))
+        || {Fun, Desc} <- CountFunsKA, Device <- DeviceTypes],
 
     ?INFO("computing active users by country: start"),
     CCTypes = model_active_users:active_users_cc_types(),
     [stat:gauge("HA/active_users", Desc ++ "_by_cc." ++ util:to_list(CC), Fun({cc, CC}))
-        || {Fun, Desc} <- CountFuns, {cc, CC} <- CCTypes],
+        || {Fun, Desc} <- CountFunsHA, {cc, CC} <- CCTypes],
+    [stat:gauge("KA/active_users", Desc ++ "_by_cc." ++ util:to_list(CC), Fun({cc, CC}))
+        || {Fun, Desc} <- CountFunsKA, {cc, CC} <- CCTypes],
     ?INFO("computing active users by country: done"),
 
     [stat:gauge("HA/active_users", util:to_list(Day) ++ "day_connected_all",
-        count_recent_connected_users(Day * ?DAYS_MS)) || Day <- days_to_count()],
+        count_recent_connected_users(Day * ?DAYS_MS, ?HALLOAPP)) || Day <- days_to_count()],
+    [stat:gauge("KA/active_users", util:to_list(Day) ++ "day_connected_all",
+        count_recent_connected_users(Day * ?DAYS_MS, ?KATCHUP)) || Day <- days_to_count()],
     ok.
 
 
@@ -110,8 +142,8 @@ update_last_activity(Uid, TimestampMs, Resource) ->
     end,
     ok.
 
--spec update_last_connection(Uid :: uid(), TimestampMs :: integer()) -> ok.
-update_last_connection(Uid, TimestampMs) ->
-    model_active_users:set_connectivity(Uid, TimestampMs),
+-spec update_last_connection(Uid :: uid(), TimestampMs :: integer(), AppType :: app_type()) -> ok.
+update_last_connection(Uid, TimestampMs, AppType) ->
+    model_active_users:set_connectivity(Uid, TimestampMs, AppType),
     ok.
 

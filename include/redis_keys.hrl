@@ -29,15 +29,27 @@
 -define(VIDEOCALL_UIDS_KEY, <<"videocall_uids:">>).
 %% SortedSet of phone invited by the user: in2:{Uid} -> zset(Phone, Ts)
 -define(INVITES2_KEY, <<"in2:">>).
--define(ACTIVE_USERS_ALL_KEY, <<"active_users_all:">>).
--define(ACTIVE_USERS_IOS_KEY, <<"active_users_ios:">>).
--define(ACTIVE_USERS_ANDROID_KEY, <<"active_users_android:">>).
--define(ACTIVE_USERS_CC_KEY, <<"active_users_cc:">>).
--define(ENGAGED_USERS_ALL_KEY, <<"eu_all:">>).
--define(ENGAGED_USERS_IOS_KEY, <<"eu_ios:">>).
--define(ENGAGED_USERS_ANDROID_KEY, <<"eu_android:">>).
--define(ENGAGED_USERS_POST_KEY, <<"eu_post:">>).
--define(CONNECTED_USERS_ALL_KEY, <<"connected_users_all:">>).
+
+%% Active users keys
+-define(ACTIVE_USERS_ALL_KEY_HA, <<"active_users_all:">>).
+-define(ACTIVE_USERS_ALL_KEY_KA, <<"k_active_users_all:">>).
+-define(ACTIVE_USERS_IOS_KEY_HA, <<"active_users_ios:">>).
+-define(ACTIVE_USERS_IOS_KEY_KA, <<"k_active_users_ios:">>).
+-define(ACTIVE_USERS_ANDROID_KEY_HA, <<"active_users_android:">>).
+-define(ACTIVE_USERS_ANDROID_KEY_KA, <<"k_active_users_android:">>).
+-define(ACTIVE_USERS_CC_KEY_HA, <<"active_users_cc:">>).
+-define(ACTIVE_USERS_CC_KEY_KA, <<"k_active_users_cc:">>).
+-define(ENGAGED_USERS_ALL_KEY_HA, <<"eu_all:">>).
+-define(ENGAGED_USERS_ALL_KEY_KA, <<"k_eu_all:">>).
+-define(ENGAGED_USERS_IOS_KEY_HA, <<"eu_ios:">>).
+-define(ENGAGED_USERS_IOS_KEY_KA, <<"k_eu_ios:">>).
+-define(ENGAGED_USERS_ANDROID_KEY_HA, <<"eu_android:">>).
+-define(ENGAGED_USERS_ANDROID_KEY_KA, <<"k_eu_android:">>).
+-define(ENGAGED_USERS_POST_KEY_HA, <<"eu_post:">>).
+-define(ENGAGED_USERS_POST_KEY_KA, <<"k_eu_post:">>).
+-define(CONNECTED_USERS_ALL_KEY_HA, <<"connected_users_all:">>).
+-define(CONNECTED_USERS_ALL_KEY_KA, <<"k_connected_users_all:">>).
+
 % top level key clv:Android0.90 -> timestamp
 -define(CLIENT_VERSION_KEY, <<"clv:">>).
 % zset of all client version

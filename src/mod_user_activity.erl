@@ -125,8 +125,9 @@ sm_register_connection_hook(_SID, #jid{luser = Uid} = _JID, _Mode, Info) ->
         _ ->
             IP = util:parse_ip_address(IPInfo),
             TimestampMs = util:now_ms(),
+            AppType = util_uid:get_app_type(Uid),
             ok = model_accounts:set_last_ip_and_connection_time(Uid, IP, TimestampMs),
-            mod_active_users:update_last_connection(Uid, TimestampMs)
+            mod_active_users:update_last_connection(Uid, TimestampMs, AppType)
     end,
     ok.
 

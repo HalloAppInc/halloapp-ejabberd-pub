@@ -18,18 +18,18 @@
 
 %% API
 -export([
-    count_active_users_between/3,
-    count_connected_users_between/2,
+    count_active_users_between/4,
+    count_connected_users_between/3,
     get_active_users_key/1,
     set_activity/3,
-    set_connectivity/2,
+    set_connectivity/3,
     cleanup/0,
     get_active_users_key/2,
     get_engaged_users_key/1,
     get_engaged_users_key/2,
-    count_engaged_users_between/3,
-    get_active_users_key_slot/2,
-    get_engaged_users_key_slot/2,
+    count_engaged_users_between/4,
+    get_active_users_key_slot/3,
+    get_engaged_users_key_slot/3,
     active_users_types/0,
     active_users_cc_types/0,
     engaged_users_types/0
@@ -44,22 +44,22 @@
 %%====================================================================
 
 -spec count_active_users_between(Type :: activity_type(), LowerBound :: non_neg_integer(),
-        UpperBound :: non_neg_integer()) -> non_neg_integer().
-count_active_users_between(Type, LowerBound, UpperBound) ->
+        UpperBound :: non_neg_integer(), AppType :: app_type()) -> non_neg_integer().
+count_active_users_between(Type, LowerBound, UpperBound, AppType) ->
     Commands = lists:map(
         fun (Slot) ->
-            Key = get_active_users_key_slot(Slot, Type),
+            Key = get_active_users_key_slot(Slot, Type, AppType),
             ["ZCOUNT", Key, LowerBound, UpperBound]
         end, lists:seq(0, ?NUM_SLOTS - 1)),
     Results = qmn(Commands),
     lists:foldl(fun({ok, Result}, Sum) -> binary_to_integer(Result) + Sum end, 0, Results).
 
 -spec count_connected_users_between(LowerBound :: non_neg_integer(),
-        UpperBound :: non_neg_integer()) -> non_neg_integer().
-count_connected_users_between(LowerBound, UpperBound) ->
+        UpperBound :: non_neg_integer(), AppType :: app_type()) -> non_neg_integer().
+count_connected_users_between(LowerBound, UpperBound, AppType) ->
     Commands = lists:map(
         fun (Slot) ->
-            Key = get_connectivity_key_slot(Slot),
+            Key = get_connectivity_key_slot(Slot, AppType),
             ["ZCOUNT", Key, LowerBound, UpperBound]
         end, lists:seq(0, ?NUM_SLOTS - 1)),
     Results = qmn(Commands),
@@ -67,11 +67,11 @@ count_connected_users_between(LowerBound, UpperBound) ->
 
 
 -spec count_engaged_users_between(Type :: activity_type(), LowerBound :: non_neg_integer(),
-        UpperBound :: non_neg_integer()) -> non_neg_integer().
-count_engaged_users_between(Type, LowerBound, UpperBound) ->
+        UpperBound :: non_neg_integer(), AppType :: app_type()) -> non_neg_integer().
+count_engaged_users_between(Type, LowerBound, UpperBound, AppType) ->
     Commands = lists:map(
         fun (Slot) ->
-            Key = get_engaged_users_key_slot(Slot, Type),
+            Key = get_engaged_users_key_slot(Slot, Type, AppType),
             ["ZCOUNT", Key, LowerBound, UpperBound]
         end, lists:seq(0, ?NUM_SLOTS - 1)),
     Results = qmn(Commands),
@@ -80,14 +80,16 @@ count_engaged_users_between(Type, LowerBound, UpperBound) ->
 
 -spec get_active_users_key(Uid :: uid()) -> binary().
 get_active_users_key(Uid) ->
+    AppType = util_uid:get_app_type(Uid),
     Slot = hash(binary_to_list(Uid)),
-    get_active_users_key_slot(Slot, all).
+    get_active_users_key_slot(Slot, all, AppType).
 
 
 -spec get_active_users_key(Uid :: uid(), Type :: activity_type()) -> binary().
 get_active_users_key(Uid, Type) ->
+    AppType = util_uid:get_app_type(Uid),
     Slot = hash(binary_to_list(Uid)),
-    get_active_users_key_slot(Slot, Type).
+    get_active_users_key_slot(Slot, Type, AppType).
 
 
 -spec get_engaged_users_key(Uid :: uid()) -> binary().
@@ -98,13 +100,14 @@ get_engaged_users_key(Uid) ->
 -spec get_engaged_users_key(Uid :: uid(), Type :: activity_type()) -> binary().
 get_engaged_users_key(Uid, Type) ->
     Slot = hash(binary_to_list(Uid)),
-    get_engaged_users_key_slot(Slot, Type).
+    AppType = util_uid:get_app_type(Uid),
+    get_engaged_users_key_slot(Slot, Type, AppType).
 
 
--spec get_connectivity_key(Uid :: uid()) -> binary().
-get_connectivity_key(Uid) ->
+-spec get_connectivity_key(Uid :: uid(), AppType :: app_type()) -> binary().
+get_connectivity_key(Uid, AppType) ->
     Slot = hash(binary_to_list(Uid)),
-    get_connectivity_key_slot(Slot).
+    get_connectivity_key_slot(Slot, AppType).
 
 
 -spec set_activity(Uid :: uid(), TimestampMs :: integer(), Keys :: list()) -> ok.
@@ -113,9 +116,9 @@ set_activity(Uid, TimestampMs, Keys) ->
     qp(Commands),
     ok.
 
--spec set_connectivity(Uid :: uid(), TimestampMs :: integer()) -> ok.
-set_connectivity(Uid, TimestampMs) ->
-    q(["ZADD", get_connectivity_key(Uid), TimestampMs, Uid]),
+-spec set_connectivity(Uid :: uid(), TimestampMs :: integer(), AppType :: app_type()) -> ok.
+set_connectivity(Uid, TimestampMs, AppType) ->
+    q(["ZADD", get_connectivity_key(Uid, AppType), TimestampMs, Uid]),
     ok.
 
 
@@ -125,7 +128,7 @@ cleanup() ->
     ?INFO("Cleaning up active/enaged user zsets...", []),
     TotalRemoved = lists:foldl(
         fun (Slot, Acc) ->
-            cleanup_by_slot(Slot) + Acc
+            cleanup_by_slot(Slot, ?HALLOAPP) + cleanup_by_slot(Slot, ?KATCHUP) + Acc
         end,
         0,
         lists:seq(0, ?NUM_SLOTS - 1)
@@ -157,13 +160,13 @@ engaged_users_types() ->
         post
     ].
 
--spec cleanup_by_slot(Slot :: non_neg_integer()) -> non_neg_integer().
-cleanup_by_slot(Slot) ->
+-spec cleanup_by_slot(Slot :: non_neg_integer(), AppType :: app_type()) -> non_neg_integer().
+cleanup_by_slot(Slot, AppType) ->
     OldTs = util:now_ms() - (30 * ?DAYS_MS) - (1 * ?SECONDS_MS),
-    ActiveUsersKeys = [get_active_users_key_slot(Slot, Type) || Type <- active_users_types()],
-    CountryUsersKeys = [get_active_users_key_slot(Slot, Type) || Type <- active_users_cc_types()],
-    EngagedUsersKeys = [get_engaged_users_key_slot(Slot, Type) || Type <- engaged_users_types()],
-    ConnectedUsersKeys = [get_connectivity_key_slot(Slot)],
+    ActiveUsersKeys = [get_active_users_key_slot(Slot, Type, AppType) || Type <- active_users_types()],
+    CountryUsersKeys = [get_active_users_key_slot(Slot, Type, AppType) || Type <- active_users_cc_types()],
+    EngagedUsersKeys = [get_engaged_users_key_slot(Slot, Type, AppType) || Type <- engaged_users_types()],
+    ConnectedUsersKeys = [get_connectivity_key_slot(Slot, AppType)],
     AllKeys = ActiveUsersKeys ++ EngagedUsersKeys ++ CountryUsersKeys ++ ConnectedUsersKeys,
     Queries = [["ZREMRANGEBYSCORE", Key, 0, OldTs] || Key <- AllKeys],
     Results = qp(Queries),
@@ -175,33 +178,47 @@ hash(Key) ->
     crc16:crc16(Key) rem ?NUM_SLOTS.
 
 
--spec get_active_users_key_slot(Slot :: integer(), Type :: activity_type()) -> binary().
-get_active_users_key_slot(Slot, Type) ->
+-spec get_active_users_key_slot(Slot :: integer(), Type :: activity_type(), AppType :: app_type()) -> binary().
+get_active_users_key_slot(Slot, Type, AppType) ->
     SlotBinary = integer_to_binary(Slot),
-    Key = case Type of
-        ios -> ?ACTIVE_USERS_IOS_KEY;
-        android -> ?ACTIVE_USERS_ANDROID_KEY;
-        all -> ?ACTIVE_USERS_ALL_KEY;
-        {cc, CC} -> <<?ACTIVE_USERS_CC_KEY/binary, CC/binary, ":">>
+    Key = case {Type, AppType} of
+        {ios, ?KATCHUP} -> ?ACTIVE_USERS_IOS_KEY_KA;
+        {ios, _} -> ?ACTIVE_USERS_IOS_KEY_HA;
+        {android, ?KATCHUP} -> ?ACTIVE_USERS_ANDROID_KEY_KA;
+        {android, _} -> ?ACTIVE_USERS_ANDROID_KEY_HA;
+        {all, ?KATCHUP} -> ?ACTIVE_USERS_ALL_KEY_KA;
+        {all, _} -> ?ACTIVE_USERS_ALL_KEY_HA;
+        {{cc, CC}, ?KATCHUP} -> <<?ACTIVE_USERS_CC_KEY_KA/binary, CC/binary, ":">>;
+        {{cc, CC}, _} -> <<?ACTIVE_USERS_CC_KEY_HA/binary, CC/binary, ":">>
     end,
     <<Key/binary, "{", SlotBinary/binary, "}">>.
 
 
--spec get_engaged_users_key_slot(Slot :: integer(), Type :: activity_type()) -> binary().
-get_engaged_users_key_slot(Slot, Type) ->
+-spec get_engaged_users_key_slot(Slot :: integer(), Type :: activity_type(), AppType :: app_type()) -> binary().
+get_engaged_users_key_slot(Slot, Type, AppType) ->
     SlotBinary = integer_to_binary(Slot),
-    Key = case Type of
-        ios -> ?ENGAGED_USERS_IOS_KEY;
-        android -> ?ENGAGED_USERS_ANDROID_KEY;
-        all -> ?ENGAGED_USERS_ALL_KEY;
-        post -> ?ENGAGED_USERS_POST_KEY
+    Key = case {Type, AppType} of
+        {ios, ?KATCHUP} -> ?ENGAGED_USERS_IOS_KEY_KA;
+        {ios, _} -> ?ENGAGED_USERS_IOS_KEY_HA;
+        {android, ?KATCHUP} -> ?ENGAGED_USERS_ANDROID_KEY_KA;
+        {android, _} -> ?ENGAGED_USERS_ANDROID_KEY_HA;
+        {all, ?KATCHUP} -> ?ENGAGED_USERS_ALL_KEY_KA;
+        {all, _} -> ?ENGAGED_USERS_ALL_KEY_HA;
+        {post, ?KATCHUP} -> ?ENGAGED_USERS_POST_KEY_KA;
+        {post, _} -> ?ENGAGED_USERS_POST_KEY_HA
     end,
     <<Key/binary, "{", SlotBinary/binary, "}">>.
 
--spec get_connectivity_key_slot(Slot :: integer()) -> binary().
-get_connectivity_key_slot(Slot) ->
+
+-spec get_connectivity_key_slot(Slot :: integer(), AppType :: app_type()) -> binary().
+get_connectivity_key_slot(Slot, ?KATCHUP) ->
     SlotBinary = integer_to_binary(Slot),
-    <<?CONNECTED_USERS_ALL_KEY/binary, "{", SlotBinary/binary, "}">>.
+    <<?CONNECTED_USERS_ALL_KEY_KA/binary, "{", SlotBinary/binary, "}">>;
+
+get_connectivity_key_slot(Slot, _) ->
+    SlotBinary = integer_to_binary(Slot),
+    <<?CONNECTED_USERS_ALL_KEY_HA/binary, "{", SlotBinary/binary, "}">>.
+
 
 % borrowed from model_accounts.erl
 q(Command) -> ecredis:q(ecredis_accounts, Command).

@@ -26,10 +26,14 @@
     user_send_im/4,
     user_send_group_im/4,
     compute_counts/0,
-    count_engaged_users_1day/1,
-    count_engaged_users_7day/1,
-    count_engaged_users_28day/1,
-    count_engaged_users_30day/1
+    count_halloapp_engaged_users_1day/1,
+    count_katchup_engaged_users_1day/1,
+    count_halloapp_engaged_users_7day/1,
+    count_katchup_engaged_users_7day/1,
+    count_halloapp_engaged_users_28day/1,
+    count_katchup_engaged_users_28day/1,
+    count_halloapp_engaged_users_30day/1,
+    count_katchup_engaged_users_30day/1
 ]).
 
 %% Export all functions for unit tests
@@ -91,44 +95,70 @@ user_send_group_im(_Gid, FromUid, _MsgId, _ToUids) ->
 %% API
 %%====================================================================
 
--spec count_engaged_users_1day(Type :: activity_type()) -> non_neg_integer().
-count_engaged_users_1day(Type) ->
-    count_engaged_users(1 * ?DAYS_MS, Type).
+-spec count_halloapp_engaged_users_1day(Type :: activity_type()) -> non_neg_integer().
+count_halloapp_engaged_users_1day(Type) ->
+    count_engaged_users(1 * ?DAYS_MS, Type, ?HALLOAPP).
+
+-spec count_katchup_engaged_users_1day(Type :: activity_type()) -> non_neg_integer().
+count_katchup_engaged_users_1day(Type) ->
+    count_engaged_users(1 * ?DAYS_MS, Type, ?KATCHUP).
 
 
--spec count_engaged_users_7day(Type :: activity_type()) -> non_neg_integer().
-count_engaged_users_7day(Type) ->
-    count_engaged_users(7 * ?DAYS_MS, Type).
+-spec count_halloapp_engaged_users_7day(Type :: activity_type()) -> non_neg_integer().
+count_halloapp_engaged_users_7day(Type) ->
+    count_engaged_users(7 * ?DAYS_MS, Type, ?HALLOAPP).
+
+-spec count_katchup_engaged_users_7day(Type :: activity_type()) -> non_neg_integer().
+count_katchup_engaged_users_7day(Type) ->
+    count_engaged_users(7 * ?DAYS_MS, Type, ?KATCHUP).
 
 
--spec count_engaged_users_28day(Type :: activity_type()) -> non_neg_integer().
-count_engaged_users_28day(Type) ->
-    count_engaged_users(28 * ?DAYS_MS, Type).
+-spec count_halloapp_engaged_users_28day(Type :: activity_type()) -> non_neg_integer().
+count_halloapp_engaged_users_28day(Type) ->
+    count_engaged_users(28 * ?DAYS_MS, Type, ?HALLOAPP).
+
+-spec count_katchup_engaged_users_28day(Type :: activity_type()) -> non_neg_integer().
+count_katchup_engaged_users_28day(Type) ->
+    count_engaged_users(28 * ?DAYS_MS, Type, ?KATCHUP).
 
 
--spec count_engaged_users_30day(Type :: activity_type()) -> non_neg_integer().
-count_engaged_users_30day(Type) ->
-    count_engaged_users(30 * ?DAYS_MS, Type).
+
+-spec count_halloapp_engaged_users_30day(Type :: activity_type()) -> non_neg_integer().
+count_halloapp_engaged_users_30day(Type) ->
+    count_engaged_users(30 * ?DAYS_MS, Type, ?HALLOAPP).
+
+-spec count_katchup_engaged_users_30day(Type :: activity_type()) -> non_neg_integer().
+count_katchup_engaged_users_30day(Type) ->
+    count_engaged_users(30 * ?DAYS_MS, Type, ?KATCHUP).
+
 
 
 -spec count_engaged_users(IntervalMs :: non_neg_integer(),
-        Type :: activity_type()) -> non_neg_integer().
-count_engaged_users(IntervalMs, Type) ->
+        Type :: activity_type(), AppType :: app_type()) -> non_neg_integer().
+count_engaged_users(IntervalMs, Type, AppType) ->
     Now = util:now_ms(),
-    model_active_users:count_engaged_users_between(Type, Now - IntervalMs, Now + (1 * ?MINUTES_MS)).
+    model_active_users:count_engaged_users_between(Type, Now - IntervalMs, Now + (1 * ?MINUTES_MS), AppType).
 
 
 -spec compute_counts() -> ok.
 compute_counts() ->
     CountFuns = [
-        {fun count_engaged_users_1day/1, "1day"},
-        {fun count_engaged_users_7day/1, "7day"},
-        {fun count_engaged_users_28day/1, "28day"},
-        {fun count_engaged_users_30day/1, "30day"}
+        {fun count_halloapp_engaged_users_1day/1, "1day"},
+        {fun count_halloapp_engaged_users_7day/1, "7day"},
+        {fun count_halloapp_engaged_users_28day/1, "28day"},
+        {fun count_halloapp_engaged_users_30day/1, "30day"}
     ],
     Types = model_active_users:engaged_users_types(),
     [stat:gauge("HA/engaged_users", Desc ++ "_" ++ atom_to_list(Type), Fun(Type))
         || {Fun, Desc} <- CountFuns, Type <- Types],
+    CountFuns2 = [
+        {fun count_katchup_engaged_users_1day/1, "1day"},
+        {fun count_katchup_engaged_users_7day/1, "7day"},
+        {fun count_katchup_engaged_users_28day/1, "28day"},
+        {fun count_katchup_engaged_users_30day/1, "30day"}
+    ],
+    [stat:gauge("KA/engaged_users", Desc ++ "_" ++ atom_to_list(Type), Fun(Type))
+        || {Fun, Desc} <- CountFuns2, Type <- Types],
     ok.
 
 
