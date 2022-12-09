@@ -17,6 +17,7 @@
 -dialyzer({no_match, make_pb_feed_post/7}).
 -dialyzer({no_match, broadcast_event/5}).
 
+-define(CURSOR_VERSION_V0, <<"V0">>).
 -define(NS_FEED, <<"halloapp:feed">>).
 
 %% functions used in tests
@@ -52,6 +53,7 @@ start(_Host, _Opts) ->
     ejabberd_hooks:add(user_send_packet, halloapp, ?MODULE, user_send_packet, 50),
     %% Katchup
     gen_iq_handler:add_iq_handler(ejabberd_local, katchup, pb_feed_item, ?MODULE, process_local_iq),
+    gen_iq_handler:add_iq_handler(ejabberd_local, katchup, pb_public_feed_request, ?MODULE, process_local_iq),
     ejabberd_hooks:add(add_friend, katchup, ?MODULE, add_friend, 50),
     ejabberd_hooks:add(remove_user, katchup, ?MODULE, remove_user, 50),
     ejabberd_hooks:add(user_send_packet, katchup, ?MODULE, user_send_packet, 50),
@@ -66,6 +68,7 @@ stop(_Host) ->
     ejabberd_hooks:delete(user_send_packet, halloapp, ?MODULE, user_send_packet, 50),
     %% Katchup
     gen_iq_handler:remove_iq_handler(ejabberd_local, katchup, pb_feed_item),
+    gen_iq_handler:remove_iq_handler(ejabberd_local, katchup, pb_public_feed_request),
     ejabberd_hooks:delete(add_friend, katchup, ?MODULE, add_friend, 50),
     ejabberd_hooks:delete(remove_user, katchup, ?MODULE, remove_user, 50),
     ejabberd_hooks:delete(user_send_packet, katchup, ?MODULE, user_send_packet, 50),
@@ -206,31 +209,20 @@ process_local_iq(#pb_iq{from_uid = Uid, payload = #pb_public_feed_request{cursor
         end,
         %% Fetch latest geotag, public moments (convert them to pb feed items) and calculate cursor
         Tag = model_accounts:get_latest_geo_tag(Uid),
-        PublicMoments = get_public_moments(Tag, util:now_ms(), Cursor, ?NUM_PUBLIC_FEED_ITEMS_PER_REQUEST),
-        PublicFeedItems = lists:map(fun convert_posts_to_feed_items/1, PublicMoments),
-        NewCursor = case PublicMoments of
-            [] -> <<>>;
-            _ ->
-                PostId = (lists:last(PublicMoments))#post.id,
-                PostTsMs = model_feed:get_post_timestamp_ms(PostId),
-                model_feed:join_cursor(PostId, PostTsMs)
-        end,
+        {ReloadFeed, NewCursor, PublicMoments} = get_public_moments(Tag, util:now_ms(), Cursor, ?NUM_PUBLIC_FEED_ITEMS_PER_REQUEST),
+        PublicFeedItems = lists:map(fun(PublicMoment) -> convert_moments_to_public_feed_items(Uid, PublicMoment) end, PublicMoments),
         Ret = #pb_public_feed_response{
             result = success,
             reason = ok,
             cursor = NewCursor,
             public_feed_content_type = moments,
+            cursor_restarted = ReloadFeed,
             items = PublicFeedItems
         },
         ?INFO("Successful public feed response: Uid ~s, NewCursor ~p, Tag ~p NumItems ~p",
             [Uid, NewCursor, Tag, length(PublicFeedItems)]),
         pb:make_iq_result(IQ, Ret)
     catch
-        error:invalid_cursor ->
-            ErrRet = #pb_public_feed_response{
-                result = failure,
-                reason = invalid_cursor},
-            pb:make_iq_result(IQ, ErrRet);
         Error:Reason ->
             ?ERROR("Error processing public feed request: ~p: ~p", [Error, Reason]),
             ErrRet = #pb_public_feed_response{
@@ -785,11 +777,42 @@ get_message_type(#pb_feed_item{action = publish, item = #pb_comment{}}, PushSet,
 get_message_type(#pb_feed_item{action = retract}, _, _) -> normal.
 
 
+%% Determine if we should reload_feed or not based on the cursor.
+%% Pretty Naive right now - but will improve over time.
+%% We reset cursor if timestamp is older than 5mins, but we could also fetch the content they have
+-spec determine_cursor_action(Cursor :: binary()) -> {ReloadFeed :: boolean(), CursorVersion :: binary(),
+        RequestTimestampMs :: integer(), CursorToUse :: binary()}.
+determine_cursor_action(Cursor) ->
+    case Cursor =:= <<>> orelse Cursor =:= undefined of
+        true ->
+            {false, ?CURSOR_VERSION_V0, util:now_ms(), <<>>};
+        false ->
+            case model_feed:split_cursor(Cursor) of
+                {undefined, undefined, undefined, undefined} ->
+                    {true, ?CURSOR_VERSION_V0, util:now_ms(), <<>>};
+                {CursorVersion, RequestTimestampMs, _, _} ->
+                    case util:now_ms() - RequestTimestampMs >= 5 * ?MINUTES_MS of
+                        true -> {true, CursorVersion, util:now_ms(), <<>>};
+                        false -> {false, CursorVersion, RequestTimestampMs, Cursor}
+                    end
+            end
+    end.
+
+
 get_public_moments(Tag, TimestampMs, Cursor, Limit) ->
-    get_public_moments(Tag, TimestampMs, Cursor, Limit, []).
+    {CursorReload, CursorVersion, RequestTimestampMs, CursorToUse} = determine_cursor_action(Cursor),
+    PublicMoments = get_public_moments(Tag, TimestampMs, CursorToUse, CursorVersion, RequestTimestampMs, Limit, []),
+    NewCursor = case PublicMoments of
+        [] -> <<>>;
+        _ ->
+            PostId = (lists:last(PublicMoments))#post.id,
+            PostTsMs = model_feed:get_post_timestamp_ms(PostId),
+            model_feed:join_cursor(?CURSOR_VERSION_V0, RequestTimestampMs, PostId, PostTsMs)
+    end,
+    {CursorReload, NewCursor, PublicMoments}.
 
 
-get_public_moments(Tag, TimestampMs, Cursor, Limit, PublicMoments) ->
+get_public_moments(Tag, TimestampMs, Cursor, CursorVersion, RequestTimestampMs, Limit, PublicMoments) ->
     case length(PublicMoments) >= Limit of
         true ->
             %% Base case: Limit has been reached
@@ -809,9 +832,10 @@ get_public_moments(Tag, TimestampMs, Cursor, Limit, PublicMoments) ->
                 false ->
                     %% Otherwise, recurse
                     PostTsMs = model_feed:get_post_timestamp_ms(lists:last(NewPublicMomentIds)),
-                    NewCursor = model_feed:join_cursor(lists:last(NewPublicMomentIds), PostTsMs),
-                    get_public_moments(Tag, TimestampMs, NewCursor,
-                        Limit, PublicMoments ++ NewPublicMoments)
+                    NewCursor = model_feed:join_cursor(CursorVersion, RequestTimestampMs,
+                            lists:last(NewPublicMomentIds), PostTsMs),
+                    get_public_moments(Tag, TimestampMs, NewCursor, CursorVersion,
+                            RequestTimestampMs, Limit, PublicMoments ++ NewPublicMoments)
             end
     end.
 
@@ -1029,6 +1053,28 @@ get_feed_audience_set(Action, Uid, AudienceList) ->
     end.
 
 
+-spec convert_moments_to_public_feed_items(uid(), post()) -> pb_public_feed_item().
+convert_moments_to_public_feed_items(Uid, #post{id = PostId, uid = OUid, payload = PayloadBase64, ts_ms = TimestampMs, tag = PostTag, moment_info = MomentInfo}) ->
+    [UserProfile] = model_accounts:get_user_profiles(Uid, OUid),
+    PbPost = #pb_post{
+        id = PostId,
+        publisher_uid = Uid,
+        publisher_name = model_accounts:get_name_binary(Uid),
+        payload = base64:decode(PayloadBase64),
+        timestamp = util:ms_to_sec(TimestampMs),
+        moment_info = MomentInfo,
+        tag = PostTag
+    },
+    Comments = model_feed:get_post_comments(PostId),
+    PbComments = lists:map(fun convert_comments_to_pb_comments/1, Comments),
+    #pb_public_feed_item{
+        user_profile = UserProfile,
+        post = PbPost,
+        comments = PbComments,
+        reason = unknown_reason %% Setting unknown for all content right now -- but need to update.
+    }.
+
+
 -spec convert_posts_to_feed_items(post()) -> pb_feed_item().
 convert_posts_to_feed_items(#post{id = PostId, uid = Uid, payload = PayloadBase64, ts_ms = TimestampMs, tag = PostTag, moment_info = MomentInfo}) ->
     Post = #pb_post{
@@ -1061,5 +1107,19 @@ convert_comments_to_feed_items(#comment{id = CommentId, post_id = PostId, publis
     #pb_feed_item{
         action = share,
         item = Comment
+    }.
+
+
+convert_comments_to_pb_comments(#comment{id = CommentId, post_id = PostId, publisher_uid = PublisherUid,
+        parent_id = ParentId, payload = PayloadBase64, ts_ms = TimestampMs, comment_type = CommentType}) ->
+    #pb_comment{
+        id = CommentId,
+        post_id = PostId,
+        publisher_uid = PublisherUid,
+        publisher_name = model_accounts:get_name_binary(PublisherUid),
+        parent_comment_id = ParentId,
+        payload = base64:decode(PayloadBase64),
+        timestamp = util:ms_to_sec(TimestampMs),
+        comment_type = CommentType
     }.
 

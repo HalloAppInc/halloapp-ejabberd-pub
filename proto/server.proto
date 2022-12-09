@@ -266,13 +266,26 @@ message PublicFeedResponse {
     enum Reason {
         UNKNOWN_REASON = 0;
         OK = 1;
-        INVALID_CURSOR = 2;
     }
     Result result = 1;
     Reason reason = 2;
     string cursor = 3;
     PublicFeedContentType public_feed_content_type = 4;
-    repeated FeedItem items = 5;
+    bool cursor_restarted = 5;
+    repeated PublicFeedItem items = 6; // items are ordered and should be presented in that order.
+}
+
+
+message PublicFeedItem {
+    UserProfile user_profile = 1;
+    Post post = 2;
+    repeated Comment comments = 3; // Comments will be capped - 20 per post for now.
+    enum Reason {
+        UNKNOWN_REASON = 0;
+        CAMPUS = 1;
+        FOF = 2;
+      }
+    Reason reason = 4;
 }
 
 

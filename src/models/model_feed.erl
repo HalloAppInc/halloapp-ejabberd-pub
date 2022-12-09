@@ -46,7 +46,7 @@
     get_posts_by_time_bucket/6,
     get_posts_by_geo_tag_time_bucket/7,
     split_cursor/1,
-    join_cursor/2,
+    join_cursor/4,
     publish_comment/6,
     publish_comment/7,
     retract_post/2,
@@ -54,6 +54,7 @@
     get_post/1,
     get_posts/1,
     get_comment/2,
+    get_post_comments/1,
     get_post_and_its_comments/1,
     get_comment_data/3,
     get_post_timestamp_ms/1,
@@ -226,19 +227,19 @@ get_public_moments(GeoTag, TimestampMs, Cursor, Limit) ->
     case GeoTag =:= undefined orelse GeoTag =:= <<>> of
         true ->
             case split_cursor(Cursor) of
-                {undefined, undefined} ->
+                {undefined, undefined, undefined, undefined} ->
                     TimestampHr = floor(TimestampMs / ?HOURS_MS),
                     get_posts_by_time_bucket(TimestampHr, TimestampHr, undefined, Limit, Limit, []);
-                {CursorPostId, CursorTimestampMs} ->
+                {_, _, CursorPostId, CursorTimestampMs} ->
                     CursorTimestampHr = floor(CursorTimestampMs / ?HOURS_MS),
                     get_posts_by_time_bucket(CursorTimestampHr, CursorTimestampHr, CursorPostId, Limit, Limit, [])
             end;
         false ->
             case split_cursor(Cursor) of
-                {undefined, undefined} ->
+                {undefined, undefined, undefined, undefined} ->
                     TimestampHr = floor(TimestampMs / ?HOURS_MS),
                     get_posts_by_geo_tag_time_bucket(GeoTag, TimestampHr, TimestampHr, undefined, Limit, Limit, []);
-                {CursorPostId, CursorTimestampMs} ->
+                {_, _, CursorPostId, CursorTimestampMs} ->
                     CursorTimestampHr = floor(CursorTimestampMs / ?HOURS_MS),
                     get_posts_by_geo_tag_time_bucket(GeoTag, CursorTimestampHr, CursorTimestampHr, CursorPostId, Limit, Limit, [])
             end
@@ -293,27 +294,28 @@ get_posts_by_geo_tag_time_bucket(GeoTag, StartTimestampHr, CurTimestampHr,
     end.
 
 
--spec split_cursor(Cursor :: binary()) -> {maybe(binary()), maybe(integer())}.
-split_cursor(undefined) -> {undefined, undefined};
-split_cursor(<<>>) -> {undefined, undefined};
+-spec split_cursor(Cursor :: binary()) -> {maybe(binary()), maybe(integer()), maybe(binary()), maybe(integer())}.
+split_cursor(undefined) -> {undefined, undefined, undefined, undefined};
+split_cursor(<<>>) -> {undefined, undefined, undefined, undefined};
 split_cursor(Cursor) ->
     try
-        [CursorPostId, CursorTimestampMsBin] = re:split(Cursor, "::"),
-        case CursorPostId =:= <<>> orelse CursorTimestampMsBin =:= <<>> of
-            true -> {undefined, undefined};
-            false -> {CursorPostId, util:to_integer(CursorTimestampMsBin)}
+        [CursorVersion, RequestTimestampMsBin, CursorPostId, CursorTimestampMsBin] = re:split(Cursor, "::"),
+        case RequestTimestampMsBin =:= <<>> orelse CursorPostId =:= <<>> orelse CursorTimestampMsBin =:= <<>> of
+            true -> {undefined, undefined, undefined, undefined};
+            false -> {CursorVersion, util:to_integer(RequestTimestampMsBin), CursorPostId, util:to_integer(CursorTimestampMsBin)}
         end
     catch
         _:_ ->
             ?ERROR("Failed to split cursor: ~p", [Cursor]),
-            error(invalid_cursor)
+            {undefined, undefined, undefined, undefined}
     end.
 
 
--spec join_cursor(CursorPostId :: binary(), CursorTimestampMs :: integer()) -> binary().
-join_cursor(CursorPostId, CursorTimestampMs) ->
+-spec join_cursor(VersionBin :: binary(), RequestTimestampMs :: integer(), CursorPostId :: binary(), CursorTimestampMs :: integer()) -> binary().
+join_cursor(VersionBin, RequestTimestampMs, CursorPostId, CursorTimestampMs) ->
+    RequestTimestampMsBin = util:to_binary(RequestTimestampMs),
     CursorTimestampMsBin = util:to_binary(CursorTimestampMs),
-    <<CursorPostId/binary, "::", CursorTimestampMsBin/binary>>.
+    <<VersionBin/binary, RequestTimestampMsBin/binary, "::", CursorPostId/binary, "::", CursorTimestampMsBin/binary>>.
 
 
 -spec publish_comment(CommentId :: binary(), PostId :: binary(),
