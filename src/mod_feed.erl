@@ -1065,7 +1065,7 @@ convert_moments_to_public_feed_items(Uid, #post{id = PostId, uid = OUid, payload
         moment_info = MomentInfo,
         tag = PostTag
     },
-    Comments = model_feed:get_post_comments(PostId),
+    {ok, Comments} = model_feed:get_post_comments(PostId),
     PbComments = lists:map(fun convert_comments_to_pb_comments/1, Comments),
     #pb_public_feed_item{
         user_profile = UserProfile,
