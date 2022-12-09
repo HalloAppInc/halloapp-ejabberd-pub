@@ -1734,6 +1734,7 @@ message UserProfile {
     string avatar_id = 4;
     FollowStatus follower_status = 5;  // is uid my follower
     FollowStatus following_status = 6;  // am I following uid
+    int32 num_mutual_following = 7;
 }
 
 message ProfileUpdate {

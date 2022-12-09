@@ -1110,13 +1110,16 @@ get_user_profiles_internal(Ouid, Uid) ->
                           0 -> none;
                           _ -> following
                       end,
+    Following = sets:from_list(model_follow:get_all_following(Uid)),
+    OFollowing = sets:from_list(model_follow:get_all_following(Ouid)),
     UserProfile = #pb_user_profile{
         uid = Ouid,
         username = Username,
         name = Name,
         avatar_id = AvatarId,
         follower_status = FollowerStatus,
-        following_status = FollowingStatus
+        following_status = FollowingStatus,
+        num_mutual_following = sets:size(sets:intersection(OFollowing, Following))
     },
     {UserProfile, Uid}.
 
