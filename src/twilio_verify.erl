@@ -156,6 +156,7 @@ compose_send_body(Phone, Code, LangId, UserAgent, Method) ->
     InputParams =[
         {"To", PlusPhone },
         {"Channel", Method},
+        {"CustomFriendlyName", get_friendly_name(UserAgent)},
         {"CustomCode", Code},
         {"Locale", get_verify_lang(LangId)}
     ],
@@ -168,6 +169,15 @@ compose_send_body(Phone, Code, LangId, UserAgent, Method) ->
         _ -> InputParams ++ [{"AppHash", binary_to_list(AppHash)}]
     end,
     uri_string:compose_query(InputParams2, [{encoding, utf8}]).
+
+get_friendly_name(UserAgent) ->
+    case util_ua:get_app_type(UserAgent) of
+        halloapp -> ?HALLOAPP_SENDER_ID;
+        katchup -> ?KATCHUP_SENDER_ID;
+        _ ->
+            ?ERROR("Invalid UA: ~p", [UserAgent]),
+            ?HALLOAPP_SENDER_ID
+    end.
 
 
 -spec compose_feedback_body() -> uri_string:uri_string().

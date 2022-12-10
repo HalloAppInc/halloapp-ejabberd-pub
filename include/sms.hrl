@@ -89,5 +89,6 @@
 -define(DEFAULT_GATEWAY_SCORE_PERCENT, ?DEFAULT_GATEWAY_SCORE * 100).
 
 -define(HALLOAPP_SENDER_ID, "HalloApp").
+-define(KATCHUP_SENDER_ID, "Katchup").
 
 -endif.
