@@ -73,7 +73,7 @@ stop(_Host) ->
     ejabberd_hooks:delete(remove_user, katchup, ?MODULE, remove_user, 50),
     ejabberd_hooks:delete(user_send_packet, katchup, ?MODULE, user_send_packet, 50),
     ejabberd_hooks:delete(send_moment_notification, katchup, ?MODULE, send_moment_notification, 50),
-    ejabberd_hooks:add(new_follow_relationship, katchup, ?MODULE, new_follow_relationship, 50),
+    ejabberd_hooks:delete(new_follow_relationship, katchup, ?MODULE, new_follow_relationship, 50),
     ok.
 
 reload(_Host, _NewOpts, _OldOpts) ->
