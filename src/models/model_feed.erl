@@ -66,8 +66,8 @@
     is_psa_tag_done/1,
     mark_psa_tag_done/1,
     del_psa_tag_done/1,
-    get_moment_time_to_send/1,
-    set_moment_time_to_send/2,
+    get_moment_time_to_send/2,
+    set_moment_time_to_send/4,
     del_moment_time_to_send/1,
     is_moment_tag_done/1,
     mark_moment_tag_done/1,
@@ -81,7 +81,8 @@
     remove_user/1,
     store_external_share_post/3,
     delete_external_share_post/1,
-    get_external_share_post/1
+    get_external_share_post/1,
+    generate_notification_time/1 %% test
 ]).
 
 %% TODO(murali@): expose more apis specific to posts and comments only if necessary.
@@ -106,6 +107,8 @@
 -define(FIELD_NUM_TAKES, <<"nt">>).
 -define(FIELD_NOTIFICATION_TIMESTAMP, <<"nts">>).
 -define(FIELD_TIME_TAKEN, <<"tt">>).
+-define(FIELD_MOMENT_NOTIFICATION_ID, <<"nfi">>).
+-define(FIELD_MOMENT_NOTIFICATION_TYPE, <<"nft">>).
 
 
 -spec publish_post(PostId :: binary(), Uid :: uid(), Payload :: binary(), PostTag :: post_tag(),
@@ -655,30 +658,61 @@ del_psa_tag_done(PSATag) ->
     {ok, Value} = q(["HDEL", psa_tag_key(PSATag), ?FIELD_PSA_TAG_DONE]),
     Value =:= <<"1">>.
 
--spec get_moment_time_to_send(Tag :: binary()) -> integer().
-get_moment_time_to_send(Tag) ->
-    {ok, Payload} = q(["GET", moment_time_to_send_key(Tag)]),
-    case Payload of
+-spec get_moment_time_to_send(Tag :: integer(), DateTimeSecs :: integer()) -> {integer(), integer(), integer()}.
+get_moment_time_to_send(Tag, DateTimeSecs) ->
+    [{ok, Payload1}, {ok, Payload2}, {ok, Payload3}] =
+        qp([["GET", moment_time_to_send_key(Tag)],
+            ["HGET", moment_time_to_send_key2(Tag), ?FIELD_MOMENT_NOTIFICATION_ID],
+            ["HGET", moment_time_to_send_key2(Tag), ?FIELD_MOMENT_NOTIFICATION_TYPE]]),
+    case Payload1 of
         undefined ->
-            %% from 3pm to 9pm local time.
-            Rand = 15*60 + rand:uniform(6*60),
-            case set_moment_time_to_send(Rand, Tag) of
-                true -> Rand;
-                false -> get_moment_time_to_send(Tag)
+            Time = generate_notification_time(DateTimeSecs),
+            %% NotificationType
+            Type = rand:uniform(3),
+            case set_moment_time_to_send(Time, DateTimeSecs, Type, Tag) of
+                true -> {Time, DateTimeSecs, Type};
+                false -> get_moment_time_to_send(Tag, DateTimeSecs)
             end;
-        _ -> binary_to_integer(Payload)
+        _ ->
+            case Payload2 of
+                undefined -> {binary_to_integer(Payload1), 0, 0};
+                _ -> {binary_to_integer(Payload1), binary_to_integer(Payload2), binary_to_integer(Payload3)}
+            end
     end.
 
-
--spec set_moment_time_to_send(Hr :: integer(), Tag :: binary()) -> boolean().
-set_moment_time_to_send(Hr, Tag) ->
-    {ok, Payload} = q(["SET", moment_time_to_send_key(Tag), util:to_binary(Hr),
+generate_notification_time(DateTimeSecs) ->
+    {Date, {_,_,_}} = calendar:system_time_to_universal_time(DateTimeSecs, second),
+    DayOfWeek = calendar:day_of_the_week(Date),
+    case DayOfWeek =:= 6 orelse DayOfWeek =:= 7 of
+        true ->
+            %% Weekend 9am to 9pm
+            9*60 + rand:uniform(12*60);
+        false ->
+            %% from 12 to 1pm or from 3pm to 9pm local time.
+            RandTime = 14*60 + rand:uniform(7*60),
+            case RandTime < 15*60 of
+                true -> RandTime - 2 * 60;
+                false -> RandTime
+            end
+    end.
+ 
+-spec set_moment_time_to_send(Time :: integer(), Id :: integer(), Type :: integer(), Tag :: integer()) -> boolean().
+set_moment_time_to_send(Time, Id, Type, Tag) ->
+    {ok, Payload} = q(["SET", moment_time_to_send_key(Tag), util:to_binary(Time),
                       "EX", ?MOMENT_TAG_EXPIRATION, "NX"]),
-    Payload =:= <<"OK">>.
+    case Payload =:= <<"OK">> of
+        true ->
+            qp([["HSET", moment_time_to_send_key2(Tag), ?FIELD_MOMENT_NOTIFICATION_ID, util:to_binary(Id)],
+                ["HSET", moment_time_to_send_key2(Tag), ?FIELD_MOMENT_NOTIFICATION_TYPE, util:to_binary(Type)],
+                ["EXPIRE", moment_time_to_send_key2(Tag), ?MOMENT_TAG_EXPIRATION]]),
+            true;
+        false -> false
+    end.
+                
 
--spec del_moment_time_to_send(Tag :: binary()) -> ok.
+-spec del_moment_time_to_send(Tag :: integer()) -> ok.
 del_moment_time_to_send(Tag) ->
-    util_redis:verify_ok(q(["DEL", moment_time_to_send_key(Tag)])).
+    util_redis:verify_ok(qp([["DEL", moment_time_to_send_key(Tag)], ["DEL", moment_time_to_send_key2(Tag)]])).
 
 -spec is_moment_tag_done(Tag :: binary()) -> boolean().
 is_moment_tag_done(Tag) ->
@@ -982,10 +1016,15 @@ psa_tag_key(PSATag) ->
 reverse_psa_tag_key(PSATag) ->
     <<?REVERSE_PSA_TAG_KEY/binary, "{", PSATag/binary, "}">>.
 
+-spec moment_time_to_send_key2(Tag :: integer()) -> binary().
+moment_time_to_send_key2(Tag) ->
+    TagBin = util:to_binary(Tag),
+    <<?MOMENT_TIME_TO_SEND_KEY2/binary, "{", TagBin/binary, "}">>.
 
--spec moment_time_to_send_key(Tag :: binary()) -> binary().
+-spec moment_time_to_send_key(Tag :: integer()) -> binary().
 moment_time_to_send_key(Tag) ->
-    <<?MOMENT_TIME_TO_SEND_KEY/binary, "{", Tag/binary, "}">>.
+    TagBin = util:to_binary(Tag),
+    <<?MOMENT_TIME_TO_SEND_KEY/binary, "{", TagBin/binary, "}">>.
 
 -spec moment_tag_key(Tag :: binary()) -> binary().
 moment_tag_key(Tag) ->

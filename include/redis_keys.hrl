@@ -98,6 +98,7 @@
 -define(REVERSE_GROUP_POST_KEY, <<"rfg:">>).
 -define(PSA_TAG_KEY, <<"pst:">>).
 -define(MOMENT_TIME_TO_SEND_KEY, <<"mts:">>).
+-define(MOMENT_TIME_TO_SEND_KEY2, <<"mts2:">>).
 -define(MOMENT_TAG_KEY, <<"mmt:">>).
 -define(REVERSE_PSA_TAG_KEY, <<"rpt:">>).
 -define(COMMENT_PUSH_LIST_KEY, <<"fcp:">>).

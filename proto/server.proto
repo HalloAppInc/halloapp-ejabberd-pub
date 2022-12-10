@@ -142,6 +142,7 @@ message MomentInfo {
     int64 time_taken = 2; // Time taken on the moment camera to capture the moment.
     int64 num_takes = 3; // Number of times a moment has been captured.
     int64 num_selfie_takes = 4; // Number of times the selfie view has been captured.
+    int64 notification_id = 5;  // Id of the notification that resulted in the user posting this moment.
 }
 
 message MediaCounters {
@@ -977,6 +978,18 @@ message ContentMissing {
 
 message MomentNotification {
     int64 timestamp = 1;
+
+    // Monotonically increasing id assigned to the notification by the server. This id is same
+    // for all users in one local time 24 hour period, e.g. local date Dec 3rd will have the
+    // same notification id for all the users.
+    int64 notification_id = 2;
+    enum Type {
+        LIVE_CAMERA = 0;
+        TEXT_POST = 1;
+        PROMPT_POST = 2;
+    }
+    Type type = 3;
+    string prompt = 4;
 }
 
 // IQ

@@ -788,7 +788,7 @@ update_lang_counters(Uid, LangId, OldLangId) ->
 update_zone_offset_tag(Uid, ZoneOffsetSec, OldZoneOffsetSec) when is_integer(ZoneOffsetSec) andalso ZoneOffsetSec =/= OldZoneOffsetSec ->
     HashSlot = util_redis:eredis_hash(binary_to_list(Uid)),
     Slot = HashSlot rem ?NUM_SLOTS,
-    ZoneOffsetTag = util:to_binary(ZoneOffsetSec div ?MOMENT_TAG_INTERVAL_SEC),
+    ZoneOffsetTag = util:to_binary(mod_moment_notification:get_four_zone_offset_hr(ZoneOffsetSec)),
     Commands = case OldZoneOffsetSec of
         undefined ->
             [["SADD", zone_offset_tag_key(Slot, ZoneOffsetTag), Uid]];

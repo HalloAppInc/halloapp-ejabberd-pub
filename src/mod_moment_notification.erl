@@ -22,7 +22,8 @@
     unschedule/0,
     send_notifications/0,
     send_moment_notification/1,
-    maybe_send_moment_notification/2,
+    maybe_send_moment_notification/4,
+    get_four_zone_offset_hr/1,
     is_time_ok/7  %% for testing
 ]).
 
@@ -106,33 +107,31 @@ send_notifications() ->
 
 %%====================================================================
 
-%% Following function exists to convert old format notification time (hr) to new format (min).
-backward_compatible(Min) ->
-    case Min < 15 * 60 of
-        true -> Min * 60;
-        false -> Min
-    end.
-
 % At the current GMT time, we need to process everybody between GMT-24 to GMT+24.
 % These time zones represent -1 day for some, current day for some, +1 day for some.
 % For all these three days we can fetch applicable time the notification is supposed to go.
 %
 % If the local time's hr is greater than the hr of notification, we schedule the notification
 % to be sent after some time. We need to make sure no double notifications are sent.
-process_moment_tag(CurrentTimeSecs, IsImmediateNotification) ->
+process_moment_tag(TodaySecs, IsImmediateNotification) ->
+    YesterdaySecs = (TodaySecs - ?DAYS),
+    TomorrowSecs = (TodaySecs + ?DAYS),
     {{_,_,Today}, {CurrentHrGMT, CurrentMinGMT,_}} = 
-        calendar:system_time_to_universal_time(CurrentTimeSecs, second),
+        calendar:system_time_to_universal_time(TodaySecs, second),
     {{_,_,Yesterday}, {_,_,_}} =
-        calendar:system_time_to_universal_time(CurrentTimeSecs - ?DAYS, second),
+        calendar:system_time_to_universal_time(YesterdaySecs, second),
     {{_,_,Tomorrow}, {_,_,_}} =
-        calendar:system_time_to_universal_time(CurrentTimeSecs + ?DAYS, second),
+        calendar:system_time_to_universal_time(TomorrowSecs, second),
     ?INFO("Processing Today: ~p, GMT: ~p:~p", [Today, CurrentHrGMT, CurrentMinGMT]),
 
     %% Following are number of minutes in local time when moment notification needs to be sent
     %% today, yesterday and tomorrow.
-    MinToSendToday = backward_compatible(model_feed:get_moment_time_to_send(util:to_binary(Today))),
-    MinToSendPrevDay = backward_compatible(model_feed:get_moment_time_to_send(util:to_binary(Yesterday))),
-    MinToSendNextDay = backward_compatible(model_feed:get_moment_time_to_send(util:to_binary(Tomorrow))),
+    {MinToSendToday, TodayNotificationId, TodayNotificationType} =
+        model_feed:get_moment_time_to_send(Today, TodaySecs),
+    {MinToSendPrevDay, YesterdayNotificationId, YesterdayNotificationType} =
+        model_feed:get_moment_time_to_send(Yesterday, YesterdaySecs),
+    {MinToSendNextDay, TomorrowNotificationId, TomorrowNotificationType} =
+        model_feed:get_moment_time_to_send(Tomorrow, TomorrowSecs),
     ?INFO("Times to send - Today: ~p, Yesterday: ~p, Tomorrow: ~p", 
         [MinToSendToday, MinToSendPrevDay, MinToSendNextDay]),
 
@@ -187,7 +186,7 @@ process_moment_tag(CurrentTimeSecs, IsImmediateNotification) ->
                 {ok, PushInfo} = model_accounts:get_push_info(Uid),
                 ClientVersion = PushInfo#push_info.client_version,
                 ZoneOffset = case is_client_version_ok(ClientVersion) of
-                    true -> PushInfo#push_info.zone_offset;
+                    true -> get_four_zone_offset_hr(PushInfo#push_info.zone_offset) * ?HOURS;
                     false -> undefined
                 end,
                 {TimeOk, MinToWait, DayAdjustment} = 
@@ -199,13 +198,13 @@ process_moment_tag(CurrentTimeSecs, IsImmediateNotification) ->
                 end,
                 ProcessingDone = case TimeOk andalso is_client_version_ok(ClientVersion) of
                     true ->
-                          LocalDay = case DayAdjustment of
-                              0 -> Today;
-                              -1 -> Yesterday;
-                              1 -> Tomorrow
+                          {LocalDay, NotificationId, NotificationType} = case DayAdjustment of
+                              0 -> {Today, TodayNotificationId, TodayNotificationType};
+                              -1 -> {Yesterday, YesterdayNotificationId, YesterdayNotificationType};
+                              1 -> {Tomorrow, TomorrowNotificationId, TomorrowNotificationType}
                           end,
                           ?INFO("Scheduling: ~p, Local day: ~p, MinToWait: ~p", [Uid, LocalDay, MinToWait2]),
-                          wait_and_send_notification(Uid, util:to_binary(LocalDay), MinToWait2),
+                          wait_and_send_notification(Uid, util:to_binary(LocalDay), NotificationId, NotificationType, MinToWait2),
                           true;
                     false ->
                           ?INFO("Skipping: ~p", [Uid]),
@@ -233,6 +232,33 @@ get_zone_tag_uids(ZoneOffsetDiff) ->
             {ok, []}
     end,
     UidsList.
+
+%% California time for America
+%% UK time for Europe
+%% Saudi Arabia time for West Asia
+%% China time for East Asia
+-spec get_four_zone_offset_hr(ZoneOffsetSec :: integer()) -> integer().
+get_four_zone_offset_hr(ZoneOffsetSec) ->
+    ZoneOffsetHr = ZoneOffsetSec / ?HOURS,
+    IsAmerica = ZoneOffsetHr >= -10 andalso ZoneOffsetHr =< -3,
+    IsEurope = ZoneOffsetHr > -3 andalso ZoneOffsetHr < 3,
+    IsWestAsia = ZoneOffsetHr >= 3 andalso ZoneOffsetHr < 8,
+    IsEastAsia = ZoneOffsetHr >= 8 orelse ZoneOffsetHr < -10,
+    case {IsAmerica, IsEurope, IsWestAsia, IsEastAsia} of
+        {true, false, false, false} ->
+            {{_, Month, _}, {_, _, _}} = calendar:local_time(),
+            case Month >= 4 andalso Month =< 10 of %% April to Oct
+                true -> -7;   %% PDT
+                false -> -8   %% PST
+            end;
+        {false, true, false, false} -> 0;  %% UK
+        {false, false, true, false} -> 3;  %% Saudi Arabia
+        {false, false, false, true} -> 8;  %% China
+        {_,_,_,_} -> 
+            ?ERROR("ZoneOffsetSec: ~p, IsAmerica: ~p, IsEuropse: ~p, IsWestAsia: ~p, IsEastAsis: ~p",
+                [ZoneOffsetSec, IsAmerica, IsEurope, IsWestAsia, IsEastAsia]),
+            0  %% UK
+    end.
  
 %% If localtime if within GMT day, use MinToSendToday. If locatime is in the prev day with
 %% respect to GMT day, use MinToSendPrevDay. If localtime is in the next day with respect to
@@ -286,36 +312,58 @@ is_time_ok(CurrentHrGMT, CurrentMinGMT, Phone, ZoneOffset,
     {IsTimeOk, MinToWait, DayAdjustment}.
 
 
--spec wait_and_send_notification(Uid :: uid(), Tag :: binary(), MinToWait :: integer()) -> ok.
-wait_and_send_notification(Uid, Tag, MinToWait) ->
-    case dev_users:is_dev_uid(Uid) of
+-spec wait_and_send_notification(Uid :: uid(), Tag :: binary(), NotificationId :: integer(), NotificationType :: integer(), MinToWait :: integer()) -> ok.
+wait_and_send_notification(Uid, Tag, NotificationId, NotificationType, MinToWait) ->
+    case dev_users:is_dev_uid(Uid) orelse util_uid:get_app_type(Uid) =:= katchup of
         true ->
             timer:apply_after(MinToWait * ?MINUTES_MS, ?MODULE,
-                maybe_send_moment_notification, [Uid, Tag]);
+                maybe_send_moment_notification, [Uid, Tag, NotificationId, NotificationType]);
         false ->
             ?INFO("Not a developer: ~p", [Uid])
     end,
     ok.
 
--spec maybe_send_moment_notification(Uid :: uid(), Tag :: binary()) -> ok.
-maybe_send_moment_notification(Uid, Tag) ->
+-spec maybe_send_moment_notification(Uid :: uid(), Tag :: binary(), NotificationId :: integer(), NotificationType :: integer()) -> ok.
+maybe_send_moment_notification(Uid, Tag, NotificationId, NotificationType) ->
     case model_accounts:mark_moment_notification_sent(Uid, Tag) of
-        true -> send_moment_notification(Uid);
+        true -> send_moment_notification(Uid, NotificationId, NotificationType);
         false -> ?INFO("Moment notification already sent to Uid: ~p", [Uid])
     end.
 
 
 send_moment_notification(Uid) ->
+    send_moment_notification(Uid, 0, 0).
+
+send_moment_notification(Uid, NotificationId, NotificationType) ->
     AppType = util_uid:get_app_type(Uid),
+    Type = get_notification_type(NotificationType),
+    %% TODO: need random prompts
+    Prompt = case Type of
+        prompt_post -> <<"WYD?">>;
+        _ -> <<>>
+    end,
     Packet = #pb_msg{
         id = util_id:new_msg_id(),
         to_uid = Uid,
         type = headline,
         payload = #pb_moment_notification{
-            timestamp = util:now()
+            timestamp = util:now(),
+            notification_id = NotificationId,
+            type = Type,
+            prompt = Prompt
         }
     },
     ejabberd_router:route(Packet),
     ejabberd_hooks:run(send_moment_notification, AppType, [Uid]),
     ok.
+
+get_notification_type(Type) ->
+    case Type of
+        0 -> live_camera;
+        1 -> text_post;
+        2 -> prompt_post;
+        _ ->
+            ?ERROR("Invalid type: ~p", [Type]),
+            live_camera
+    end.
  
