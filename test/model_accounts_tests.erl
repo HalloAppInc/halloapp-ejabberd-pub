@@ -681,6 +681,55 @@ zone_offset_tag_test(_) ->
     ?_assertEqual({ok, [?UID1]},
                    model_accounts:get_zone_offset_tag_uids(?ZONE_OFFSET3))].
 
+set_get_bio_test(_) ->
+    Bio = <<"test bio">>,
+    [
+        ?_assertEqual(undefined, model_accounts:get_bio(?UID1)),
+        ?_assertOk(model_accounts:set_bio(?UID1, Bio)),
+        ?_assertEqual(Bio, model_accounts:get_bio(?UID1))
+    ].
+
+set_get_links_test(_) ->
+    Links = #{snapchat => "snap_name", user_defined => "https://localhost/test"},
+    [
+        ?_assertEqual(undefined, model_accounts:get_links(?UID1)),
+        ?_assertOk(model_accounts:set_links(?UID1, Links)),
+        ?_assertEqual(Links, model_accounts:get_links(?UID1))
+    ].
+
+user_profile_test(_) ->
+    Username = <<"test_username">>,
+    AvatarId = <<"avID">>,
+    Bio = <<"my bio">>,
+    LinkMap = #{snapchat => <<"snap_name">>, user_defined => <<"https://localhost/test">>},
+    Links = [
+        #pb_link{type = snapchat, text = <<"snap_name">>},
+        #pb_link{type = user_defined, text = <<"https://localhost/test">>}
+    ],
+    ExpectedResult = #pb_user_profile{
+        uid = ?UID1,
+        username = Username,
+        name = ?NAME1,
+        avatar_id = AvatarId,
+        follower_status = none,
+        following_status = none,
+        num_mutual_following = 0,
+        bio = Bio,
+        links = sets:from_list(Links)
+    },
+    LinkListToSet = fun
+        (#pb_user_profile{links = LinkList} = UserProfile) ->
+            UserProfile#pb_user_profile{links = sets:from_list(LinkList)}
+    end,
+    [
+        ?_assertOk(model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1)),
+        ?_assert(model_accounts:set_username(?UID1, Username)),
+        ?_assertOk(model_accounts:set_avatar_id(?UID1, AvatarId)),
+        ?_assertOk(model_accounts:set_bio(?UID1, Bio)),
+        ?_assertOk(model_accounts:set_links(?UID1, LinkMap)),
+        ?_assertMatch(ExpectedResult, LinkListToSet(model_accounts:get_user_profiles(?UID2, ?UID1)))
+    ].
+
 api_test_() ->
     [tutil:setup_foreach(fun setup/0, [
         fun create_account/1,
@@ -693,7 +742,8 @@ api_test_() ->
         fun check_account_exists/1,
         fun check_uid_to_delete/1,
         fun voip_and_push_tokens/1,
-        fun username_test/1
+        fun username_test/1,
+        fun user_profile_test/1
     ]),
     tutil:in_parallel(fun setup_accounts/0, fun tutil:cleanup/1, [
         fun get_signup_user_agent/1,
@@ -720,7 +770,9 @@ api_test_() ->
         fun moment_notification_test/1,
         fun rejected_suggestions_test/1,
         fun geo_tag_test/1,
-        fun zone_offset_tag_test/1
+        fun zone_offset_tag_test/1,
+        fun set_get_bio_test/1,
+        fun set_get_links_test/1
     ])].
 
 

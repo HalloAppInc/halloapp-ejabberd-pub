@@ -173,7 +173,11 @@
     search_username_prefix/2,
     get_user_profiles/2,
     add_rejected_suggestions/2,
-    get_all_rejected_suggestions/1
+    get_all_rejected_suggestions/1,
+    set_bio/2,
+    get_bio/1,
+    set_links/2,
+    get_links/1
 ]).
 
 %%====================================================================
@@ -211,6 +215,8 @@
 -define(FIELD_OS_VERSION, <<"osv">>).
 -define(FIELD_USERNAME, <<"un">>).
 -define(FIELD_USERNAME_UID, <<"unu">>).
+-define(FIELD_BIO, <<"bio">>).
+-define(FIELD_LINKS, <<"lnk">>).
 
 %% Field to capture creation of list with inactive uids and their deletion.
 -define(FIELD_INACTIVE_UIDS_STATUS, <<"ius">>).
@@ -495,6 +501,37 @@ delete_username_prefix(Username, PrefixLen) ->
 search_username_prefix(Prefix, Limit) ->
     {ok, Usernames} = q(["ZRANGEBYLEX", username_index_key(Prefix), "-", "+", "LIMIT", 0, Limit]),
     {ok, Usernames}.
+
+
+-spec set_bio(Uid :: uid(), Bio :: binary()) -> ok.
+set_bio(Uid, Bio) ->
+    {ok, _} = q(["HSET", account_key(Uid), ?FIELD_BIO, Bio]),
+    ok.
+
+
+-spec get_bio(Uid :: uid()) -> Bio :: maybe(binary()).
+get_bio(Uid) ->
+    {ok, Res} = q(["HGET", account_key(Uid), ?FIELD_BIO]),
+    util_redis:decode_binary(Res).
+
+
+-spec set_links(Uid :: uid(), Links :: map()) -> ok.
+set_links(Uid, Links) ->
+    JsonLinks = jiffy:encode(Links),
+    {ok, _} = q(["HSET", account_key(Uid), ?FIELD_LINKS, JsonLinks]),
+    ok.
+
+
+-spec get_links(Uid :: uid()) -> Links :: maybe(map()).
+get_links(Uid) ->
+    {ok, Res} = q(["HGET", account_key(Uid), ?FIELD_LINKS]),
+    case util_redis:decode_binary(Res) of
+        undefined -> undefined;
+        BinRes ->
+            {ResListRaw} = jiffy:decode(BinRes),
+            ResList = lists:map(fun({K, V}) -> {util:to_atom(K), V} end, ResListRaw),
+            maps:from_list(ResList)
+    end.
 
 
 -spec get_phone(Uid :: uid()) -> {ok, binary()} | {error, missing}.
@@ -1093,10 +1130,13 @@ get_user_profiles_internal(Ouids, Uid) when is_list(Ouids) ->
     lists:mapfoldl(fun get_user_profiles_internal/2, Uid, Ouids);
 
 get_user_profiles_internal(Ouid, Uid) ->
-    [{ok, Username}, {ok, Name}, {ok, AvatarId}, {ok, IsFollower}, {ok, IsFollowing}] = qmn([
+    [{ok, Username}, {ok, Name}, {ok, AvatarId}, {ok, RawBio}, {ok, LinksJson},
+            {ok, IsFollower}, {ok, IsFollowing}] = qmn([
         ["HGET", account_key(Ouid), ?FIELD_USERNAME],
         ["HGET", account_key(Ouid), ?FIELD_NAME],
         ["HGET", account_key(Ouid), ?FIELD_AVATAR_ID],
+        ["HGET", account_key(Ouid), ?FIELD_BIO],
+        ["HGET", account_key(Ouid), ?FIELD_LINKS],
         ["ZSCORE", model_follow:follower_key(Uid), Ouid],
         ["ZSCORE", model_follow:following_key(Uid), Ouid]
     ]),
@@ -1112,6 +1152,23 @@ get_user_profiles_internal(Ouid, Uid) ->
                       end,
     Following = sets:from_list(model_follow:get_all_following(Uid)),
     OFollowing = sets:from_list(model_follow:get_all_following(Ouid)),
+    Bio = case RawBio of
+        undefined -> <<>>;
+        _ -> RawBio
+    end,
+    Links = case LinksJson of
+        undefined -> [];
+        _ ->
+            {LinksListRaw} = jiffy:decode(LinksJson),
+            lists:map(
+                fun({K, V}) ->
+                    #pb_link{
+                        type = util:to_atom(K),
+                        text = V
+                    }
+                end,
+                LinksListRaw)
+    end,
     UserProfile = #pb_user_profile{
         uid = Ouid,
         username = Username,
@@ -1119,7 +1176,9 @@ get_user_profiles_internal(Ouid, Uid) ->
         avatar_id = AvatarId,
         follower_status = FollowerStatus,
         following_status = FollowingStatus,
-        num_mutual_following = sets:size(sets:intersection(OFollowing, Following))
+        num_mutual_following = sets:size(sets:intersection(OFollowing, Following)),
+        bio = Bio,
+        links = Links
     },
     {UserProfile, Uid}.
 

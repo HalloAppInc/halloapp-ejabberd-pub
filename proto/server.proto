@@ -1056,6 +1056,12 @@ message Iq {
         SearchResponse search_response = 55;
         FollowSuggestionsRequest follow_suggestions_request = 56;
         FollowSuggestionsResponse follow_suggestions_response = 57;
+        SetLinkRequest set_link_request = 58;
+        SetLinkResult set_link_result = 59;
+        SetBioRequest set_bio_request = 60;
+        SetBioResult set_bio_result = 61;
+        UserProfileRequest user_profile_request = 62;
+        UserProfileResult user_profile_result = 63;
     }
     int64 to_uid = 29 [ebin = true];    // only for server use
     int64 from_uid = 30 [ebin = true];    // only for server use
@@ -1748,6 +1754,8 @@ message UserProfile {
     FollowStatus follower_status = 5;  // is uid my follower
     FollowStatus following_status = 6;  // am I following uid
     int32 num_mutual_following = 7;
+    string bio = 8;
+    repeated Link links = 9;
 }
 
 message ProfileUpdate {
@@ -1757,6 +1765,25 @@ message ProfileUpdate {
     }
     Type type = 1;
     UserProfile profile = 2;
+}
+
+message UserProfileRequest {
+    int64 uid = 1 [ebin = true];
+    string username = 2;
+}
+
+message UserProfileResult {
+    enum Result {
+        OK = 0;
+        FAIL = 1;
+    }
+    Result result = 1;
+    enum Reason {
+        UNKNOWN_REASON = 0;
+        NO_USER = 1;
+    }
+    Reason reason = 2;
+    UserProfile profile = 3;
 }
 
 message RelationshipRequest {
@@ -1866,3 +1893,46 @@ message FollowSuggestionsResponse {
   repeated SuggestedProfile suggested_profiles = 2;
 }
 
+message Link {
+    enum Type {
+        USER_DEFINED = 0;
+        TIKTOK = 1;
+        SNAPCHAT = 2;
+        INSTAGRAM = 3;
+    }
+    Type type = 1;
+    string text = 2;
+}
+
+message SetLinkRequest {
+    Link link = 1;
+}
+
+message SetLinkResult {
+    enum Result {
+        OK = 0;
+        FAIL = 1;
+    }
+    Result result = 1;
+    enum Reason {
+        UNKNOWN_REASON = 0;
+    }
+    Reason reason = 2;
+}
+
+message SetBioRequest {
+    string text = 1;
+}
+
+message SetBioResult {
+    enum Result {
+        OK = 0;
+        FAIL = 1;
+    }
+    Result result = 1;
+    enum Reason {
+        UNKNOWN_REASON = 0;
+        TOO_LONG = 1;
+    }
+    Reason reason = 2;
+}
