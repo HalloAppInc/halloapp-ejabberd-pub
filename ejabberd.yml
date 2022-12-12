@@ -228,6 +228,7 @@ modules:
   mod_search: {}
   mod_follow: {}
   mod_follow_suggestions: {}
+  mod_user_profile: {}
 
 ### Local Variables:
 ### mode: yaml
