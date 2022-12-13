@@ -49,6 +49,7 @@ setup() ->
     ejabberd_hooks:start_link(),
     mod_libphonenumber:start(undefined, []),
     mod_katchup_contacts:stop(?SERVER),
+    mod_katchup_contacts:create_contact_options_table(),
     mod_katchup_contacts:start(?SERVER, []),
     tutil:setup([
         {start, stringprep},

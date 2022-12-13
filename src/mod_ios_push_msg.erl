@@ -483,7 +483,7 @@ connect_to_apns(AppType, EndpointType) ->
         retry_timeout => 10000,             %% Time between retries in milliseconds.
         retry_fun => RetryFun
     },
-    ?INFO("AppType: ~s, EndpointType: ~s, Gateway: ~s, Port: ~p", [EndpointType, ApnsGateway, ApnsPort]),
+    ?INFO("AppType: ~s, EndpointType: ~s, Gateway: ~s, Port: ~p", [AppType, EndpointType, ApnsGateway, ApnsPort]),
     case gun:open(ApnsGateway, ApnsPort, Options) of
         {ok, Pid} ->
             Mon = monitor(process, Pid),

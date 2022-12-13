@@ -18,7 +18,8 @@
 -export([
     hash_syncid_to_bucket/1,
     handle_delta_contacts/3,
-    process_iq/1
+    process_iq/1,
+    create_contact_options_table/0
 ]).
 -endif.
 
@@ -45,7 +46,9 @@
 
 start(_Host, _Opts) ->
     ?INFO("start: ~w", [?MODULE]),
-    create_contact_options_table(),
+    %% No need to create the table here as we are currently using the exact same table/info
+    %% as the normal mod_contacts. Uncomment this code if we ever wish to separate the two.
+%%    create_contact_options_table(),
     ok = model_contacts:init(),
     gen_iq_handler:add_iq_handler(ejabberd_local, katchup, pb_contact_list, ?MODULE, process_local_iq),
     ejabberd_hooks:add(remove_user, katchup, ?MODULE, remove_user, 40),
@@ -61,7 +64,8 @@ stop(_Host) ->
     ok.
 
 depends(_Host, _Opts) ->
-    [{mod_aws, hard}].
+    %% dependency on mod_contacts is because the contact options table is created there
+    [{mod_aws, hard}, {mod_contacts, hard}].
 
 mod_options(_Host) ->
     [].
@@ -584,6 +588,7 @@ ets_contact_table_exists() ->
     end.
 
 
+-dialyzer({no_unused, create_contact_options_table/0}).
 create_contact_options_table() ->
     ?INFO("Creating contact_sync table."),
     try
