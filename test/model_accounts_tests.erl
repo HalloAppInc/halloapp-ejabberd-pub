@@ -655,6 +655,7 @@ geo_tag_test(_) ->
     ?_assertEqual([{util:to_binary(Tag2), Time2}, {util:to_binary(Tag1), Time1}], model_accounts:get_all_geo_tags(?UID1)),
     ?_assertEqual(Tag2, model_accounts:get_latest_geo_tag(?UID1))].
 
+%% TODO: this test will start failing whent PST(GMT-8) becomes PDT(GMT-7).
 zone_offset_tag_test(_) ->
     [?_assertEqual({ok, []},
         model_accounts:get_zone_offset_tag_uids(?ZONE_OFFSET1)),

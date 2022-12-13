@@ -483,7 +483,7 @@ update_zone_offset(Key, State) ->
                 true ->
                     case DryRun of
                         true ->
-                            model_accounts:update_zone_offset_tag(Uid, ZoneOffset, undefined),
+                            model_accounts:update_zone_offset_tag2(Uid, ZoneOffset, ZoneOffset),
                             ?INFO("Uid: ~p, updated zone offset : ~p", [Uid, ZoneOffset]);
                         false ->
                             ?INFO("Uid: ~p, will update zone offset : ~p", [Uid, ZoneOffset])

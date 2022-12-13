@@ -162,6 +162,7 @@
     mark_moment_notification_sent/2,
     get_node_list/0,
     scan/3,
+    update_zone_offset_tag2/3,  %% for migration
     update_zone_offset_tag/3,
     get_zone_offset_tag_uids/1,
     delete_zone_offset_tag/2,
@@ -821,8 +822,7 @@ update_lang_counters(Uid, LangId, OldLangId) ->
     ok.
 
 
--spec update_zone_offset_tag(Uid :: binary(), ZoneOffsetSec :: maybe(integer()), OldZoneOffsetSec :: maybe(integer())) -> ok.
-update_zone_offset_tag(Uid, ZoneOffsetSec, OldZoneOffsetSec) when is_integer(ZoneOffsetSec) andalso ZoneOffsetSec =/= OldZoneOffsetSec ->
+update_zone_offset_tag2(Uid, ZoneOffsetSec, OldZoneOffsetSec) when is_integer(ZoneOffsetSec) ->
     HashSlot = util_redis:eredis_hash(binary_to_list(Uid)),
     Slot = HashSlot rem ?NUM_SLOTS,
     ZoneOffsetTag = util:to_binary(mod_moment_notification:get_four_zone_offset_hr(ZoneOffsetSec)),
@@ -835,6 +835,22 @@ update_zone_offset_tag(Uid, ZoneOffsetSec, OldZoneOffsetSec) when is_integer(Zon
             ["SADD", zone_offset_tag_key(Slot, ZoneOffsetTag), Uid]]
     end,
     qp(Commands),
+    ok.
+
+-spec update_zone_offset_tag(Uid :: binary(), ZoneOffsetSec :: maybe(integer()), OldZoneOffsetSec :: maybe(integer())) -> ok.
+update_zone_offset_tag(Uid, ZoneOffsetSec, OldZoneOffsetSec) when is_integer(ZoneOffsetSec) andalso ZoneOffsetSec =/= OldZoneOffsetSec ->
+    HashSlot = util_redis:eredis_hash(binary_to_list(Uid)),
+    Slot = HashSlot rem ?NUM_SLOTS,
+    ZoneOffsetTag = util:to_binary(mod_moment_notification:get_four_zone_offset_hr(ZoneOffsetSec)),
+    Commands = case OldZoneOffsetSec of
+        undefined ->
+            [["SADD", zone_offset_tag_key(Slot, ZoneOffsetTag), Uid]];
+        _ ->
+            OldOffsetTag = util:to_binary(mod_moment_notification:get_four_zone_offset_hr(OldZoneOffsetSec)),
+            [["SREM", zone_offset_tag_key(Slot, OldOffsetTag), Uid],
+            ["SADD", zone_offset_tag_key(Slot, ZoneOffsetTag), Uid]]
+    end,
+    qp(Commands),
     ok;
 update_zone_offset_tag(_Uid, _ZoneOffsetSec, _OldZoneOffsetSec) ->
     ok.
@@ -843,7 +859,7 @@ update_zone_offset_tag(_Uid, _ZoneOffsetSec, _OldZoneOffsetSec) ->
 delete_zone_offset_tag(Uid, ZoneOffsetSec) when is_integer(ZoneOffsetSec) ->
     HashSlot = util_redis:eredis_hash(binary_to_list(Uid)),
     Slot = HashSlot rem ?NUM_SLOTS,
-    ZoneOffsetTag = util:to_binary(ZoneOffsetSec div ?MOMENT_TAG_INTERVAL_SEC),
+    ZoneOffsetTag = util:to_binary(mod_moment_notification:get_four_zone_offset_hr(ZoneOffsetSec)),
     q(["SREM", zone_offset_tag_key(Slot, ZoneOffsetTag), Uid]),
     ok.
  
