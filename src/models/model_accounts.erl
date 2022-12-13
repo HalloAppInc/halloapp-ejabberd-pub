@@ -522,11 +522,11 @@ set_links(Uid, Links) ->
     ok.
 
 
--spec get_links(Uid :: uid()) -> Links :: maybe(map()).
+-spec get_links(Uid :: uid()) -> Links :: map().
 get_links(Uid) ->
     {ok, Res} = q(["HGET", account_key(Uid), ?FIELD_LINKS]),
     case util_redis:decode_binary(Res) of
-        undefined -> undefined;
+        undefined -> #{};
         BinRes ->
             {ResListRaw} = jiffy:decode(BinRes),
             ResList = lists:map(fun({K, V}) -> {util:to_atom(K), V} end, ResListRaw),

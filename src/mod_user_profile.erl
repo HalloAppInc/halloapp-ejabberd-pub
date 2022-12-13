@@ -20,6 +20,9 @@
     process_local_iq/1
 ]).
 
+-define(MAX_BIO_LENGTH, 150).
+-define(VALID_LINK_TYPES, [user_defined, tiktok, snapchat, instagram]).
+
 %%====================================================================
 %% gen_mod API
 %%====================================================================
@@ -44,6 +47,36 @@ mod_options(_Host) ->
 %%====================================================================
 %% IQ handlers
 %%====================================================================
+
+%% SetBioRequest
+process_local_iq(#pb_iq{from_uid = Uid, payload = #pb_set_bio_request{text = Text}} = Iq) ->
+    Ret = case byte_size(Text) >= ?MAX_BIO_LENGTH of
+        true ->
+            #pb_set_bio_result{
+                result = fail,
+                reason = too_long
+            };
+        false ->
+            ok = model_accounts:set_bio(Uid, Text),
+            #pb_set_bio_result{result = ok}
+    end,
+    pb:make_iq_result(Iq, Ret);
+
+
+%% SetLinkRequest
+process_local_iq(#pb_iq{from_uid = Uid,
+        payload = #pb_set_link_request{link = #pb_link{type = BinType, text = Text}}} = Iq) ->
+    Type = util:to_atom(BinType),
+    Ret = case lists:member(Type, ?VALID_LINK_TYPES) of
+        true ->
+            LinkMap = model_accounts:get_links(Uid),
+            ok = model_accounts:set_links(Uid, LinkMap#{Type => Text}),
+            #pb_set_link_result{result = ok};
+        false ->
+            #pb_set_link_result{result = fail, reason = bad_type}
+    end,
+    pb:make_iq_result(Iq, Ret);
+
 
 %% UserProfileRequest for uid
 process_local_iq(#pb_iq{from_uid = Uid,

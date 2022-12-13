@@ -1916,6 +1916,7 @@ message SetLinkResult {
     Result result = 1;
     enum Reason {
         UNKNOWN_REASON = 0;
+        BAD_TYPE = 1;
     }
     Reason reason = 2;
 }

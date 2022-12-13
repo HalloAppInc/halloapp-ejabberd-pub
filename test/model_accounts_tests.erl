@@ -692,7 +692,7 @@ set_get_bio_test(_) ->
 set_get_links_test(_) ->
     Links = #{snapchat => "snap_name", user_defined => "https://localhost/test"},
     [
-        ?_assertEqual(undefined, model_accounts:get_links(?UID1)),
+        ?_assertEqual(#{}, model_accounts:get_links(?UID1)),
         ?_assertOk(model_accounts:set_links(?UID1, Links)),
         ?_assertEqual(Links, model_accounts:get_links(?UID1))
     ].
