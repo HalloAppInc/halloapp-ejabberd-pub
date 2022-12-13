@@ -24,6 +24,7 @@
     send_moment_notification/1,
     maybe_send_moment_notification/4,
     get_four_zone_offset_hr/1,
+    fix_zone_tag_uids/1,
     is_time_ok/7  %% for testing
 ]).
 
@@ -222,6 +223,24 @@ is_client_version_ok(UserAgent) when is_binary(UserAgent) ->
     true;
 is_client_version_ok(_UserAgent) ->
     false.
+
+fix_zone_tag_uids(ZoneTag) ->
+    UidsList = get_zone_tag_uids(ZoneTag),
+    TagOk = lists:foldl(fun(Uid, Acc) ->
+        {ok, PushInfo} = model_accounts:get_push_info(Uid),
+        ZoneOffset = PushInfo#push_info.zone_offset,
+        case ZoneOffset of
+            undefined -> Acc;
+            _ ->
+                Hr = get_four_zone_offset_hr(ZoneOffset),
+                CorrectList = get_zone_tag_uids(Hr),
+                Present = lists:member(Uid, CorrectList),
+                ?INFO("Uid: ~p, new zone tag: ~p, old tag: ~p, present: ~p",  
+                    [Uid, Hr, ZoneTag, Present]),
+                Acc andalso Present
+        end
+    end, true, UidsList),
+    ?INFO("Tag OK: ~p", [TagOk]). 
 
 get_zone_tag_uids(ZoneOffsetDiff) ->
     %% If the tag is < -12 or greater than +14, it can safely be ignored.

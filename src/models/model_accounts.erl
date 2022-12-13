@@ -165,6 +165,7 @@
     update_zone_offset_tag2/3,  %% for migration
     update_zone_offset_tag/3,
     get_zone_offset_tag_uids/1,
+    del_zone_offset/1,
     delete_zone_offset_tag/2,
     is_username_available/1,
     set_username/2,
@@ -874,6 +875,15 @@ get_zone_offset_tag_uids(ZoneOffsetSec) ->
         [],
         lists:seq(0, ?NUM_SLOTS - 1)),
     {ok, ListUids}.
+
+-spec del_zone_offset(ZoneOffsetSec :: integer()) -> ok.
+del_zone_offset(ZoneOffsetSec) ->
+    ZoneOffsetTag = util:to_binary(ZoneOffsetSec div ?MOMENT_TAG_INTERVAL_SEC),
+    lists:foreach(
+        fun(Slot) ->
+            {ok, _} = q(["DEL", zone_offset_tag_key(Slot, ZoneOffsetTag)])
+        end, lists:seq(0, ?NUM_SLOTS - 1)),
+    ok.
 
 -spec remove_android_token(Uid :: uid()) -> ok | {error, missing}.
 remove_android_token(Uid) ->
