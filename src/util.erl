@@ -102,7 +102,8 @@
     is_main_stest/0,
     get_nodes/0,
     get_node/0,
-    index_of/2
+    index_of/2,
+    get_stat_namespace/1
 ]).
 
 
@@ -818,3 +819,27 @@ index_of(_, [], _)  -> undefined;
 index_of(Item, [Item|_], Index) -> Index;
 index_of(Item, [_|Tl], Index) -> index_of(Item, Tl, Index+1).
 
+
+%% Takes an app_type atom, user agent binary, or uid binary
+get_stat_namespace(?HALLOAPP) -> "HA";
+get_stat_namespace(?KATCHUP) -> "KA";
+get_stat_namespace(AppType) when is_atom(AppType) ->
+    ?ERROR("Unexpected AppType: ~p", [AppType]),
+    "HA";
+get_stat_namespace(Bin) when is_binary(Bin) ->
+    case util_uid:looks_like_uid(Bin) of
+        true -> get_stat_namespace(util_uid:get_app_type(Bin));
+        false ->
+            case binary:match(Bin, <<"Katchup">>) of
+                nomatch ->
+                    case binary:match(Bin, <<"HalloApp">>) of
+                        nomatch ->
+                            ?ERROR("Unexpected binary for stat namespace resolution: ~p", [Bin]),
+                            "HA";
+                        _ -> "HA"
+                    end;
+                _ -> "KA"
+            end
+    end;
+get_stat_namespace(A) ->
+    ?ERROR("Unexpected arg: ~p", [A]).

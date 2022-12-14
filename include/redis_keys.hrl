@@ -56,7 +56,9 @@
 -define(CLIENT_VERSION_ALL_KEY, <<"all_client_versions:">>).
 -define(VERSION_KEY, <<"v:">>).
 -define(OS_VERSION_KEY, <<"osv:">>).
+-define(KATCHUP_OS_VERSION_KEY, <<"kosv:">>).
 -define(LANG_KEY, <<"l:">>).
+-define(KATCHUP_LANG_KEY, <<"kl:">>).
 %% To capture creation of inactive uids and start of their deletion.
 -define(INACTIVE_UIDS_GEN_KEY, <<"inactive_uids_gen">>).
 -define(INACTIVE_UIDS_DELETION_KEY, <<"inactive_uids_deletion">>).

@@ -142,6 +142,6 @@ log_delete_account(Account, Reason, Feedback) ->
         feedback => Feedback,
         uid => Uid
     }),
-    stat:count("HA/account", "delete", 1, [{cc, CC}, {platform, Platform}]).
+    stat:count(util:get_stat_namespace(AppType) ++ "/account", "delete", 1, [{cc, CC}, {platform, Platform}]).
 
 

@@ -81,7 +81,7 @@ try_enroll(Phone, AppType, Passcode, CampaignId) ->
     {ok, AttemptId, Timestamp} = model_phone:add_sms_code2(Phone, AppType, Passcode, CampaignId),
     case util:is_monitor_phone(Phone) of
         true -> ok;
-        false -> stat:count("HA/account", "enroll")
+        false -> stat:count(util:get_stat_namespace(AppType) ++ "/account", "enroll")
     end,
     {ok, AttemptId, Timestamp}.
 

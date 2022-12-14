@@ -159,6 +159,17 @@ test_is_main_stest(_) ->
     ].
 
 
+test_get_stat_namespace(_) ->
+    [
+        ?_assertEqual("HA", util:get_stat_namespace(halloapp)),
+        ?_assertEqual("KA", util:get_stat_namespace(katchup)),
+        ?_assertEqual("HA", util:get_stat_namespace(<<"HalloApp/iOS1.2.3">>)),
+        ?_assertEqual("KA", util:get_stat_namespace(<<"Katchup/iOS1.2.3">>)),
+        ?_assertEqual("HA", util:get_stat_namespace(tutil:generate_uid(halloapp))),
+        ?_assertEqual("KA", util:get_stat_namespace(tutil:generate_uid(katchup)))
+    ].
+
+
 do_util_test_() ->
     % Note, this is an unnecessary amount of complexity -- all of these test functions could just end
     % in _test_() and work great. It's just fun to parallelize to go super duper fast
@@ -179,6 +190,7 @@ do_util_test_() ->
         fun test_list_to_map/1,
         fun test_normalize_scores/1,
         fun test_remove_cc_from_langid/1,
-        fun test_is_main_stest/1
+        fun test_is_main_stest/1,
+        fun test_get_stat_namespace/1
     ]).
 

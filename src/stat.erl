@@ -221,8 +221,8 @@ compute_counts_by_version() ->
             CountsByVersion = maps:get(Version, VersionCountsMap, 0),
             Platform = util_ua:get_client_type(Version),
             IsValid = maps:is_key(Version, ValidVersionsMap),
-            stat:gauge("HA/client_version", "all_users", CountsByVersion,
-                    [{version, Version}, {platform, Platform}, {valid, IsValid}])
+            stat:gauge(util:get_stat_namespace(Version) ++ "/client_version", "all_users",
+                CountsByVersion, [{version, Version}, {platform, Platform}, {valid, IsValid}])
         end, AllVersions),
     End = util:now_ms(),
     ?INFO("Counting took ~p ms", [End - Start]),
@@ -232,7 +232,8 @@ compute_counts_by_version() ->
 compute_counts_by_os_version() ->
     ?INFO("OS Version Count start"),
     Start = util:now_ms(),
-    OsVersionsMap = model_accounts:count_os_version_keys(),
+
+    OsVersionsMapHA = model_accounts:count_os_version_keys(halloapp),
     maps:fold(
         fun(Version, Count, Acc) ->
             % ios versions contain a period
@@ -242,7 +243,20 @@ compute_counts_by_os_version() ->
             end,
             stat:gauge("HA/os_version", "all_users", Count, [{version, Version}, {platform, Platform}]),
             Acc
-        end, #{}, OsVersionsMap),
+        end, #{}, OsVersionsMapHA),
+
+    OsVersionsMapKA = model_accounts:count_os_version_keys(katchup),
+    maps:fold(
+        fun(Version, Count, Acc) ->
+            % ios versions contain a period
+            Platform = case lists:member($., binary_to_list(Version)) of
+                true -> ios;
+                false -> android
+            end,
+            stat:gauge("KA/os_version", "all_users", Count, [{version, Version}, {platform, Platform}]),
+            Acc
+        end, #{}, OsVersionsMapKA),
+
     End = util:now_ms(),
     ?INFO("Counting took ~p ms", [End - Start]),
     ok.
@@ -252,12 +266,19 @@ compute_counts_by_langid() ->
     ?INFO("LangId counts start"),
     Start = util:now_ms(),
 
-    LangCountsMap = model_accounts:count_lang_keys(),
-    LangCountsList = maps:to_list(LangCountsMap),
+    LangCountsMapHA = model_accounts:count_lang_keys(halloapp),
+    LangCountsListHA = maps:to_list(LangCountsMapHA),
     lists:foreach(
         fun({LangId, Count}) ->
             stat:gauge("HA/lang_id", "all_users", Count, [{lang_id, LangId}])
-        end, LangCountsList),
+        end, LangCountsListHA),
+
+    LangCountsMapKA = model_accounts:count_lang_keys(katchup),
+    LangCountsListKA = maps:to_list(LangCountsMapKA),
+    lists:foreach(
+        fun({LangId, Count}) ->
+            stat:gauge("KA/lang_id", "all_users", Count, [{lang_id, LangId}])
+        end, LangCountsListKA),
 
     End = util:now_ms(),
     ?INFO("Counting took ~p ms", [End - Start]),

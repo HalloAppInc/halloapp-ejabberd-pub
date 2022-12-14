@@ -48,8 +48,8 @@
 -export([
     account_key/1,
     version_key/1,
-    os_version_key/1,
-    lang_key/1,
+    os_version_key/2,
+    lang_key/2,
     uids_to_delete_key/1
 ]).
 
@@ -137,8 +137,8 @@
     is_phone_traced/1,
     count_version_keys/0,
     cleanup_version_keys/1,
-    count_os_version_keys/0,
-    count_lang_keys/0,
+    count_os_version_keys/1,
+    count_lang_keys/1,
     add_uid_to_delete/1,
     get_uids_to_delete/1,
     count_uids_to_delete/0,
@@ -332,11 +332,12 @@ decrement_version_and_lang_counters(Uid, ClientVersion, LangId) ->
     HashSlot = util_redis:eredis_hash(binary_to_list(Uid)),
     VersionSlot = HashSlot rem ?NUM_VERSION_SLOTS,
     {ok, _} = q(["HINCRBY", version_key(VersionSlot), ClientVersion, -1]),
+    AppType = util_uid:get_app_type(Uid),
     case LangId =/= undefined of
         true ->
             %% Decrement lang counter
             LangSlot = HashSlot rem ?NUM_SLOTS,
-            {ok, _} = q(["HINCRBY", lang_key(LangSlot), LangId, -1]);
+            {ok, _} = q(["HINCRBY", lang_key(LangSlot, AppType), LangId, -1]);
         _ ->
             ok
     end,
@@ -627,14 +628,15 @@ get_signup_user_agent(Uid) ->
 set_client_info(Uid, Version, Device, OsVersion) ->
     Slot = util_redis:eredis_hash(binary_to_list(Uid)),
     NewSlot = Slot rem ?NUM_VERSION_SLOTS,
+    AppType = util_uid:get_app_type(Uid),
     VersionCommands = case get_client_and_os_version(Uid) of
         {ok, OldClient, OldOs} ->
             [["HINCRBY", version_key(NewSlot), OldClient, -1],
-            ["HINCRBY", os_version_key(NewSlot), OldOs, -1]];
+            ["HINCRBY", os_version_key(NewSlot, AppType), OldOs, -1]];
         _ -> []
     end,
     qmn([["HMSET", account_key(Uid), ?FIELD_DEVICE, Device, ?FIELD_OS_VERSION, OsVersion, ?FIELD_CLIENT_VERSION, Version],
-        ["HINCRBY", os_version_key(NewSlot), OsVersion, 1],
+        ["HINCRBY", os_version_key(NewSlot, AppType), OsVersion, 1],
         ["HINCRBY", version_key(NewSlot), Version, 1]] ++ VersionCommands),
     ok.
 
@@ -676,14 +678,15 @@ get_client_version(Uid) ->
 set_device_info(Uid, Device, OsVersion) ->
     Slot = util_redis:eredis_hash(binary_to_list(Uid)),
     NewSlot = Slot rem ?NUM_VERSION_SLOTS,
+    AppType = util_uid:get_app_type(Uid),
     OldVersionCommands = case get_os_version(Uid) of
         {ok, OldVersion} ->
-            [["HINCRBY", os_version_key(NewSlot), OldVersion, -1]];
+            [["HINCRBY", os_version_key(NewSlot, AppType), OldVersion, -1]];
         _ -> []
     end,
     {ok, _} = q(["HMSET", account_key(Uid), ?FIELD_DEVICE, Device, ?FIELD_OS_VERSION, OsVersion]),
     [{ok, _} | _] = qp([
-            ["HINCRBY", os_version_key(NewSlot), OsVersion, 1] | OldVersionCommands]),
+            ["HINCRBY", os_version_key(NewSlot, AppType), OsVersion, 1] | OldVersionCommands]),
     ok.
 
 
@@ -808,15 +811,16 @@ set_voip_token(Uid, VoipToken, TimestampMs, LangId, ZoneOffset) ->
 update_lang_counters(Uid, LangId, OldLangId) ->
     HashSlot = util_redis:eredis_hash(binary_to_list(Uid)),
     LangSlot = HashSlot rem ?NUM_SLOTS,
+    AppType = util_uid:get_app_type(Uid),
     case OldLangId of
         undefined ->
-            [{ok, _}] = qp([["HINCRBY", lang_key(LangSlot), LangId, 1]]),
+            [{ok, _}] = qp([["HINCRBY", lang_key(LangSlot, AppType), LangId, 1]]),
             ok;
         LangId -> ok;
         OldLangId ->
             [{ok, _}, {ok, _}] = qp([
-                    ["HINCRBY", lang_key(LangSlot), LangId, 1],
-                    ["HINCRBY", lang_key(LangSlot), OldLangId, -1]
+                    ["HINCRBY", lang_key(LangSlot, AppType), LangId, 1],
+                    ["HINCRBY", lang_key(LangSlot, AppType), OldLangId, -1]
                 ]),
             ok
     end,
@@ -1276,11 +1280,11 @@ cleanup_version_keys(Versions) ->
     ok.
 
 
--spec count_os_version_keys() -> map().
-count_os_version_keys() ->
+-spec count_os_version_keys(app_type()) -> map().
+count_os_version_keys(AppType) ->
     lists:foldl(
         fun (Slot, Acc) ->
-            {ok, Res} = q(["HGETALL", os_version_key(Slot)]),
+            {ok, Res} = q(["HGETALL", os_version_key(Slot, AppType)]),
             AccountsMap = util:list_to_map(Res),
             util:add_and_merge_maps(Acc, AccountsMap)
         end,
@@ -1288,11 +1292,11 @@ count_os_version_keys() ->
         lists:seq(0, ?NUM_VERSION_SLOTS -1)).
 
 
--spec count_lang_keys() -> map().
-count_lang_keys() ->
+-spec count_lang_keys(AppType :: app_type()) -> map().
+count_lang_keys(AppType) ->
     lists:foldl(
         fun (Slot, Acc) ->
-            {ok, Res} = q(["HGETALL", lang_key(Slot)]),
+            {ok, Res} = q(["HGETALL", lang_key(Slot, AppType)]),
             LangIdMap = util:list_to_map(Res),
             util:add_and_merge_maps(Acc, LangIdMap)
         end,
@@ -1643,13 +1647,19 @@ version_key(Slot) ->
     SlotBinary = integer_to_binary(Slot),
     <<?VERSION_KEY/binary, <<"{">>/binary, SlotBinary/binary, <<"}">>/binary>>.
 
-os_version_key(Slot) ->
+os_version_key(Slot, AppType) ->
     SlotBinary = integer_to_binary(Slot),
-    <<?OS_VERSION_KEY/binary, <<"{">>/binary, SlotBinary/binary, <<"}">>/binary>>.
+    case AppType of
+        ?KATCHUP -> <<?KATCHUP_OS_VERSION_KEY/binary, <<"{">>/binary, SlotBinary/binary, <<"}">>/binary>>;
+        _ -> <<?OS_VERSION_KEY/binary, <<"{">>/binary, SlotBinary/binary, <<"}">>/binary>>
+    end.
 
-lang_key(Slot) ->
+lang_key(Slot, AppType) ->
     SlotBinary = integer_to_binary(Slot),
-    <<?LANG_KEY/binary, <<"{">>/binary, SlotBinary/binary, <<"}">>/binary>>.
+    case AppType of
+        ?KATCHUP -> <<?KATCHUP_LANG_KEY/binary, <<"{">>/binary, SlotBinary/binary, <<"}">>/binary>>;
+        _ -> <<?LANG_KEY/binary, <<"{">>/binary, SlotBinary/binary, <<"}">>/binary>>
+    end.
 
 inactive_uids_mark_key(Key) ->
     <<?TO_DELETE_UIDS_KEY/binary, <<":">>/binary, Key/binary>>.

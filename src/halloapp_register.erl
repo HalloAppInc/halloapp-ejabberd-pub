@@ -286,7 +286,9 @@ process_element(#pb_register_request{request = #pb_hashcash_request{} = Hashcash
     send(State, #pb_register_response{response = HashcashResponse});
 process_element(#pb_register_request{request = #pb_otp_request{} = OtpRequest},
         #{socket := Socket, ip := ClientIP} = State) ->
-    check_and_count(ClientIP, "HA/registration", "request_otp_request", 1, [{protocol, "noise"}]),
+    check_and_count(ClientIP,
+        util:get_stat_namespace(OtpRequest#pb_otp_request.user_agent) ++ "/registration",
+        "request_otp_request", 1, [{protocol, "noise"}]),
     RawPhone = OtpRequest#pb_otp_request.phone,
     MethodBin = util:to_binary(OtpRequest#pb_otp_request.method),
     LangId = OtpRequest#pb_otp_request.lang_id,
@@ -388,8 +390,9 @@ process_element(#pb_register_request{request = #pb_verify_otp_request{} = Verify
             end;
         _ -> "undefined"
     end,
-    check_and_count(ClientIP, "HA/registration", "verify_otp_request", 1, [{protocol, "noise"}]),
-    check_and_count(ClientIP, "HA/registration", "verify_otp_request_by_campaign_id", 1, [{campaign_id, CampaignId}]),
+    StatNamespace = util:get_stat_namespace(UserAgent),
+    check_and_count(ClientIP, StatNamespace ++ "/registration", "verify_otp_request", 1, [{protocol, "noise"}]),
+    check_and_count(ClientIP, StatNamespace ++ "/registration", "verify_otp_request_by_campaign_id", 1, [{campaign_id, CampaignId}]),
     RemoteStaticKey = get_peer_static_key(Socket),
     RequestData = #{
         raw_phone => RawPhone, name => Name, ua => UserAgent, code => Code,
@@ -401,7 +404,8 @@ process_element(#pb_register_request{request = #pb_verify_otp_request{} = Verify
     },
     VerifyOtpResponse = case mod_halloapp_http_api:process_register_request(RequestData) of
         {ok, Result} ->
-            check_and_count(ClientIP, "HA/registration", "verify_otp_success", 1, [{protocol, "noise"}]),
+            check_and_count(ClientIP, util:get_stat_namespace(UserAgent) ++ "/registration",
+                "verify_otp_success", 1, [{protocol, "noise"}]),
             #pb_verify_otp_response{
                 uid = maps:get(uid, Result),
                 phone = maps:get(phone, Result),

@@ -140,10 +140,10 @@ version_key(_) ->
     [?_assertEqual(<<"v:{1}">>, model_accounts:version_key(1))].
 
 os_version_key(_) ->
-    [?_assertEqual(<<"osv:{1}">>, model_accounts:os_version_key(1))].
+    [?_assertEqual(<<"osv:{1}">>, model_accounts:os_version_key(1, ?HALLOAPP))].
 
 lang_key(_) ->
-    [?_assertEqual(<<"l:{1}">>, model_accounts:lang_key(1))].
+    [?_assertEqual(<<"l:{1}">>, model_accounts:lang_key(1, ?HALLOAPP))].
 
 key_test_() ->
     tutil:setup_once(fun setup/0, fun tutil:cleanup/1, [
@@ -259,33 +259,33 @@ get_set_client_version(_) ->
 
 get_set_device_info(_) ->
     ok = model_accounts:set_device_info(?UID1, ?DEVICE, ?OS_VERSION1),
-    [?_assertEqual(1, maps:get(?OS_VERSION1, model_accounts:count_os_version_keys(), 0)),
-    ?_assertEqual(0, maps:get(?OS_VERSION2, model_accounts:count_os_version_keys(), 0)),
+    [?_assertEqual(1, maps:get(?OS_VERSION1, model_accounts:count_os_version_keys(?HALLOAPP), 0)),
+    ?_assertEqual(0, maps:get(?OS_VERSION2, model_accounts:count_os_version_keys(?HALLOAPP), 0)),
     ?_assertOk(model_accounts:set_device_info(?UID1, ?DEVICE, ?OS_VERSION2)),
-    ?_assertEqual(0, maps:get(?OS_VERSION1, model_accounts:count_os_version_keys(), 0)),
-    ?_assertEqual(1, maps:get(?OS_VERSION2, model_accounts:count_os_version_keys(), 0)),
+    ?_assertEqual(0, maps:get(?OS_VERSION1, model_accounts:count_os_version_keys(?HALLOAPP), 0)),
+    ?_assertEqual(1, maps:get(?OS_VERSION2, model_accounts:count_os_version_keys(?HALLOAPP), 0)),
     ?_assertOk(model_accounts:set_device_info(?UID2, ?DEVICE, ?OS_VERSION1)),
-    ?_assertEqual(1, maps:get(?OS_VERSION1, model_accounts:count_os_version_keys(), 0)),
-    ?_assertEqual(1, maps:get(?OS_VERSION2, model_accounts:count_os_version_keys(), 0))].
+    ?_assertEqual(1, maps:get(?OS_VERSION1, model_accounts:count_os_version_keys(?HALLOAPP), 0)),
+    ?_assertEqual(1, maps:get(?OS_VERSION2, model_accounts:count_os_version_keys(?HALLOAPP), 0))].
 
 set_client_info_test() ->
     setup(),
     ok = model_accounts:set_client_info(?UID1, ?CLIENT_VERSION1, ?DEVICE, ?OS_VERSION1),
-    OsVersionCount1 = model_accounts:count_os_version_keys(),
+    OsVersionCount1 = model_accounts:count_os_version_keys(?HALLOAPP),
     ClientVersionCount1 = model_accounts:count_version_keys(),
     ?assertEqual(1, maps:get(?OS_VERSION1, OsVersionCount1, 0)),
     ?assertEqual(0, maps:get(?OS_VERSION2, OsVersionCount1, 0)),
     ?assertEqual(1, maps:get(?CLIENT_VERSION1, ClientVersionCount1, 0)),
     ?assertEqual(0, maps:get(?CLIENT_VERSION2, ClientVersionCount1, 0)),
     ok = model_accounts:set_client_info(?UID1, ?CLIENT_VERSION2, ?DEVICE, ?OS_VERSION2),
-    OsVersionCount2 = model_accounts:count_os_version_keys(),
+    OsVersionCount2 = model_accounts:count_os_version_keys(?HALLOAPP),
     ClientVersionCount2 = model_accounts:count_version_keys(),
     ?assertEqual(0, maps:get(?OS_VERSION1, OsVersionCount2, 0)),
     ?assertEqual(1, maps:get(?OS_VERSION2, OsVersionCount2, 0)),
     ?assertEqual(0, maps:get(?CLIENT_VERSION1, ClientVersionCount2, 0)),
     ?assertEqual(1, maps:get(?CLIENT_VERSION2, ClientVersionCount2, 0)),
     ok = model_accounts:set_client_info(?UID2, ?CLIENT_VERSION2, ?DEVICE, ?OS_VERSION1),
-    OsVersionCount3 = model_accounts:count_os_version_keys(),
+    OsVersionCount3 = model_accounts:count_os_version_keys(?HALLOAPP),
     ClientVersionCount3 = model_accounts:count_version_keys(),
     ?assertEqual(1, maps:get(?OS_VERSION1, OsVersionCount3, 0)),
     ?assertEqual(1, maps:get(?OS_VERSION2, OsVersionCount3, 0)),
@@ -383,20 +383,20 @@ voip_and_push_tokens(_) ->
 
 
 lang_id_count(_) ->
-    [?_assertEqual(0, maps:get(?PUSH_LANG_ID1, model_accounts:count_lang_keys(), 0)),
-    ?_assertEqual(0, maps:get(?PUSH_LANG_ID2, model_accounts:count_lang_keys(), 0)),
+    [?_assertEqual(0, maps:get(?PUSH_LANG_ID1, model_accounts:count_lang_keys(?HALLOAPP), 0)),
+    ?_assertEqual(0, maps:get(?PUSH_LANG_ID2, model_accounts:count_lang_keys(?HALLOAPP), 0)),
     ?_assertOk(model_accounts:set_push_token(?UID1, ?PUSH_TOKEN_OS1,
             ?PUSH_TOKEN1, ?PUSH_TOKEN_TIMESTAMP1, ?PUSH_LANG_ID1)),
-    ?_assertEqual(1, maps:get(?PUSH_LANG_ID1, model_accounts:count_lang_keys(), 0)),
-    ?_assertEqual(0, maps:get(?PUSH_LANG_ID2, model_accounts:count_lang_keys(), 0)),
+    ?_assertEqual(1, maps:get(?PUSH_LANG_ID1, model_accounts:count_lang_keys(?HALLOAPP), 0)),
+    ?_assertEqual(0, maps:get(?PUSH_LANG_ID2, model_accounts:count_lang_keys(?HALLOAPP), 0)),
     ?_assertOk(model_accounts:set_push_token(?UID2, ?PUSH_TOKEN_OS2,
             ?PUSH_TOKEN2, ?PUSH_TOKEN_TIMESTAMP2, ?PUSH_LANG_ID1)),
-    ?_assertEqual(2, maps:get(?PUSH_LANG_ID1, model_accounts:count_lang_keys(), 0)),
-    ?_assertEqual(0, maps:get(?PUSH_LANG_ID2, model_accounts:count_lang_keys(), 0)),
+    ?_assertEqual(2, maps:get(?PUSH_LANG_ID1, model_accounts:count_lang_keys(?HALLOAPP), 0)),
+    ?_assertEqual(0, maps:get(?PUSH_LANG_ID2, model_accounts:count_lang_keys(?HALLOAPP), 0)),
     ?_assertOk(model_accounts:set_push_token(?UID2, ?PUSH_TOKEN_OS2,
             ?PUSH_TOKEN2, ?PUSH_TOKEN_TIMESTAMP2, ?PUSH_LANG_ID2)),
-    ?_assertEqual(1, maps:get(?PUSH_LANG_ID1, model_accounts:count_lang_keys(), 0)),
-    ?_assertEqual(1, maps:get(?PUSH_LANG_ID2, model_accounts:count_lang_keys(), 0))].
+    ?_assertEqual(1, maps:get(?PUSH_LANG_ID1, model_accounts:count_lang_keys(?HALLOAPP), 0)),
+    ?_assertEqual(1, maps:get(?PUSH_LANG_ID2, model_accounts:count_lang_keys(?HALLOAPP), 0))].
 
 
 push_post(_) ->

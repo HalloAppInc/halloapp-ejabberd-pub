@@ -82,14 +82,17 @@ process([<<"registration">>, <<"request_hashcash">>],
 
 process([<<"registration">>, <<"request_otp">>],
         #request{method = 'POST', data = Data, ip = {IP, _Port}, headers = Headers}) ->
-    stat:count("HA/registration", "request_otp_request", 1, [{protocol, "https"}]),
+    UserAgent = util_http:get_user_agent(Headers),
+    stat:count(util:get_stat_namespace(UserAgent) ++ "/registration",
+        "request_otp_request", 1, [{protocol, "https"}]),
     process_otp_request_dummy(Data, IP, Headers);
 
 process([<<"registration">>, <<"register2">>],
         #request{method = 'POST', data = Data, ip = {_IP, _Port}, headers = Headers}) ->
     %now dummied out - always returns fake success
     UserAgent = util_http:get_user_agent(Headers),
-    stat:count("HA/registration", "verify_otp_request", 1, [{protocol, "https"}]),
+    stat:count(util:get_stat_namespace(UserAgent) ++ "/registration",
+        "verify_otp_request", 1, [{protocol, "https"}]),
     Payload = jiffy:decode(Data, [return_maps]),
     RawPhone = maps:get(<<"phone">>, Payload),
     Phone = normalize_by_version(RawPhone, UserAgent),
@@ -167,6 +170,7 @@ process_otp_request_dummy(Data, IP, Headers) ->
     % Hopefully, will help to confuse spammers.
     ?DEBUG("Data:~p", [Data]),
     UserAgent = util_http:get_user_agent(Headers),
+    AppType = util_ua:get_app_type(UserAgent),
     ClientIP = util_http:get_ip(IP, Headers),
     Payload = jiffy:decode(Data, [return_maps]),
     RawPhone = maps:get(<<"phone">>, Payload),
@@ -176,12 +180,12 @@ process_otp_request_dummy(Data, IP, Headers) ->
     HashcashSolutionTimeTakenMs = maps:get(<<"hashcash_solution_time_taken_ms">>, Payload, -1),
     PhoneCC = mod_libphonenumber:get_region_id(RawPhone),
     IPCC = mod_geodb:lookup(ClientIP),
-    ?INFO("raw_phone:~p, ua:~p ip:~s method: ~s, langId: ~p, Phone CC: ~p IP CC: ~p "
+    ?INFO("app type: ~p, raw_phone:~p, ua:~p ip:~s method: ~s, langId: ~p, Phone CC: ~p IP CC: ~p "
         "Hashcash solution: ~p time taken: ~pms payload:~p ",
-        [RawPhone, UserAgent, ClientIP, MethodBin, LangId, PhoneCC, IPCC, HashcashSolution,
+        [AppType, RawPhone, UserAgent, ClientIP, MethodBin, LangId, PhoneCC, IPCC, HashcashSolution,
         HashcashSolutionTimeTakenMs, Payload]),
     Phone = normalize_by_version(RawPhone, UserAgent),
-    return_dropped(Phone, 30, MethodBin).
+    return_dropped(Phone, 30, MethodBin, AppType).
 
 -spec process_hashcash_request(RequestData :: map()) -> {ok, binary()}.
 process_hashcash_request(#{cc := CC, ip := ClientIP}) ->
@@ -316,12 +320,12 @@ process_register_request(#{raw_phone := RawPhone, name := Name, ua := UserAgent,
         signed_phrase := SignedPhraseB64, id_key := IdentityKeyB64, sd_key := SignedKeyB64,
         otp_keys := OneTimeKeysB64, push_payload := PushPayload, raw_data := RawData,
         protocol := Protocol} = RequestData) ->
+    AppType = util_ua:get_app_type(UserAgent),
     try
         RemoteStaticKey = maps:get(remote_static_key, RequestData, undefined),
         CampaignId = maps:get(campaign_id, RequestData, <<"undefined">>),
         check_ua(UserAgent),
         Phone = normalize_by_version(RawPhone, UserAgent),
-        AppType = util_ua:get_app_type(UserAgent),
         check_sms_code(Phone, AppType, ClientIP, Protocol, Code, RemoteStaticKey),
         ok = otp_checker:otp_delivered(Phone, ClientIP, Protocol, RemoteStaticKey),
         LName = check_name(Name),
@@ -350,78 +354,80 @@ process_register_request(#{raw_phone := RawPhone, name := Name, ua := UserAgent,
     catch
         error : bad_user_agent ->
             ?ERROR("register error: bad_user_agent ~p", [RawData]),
-            log_register_error(bad_user_agent),
+            log_register_error(bad_user_agent, AppType),
             {error, bad_user_agent};
         error : invalid_phone_number ->
             ?ERROR("register error: invalid_phone_number ~p", [RawData]),
-            log_register_error(invalid_phone_number),
+            log_register_error(invalid_phone_number, AppType),
             {error, invalid_phone_number};
         error : invalid_country_code ->
             ?ERROR("register error: invalid_country_code ~p", [RawData]),
-            log_register_error(invalid_country_code),
+            log_register_error(invalid_country_code, AppType),
             {error, invalid_country_code};
         error : invalid_length ->
             ?ERROR("register error: invalid_length ~p", [RawData]),
-            log_register_error(invalid_length),
+            log_register_error(invalid_length, AppType),
             {error, invalid_length};
         error : line_type_voip ->
             ?ERROR("register error: line_type_voip ~p", [RawData]),
-            log_register_error(line_type_voip),
+            log_register_error(line_type_voip, AppType),
             {error, line_type_voip};
         error : line_type_fixed ->
             ?ERROR("register error: line_type_fixed ~p", [RawData]),
-            log_register_error(line_type_fixed),
+            log_register_error(line_type_fixed, AppType),
             {error, line_type_fixed};
         error : line_type_other ->
             ?ERROR("register error: line_type_other ~p", [RawData]),
-            log_register_error(line_type_other),
+            log_register_error(line_type_other, AppType),
             {error, line_type_other};
         error : invalid_client_version ->
             ?ERROR("register error: invalid_client_version ~p", [RawData]),
             {error, invalid_client_version};
         error : wrong_sms_code ->
             ?INFO("register error: code mismatch data:~p", [RawData]),
-            log_register_error(wrong_sms_code),
+            log_register_error(wrong_sms_code, AppType),
             {error, wrong_sms_code};
         error : invalid_s_ed_pub ->
             ?ERROR("register error: invalid_s_ed_pub ~p", [RawData]),
-            log_register_error(invalid_s_ed_pub),
+            log_register_error(invalid_s_ed_pub, AppType),
             {error, invalid_s_ed_pub};
         error : invalid_signed_phrase ->
             ?ERROR("register error: invalid_signed_phrase ~p", [RawData]),
-            log_register_error(invalid_signed_phrase),
+            log_register_error(invalid_signed_phrase, AppType),
             {error, invalid_signed_phrase};
         error : unable_to_open_signed_phrase ->
             ?ERROR("register error: unable_to_open_signed_phrase ~p", [RawData]),
-            log_register_error(unable_to_open_signed_phrase),
+            log_register_error(unable_to_open_signed_phrase, AppType),
             {error, unable_to_open_signed_phrase};
         error: {wk_error, Reason} ->
-            log_register_error(wk_error),
+            log_register_error(wk_error, AppType),
             {error, Reason};
         error: invalid_name ->
-            log_register_error(invalid_name),
+            log_register_error(invalid_name, AppType),
             {error, invalid_name};
         error: too_many_sms_code_checks ->
-            log_register_error(too_many_sms_code_checks),
+            log_register_error(too_many_sms_code_checks, AppType),
             %% Specify new error reason in the spec
             {error, wrong_sms_code};
         error : Reason : Stacktrace  ->
-            log_register_error(server_error),
+            log_register_error(server_error, AppType),
             ?ERROR("register error: ~p, ~p", [Reason, Stacktrace]),
             {error, internal_server_error}
     end.
 
 
--spec log_register_error(ErrorType :: atom() | string()) -> ok.
-log_register_error(ErrorType) ->
-    stat:count("HA/account", "register_errors", 1,
+-spec log_register_error(ErrorType :: atom() | string(), AppType :: app_type()) -> ok.
+log_register_error(ErrorType, AppType) ->
+    stat:count(util:get_stat_namespace(AppType) ++ "/account", "register_errors", 1,
         [{error, ErrorType}]),
     ok.
 
--spec return_dropped(Phone :: phone(), RetrySecs :: integer(), Method :: binary()) -> http_response().
-return_dropped(Phone, RetrySecs, Method) ->
+-spec return_dropped(Phone :: phone(), RetrySecs :: integer(), Method :: binary(),
+    AppType :: app_type()) -> http_response().
+return_dropped(Phone, RetrySecs, Method, AppType) ->
     CC = mod_libphonenumber:get_cc(Phone),
-    stat:count("HA/account", "request_otp_errors", 1, [{error, dropped}, {cc, CC}, {method, Method}]),
+    stat:count(util:get_stat_namespace(AppType) ++ "/account", "request_otp_errors", 1,
+        [{error, dropped}, {cc, CC}, {method, Method}]),
     {200, ?HEADER(?CT_JSON),
         jiffy:encode({[
             {phone, Phone},
@@ -437,9 +443,8 @@ log_request_otp_error(ErrorType, Method, RawPhone, UserAgent, ClientIP, Protocol
         <<"voice_call">> -> voice_call;
         _ -> unknown
     end,
-    stat:count("HA/account", "request_otp_errors", 1,
-        [{error, ErrorType}, {method, CleanMethod}]),
-
+    stat:count(util:get_stat_namespace(UserAgent) ++ "/account", "request_otp_errors", 1,
+            [{error, ErrorType}, {method, CleanMethod}]),
     % TODO: this code is duplicated with normalize function
     Phone = mod_libphonenumber:normalized_number(mod_libphonenumber:prepend_plus(RawPhone), <<"US">>),
     Event = #{
@@ -656,12 +661,13 @@ finish_registration_spub(Phone, Name, UserAgent, SPub, CampaignId) ->
     {ok, Phone, Uid}.
 
 log_registration(Phone, Action, UserAgent) ->
+    StatNamespace = util:get_stat_namespace(UserAgent),
     case {Action, util:is_test_number(Phone)} of
         {login, false} ->
-            stat:count("HA/account", "login_by_client_type", 1,
+            stat:count(StatNamespace ++ "account", "login_by_client_type", 1,
                 [{client_type, util_ua:get_client_type(UserAgent)}]);
         {register, false} ->
-            stat:count("HA/account", "registration_by_client_type", 1,
+            stat:count(StatNamespace ++ "account", "registration_by_client_type", 1,
                 [{client_type, util_ua:get_client_type(UserAgent)}]);
         {_, true} ->
             ok

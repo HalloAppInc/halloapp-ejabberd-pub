@@ -235,9 +235,10 @@ log_os_version_counters_run(Key, State) ->
                     ?INFO("Uid: ~p, os version is undefined", [Uid]),
                     ok;
                 {ok, Version} ->
+                    AppType = util_uid:get_app_type(Uid),
                     HashSlot = util_redis:eredis_hash(binary_to_list(Uid)),
                     VersionSlot = HashSlot rem ?NUM_VERSION_SLOTS,
-                    Command = ["HINCRBY", model_accounts:os_version_key(VersionSlot), Version, 1],
+                    Command = ["HINCRBY", model_accounts:os_version_key(VersionSlot, AppType), Version, 1],
                     case DryRun of
                         true ->
                             ?INFO("Uid: ~p, os_version: ~p, Will execute command: ~p",
