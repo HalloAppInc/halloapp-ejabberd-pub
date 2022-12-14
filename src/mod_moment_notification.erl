@@ -378,9 +378,9 @@ send_moment_notification(Uid, NotificationId, NotificationType) ->
 
 get_notification_type(Type) ->
     case Type of
-        0 -> live_camera;
-        1 -> text_post;
-        2 -> prompt_post;
+        1 -> live_camera;
+        2 -> text_post;
+        3 -> prompt_post;
         _ ->
             ?ERROR("Invalid type: ~p", [Type]),
             live_camera
