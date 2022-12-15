@@ -161,7 +161,7 @@ add_verification_success(Phone, AppType, FetchedInfo, AllVerifyInfo) ->
         false ->
             #verification_info{attempt_id = AttemptId, gateway = Gateway} = FetchedInfo,
             ok = model_phone:add_verification_success(Phone, AppType, AttemptId),
-            stat:count("HA/registration", "verify_sms", 1,
+            stat:count(util:get_stat_namespace(AppType) ++ "/registration", "verify_sms", 1,
                 [{gateway, Gateway}, {cc, mod_libphonenumber:get_cc(Phone)}]),
             GatewayAtom = util:to_atom(Gateway),
             ?INFO("Phone: ~s sending feedback to gateway: ~s attemptId: ~s",
@@ -205,13 +205,14 @@ send_otp_to_inviter(Phone, LangId, UserAgent, Method)->
         Method :: method(), CampaignId :: binary()) -> {ok, non_neg_integer(), boolean()} | {error, term()}.
 send_otp(OtpPhone, LangId, Phone, UserAgent, Method, CampaignId) ->
     AppType = util_ua:get_app_type(UserAgent),
+    StatNamespace = util:get_stat_namespace(AppType),
     {ok, OldResponses} = model_phone:get_all_gateway_responses(Phone, AppType),
-    stat:count("HA/registration", "send_otp"),
-    stat:count("HA/registration", "send_otp_by_cc", 1,
+    stat:count(StatNamespace ++ "/registration", "send_otp"),
+    stat:count(StatNamespace ++ "/registration", "send_otp_by_cc", 1,
         [{cc, mod_libphonenumber:get_cc(Phone)}]),
-    stat:count("HA/registration", "send_otp_by_campaign_id", 1,
+    stat:count(StatNamespace ++ "/registration", "send_otp_by_campaign_id", 1,
         [{campaign_id, CampaignId}]),
-    stat:count("HA/registration", "send_otp_by_lang", 1, [{lang_id, util:to_list(LangId)}]),
+    stat:count(StatNamespace ++ "/registration", "send_otp_by_lang", 1, [{lang_id, util:to_list(LangId)}]),
     case send_otp_internal(OtpPhone, Phone, LangId, UserAgent, Method, CampaignId, OldResponses) of
         {ok, SMSResponse} ->
             ?INFO("Response: ~p", [SMSResponse]),
@@ -424,7 +425,7 @@ smart_send_internal(Phone, Code, LangId, UserAgent, CC, CurrentSMSResponse, Gate
         voice_call -> Gateway:send_voice_call(Phone, Code, LangId, UserAgent);
         sms -> Gateway:send_sms(Phone, Code, LangId, UserAgent)
     end,
-    stat:count("HA/registration", "send_otp_by_gateway", 1,
+    stat:count(util:get_stat_namespace(UserAgent) ++ "/registration", "send_otp_by_gateway", 1,
         [{gateway, Gateway}, {method, Method}, {cc, CC}]),
     ?DEBUG("Result: ~p", [Result]),
     case Result of
