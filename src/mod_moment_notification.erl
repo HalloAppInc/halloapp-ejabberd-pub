@@ -26,7 +26,8 @@
     maybe_send_moment_notification/4,
     get_four_zone_offset_hr/1,
     fix_zone_tag_uids/1,
-    is_time_ok/7  %% for testing
+    is_time_ok/7,  %% for testing
+    get_offset_region_by_uid/1
 ]).
 
 %% Hooks
@@ -270,24 +271,18 @@ get_zone_tag_uids(ZoneOffsetDiff) ->
 %% China time for East Asia
 -spec get_four_zone_offset_hr(ZoneOffsetSec :: integer()) -> integer().
 get_four_zone_offset_hr(ZoneOffsetSec) ->
-    ZoneOffsetHr = ZoneOffsetSec / ?HOURS,
-    IsAmerica = ZoneOffsetHr >= -10 andalso ZoneOffsetHr =< -3,
-    IsEurope = ZoneOffsetHr > -3 andalso ZoneOffsetHr < 3,
-    IsWestAsia = ZoneOffsetHr >= 3 andalso ZoneOffsetHr < 8,
-    IsEastAsia = ZoneOffsetHr >= 8 orelse ZoneOffsetHr < -10,
-    case {IsAmerica, IsEurope, IsWestAsia, IsEastAsia} of
-        {true, false, false, false} ->
+    case get_offset_region(ZoneOffsetSec) of
+        america ->
             {{_, Month, _}, {_, _, _}} = calendar:local_time(),
             case Month >= 4 andalso Month =< 10 of %% April to Oct
                 true -> -7;   %% PDT
                 false -> -8   %% PST
             end;
-        {false, true, false, false} -> 0;  %% UK
-        {false, false, true, false} -> 3;  %% Saudi Arabia
-        {false, false, false, true} -> 8;  %% China
-        {_,_,_,_} -> 
-            ?ERROR("ZoneOffsetSec: ~p, IsAmerica: ~p, IsEuropse: ~p, IsWestAsia: ~p, IsEastAsis: ~p",
-                [ZoneOffsetSec, IsAmerica, IsEurope, IsWestAsia, IsEastAsia]),
+        europe -> 0;  %% UK
+        west_asia -> 3;  %% Saudi Arabia
+        east_asia -> 8;  %% China
+        _ ->
+            ?ERROR("ZoneOffsetSec: ~p, Region: ~p", [ZoneOffsetSec, get_offset_region(ZoneOffsetSec)]),
             0  %% UK
     end.
  
@@ -397,4 +392,24 @@ get_notification_type(Type) ->
             ?ERROR("Invalid type: ~p", [Type]),
             live_camera
     end.
- 
+
+get_offset_region(ZoneOffsetSec) ->
+    ZoneOffsetHr = ZoneOffsetSec / ?HOURS,
+    if
+        ZoneOffsetHr >= -10 andalso ZoneOffsetHr =< -3 -> america;
+        ZoneOffsetHr > -3 andalso ZoneOffsetHr < 3 -> europe;
+        ZoneOffsetHr >= 3 andalso ZoneOffsetHr < 8 -> west_asia;
+        ZoneOffsetHr >= 8 orelse ZoneOffsetHr < -10 -> east_asia;
+        true -> undefined
+    end.
+
+-spec get_offset_region_by_uid(Uid :: uid()) -> maybe(america | europe | west_asia | east_asia).
+get_offset_region_by_uid(Uid) ->
+    ZoneOffsetSec = model_accounts:get_zone_offset(Uid),
+    case get_offset_region(ZoneOffsetSec) of
+        undefined ->
+            ?ERROR("ZoneOffsetSec does not fit into region for ~s: ~p", [Uid, ZoneOffsetSec]),
+            undefined;
+        Res -> Res
+    end.
+

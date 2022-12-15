@@ -216,6 +216,8 @@ feed_item_published(Uid, PostOwnerUid, ItemId, ItemType, ItemTag, FeedAudienceTy
     {ok, Phone} = model_accounts:get_phone(Uid),
     CC = mod_libphonenumber:get_cc(Phone),
     IsDev = dev_users:is_dev_uid(Uid),
+    StatNamespace = util:get_stat_namespace(Uid),
+    ZoneOffsetRegion = mod_moment_notification:get_offset_region_by_uid(Uid),
     case ItemType of
         post ->
             ?INFO("post ~s from Uid: ~s CC: ~s IsDev: ~p",[ItemId, Uid, CC, IsDev]),
@@ -228,41 +230,47 @@ feed_item_published(Uid, PostOwnerUid, ItemId, ItemType, ItemTag, FeedAudienceTy
                 _ ->
                     ok
             end,
-            stat:count("HA/feed", "post"),
+            stat:count(StatNamespace ++ "/feed", "post"),
             report_audience_size("feed", "post", CC, FeedAudienceSize),
-            stat:count("HA/feed", "post_by_cc", 1, [{cc, CC}]),
-            stat:count("HA/feed", "post_by_dev", 1, [{is_dev, IsDev}]),
-            stat:count("HA/feed", "post_by_audience_type", 1, [{type, FeedAudienceType}]),
+            stat:count(StatNamespace ++ "/feed", "post_by_cc", 1, [{cc, CC}]),
+            stat:count(StatNamespace ++ "/feed", "post_by_dev", 1, [{is_dev, IsDev}]),
+            stat:count(StatNamespace ++ "/feed", "post_by_audience_type", 1, [{type, FeedAudienceType}]),
 
             %% Add counters for posts by tags.
-            stat:count("HA/feed", "post_by_tag", 1, [{tag, ItemTag}]),
-            stat:count("HA/feed", "post_by_tag_cc", 1, [{cc, CC}, {tag, ItemTag}]),
-            stat:count("HA/feed", "post_by_tag_dev", 1, [{is_dev, IsDev}, {tag, ItemTag}]),
-            stat:count("HA/feed", "post_by_tag_audience_type", 1, [{type, FeedAudienceType}, {tag, ItemTag}]),
+            stat:count(StatNamespace ++ "/feed", "post_by_tag", 1, [{tag, ItemTag}]),
+            stat:count(StatNamespace ++ "/feed", "post_by_tag_cc", 1, [{cc, CC}, {tag, ItemTag}]),
+            stat:count(StatNamespace ++ "/feed", "post_by_tag_dev", 1, [{is_dev, IsDev}, {tag, ItemTag}]),
+            stat:count(StatNamespace ++ "/feed", "post_by_tag_audience_type", 1, [{type, FeedAudienceType}, {tag, ItemTag}]),
+
+            stat:count(StatNamespace ++ "/feed", "zone_offset_region", 1, [{offset_region, ZoneOffsetRegion}]),
+            stat:count(StatNamespace ++ "/feed", "zone_offset_region_by_cc", 1,
+                [{offset_region, ZoneOffsetRegion}, {cc, CC}]),
+            stat:count(StatNamespace ++ "/feed", "zone_offset_region_by_dev", 1,
+                [{offset_region, ZoneOffsetRegion}, {is_dev, IsDev}]),
             ok;
         comment ->
             ?INFO("comment ~s from Uid: ~s CC: ~s IsDev: ~p",[ItemId, Uid, CC, IsDev]),
             ha_events:log_user_event(Uid, comment_published),
             ha_events:log_friend_event(PostOwnerUid, Uid, ItemId, comment_published),
             report_media_counters(comment, MediaCounters),
-            stat:count("HA/feed", "comment"),
+            stat:count(StatNamespace ++ "/feed", "comment"),
             report_audience_size("feed", "comment", CC, FeedAudienceSize),
-            stat:count("HA/feed", "comment_by_cc", 1, [{cc, CC}]),
-            stat:count("HA/feed", "comment_by_dev", 1, [{is_dev, IsDev}]);
+            stat:count(StatNamespace ++ "/feed", "comment_by_cc", 1, [{cc, CC}]),
+            stat:count(StatNamespace ++ "/feed", "comment_by_dev", 1, [{is_dev, IsDev}]);
         comment_reaction ->
             ?INFO("comment_reaction ~s from Uid: ~s CC: ~s IsDev: ~p",[ItemId, Uid, CC, IsDev]),
             ha_events:log_user_event(Uid, comment_reaction_published),
             ha_events:log_friend_event(PostOwnerUid, Uid, ItemId, comment_reaction_published),
-            stat:count("HA/feed", "comment_reaction"),
-            stat:count("HA/feed", "comment_reaction_by_cc", 1, [{cc, CC}]),
-            stat:count("HA/feed", "comment_reaction_by_dev", 1, [{is_dev, IsDev}]);
+            stat:count(StatNamespace ++ "/feed", "comment_reaction"),
+            stat:count(StatNamespace ++ "/feed", "comment_reaction_by_cc", 1, [{cc, CC}]),
+            stat:count(StatNamespace ++ "/feed", "comment_reaction_by_dev", 1, [{is_dev, IsDev}]);
         post_reaction ->
             ?INFO("post_reaction ~s from Uid: ~s CC: ~s IsDev: ~p",[ItemId, Uid, CC, IsDev]),
             ha_events:log_user_event(Uid, post_reaction_published),
             ha_events:log_friend_event(PostOwnerUid, Uid, ItemId, post_reaction_published),
-            stat:count("HA/feed", "post_reaction"),
-            stat:count("HA/feed", "post_reaction_by_cc", 1, [{cc, CC}]),
-            stat:count("HA/feed", "post_reaction_by_dev", 1, [{is_dev, IsDev}]);
+            stat:count(StatNamespace ++ "/feed", "post_reaction"),
+            stat:count(StatNamespace ++ "/feed", "post_reaction_by_cc", 1, [{cc, CC}]),
+            stat:count(StatNamespace ++ "/feed", "post_reaction_by_dev", 1, [{is_dev, IsDev}]);
         _ -> ok
     end,
     ok.
@@ -434,6 +442,7 @@ count_packet(Namespace, _Action, #pb_ack{}) ->
     stat:count(Namespace, "ack");
 count_packet(Namespace, Action, #pb_msg{from_uid = FromUid, to_uid = ToUid, payload = Payload} = Message) ->
     PayloadType = pb:get_payload_type(Message),
+    StatNamespace = util:get_stat_namespace(FromUid),
     stat:count(Namespace, "message", 1, [{payload_type, PayloadType}]),
     case Payload of
         #pb_chat_stanza{chat_type = chat} ->
@@ -480,7 +489,7 @@ count_packet(Namespace, Action, #pb_msg{from_uid = FromUid, to_uid = ToUid, payl
                             ha_events:log_friend_event(ToUid, FromUid, ContentId, im_receive_seen)
                     end;
                 _ ->
-                    stat:count("HA/feed_receipts", Action ++ "_seen"),
+                    stat:count(StatNamespace ++ "/feed_receipts", Action ++ "_seen"),
                     %% TODO (murali@): Doing a lookup for every seen receipt is not great.
                     %% This is okay for now but eventually - we should ask clients to send this info.
                     PostTag = case model_feed:get_post_tag(ContentId) of
@@ -492,12 +501,12 @@ count_packet(Namespace, Action, #pb_msg{from_uid = FromUid, to_uid = ToUid, payl
                             %% FromUid saw post
                             {ok, FromPhone} = model_accounts:get_phone(FromUid),
                             FromCC = mod_libphonenumber:get_cc(FromPhone),
-                            stat:count("HA/feed_receipts", "post_viewed"),
-                            stat:count("HA/feed_receipts", "post_viewed_by_cc", 1, [{cc, FromCC}]),
+                            stat:count(StatNamespace ++ "/feed_receipts", "post_viewed"),
+                            stat:count(StatNamespace ++ "/feed_receipts", "post_viewed_by_cc", 1, [{cc, FromCC}]),
 
                             %% Add seen receipt counters by post_tag.
-                            stat:count("HA/feed_receipts", "post_viewed_by_tag", 1, [{tag, PostTag}]),
-                            stat:count("HA/feed_receipts", "post_viewed_by_tag_cc", 1, [{cc, FromCC}, {tag, PostTag}]),
+                            stat:count(StatNamespace ++ "/feed_receipts", "post_viewed_by_tag", 1, [{tag, PostTag}]),
+                            stat:count(StatNamespace ++ "/feed_receipts", "post_viewed_by_tag_cc", 1, [{cc, FromCC}, {tag, PostTag}]),
                             ha_events:log_user_event(FromUid, post_send_seen),
                             case PostTag =:= moment of
                                 true -> ha_events:log_user_event(FromUid, secret_post_send_seen);
@@ -517,14 +526,14 @@ count_packet(Namespace, Action, #pb_msg{from_uid = FromUid, to_uid = ToUid, payl
             case ThreadId of
                 undefined -> ok;
                 <<"feed">> ->
-                    stat:count("HA/feed_receipts", Action ++ "_screenshot"),
+                    stat:count(StatNamespace ++ "/feed_receipts", Action ++ "_screenshot"),
                     case Action of
                         "send" ->
                             %% FromUid screenshots the post
                             {ok, FromPhone} = model_accounts:get_phone(FromUid),
                             FromCC = mod_libphonenumber:get_cc(FromPhone),
-                            stat:count("HA/feed_receipts", "post_screenshot"),
-                            stat:count("HA/feed_receipts", "post_screenshot_by_cc", 1, [{cc, FromCC}]),
+                            stat:count(StatNamespace ++ "/feed_receipts", "post_screenshot"),
+                            stat:count(StatNamespace ++ "/feed_receipts", "post_screenshot_by_cc", 1, [{cc, FromCC}]),
                             ha_events:log_user_event(FromUid, post_send_screenshot);
                         "receive" ->
                             %% ToUid's post was screenshot

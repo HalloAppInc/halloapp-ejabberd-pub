@@ -116,6 +116,7 @@
     set_push_comment_pref/2,
     get_push_comment_pref/1,
     remove_push_comment_pref/1,
+    get_zone_offset/1,
     presence_subscribe/2,
     presence_unsubscribe/2,
     presence_unsubscribe_all/1,
@@ -968,6 +969,12 @@ get_push_comment_pref(Uid) ->
 remove_push_comment_pref(Uid) ->
     {ok, _Res} = q(["HDEL", account_key(Uid), ?FIELD_PUSH_COMMENT]),
     ok.
+
+
+-spec get_zone_offset(Uid :: uid()) -> maybe(integer()).
+get_zone_offset(Uid) ->
+    {ok, Res} = q(["HGET", account_key(Uid), ?FIELD_ZONE_OFFSET]),
+    util_redis:decode_int(Res).
 
 
 -spec account_exists(Uid :: uid()) -> boolean().
