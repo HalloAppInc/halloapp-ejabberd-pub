@@ -18,6 +18,7 @@
 -export([start/2, stop/1, mod_options/1, depends/2]).
 
 -export([
+    register_user/4,
     schedule/0,
     unschedule/0,
     send_notifications/0,
@@ -39,6 +40,7 @@ start(_Host, _Opts) ->
     ?INFO("start ~w", [?MODULE]),
     ejabberd_hooks:add(reassign_jobs, ?MODULE, reassign_jobs, 10),
     check_and_schedule(),
+    ejabberd_hooks:add(register_user, katchup, ?MODULE, register_user, 50),
     ok.
 
 
@@ -51,6 +53,7 @@ stop(_Host) ->
         false ->
             ok
     end,
+    ejabberd_hooks:delete(register_user, katchup, ?MODULE, register_user, 50),
     ok.
 
 depends(_Host, _Opts) ->
@@ -74,8 +77,8 @@ check_and_schedule() ->
         true ->
             %% Process last two hours again in case notifications were lost
             %% because of server restart.
-            process_moment_tag(util:now(), false),
-            process_moment_tag(util:now() - ?MOMENT_TAG_INTERVAL_SEC, true),
+            process_moment_tag([], util:now(), false),
+            process_moment_tag([], util:now() - ?MOMENT_TAG_INTERVAL_SEC, true),
             schedule();
         false -> ok
     end,
@@ -103,7 +106,13 @@ unschedule() ->
 
 -spec send_notifications() -> ok.
 send_notifications() ->
-    process_moment_tag(util:now(), false),
+    process_moment_tag([], util:now(), false),
+    ok.
+
+-spec register_user(Uid :: binary(), Server :: binary(), Phone :: binary(), CampaignId :: binary()) -> ok.
+register_user(Uid, _Server, _Phone, _CampaignId) ->
+    ?INFO("Uid: ~s", [Uid]),
+    process_moment_tag([Uid], util:now(), false),
     ok.
 
 %%====================================================================
@@ -114,7 +123,7 @@ send_notifications() ->
 %
 % If the local time's hr is greater than the hr of notification, we schedule the notification
 % to be sent after some time. We need to make sure no double notifications are sent.
-process_moment_tag(TodaySecs, IsImmediateNotification) ->
+process_moment_tag(UidsList, TodaySecs, IsImmediateNotification) ->
     YesterdaySecs = (TodaySecs - ?DAYS),
     TomorrowSecs = (TodaySecs + ?DAYS),
     {{_,_,Today}, {CurrentHrGMT, CurrentMinGMT,_}} = 
@@ -174,11 +183,14 @@ process_moment_tag(TodaySecs, IsImmediateNotification) ->
     TomorrowOffsetHr = TomorrowHr - CurrentHrGMT + 24,
     ?INFO("Today's offset: ~p, Yesterday's offset: ~p, Tomorrow's offset: ~p",
         [TodayOffsetHr, YesterdayOffsetHr, TomorrowOffsetHr]),
-    TodaysList = get_zone_tag_uids(TodayOffsetHr),
-    YesterdayList = get_zone_tag_uids(YesterdayOffsetHr),
-    TomorrowList = get_zone_tag_uids(TomorrowOffsetHr),
-    List = lists:flatten([TodaysList, YesterdayList, TomorrowList]),
-
+    List = case UidsList of
+        [] ->
+            TodaysList = get_zone_tag_uids(TodayOffsetHr),
+            YesterdayList = get_zone_tag_uids(YesterdayOffsetHr),
+            TomorrowList = get_zone_tag_uids(TomorrowOffsetHr),
+            lists:flatten([TodaysList, YesterdayList, TomorrowList]);
+        _ -> UidsList
+    end,
     Phones = model_accounts:get_phones(List),
     UidPhones = lists:zip(List, Phones),
     Processed =
