@@ -607,15 +607,27 @@ get_threshold(BackupName) ->
 check_backup_threshold(_RedisId, _BackupName, Size, SizeThreshold) when Size > SizeThreshold ->
     ok;
 check_backup_threshold(RedisId, BackupName, Size, SizeThreshold) ->
-    ?ERROR("[~p] Backup ~p is only ~p bytes, need to have ~p bytes",
-            [RedisId, BackupName, Size, SizeThreshold]),
-    RedisIdBin = util:to_binary(RedisId),
-    Msg2 = <<RedisIdBin/binary, "'s backup ",
-        (util:to_binary(BackupName))/binary,
-        " is only ", (util:to_binary(Size))/binary,
-        " bytes. Need to have atleast ",
-        (util:to_binary(SizeThreshold))/binary, " bytes">>,
-    alerts:send_alert(<<"Backup very small">>, RedisIdBin, <<"critical">>, Msg2),
+    {{Year, Month, Day}, {_, _, _}} = calendar:universal_time(),
+    %% Check only backups that were done today. AWS's object retention policy that does not delete
+    %% all the objects at the same time causes false positive otherwise.
+    TodayStr = util:join_strings([
+        integer_to_list(Year),
+        binary_to_list(iolist_to_binary(io_lib:format("~2..0w", [Month]))),
+        binary_to_list(iolist_to_binary(io_lib:format("~2..0w", [Day])))
+    ], "-"),
+    case re:run(BackupName, TodayStr) of
+        nomatch -> ok;
+        {match, _} ->
+            ?ERROR("[~p] Backup ~p is only ~p bytes, need to have ~p bytes",
+                [RedisId, BackupName, Size, SizeThreshold]),
+            RedisIdBin = util:to_binary(RedisId),
+            Msg2 = <<RedisIdBin/binary, "'s backup ",
+                (util:to_binary(BackupName))/binary,
+                " is only ", (util:to_binary(Size))/binary,
+                " bytes. Need to have atleast ",
+                (util:to_binary(SizeThreshold))/binary, " bytes">>,
+            alerts:send_alert(<<"Backup very small">>, RedisIdBin, <<"critical">>, Msg2)
+    end,
     ok.
 
 %%%=============================================================================
