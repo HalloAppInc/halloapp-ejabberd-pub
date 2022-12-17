@@ -442,7 +442,6 @@ count_packet(Namespace, _Action, #pb_ack{}) ->
     stat:count(Namespace, "ack");
 count_packet(Namespace, Action, #pb_msg{from_uid = FromUid, to_uid = ToUid, payload = Payload} = Message) ->
     PayloadType = pb:get_payload_type(Message),
-    StatNamespace = util:get_stat_namespace(FromUid),
     stat:count(Namespace, "message", 1, [{payload_type, PayloadType}]),
     case Payload of
         #pb_chat_stanza{chat_type = chat} ->
@@ -489,6 +488,7 @@ count_packet(Namespace, Action, #pb_msg{from_uid = FromUid, to_uid = ToUid, payl
                             ha_events:log_friend_event(ToUid, FromUid, ContentId, im_receive_seen)
                     end;
                 _ ->
+                    StatNamespace = util:get_stat_namespace(FromUid),
                     stat:count(StatNamespace ++ "/feed_receipts", Action ++ "_seen"),
                     %% TODO (murali@): Doing a lookup for every seen receipt is not great.
                     %% This is okay for now but eventually - we should ask clients to send this info.
@@ -526,6 +526,7 @@ count_packet(Namespace, Action, #pb_msg{from_uid = FromUid, to_uid = ToUid, payl
             case ThreadId of
                 undefined -> ok;
                 <<"feed">> ->
+                    StatNamespace = util:get_stat_namespace(FromUid),
                     stat:count(StatNamespace ++ "/feed_receipts", Action ++ "_screenshot"),
                     case Action of
                         "send" ->
