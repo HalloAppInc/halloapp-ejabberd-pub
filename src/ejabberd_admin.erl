@@ -52,9 +52,11 @@
     add_phone_trace/1,
     remove_phone_trace/1,
     uid_info/1,
+    uid_info_short/1,
     uid_info_with_all_contacts/1,
-    phone_info/1,
-    phone_info_with_all_contacts/1,
+    phone_info/2,
+    phone_info_short/2,
+    phone_info_with_all_contacts/2,
     group_info/1,
     session_info/1,
     spub_info/1,
@@ -272,6 +274,12 @@ get_commands_spec() ->
         args_desc = ["Account UID"],
         args_example = [<<"1000000024384563984">>],
         args=[{uid, binary}], result = {res, rescode}},
+    #ejabberd_commands{name = uid_info_short, tags = [server],
+        desc = "Get information associated with a user account",
+        module = ?MODULE, function = uid_info_short,
+        args_desc = ["Account UID"],
+        args_example = [<<"1000000024384563984">>],
+        args=[{uid, binary}], result = {res, rescode}},
     #ejabberd_commands{name = uid_info_with_all_contacts, tags = [server],
         desc = "Get information associated with a user account",
         module = ?MODULE, function = uid_info_with_all_contacts,
@@ -281,15 +289,21 @@ get_commands_spec() ->
     #ejabberd_commands{name = phone_info, tags = [server],
         desc = "Get information associated with a phone number",
         module = ?MODULE, function = phone_info,
-        args_desc = ["Phone number"],
-        args_example = [<<"12065555586">>],
-        args=[{phone, binary}], result = {res, rescode}},
+        args_desc = ["Phone number", "AppType"],
+        args_example = [<<"12065555586">>, halloapp],
+        args=[{phone, binary}, {app_type, string}], result = {res, rescode}},
+    #ejabberd_commands{name = phone_info_short, tags = [server],
+        desc = "Get information associated with a phone number",
+        module = ?MODULE, function = phone_info_short,
+        args_desc = ["Phone number", "AppType"],
+        args_example = [<<"12065555586">>, halloapp],
+        args=[{phone, binary}, {app_type, string}], result = {res, rescode}},
     #ejabberd_commands{name = phone_info_with_all_contacts, tags = [server],
         desc = "Get information associated with a phone number",
         module = ?MODULE, function = phone_info_with_all_contacts,
-        args_desc = ["Phone number"],
-        args_example = [<<"12065555586">>],
-        args=[{phone, binary}], result = {res, rescode}},
+        args_desc = ["Phone number", "AppType"],
+        args_example = [<<"12065555586">>, halloapp],
+        args=[{phone, binary}, {app_type, string}], result = {res, rescode}},
     #ejabberd_commands{name = send_invite, tags = [server],
         desc = "Send an invite",
         module = ?MODULE, function = send_invite,
@@ -756,6 +770,9 @@ format_contact_list(Uid) ->
 uid_info_with_all_contacts(Uid) ->
     uid_info(Uid, [show_all_contacts]).
 
+uid_info_short(Uid) ->
+    uid_info(Uid, [short]).
+
 uid_info(Uid) ->
     uid_info(Uid, []).
 
@@ -787,45 +804,38 @@ uid_info(Uid, Options) ->
                         [Acc#account.device, Acc#account.os_version, Acc#account.client_version])
             end;
         true ->
-            {ok, #account{phone = Phone, name = Name, signup_user_agent = UserAgent,
-                creation_ts_ms = CreationTs, last_activity_ts_ms = LastActivityTs,
-                activity_status = ActivityStatus} = Account} = model_accounts:get_account(Uid),
-            LastConnectionTime = model_accounts:get_last_connection_time(Uid),
-            {CreationDate, CreationTime} = util:ms_to_datetime_string(CreationTs),
-            {LastActiveDate, LastActiveTime} = util:ms_to_datetime_string(LastActivityTs),
-            {LastConnDate, LastConnTime} = util:ms_to_datetime_string(LastConnectionTime),
-            ?INFO("Uid: ~s, Name: ~s, Phone: ~s~n", [Uid, Name, Phone]),
-            io:format("Uid: ~s~nName: ~s~nPhone: ~s~n", [Uid, Name, Phone]),
-            io:format("Account created on ~s at ~s ua: ~s~n",
-                [CreationDate, CreationTime, UserAgent]),
-            io:format("Last activity on ~s at ~s and current status is ~s~n",
-                [LastActiveDate, LastActiveTime, ActivityStatus]),
-            io:format("Last connection on ~s at ~s~n", [LastConnDate, LastConnTime]),
-            io:format("Current Version: ~s Lang: ~s~n", [Account#account.client_version, Account#account.lang_id]),
+            case util_uid:get_app_type(Uid) of
+                ?KATCHUP -> uid_info_katchup(Uid, Options);
+                ?HALLOAPP -> uid_info_halloapp(Uid, Options);
+                _ -> io:format("Uid cannot be resolved to an AppType: ~p", [Uid])
+            end
+    end.
 
-            {ok, PushInfo} = model_accounts:get_push_info(Uid),
-             #push_info{os = Os,
-                token = Token,
-                voip_token = VoipToken,
-                huawei_token = HuaweiToken} = PushInfo,
-            TokenPrint = case Token of
-                <<TokenHead:8/binary, _/binary>> -> TokenHead;
-                _ -> Token
-            end,
-            VoipTokenPrint = case VoipToken of
-                <<VoipTokenHead:8/binary, _/binary>> -> VoipTokenHead;
-                _ -> VoipToken
-            end,
-            HuaweiTokenPrint = case HuaweiToken of
-                <<HuaweiTokenHead:8/binary, _/binary>> -> HuaweiTokenHead;
-                _ -> HuaweiToken
-            end,
-            io:format("TokenInfo, OS: ~s, TokenHead: ~s, VoipTokenHead: ~s, HuaweiTokenHead: ~s~n",
-                    [Os, TokenPrint, VoipTokenPrint, HuaweiTokenPrint]),
+uid_info_halloapp(Uid, Options) ->
+    {ok, #account{phone = Phone, name = Name, signup_user_agent = UserAgent,
+        creation_ts_ms = CreationTs, last_activity_ts_ms = LastActivityTs,
+        activity_status = ActivityStatus} = Account} = model_accounts:get_account(Uid),
+    LastConnectionTime = model_accounts:get_last_connection_time(Uid),
+    {CreationDate, CreationTime} = util:ms_to_datetime_string(CreationTs),
+    {LastActiveDate, LastActiveTime} = util:ms_to_datetime_string(LastActivityTs),
+    {LastConnDate, LastConnTime} = util:ms_to_datetime_string(LastConnectionTime),
+    ?INFO("Uid: ~s, Name: ~s, Phone: ~s~n", [Uid, Name, Phone]),
+    io:format("Uid: ~s~nName: ~s~nPhone: ~s~n", [Uid, Name, Phone]),
+    io:format("Account created on ~s at ~s ua: ~s~n",
+        [CreationDate, CreationTime, UserAgent]),
+    io:format("Last activity on ~s at ~s and current status is ~s~n",
+        [LastActiveDate, LastActiveTime, ActivityStatus]),
+    io:format("Last connection on ~s at ~s~n", [LastConnDate, LastConnTime]),
+    io:format("Current Version: ~s Lang: ~s~n", [Account#account.client_version, Account#account.lang_id]),
 
-            Tags = model_accounts:get_all_geo_tags(Uid),
-            io:format("GeoTags: ~p", [Tags]),
+    print_push_token_info(Uid),
 
+    Tags = model_accounts:get_all_geo_tags(Uid),
+    io:format("GeoTags: ~p~n", [Tags]),
+
+    case lists:member(short, Options) of
+        true -> ok;
+        false ->
             {ok, ContactList, NumFriends} = format_contact_list(Uid),
             ContactList2 = case lists:member(show_all_contacts, Options) of
                 true -> ContactList;
@@ -843,35 +853,123 @@ uid_info(Uid, Options) ->
                 _ -> lists:max(maps:values(model_groups:get_group_size(Gids)))
             end,
             io:format("Group list (~p, max membership: ~p):~n", [length(Gids), GidMaxSize]),
-            lists:foreach(fun(Gid) ->
-                {GName, GSize} = case (model_groups:get_group_info(Gid)) of
-                    #group_info{} = G -> {G#group_info.name, model_groups:get_group_size(Gid)};
-                    _  -> {undefined, undefined}
+            lists:foreach(
+                fun(Gid) ->
+                    {GName, GSize} = case (model_groups:get_group_info(Gid)) of
+                        #group_info{} = G -> {G#group_info.name, model_groups:get_group_size(Gid)};
+                        _  -> {undefined, undefined}
+                        end,
+                    io:format("   ~s ~p (~s)~n", [GName, GSize, Gid])
                 end,
-                io:format("   ~s ~p (~s)~n", [GName, GSize, Gid])
-            end, Gids)
+                Gids)
     end,
     ok.
 
 
-phone_info_with_all_contacts(Phone) ->
-    phone_info(Phone, [show_all_contacts]).
+uid_info_katchup(Uid, Options) ->
+    {ok, #account{phone = Phone, name = Name, signup_user_agent = UserAgent,
+        creation_ts_ms = CreationTs, last_activity_ts_ms = LastActivityTs,
+        activity_status = ActivityStatus, zone_offset = ZoneOffset,
+        username = Username} = Account} = model_accounts:get_account(Uid),
+    LastConnectionTime = model_accounts:get_last_connection_time(Uid),
+    {CreationDate, CreationTime} = util:ms_to_datetime_string(CreationTs),
+    {LastActiveDate, LastActiveTime} = util:ms_to_datetime_string(LastActivityTs),
+    {LastConnDate, LastConnTime} = util:ms_to_datetime_string(LastConnectionTime),
+    ?INFO("Uid: ~s, Name: ~s, Phone: ~s~n", [Uid, Name, Phone]),
+    io:format("Uid: ~s~nUsername: ~s~nName: ~s~nPhone: ~s~n", [Uid, Username, Name, Phone]),
+    io:format("Account created on ~s at ~s ua: ~s~n",
+        [CreationDate, CreationTime, UserAgent]),
+    io:format("Last activity on ~s at ~s and current status is ~s~n",
+        [LastActiveDate, LastActiveTime, ActivityStatus]),
+    io:format("Last connection on ~s at ~s~n", [LastConnDate, LastConnTime]),
+    io:format("Current Version: ~s Lang: ~s~n", [Account#account.client_version, Account#account.lang_id]),
 
-phone_info(Phone) ->
-    phone_info(Phone, []).
+    print_push_token_info(Uid),
 
-phone_info(Phone, Options) ->
-    case model_phone:get_uid(Phone, halloapp) of
-        {ok, undefined} ->
-            io:format("No halloapp account associated with phone: ~s~n", [Phone]),
-            invite_info(Phone);
-        {ok, Uid} -> uid_info(Uid, Options)
+    Tags = model_accounts:get_all_geo_tags(Uid),
+    io:format("ZoneOffset = ~p GeoTags: ~p~n", [ZoneOffset, Tags]),
+
+    case lists:member(short, Options) of
+        true -> ok;
+        false ->
+            {ok, ContactsList} = model_contacts:get_contacts(Uid),
+            Contacts = sets:from_list(ContactsList),
+            Followers = sets:from_list(model_follow:get_all_followers(Uid)),
+            Following = sets:from_list(model_follow:get_all_following(Uid)),
+            ConnectedContacts = sets:union(sets:intersection(Contacts, Followers), sets:intersection(Contacts, Following)),
+            Mutual = sets:intersection(Following, Followers),
+            List = case lists:member(show_all_contacts, Options) of
+                true -> sets:union([Contacts, Following, Followers]);
+                false -> sets:union(Following, Followers)
+            end,
+            io:format("Relationship List: ~p followers, ~p following, ~p mutual, ~p contacts, ~p contacts following/follower~n",
+                [sets:size(Followers), sets:size(Following), sets:size(Mutual), sets:size(Contacts), sets:size(ConnectedContacts)]),
+            lists:foreach(
+                fun(Buid) ->
+                    IsContact = sets:is_element(Buid, Contacts),
+                    IsFollower = sets:is_element(Buid, Followers),
+                    IsFollowing = sets:is_element(Buid, Following),
+                    FollowStatus = case {IsFollower, IsFollowing} of
+                        {true, true} -> "mutual";
+                        {true, false} -> "follower";
+                        {false, true} -> "following";
+                        {false, false} -> "none"
+                    end,
+                    FinalStatus = case IsContact of
+                        true -> FollowStatus ++ " + contact";
+                        _ -> FollowStatus
+                    end,
+                    io:format("~s    ~s~n", [Buid, FinalStatus])
+                end,
+                sets:to_list(List))
     end,
-    case model_phone:get_uid(Phone, katchup) of
-        {ok, undefined} ->
-            io:format("No katchup account associated with phone: ~s~n", [Phone]),
-            invite_info(Phone);
-        {ok, Uid2} -> uid_info(Uid2, Options)
+    ok.
+
+print_push_token_info(Uid) ->
+    {ok, PushInfo} = model_accounts:get_push_info(Uid),
+    #push_info{os = Os,
+        token = Token,
+        voip_token = VoipToken,
+        huawei_token = HuaweiToken} = PushInfo,
+    TokenPrint = case Token of
+                     <<TokenHead:8/binary, _/binary>> -> TokenHead;
+                     _ -> Token
+                 end,
+    VoipTokenPrint = case VoipToken of
+                         <<VoipTokenHead:8/binary, _/binary>> -> VoipTokenHead;
+                         _ -> VoipToken
+                     end,
+    HuaweiTokenPrint = case HuaweiToken of
+                           <<HuaweiTokenHead:8/binary, _/binary>> -> HuaweiTokenHead;
+                           _ -> HuaweiToken
+                       end,
+    io:format("TokenInfo, OS: ~s, TokenHead: ~s, VoipTokenHead: ~s, HuaweiTokenHead: ~s~n",
+        [Os, TokenPrint, VoipTokenPrint, HuaweiTokenPrint]).
+
+
+phone_info_with_all_contacts(Phone, AppType) ->
+    phone_info(Phone, AppType, [show_all_contacts]).
+
+phone_info_short(Phone, AppType) ->
+    phone_info(Phone, AppType, [short]).
+
+phone_info(Phone, AppType) ->
+    phone_info(Phone, AppType, []).
+
+phone_info(Phone, AppTypeStr, Options) ->
+    AppType = util:to_atom(AppTypeStr),
+    case AppType of
+        all ->
+            phone_info(Phone, ?HALLOAPP, Options),
+            io:format("------------------------------------------------------------~n"),
+            phone_info(Phone, ?KATCHUP, Options);
+        _ ->
+            case model_phone:get_uid(Phone, AppType) of
+                {ok, undefined} ->
+                    io:format("No ~s account associated with phone: ~s~n", [AppType, Phone]),
+                    invite_info(Phone);
+                {ok, Uid2} -> uid_info(Uid2, Options)
+            end
     end,
     ok.
 
