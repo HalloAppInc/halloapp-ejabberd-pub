@@ -420,9 +420,9 @@ get_commands_spec() ->
     #ejabberd_commands{name = send_moment_notification, tags = [server],
         desc = "Send Moment Notification",
         module = ?MODULE, function = send_moment_notification,
-        args_desc = ["Phone number"],
-        args_example = [<<"12065555586">>],
-        args=[{phone, binary}], result = {res, rescode}},
+        args_desc = ["Phone number", "AppType"],
+        args_example = [<<"12065555586">>, halloapp],
+        args=[{phone, binary}, {app_type, string}], result = {res, rescode}},
      #ejabberd_commands{name = get_invite_string, tags = [server],
         desc = "Get invite string from its hash ID",
         module = mod_invites, function = lookup_invite_string,
@@ -1118,7 +1118,18 @@ send_moment_notification(PhoneRaw) ->
     send_moment_notification(PhoneRaw, halloapp).
 
 
-send_moment_notification(PhoneRaw, AppType) ->
+send_moment_notification(PhoneRaw, AppTypeStr) ->
+    AppType = util:to_atom(AppTypeStr),
+    case AppType of
+        all ->
+            send_moment_notification_internal(PhoneRaw, ?HALLOAPP),
+            io:format("------------------------------------------------------------~n"),
+            send_moment_notification_internal(PhoneRaw, ?KATCHUP);
+        _ ->
+            send_moment_notification_internal(PhoneRaw, AppType)
+    end.
+
+send_moment_notification_internal(PhoneRaw, AppType) ->
     ?INFO("Admin requesting moment notification for ~p", [PhoneRaw]),
     Phone = mod_libphonenumber:prepend_plus(PhoneRaw),
     case mod_libphonenumber:normalized_number(Phone, <<"US">>) of
