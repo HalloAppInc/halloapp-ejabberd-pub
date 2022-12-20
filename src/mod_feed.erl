@@ -200,7 +200,7 @@ process_local_iq(#pb_iq{from_uid = Uid, payload = #pb_public_feed_request{cursor
     ?INFO("Public feed request: Uid ~s, GpsLocation ~p, Cursor ~p", [Uid, GpsLocation, Cursor]),
     try
         %% Get geotag from GeoLocation, add it to user account if it exists
-        NewTag = mod_location:get_geo_tag(Uid, GpsLocation),
+        NewTag = mod_location:get_geo_tag(Uid, {GpsLocation#pb_gps_location.latitude, GpsLocation#pb_gps_location.longitude}),
         case NewTag of
             undefined -> ok;
             _ ->
