@@ -229,6 +229,7 @@ modules:
   mod_follow: {}
   mod_follow_suggestions: {}
   mod_user_profile: {}
+  mod_prompts: {}
 
 ### Local Variables:
 ### mode: yaml

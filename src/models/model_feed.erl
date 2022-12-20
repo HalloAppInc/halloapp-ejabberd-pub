@@ -20,6 +20,7 @@
 -include("logger.hrl").
 -include("redis_keys.hrl").
 -include("feed.hrl").
+-include("moments.hrl").
 
 -ifdef(TEST).
 -export([
@@ -67,7 +68,7 @@
     mark_psa_tag_done/1,
     del_psa_tag_done/1,
     get_moment_time_to_send/2,
-    set_moment_time_to_send/4,
+    set_moment_time_to_send/5,
     del_moment_time_to_send/1,
     is_moment_tag_done/1,
     mark_moment_tag_done/1,
@@ -109,6 +110,7 @@
 -define(FIELD_TIME_TAKEN, <<"tt">>).
 -define(FIELD_MOMENT_NOTIFICATION_ID, <<"nfi">>).
 -define(FIELD_MOMENT_NOTIFICATION_TYPE, <<"nft">>).
+-define(FIELD_MOMENT_NOTIFICATION_PROMPT, <<"nfp">>).
 
 
 -spec publish_post(PostId :: binary(), Uid :: uid(), Payload :: binary(), PostTag :: post_tag(),
@@ -658,26 +660,40 @@ del_psa_tag_done(PSATag) ->
     {ok, Value} = q(["HDEL", psa_tag_key(PSATag), ?FIELD_PSA_TAG_DONE]),
     Value =:= <<"1">>.
 
--spec get_moment_time_to_send(Tag :: integer(), DateTimeSecs :: integer()) -> {integer(), integer(), integer()}.
+-spec get_moment_time_to_send(Tag :: integer(), DateTimeSecs :: integer()) -> {integer(), integer(), moment_type(), binary()}.
 get_moment_time_to_send(Tag, DateTimeSecs) ->
-    [{ok, Payload1}, {ok, Payload2}, {ok, Payload3}] =
+    [{ok, Payload1}, {ok, Payload2}, {ok, Payload3}, {ok, Payload4}] =
         qp([["GET", moment_time_to_send_key(Tag)],
             ["HGET", moment_time_to_send_key2(Tag), ?FIELD_MOMENT_NOTIFICATION_ID],
-            ["HGET", moment_time_to_send_key2(Tag), ?FIELD_MOMENT_NOTIFICATION_TYPE]]),
+            ["HGET", moment_time_to_send_key2(Tag), ?FIELD_MOMENT_NOTIFICATION_TYPE],
+            ["HGET", moment_time_to_send_key2(Tag), ?FIELD_MOMENT_NOTIFICATION_PROMPT]]),
     case Payload1 of
         undefined ->
             Time = generate_notification_time(DateTimeSecs),
-            %% NotificationType
-            Type = rand:uniform(3),
-            case set_moment_time_to_send(Time, DateTimeSecs, Type, Tag) of
-                true -> {Time, DateTimeSecs, Type};
+            %% NotificationType, 5 out of 7 week days for live camera
+            %% rest for text post
+            Type = case rand:uniform(7) =< 5 of
+                true -> live_camera;
+                false -> text_post
+            end,
+            Prompt = mod_prompts:get_prompt(Type),
+            case set_moment_time_to_send(Time, DateTimeSecs, Type, Prompt, Tag) of
+                true -> {Time, DateTimeSecs, Type, Prompt};
                 false -> get_moment_time_to_send(Tag, DateTimeSecs)
             end;
         _ ->
-            case Payload2 of
-                undefined -> {binary_to_integer(Payload1), 0, 0};
-                _ -> {binary_to_integer(Payload1), binary_to_integer(Payload2), binary_to_integer(Payload3)}
+            case {Payload2, Payload3, Payload4} of
+                {_, _, undefined} ->
+                    {to_integer_zero(Payload1), to_integer_zero(Payload2), util_moments:to_moment_type(Payload3), <<"WYD?">>};
+                {_, _, _} ->
+                    {to_integer_zero(Payload1), to_integer_zero(Payload2), util_moments:to_moment_type(Payload3), Payload4}
             end
+    end.
+
+to_integer_zero(Bin) ->
+    case util:to_integer_maybe(Bin) of
+      undefined -> 0;
+      Int -> Int
     end.
 
 generate_notification_time(DateTimeSecs) ->
@@ -696,14 +712,15 @@ generate_notification_time(DateTimeSecs) ->
             end
     end.
  
--spec set_moment_time_to_send(Time :: integer(), Id :: integer(), Type :: integer(), Tag :: integer()) -> boolean().
-set_moment_time_to_send(Time, Id, Type, Tag) ->
+-spec set_moment_time_to_send(Time :: integer(), Id :: integer(), Type :: moment_type(), Prompt :: binary(), Tag :: integer()) -> boolean().
+set_moment_time_to_send(Time, Id, Type, Prompt, Tag) ->
     {ok, Payload} = q(["SET", moment_time_to_send_key(Tag), util:to_binary(Time),
                       "EX", ?MOMENT_TAG_EXPIRATION, "NX"]),
     case Payload =:= <<"OK">> of
         true ->
             qp([["HSET", moment_time_to_send_key2(Tag), ?FIELD_MOMENT_NOTIFICATION_ID, util:to_binary(Id)],
-                ["HSET", moment_time_to_send_key2(Tag), ?FIELD_MOMENT_NOTIFICATION_TYPE, util:to_binary(Type)],
+                ["HSET", moment_time_to_send_key2(Tag), ?FIELD_MOMENT_NOTIFICATION_TYPE, util_moments:moment_type_to_bin(Type)],
+                ["HSET", moment_time_to_send_key2(Tag), ?FIELD_MOMENT_NOTIFICATION_PROMPT, Prompt],
                 ["EXPIRE", moment_time_to_send_key2(Tag), ?MOMENT_TAG_EXPIRATION]]),
             true;
         false -> false

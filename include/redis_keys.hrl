@@ -108,6 +108,8 @@
 -define(TIME_BUCKET_KEY, <<"tk:">>).
 -define(GEO_TAG_TIME_BUCKET_KEY, <<"gtk:">>).
 
+-define(PROMPT_KEY, <<"pmk:">>).
+
 
 %% PrivacyKeys
 -define(WHITELIST_KEY, <<"whi:">>).

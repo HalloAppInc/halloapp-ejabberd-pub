@@ -13,6 +13,7 @@
 -include("time.hrl").
 -include("util_redis.hrl").
 -include("account.hrl").
+-include("moments.hrl").
 
 %% gen_mod callbacks
 -export([start/2, stop/1, mod_options/1, depends/2]).
@@ -23,8 +24,8 @@
     unschedule/0,
     send_notifications/0,
     send_moment_notification/1,
-    send_moment_notification/3,
-    maybe_send_moment_notification/4,
+    send_moment_notification/4,
+    maybe_send_moment_notification/5,
     get_four_zone_offset_hr/1,
     fix_zone_tag_uids/1,
     is_time_ok/7,  %% for testing
@@ -138,11 +139,11 @@ process_moment_tag(UidsList, TodaySecs, IsImmediateNotification) ->
 
     %% Following are number of minutes in local time when moment notification needs to be sent
     %% today, yesterday and tomorrow.
-    {MinToSendToday, TodayNotificationId, TodayNotificationType} =
+    {MinToSendToday, TodayNotificationId, TodayNotificationType, TodayPrompt} =
         model_feed:get_moment_time_to_send(Today, TodaySecs),
-    {MinToSendPrevDay, YesterdayNotificationId, YesterdayNotificationType} =
+    {MinToSendPrevDay, YesterdayNotificationId, YesterdayNotificationType, YesterdayPrompt} =
         model_feed:get_moment_time_to_send(Yesterday, YesterdaySecs),
-    {MinToSendNextDay, TomorrowNotificationId, TomorrowNotificationType} =
+    {MinToSendNextDay, TomorrowNotificationId, TomorrowNotificationType, TomorrowPrompt} =
         model_feed:get_moment_time_to_send(Tomorrow, TomorrowSecs),
     ?INFO("Times to send - Today: ~p, Yesterday: ~p, Tomorrow: ~p", 
         [MinToSendToday, MinToSendPrevDay, MinToSendNextDay]),
@@ -213,13 +214,13 @@ process_moment_tag(UidsList, TodaySecs, IsImmediateNotification) ->
                 end,
                 ProcessingDone = case TimeOk andalso is_client_version_ok(ClientVersion) of
                     true ->
-                          {LocalDay, NotificationId, NotificationType} = case DayAdjustment of
-                              0 -> {Today, TodayNotificationId, TodayNotificationType};
-                              -1 -> {Yesterday, YesterdayNotificationId, YesterdayNotificationType};
-                              1 -> {Tomorrow, TomorrowNotificationId, TomorrowNotificationType}
+                          {LocalDay, NotificationId, NotificationType, Prompt} = case DayAdjustment of
+                              0 -> {Today, TodayNotificationId, TodayNotificationType, TodayPrompt};
+                              -1 -> {Yesterday, YesterdayNotificationId, YesterdayNotificationType, YesterdayPrompt};
+                              1 -> {Tomorrow, TomorrowNotificationId, TomorrowNotificationType, TomorrowPrompt}
                           end,
                           ?INFO("Scheduling: ~p, Local day: ~p, MinToWait: ~p", [Uid, LocalDay, MinToWait2]),
-                          wait_and_send_notification(Uid, util:to_binary(LocalDay), NotificationId, NotificationType, MinToWait2),
+                          wait_and_send_notification(Uid, util:to_binary(LocalDay), NotificationId, NotificationType, Prompt, MinToWait2),
                           true;
                     false ->
                           ?INFO("Skipping: ~p", [Uid]),
@@ -339,36 +340,30 @@ is_time_ok(CurrentHrGMT, CurrentMinGMT, Phone, ZoneOffset,
     {IsTimeOk, MinToWait, DayAdjustment}.
 
 
--spec wait_and_send_notification(Uid :: uid(), Tag :: binary(), NotificationId :: integer(), NotificationType :: integer(), MinToWait :: integer()) -> ok.
-wait_and_send_notification(Uid, Tag, NotificationId, NotificationType, MinToWait) ->
+-spec wait_and_send_notification(Uid :: uid(), Tag :: binary(), NotificationId :: integer(), NotificationType :: moment_type(), Prompt :: binary(), MinToWait :: integer()) -> ok.
+wait_and_send_notification(Uid, Tag, NotificationId, NotificationType, Prompt, MinToWait) ->
     case dev_users:is_dev_uid(Uid) orelse util_uid:get_app_type(Uid) =:= katchup of
         true ->
             timer:apply_after(MinToWait * ?MINUTES_MS, ?MODULE,
-                maybe_send_moment_notification, [Uid, Tag, NotificationId, NotificationType]);
+                maybe_send_moment_notification, [Uid, Tag, NotificationId, NotificationType, Prompt]);
         false ->
             ?INFO("Not a developer: ~p", [Uid])
     end,
     ok.
 
--spec maybe_send_moment_notification(Uid :: uid(), Tag :: binary(), NotificationId :: integer(), NotificationType :: integer()) -> ok.
-maybe_send_moment_notification(Uid, Tag, NotificationId, NotificationType) ->
+-spec maybe_send_moment_notification(Uid :: uid(), Tag :: binary(), NotificationId :: integer(), NotificationType :: moment_type(), Prompt :: binary()) -> ok.
+maybe_send_moment_notification(Uid, Tag, NotificationId, NotificationType, Prompt) ->
     case model_accounts:mark_moment_notification_sent(Uid, Tag) of
-        true -> send_moment_notification(Uid, NotificationId, NotificationType);
+        true -> send_moment_notification(Uid, NotificationId, NotificationType, Prompt);
         false -> ?INFO("Moment notification already sent to Uid: ~p", [Uid])
     end.
 
 
 send_moment_notification(Uid) ->
-    send_moment_notification(Uid, 0, rand:uniform(3)).
+    send_moment_notification(Uid, 0, util_moments:to_moment_type(util:to_binary(rand:uniform(2))), <<"WYD?">>).
 
-send_moment_notification(Uid, NotificationId, NotificationType) ->
+send_moment_notification(Uid, NotificationId, NotificationType, Prompt) ->
     AppType = util_uid:get_app_type(Uid),
-    Type = get_notification_type(NotificationType),
-    %% TODO: need random prompts
-    Prompt = case Type of
-        prompt_post -> <<"WYD?">>;
-        _ -> <<>>
-    end,
     Packet = #pb_msg{
         id = util_id:new_msg_id(),
         to_uid = Uid,
@@ -376,23 +371,13 @@ send_moment_notification(Uid, NotificationId, NotificationType) ->
         payload = #pb_moment_notification{
             timestamp = util:now(),
             notification_id = NotificationId,
-            type = Type,
+            type = NotificationType,
             prompt = Prompt
         }
     },
     ejabberd_router:route(Packet),
     ejabberd_hooks:run(send_moment_notification, AppType, [Uid]),
     ok.
-
-get_notification_type(Type) ->
-    case Type of
-        1 -> live_camera;
-        2 -> text_post;
-        3 -> prompt_post;
-        _ ->
-            ?ERROR("Invalid type: ~p", [Type]),
-            live_camera
-    end.
 
 get_offset_region(ZoneOffsetSec) ->
     ZoneOffsetHr = ZoneOffsetSec / ?HOURS,

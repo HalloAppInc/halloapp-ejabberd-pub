@@ -47,6 +47,7 @@
 
 -define(PSA_TAG1, <<"psa_tag1">>).
 -define(MOMENT_TAG, <<"moment_tag">>).
+-define(MOMENT_PROMPT, <<"moment_prompt">>).
 -define(MOMENT_DAY, 10).
 -define(MOMENT_ID, 1000).
 
@@ -523,11 +524,11 @@ moment_tag_test() ->
     false = model_feed:is_moment_tag_done(?MOMENT_TAG),
     ok = model_feed:mark_moment_tag_done(?MOMENT_TAG),
     true = model_feed:is_moment_tag_done(?MOMENT_TAG),
-    {Time, ?MOMENT_ID, Type} = model_feed:get_moment_time_to_send(?MOMENT_DAY, ?MOMENT_ID),
-    {Time, ?MOMENT_ID, Type} = model_feed:get_moment_time_to_send(?MOMENT_DAY, ?MOMENT_ID + rand:uniform(1000)),
-    false = model_feed:set_moment_time_to_send(Time, ?MOMENT_ID + rand:uniform(1000), Type, ?MOMENT_DAY),
+    {Time, ?MOMENT_ID, Type, Prompt} = model_feed:get_moment_time_to_send(?MOMENT_DAY, ?MOMENT_ID),
+    {Time, ?MOMENT_ID, Type, Prompt} = model_feed:get_moment_time_to_send(?MOMENT_DAY, ?MOMENT_ID + rand:uniform(1000)),
+    false = model_feed:set_moment_time_to_send(Time, ?MOMENT_ID + rand:uniform(1000), Type, ?MOMENT_PROMPT, ?MOMENT_DAY),
     ok = model_feed:del_moment_time_to_send(?MOMENT_DAY),
-    true = model_feed:set_moment_time_to_send(Time, ?MOMENT_ID + rand:uniform(1000), Type, ?MOMENT_DAY),
+    true = model_feed:set_moment_time_to_send(Time, ?MOMENT_ID + rand:uniform(1000), Type, ?MOMENT_PROMPT, ?MOMENT_DAY),
     ok.
 
 
