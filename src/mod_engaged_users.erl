@@ -25,6 +25,7 @@
     feed_item_published/8,
     user_send_im/4,
     user_send_group_im/4,
+    new_follow_relationship/2,
     compute_counts/0,
     count_halloapp_engaged_users_1day/1,
     count_katchup_engaged_users_1day/1,
@@ -49,6 +50,8 @@ start(_Host, _Opts) ->
     ejabberd_hooks:add(feed_item_published, halloapp, ?MODULE, feed_item_published, 50),
     ejabberd_hooks:add(user_send_im, halloapp, ?MODULE, user_send_im, 50),
     ejabberd_hooks:add(user_send_group_im, halloapp, ?MODULE, user_send_group_im, 50),
+    ejabberd_hooks:add(feed_item_published, katchup, ?MODULE, feed_item_published, 50),
+    ejabberd_hooks:add(new_follow_relationship, katchup, ?MODULE, new_follow_relationship, 50),
     ok.
 
 stop(_Host) ->
@@ -56,6 +59,8 @@ stop(_Host) ->
     ejabberd_hooks:delete(feed_item_published, halloapp, ?MODULE, feed_item_published, 50),
     ejabberd_hooks:delete(user_send_im, halloapp, ?MODULE, user_send_im, 50),
     ejabberd_hooks:delete(user_send_group_im, halloapp, ?MODULE, user_send_group_im, 50),
+    ejabberd_hooks:delete(feed_item_published, katchup, ?MODULE, feed_item_published, 50),
+    ejabberd_hooks:delete(new_follow_relationship, katchup, ?MODULE, new_follow_relationship, 50),
     ok.
 
 reload(_Host, _NewOpts, _OldOpts) ->
@@ -90,6 +95,10 @@ user_send_group_im(_Gid, FromUid, _MsgId, _ToUids) ->
     update_last_activity(FromUid, send_group_im),
     ok.
 
+
+new_follow_relationship(Uid, _Ouid) ->
+    update_last_activity(Uid, new_follow_relationship),
+    ok.
 
 %%====================================================================
 %% API
