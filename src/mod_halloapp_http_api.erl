@@ -37,6 +37,7 @@
 
 -define(HASHCASH_EXPIRE_IN, 21600).
 -define(HASHCASH_DIFFICULTY, 10).
+-define(SPAM_CC_HASHCASH_DIFFICULTY, 15).
 -define(DEV_HASHCASH_DIFFICULTY, 10).
 -define(HASHCASH_THRESHOLD_MS, 30 * ?SECONDS_MS).
 %% allow 10 attempts to guess the code per day, 20 for test numbers
@@ -192,15 +193,27 @@ process_hashcash_request(#{cc := CC, ip := ClientIP}) ->
     Challenge = create_hashcash_challenge(CC, ClientIP),
     {ok, Challenge}.
 
--spec create_hashcash_challenge(_CC :: any(), _IP :: any()) -> binary().
-create_hashcash_challenge(_CC, _IP) ->
-    Challenge = util_hashcash:construct_challenge(get_hashcash_difficulty(), ?HASHCASH_EXPIRE_IN), 
+-spec create_hashcash_challenge(CC :: any(), _IP :: any()) -> binary().
+create_hashcash_challenge(CC, _IP) ->
+    Challenge = util_hashcash:construct_challenge(get_hashcash_difficulty(CC), ?HASHCASH_EXPIRE_IN), 
     ok = model_phone:add_hashcash_challenge(Challenge),
     Challenge.
 
-get_hashcash_difficulty() ->
+get_hashcash_difficulty(CC) ->
+    CCBasedDifficulty = case CC of
+        <<"AZ">> -> ?SPAM_CC_HASHCASH_DIFFICULTY;
+        <<"SD">> -> ?SPAM_CC_HASHCASH_DIFFICULTY;
+        <<"VN">> -> ?SPAM_CC_HASHCASH_DIFFICULTY;
+        <<"NG">> -> ?SPAM_CC_HASHCASH_DIFFICULTY;
+        <<"LK">> -> ?SPAM_CC_HASHCASH_DIFFICULTY;
+        <<"BD">> -> ?SPAM_CC_HASHCASH_DIFFICULTY;
+        <<"JO">> -> ?SPAM_CC_HASHCASH_DIFFICULTY;
+        <<"OM">> -> ?SPAM_CC_HASHCASH_DIFFICULTY;
+        <<"SN">> -> ?SPAM_CC_HASHCASH_DIFFICULTY;
+        _ -> ?HASHCASH_DIFFICULTY
+    end,
     case config:get_hallo_env() of
-        prod -> ?HASHCASH_DIFFICULTY;
+        prod -> CCBasedDifficulty;
         _ -> ?DEV_HASHCASH_DIFFICULTY
     end.
 
