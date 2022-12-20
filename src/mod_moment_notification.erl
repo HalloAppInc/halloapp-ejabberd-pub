@@ -23,6 +23,7 @@
     unschedule/0,
     send_notifications/0,
     send_moment_notification/1,
+    send_moment_notification/3,
     maybe_send_moment_notification/4,
     get_four_zone_offset_hr/1,
     fix_zone_tag_uids/1,
@@ -358,7 +359,7 @@ maybe_send_moment_notification(Uid, Tag, NotificationId, NotificationType) ->
 
 
 send_moment_notification(Uid) ->
-    send_moment_notification(Uid, 0, 0).
+    send_moment_notification(Uid, 0, rand:uniform(3)).
 
 send_moment_notification(Uid, NotificationId, NotificationType) ->
     AppType = util_uid:get_app_type(Uid),
