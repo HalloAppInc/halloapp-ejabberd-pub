@@ -41,7 +41,8 @@
     share_feed_items/4,
     send_old_moment/2,
     send_moment_notification/1,
-    new_follow_relationship/2
+    new_follow_relationship/2,
+    get_public_moments/4
 ]).
 
 
@@ -200,7 +201,7 @@ process_local_iq(#pb_iq{from_uid = Uid, payload = #pb_public_feed_request{cursor
     ?INFO("Public feed request: Uid ~s, GpsLocation ~p, Cursor ~p", [Uid, GpsLocation, Cursor]),
     try
         %% Get geotag from GeoLocation, add it to user account if it exists
-        NewTag = mod_location:get_geo_tag(Uid, {GpsLocation#pb_gps_location.latitude, GpsLocation#pb_gps_location.longitude}),
+        NewTag = mod_location:get_geo_tag(Uid, GpsLocation),
         case NewTag of
             undefined -> ok;
             _ ->

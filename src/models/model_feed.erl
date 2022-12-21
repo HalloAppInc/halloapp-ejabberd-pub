@@ -1059,6 +1059,7 @@ geo_tag_time_bucket_key(GeoTag, TimestampMs) ->
 
 -spec geo_tag_time_bucket_key_hr(GeoTag :: binary(), TimestampHr :: integer()) -> binary().
 geo_tag_time_bucket_key_hr(GeoTag, TimestampHr) ->
+    GeoTagBin = util:to_binary(GeoTag),
     TimestampHrBin = util:to_binary(TimestampHr),
-    <<?GEO_TAG_TIME_BUCKET_KEY/binary, ":", GeoTag/binary, "{", TimestampHrBin/binary, "}">>.
+    <<?GEO_TAG_TIME_BUCKET_KEY/binary, ":", GeoTagBin/binary, "{", TimestampHrBin/binary, "}">>.
 

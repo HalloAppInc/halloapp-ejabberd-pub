@@ -45,15 +45,17 @@ mod_options(_Host) ->
 %% feed: IQs
 %%====================================================================
 
--spec get_geo_tag(Uid :: binary(), GpsLocation :: {float(), float()}) -> atom().
-get_geo_tag(Uid, GpsLocation) ->
+-spec get_geo_tag(Uid :: binary(), GpsLocation :: pb_gps_location()) -> atom().
+get_geo_tag(_Uid, GpsLocation) when GpsLocation =:= undefined -> undefined;
+get_geo_tag(Uid, GpsLocation = #pb_gps_location{latitude = Latitude, longitude = Longitude}) ->
+    GpsCoordinates = {Latitude, Longitude},
     TaggedLocations = get_tagged_locations(),
     GeoTag = lists:foldl(
             fun({GeoTag, Coordinates}, Acc) ->
                 case Acc =:= undefined of
                     false -> Acc;
                     true ->
-                        case is_location_interior(GpsLocation, Coordinates) of
+                        case is_location_interior(GpsCoordinates, Coordinates) of
                             false -> Acc;
                             true -> GeoTag
                         end
