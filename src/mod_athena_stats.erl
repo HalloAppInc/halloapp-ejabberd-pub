@@ -310,7 +310,6 @@ get_athena_modules() ->
         athena_home_encryption,
         athena_push,
         athena_push_api,
-        athena_media,
         athena_call
     ].
 
