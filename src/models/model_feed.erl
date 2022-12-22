@@ -318,7 +318,7 @@ split_cursor(Cursor) ->
 join_cursor(VersionBin, RequestTimestampMs, CursorPostId, CursorTimestampMs) ->
     RequestTimestampMsBin = util:to_binary(RequestTimestampMs),
     CursorTimestampMsBin = util:to_binary(CursorTimestampMs),
-    <<VersionBin/binary, RequestTimestampMsBin/binary, "::", CursorPostId/binary, "::", CursorTimestampMsBin/binary>>.
+    <<VersionBin/binary, "::", RequestTimestampMsBin/binary, "::", CursorPostId/binary, "::", CursorTimestampMsBin/binary>>.
 
 
 -spec publish_comment(CommentId :: binary(), PostId :: binary(),
