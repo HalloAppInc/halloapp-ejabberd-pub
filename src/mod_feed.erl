@@ -42,7 +42,8 @@
     send_old_moment/2,
     send_moment_notification/1,
     new_follow_relationship/2,
-    get_public_moments/4
+    get_public_moments/4,
+    convert_moments_to_public_feed_items/2
 ]).
 
 
@@ -1056,7 +1057,7 @@ get_feed_audience_set(Action, Uid, AudienceList) ->
 
 -spec convert_moments_to_public_feed_items(uid(), post()) -> pb_public_feed_item().
 convert_moments_to_public_feed_items(Uid, #post{id = PostId, uid = OUid, payload = PayloadBase64, ts_ms = TimestampMs, tag = PostTag, moment_info = MomentInfo}) ->
-    [UserProfile] = model_accounts:get_user_profiles(Uid, OUid),
+    UserProfile = model_accounts:get_user_profiles(Uid, OUid),
     PbPost = #pb_post{
         id = PostId,
         publisher_uid = Uid,
