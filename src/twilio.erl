@@ -23,15 +23,15 @@
 
 -export([
     init/0,
-    can_send_sms/1,
-    can_send_voice_call/1,
+    can_send_sms/2,
+    can_send_voice_call/2,
     send_sms/4,
     send_voice_call/4,
     fetch_message_info/1,
     normalized_status/1,
     send_feedback/2,
-    compose_body/3,     %% for debugging.
-    compose_voice_body/3    %% for debugging
+    compose_body/4,     %% for debugging.
+    compose_voice_body/4    %% for debugging
 ]).
 
 init() ->
@@ -42,11 +42,15 @@ init() ->
     util_sms:init_helper(twilio_options, FromPhoneList).
 
 
--spec can_send_sms(CC :: binary()) -> boolean().
-can_send_sms(CC) ->
+-spec can_send_sms(AppType :: maybe(app_type()), CC :: binary()) -> boolean().
+can_send_sms(katchup, <<"US">>) -> true;
+can_send_sms(katchup, _) -> false;
+can_send_sms(_, CC) ->
     is_cc_supported(CC).
--spec can_send_voice_call(CC :: binary()) -> boolean().
-can_send_voice_call(CC) ->
+-spec can_send_voice_call(AppType :: maybe(app_type()), CC :: binary()) -> boolean().
+can_send_voice_call(katchup, <<"US">>) -> true;
+can_send_voice_call(katchup, _) -> false;
+can_send_voice_call(_, CC) ->
     is_cc_supported(CC).
 
 is_cc_supported(CC) ->
@@ -77,7 +81,8 @@ send_sms(Phone, Code, LangId, UserAgent) ->
     AccountSid = get_account_sid(util:is_test_number(Phone)),
     {Msg, TranslatedLangId} = util_sms:get_sms_message(UserAgent, Code, LangId),
     TwilioLangId = get_twilio_lang(TranslatedLangId),
-    sending_helper(Phone, Msg, TwilioLangId, ?BASE_SMS_URL(AccountSid), fun compose_body/3, "SMS").
+    AppType = util_ua:get_app_type(UserAgent),
+    sending_helper(Phone, Msg, TwilioLangId, ?BASE_SMS_URL(AccountSid), fun compose_body/4, AppType, "SMS").
 
 
 -spec send_voice_call(Phone :: phone(), Code :: binary(), LangId :: binary(),
@@ -89,16 +94,17 @@ send_voice_call(Phone, Code, LangId, UserAgent) ->
     DigitByDigit = string:trim(re:replace(Code, ".", "& . . ", [global, {return,list}])),
     VoiceMsg = io_lib:format("~s . . ~s . ", [VoiceMsgBin, DigitByDigit]),
     FinalMsg = io_lib:format("~s ~s ~s ~s", [VoiceMsg, VoiceMsg, VoiceMsg, VoiceMsg]),
-    sending_helper(Phone, FinalMsg, TwilioLangId, ?BASE_VOICE_URL(AccountSid), fun compose_voice_body/3, "Voice Call").
+    AppType = util_ua:get_app_type(UserAgent),
+    sending_helper(Phone, FinalMsg, TwilioLangId, ?BASE_VOICE_URL(AccountSid), fun compose_voice_body/4, AppType, "Voice Call").
 
 
 -spec sending_helper(Phone :: phone(), Msg :: string() | binary(), TwilioLangId :: string(), BaseUrl :: string(),
-    ComposeBodyFn :: term(), Purpose :: string()) -> {ok, gateway_response()} | {error, atom(), atom()}.
-sending_helper(Phone, Msg, TwilioLangId, BaseUrl, ComposeBodyFn, Purpose) ->
+    ComposeBodyFn :: term(), AppType :: maybe(app_type()), Purpose :: string()) -> {ok, gateway_response()} | {error, atom(), atom()}.
+sending_helper(Phone, Msg, TwilioLangId, BaseUrl, ComposeBodyFn, AppType, Purpose) ->
     ?INFO("Phone: ~s Msg: ~p Purpose: ~s", [Phone, Msg, Purpose]),
     Headers = fetch_auth_headers(util:is_test_number(Phone)),
     Type = "application/x-www-form-urlencoded",
-    Body = ComposeBodyFn(Phone, Msg, TwilioLangId),
+    Body = ComposeBodyFn(Phone, Msg, TwilioLangId, AppType),
     ?DEBUG("Body: ~p", [Body]),
     HTTPOptions = [],
     Options = [],
@@ -216,30 +222,37 @@ encode_based_on_country(Phone, Msg) ->
 
 
 -spec compose_body(Phone :: phone(), Message :: io_lib:chars(),
-        TwilioLangId :: string()) -> uri_string:uri_string().
-compose_body(Phone, Message, _TwilioLangId) ->
+        TwilioLangId :: string(), AppType :: maybe(app_type())) -> uri_string:uri_string().
+compose_body(Phone, Message, _TwilioLangId, AppType) ->
     Message2 = encode_based_on_country(Phone, Message),
     PlusPhone = "+" ++ binary_to_list(Phone),
     uri_string:compose_query([
         {"To", PlusPhone },
-        {"MessagingServiceSid", ?MESSAGE_SERVICE_SID},
+        {"MessagingServiceSid", get_message_service_sid(AppType)},
         {"Body", Message2},
         {"StatusCallback", ?TWILIOCALLBACK_URL}
     ], [{encoding, utf8}]).
+
+get_message_service_sid(halloapp) -> ?MESSAGE_SERVICE_SID;
+get_message_service_sid(katchup) -> ?KATCHUP_MESSAGE_SERVICE_SID;
+get_message_service_sid(AppType) ->
+    ?ERROR("Invalid AppType: ~p", [AppType]),
+    ?MESSAGE_SERVICE_SID.
+
 
 -spec encode_to_twiml(Msg :: string(), TwilioLangId :: string()) -> string().
 encode_to_twiml(Msg, TwilioLangId) ->
     "<Response><Say voice=\"alice\" language=\"" ++ TwilioLangId ++ "\">" ++ Msg ++ "</Say></Response>".
 
 -spec compose_voice_body(Phone :: phone(), Message :: string(),
-        TwilioLangId :: string()) -> uri_string:uri_string().
-compose_voice_body(Phone, Message, TwilioLangId) ->
+        TwilioLangId :: string(), AppType :: maybe(app_type())) -> uri_string:uri_string().
+compose_voice_body(Phone, Message, TwilioLangId, AppType) ->
     %% TODO(vipin): Add voice callback.
     Message2 = encode_to_twiml(Message, TwilioLangId),
     PlusPhone = "+" ++ binary_to_list(Phone),
     uri_string:compose_query([
         {"To", PlusPhone },
-        {"From", get_from_phone(util:is_test_number(Phone))},
+        {"From", get_from_phone(util:is_test_number(Phone), AppType)},
         {"Twiml", Message2}
     ], [{encoding, utf8}]).
 
@@ -250,11 +263,15 @@ get_account_sid(IsTestNum) ->
         false -> ?PROD_ACCOUNT_SID
     end.
 
--spec get_from_phone(IsTestNum :: boolean()) -> phone() | string().
-get_from_phone(IsTestNum) ->
-    case IsTestNum of
-        true -> ?FROM_TEST_PHONE;
-        false -> util_sms:lookup_from_phone(twilio_options)
+-spec get_from_phone(IsTestNum :: boolean(), AppType :: maybe(app_type())) -> phone() | string().
+get_from_phone(IsTestNum, AppType) ->
+    case {IsTestNum, AppType} of
+        {true, _} -> ?FROM_TEST_PHONE;
+        {false, halloapp} -> util_sms:lookup_from_phone(twilio_options);
+        {false, katchup} -> ?KATCHUP_FROM_PHONE;
+        {false, _} ->
+            ?ERROR("Invalid AppType: ~p", [AppType]),
+            util_sms:lookup_from_phone(twilio_options)
     end.
 
 resolve_voice_lang(LangId, UserAgent) ->

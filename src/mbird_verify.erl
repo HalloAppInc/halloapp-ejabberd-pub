@@ -18,8 +18,8 @@
 %% API
 -export([
     init/0,
-    can_send_sms/1,
-    can_send_voice_call/1,
+    can_send_sms/2,
+    can_send_voice_call/2,
     send_sms/4,
     send_voice_call/4,
     send_feedback/2,
@@ -31,11 +31,13 @@
 init() ->
     ok.
 
--spec can_send_sms(CC :: binary()) -> boolean().
-can_send_sms(CC) ->
+-spec can_send_sms(AppType :: maybe(app_type()), CC :: binary()) -> boolean().
+can_send_sms(katckup, _CC) -> false;
+can_send_sms(_, CC) ->
     mbird:is_cc_supported(CC).
--spec can_send_voice_call(CC :: binary()) -> boolean().
-can_send_voice_call(CC) ->
+-spec can_send_voice_call(AppType :: maybe(app_type()), CC :: binary()) -> boolean().
+can_send_voice_call(katchup, _) -> false;
+can_send_voice_call(_, CC) ->
     case CC of
         <<"US">> -> false;     %% US needs DLC.
         _ -> mbird:is_cc_supported(CC)

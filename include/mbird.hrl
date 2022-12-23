@@ -13,6 +13,7 @@
 -define(BASE_VOICE_URL, "https://voice.messagebird.com/calls").
 -define(FROM_PHONE_FOR_CANADA, "+12262403383").
 -define(FROM_PHONE_FOR_US, "+12022213975").
+-define(KATCHUP_FROM_PHONE_FOR_US, "+12029787382").
 -define(REFERENCE, "HALLOAPP").
 
 -define(NO_RECIPIENTS_CODE, 9). % No (correct) recipients found

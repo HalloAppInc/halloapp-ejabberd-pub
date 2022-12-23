@@ -19,8 +19,8 @@
 -include_lib("stdlib/include/assert.hrl").
 
 -callback init() -> ok.
--callback can_send_sms(CC :: binary()) -> boolean().
--callback can_send_voice_call(CC :: binary()) -> boolean().
+-callback can_send_sms(AppType :: maybe(app_type()), CC :: binary()) -> boolean().
+-callback can_send_voice_call(AppType :: maybe(app_type()), CC :: binary()) -> boolean().
 -callback send_sms(Phone :: phone(), Code :: binary(), LangId :: binary(),
         UserAgent :: binary()) -> {ok, gateway_response()} | {error, sms_fail, no_retry | retry}.
 -callback send_voice_call(Phone :: phone(), Code :: binary(), LangId :: binary(),
@@ -55,7 +55,7 @@
     rand_weighted_selection/2,  %% for testing
     max_weight_selection/1,  %% for testing
     smart_send/7,  %% for testing
-    generate_gateway_list/3,  %% for testing
+    generate_gateway_list/4,  %% for testing
     send_otp_to_inviter/4,  %% for testing
     get_new_gw_stats/2
 ]).
@@ -301,8 +301,8 @@ generate_code(Phone) ->
 %% TODO(vipin)
 %% On callback from the provider track (success, cost). Investigative logging to track missing
 %% callback.
--spec generate_gateway_list(CC :: binary(), Method :: method(), OldResponses :: [gateway_response()]) -> {boolean(), [atom()]}.
-generate_gateway_list(CC, Method, OldResponses) ->
+-spec generate_gateway_list(AppType :: maybe(app_type()), CC :: binary(), Method :: method(), OldResponses :: [gateway_response()]) -> {boolean(), [atom()]}.
+generate_gateway_list(AppType, CC, Method, OldResponses) ->
     {WorkingList, NotWorkingList} = lists:foldl(
         fun(#gateway_response{gateway = Gateway, method = Method2, status = Status}, {Working, NotWorking})
                 when Method2 =:= Method ->
@@ -321,7 +321,7 @@ generate_gateway_list(CC, Method, OldResponses) ->
     NotWorkingSet = sets:from_list(NotWorkingList),
 
     FullConsiderList = sms_gateway_list:enabled(),
-    ConsiderList = filter_gateways(CC, Method, FullConsiderList),
+    ConsiderList = filter_gateways(AppType, CC, Method, FullConsiderList),
 
     ConsiderSet = sets:from_list(ConsiderList),
 
@@ -357,21 +357,21 @@ generate_gateway_list(CC, Method, OldResponses) ->
     {IsFirstAttempt, ToChooseFromList}.
 
 
--spec filter_gateways(CC :: binary(), Method :: method(), GatewayList :: list(atom())) -> list(atom()).
-filter_gateways(CC, Method, GatewayList) ->
+-spec filter_gateways(AppType :: maybe(app_type()), CC :: binary(), Method :: method(), GatewayList :: list(atom())) -> list(atom()).
+filter_gateways(AppType, CC, Method, GatewayList) ->
     Function = case Method of
         sms -> can_send_sms;
         voice_call -> can_send_voice_call
     end,
     ResultList = lists:filter(
         fun (Gateway) ->
-            Gateway:Function(CC)
+            Gateway:Function(AppType, CC)
         end,
         GatewayList),
     case ResultList of
         [] ->
-            ?ERROR("No gateway after filter CC:~s ~p ~p -> ~p",
-                [CC, Method, GatewayList, ResultList]),
+            ?ERROR("No gateway after filter AppType: ~p, CC:~s ~p ~p -> ~p",
+                [AppType, CC, Method, GatewayList, ResultList]),
             GatewayList;
         _ -> ResultList
     end.
@@ -384,10 +384,10 @@ smart_send(OtpPhone, Phone, LangId, UserAgent, Method, CampaignId, OldResponses)
     CC = mod_libphonenumber:get_cc(OtpPhone),
     AppType = util_ua:get_app_type(UserAgent),
 
-    {IsFirstAttempt, ChooseFromList} = generate_gateway_list(CC, Method, OldResponses),
+    {IsFirstAttempt, ChooseFromList} = generate_gateway_list(AppType, CC, Method, OldResponses),
 
     FullConsiderList = sms_gateway_list:enabled(),
-    ConsiderList = filter_gateways(CC, Method, FullConsiderList),
+    ConsiderList = filter_gateways(AppType, CC, Method, FullConsiderList),
 
     ConsiderSet = sets:from_list(ConsiderList),
 

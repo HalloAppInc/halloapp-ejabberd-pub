@@ -17,8 +17,8 @@
 %% API
 -export([
     init/0,
-    can_send_sms/1,
-    can_send_voice_call/1,
+    can_send_sms/2,
+    can_send_voice_call/2,
     send_sms/4,
     send_voice_call/4,
     send_feedback/2,
@@ -29,12 +29,12 @@
 
 init() -> ok.
 
--spec can_send_sms(CC :: binary()) -> boolean().
-can_send_sms(_CC) ->
+-spec can_send_sms(AppType :: maybe(app_type()), CC :: binary()) -> boolean().
+can_send_sms(_, _CC) ->
     % TODO: This gateway is disabled for now.
     false.
--spec can_send_voice_call(CC :: binary()) -> boolean().
-can_send_voice_call(_CC) ->
+-spec can_send_voice_call(AppType :: maybe(app_type()), CC :: binary()) -> boolean().
+can_send_voice_call(_, _CC) ->
     % TODO: Voice calls are not implemented yet.
     false.
 

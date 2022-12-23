@@ -19,15 +19,15 @@
 %% API
 -export([
     init/0,
-    can_send_sms/1,
-    can_send_voice_call/1,
+    can_send_sms/2,
+    can_send_voice_call/2,
     send_sms/4,
     send_voice_call/4,
     normalized_status/1,
     send_feedback/2,
     is_cc_supported/1,
-    compose_body/2,     %% for debugging
-    compose_voice_body/3  %% for debugging
+    compose_body/3,     %% for debugging
+    compose_voice_body/4  %% for debugging
 ]).
 
 init() ->
@@ -35,11 +35,15 @@ init() ->
     util_sms:init_helper(mbird_options, FromPhoneList).
 
 
--spec can_send_sms(CC :: binary()) -> boolean().
-can_send_sms(CC) ->
+-spec can_send_sms(AppType :: maybe(app_type()), CC :: binary()) -> boolean().
+can_send_sms(katchup, <<"US">>) -> true;
+can_send_sms(katchup, _) -> false;
+can_send_sms(_, CC) ->
     is_cc_supported(CC).
--spec can_send_voice_call(CC :: binary()) -> boolean().
-can_send_voice_call(CC) ->
+-spec can_send_voice_call(AppType :: maybe(app_type()), CC :: binary()) -> boolean().
+can_send_voice_call(katchup, <<"US">>) -> true;
+can_send_voice_call(katchup, _) -> false;
+can_send_voice_call(_, CC) ->
     is_cc_supported(CC).
 
 -spec is_cc_supported(CC :: binary()) -> boolean().
@@ -72,11 +76,12 @@ is_cc_supported(CC) ->
 send_sms(Phone, Code, LangId, UserAgent) ->
     {Msg, _TranslatedLangId} = util_sms:get_sms_message(UserAgent, Code, LangId),
 
-    ?INFO("Phone: ~p, Msg: ~p", [Phone, Msg]),
+    AppType = util_ua:get_app_type(UserAgent),
+    ?INFO("AppType: ~p, Phone: ~p, Msg: ~p", [AppType, Phone, Msg]),
     URL = ?BASE_SMS_URL,
     Headers = [{"Authorization", "AccessKey " ++ get_access_key(util:is_test_number(Phone))}],
     Type = "application/x-www-form-urlencoded",
-    Body = compose_body(Phone, Msg),
+    Body = compose_body(AppType, Phone, Msg),
     ?DEBUG("Body: ~p", [Body]),
     HTTPOptions = [],
     Options = [],
@@ -119,11 +124,12 @@ send_voice_call(Phone, Code, LangId, UserAgent) ->
     VoiceMsg = io_lib:format("~s . . ~s . ", [VoiceMsgBin, DigitByDigit]),
     FinalMsg = io_lib:format("~s ~s ~s ~s", [VoiceMsg, VoiceMsg, VoiceMsg, VoiceMsg]),
 
-    ?INFO("Phone: ~p, Msg: ~s", [Phone, FinalMsg]),
+    AppType = util_ua:get_app_type(UserAgent),
+    ?INFO("AppType: ~p, Phone: ~p, Msg: ~s", [AppType, Phone, FinalMsg]),
     URL = ?BASE_VOICE_URL,
     Headers = [{"Authorization", "AccessKey " ++ get_access_key(util:is_test_number(Phone))}],
     Type = "application/json",
-    Body = compose_voice_body(Phone, FinalMsg, MbirdLangId),
+    Body = compose_voice_body(AppType, Phone, FinalMsg, MbirdLangId),
     ?DEBUG("Body: ~p", [Body]),
     HTTPOptions = [],
     Options = [],
@@ -178,24 +184,25 @@ get_access_key(true) ->
 get_access_key(false) ->
     mod_aws:get_secret_value(<<"MBird">>, <<"access_key">>).
 
--spec compose_body(Phone :: phone(), Message :: io_lib:chars()) -> Body :: uri_string:uri_string().
-compose_body(Phone, Message) ->
+-spec compose_body(AppType :: maybe(app_type()), Phone :: phone(), Message :: io_lib:chars()) -> Body :: uri_string:uri_string().
+compose_body(AppType, Phone, Message) ->
     PlusPhone = "+" ++ binary_to_list(Phone),
     CC = mod_libphonenumber:get_cc(Phone),
     %% reference is used during callback. TODO(vipin): Need a more useful ?REFERENCE.
     uri_string:compose_query([
         {"recipients", PlusPhone },
-        {"originator", get_originator(CC)},
+        {"originator", get_originator(AppType, CC)},
         {"reference", ?REFERENCE},
         {"body", Message}
     ], [{encoding, utf8}]).
 
--spec get_originator(CC :: binary()) -> string().
+-spec get_originator(AppType :: maybe(app_type()), CC :: binary()) -> string().
 %% TODO: Need to explore other countries for Alphanumeric SenderId.
 %% https://support.messagebird.com/hc/en-us/articles/360017673738-Complete-list-of-sender-ID-availability-and-restrictions
 %% TODO: Need to explore "inbox" for CA
 %% https://developers.messagebird.com/api/sms-messaging#sticky-vmn
-get_originator(CC) ->
+get_originator(katchup, _) -> ?KATCHUP_FROM_PHONE_FOR_US;
+get_originator(_, CC) ->
     case CC of
         <<"AL">> -> ?HALLOAPP_SENDER_ID;
         <<"CD">> -> ?HALLOAPP_SENDER_ID;
@@ -222,14 +229,15 @@ get_originator(CC) ->
         _ -> util_sms:lookup_from_phone(mbird_options)
     end.
 
--spec compose_voice_body(Phone, Message, MbirdLangId) -> Body when
+-spec compose_voice_body(AppType, Phone, Message, MbirdLangId) -> Body when
+    AppType :: maybe(app_type()),
     Phone :: phone(),
     Message :: string(),
     MbirdLangId :: binary(),
     Body :: uri_string:uri_string().
-compose_voice_body(Phone, Message, MbirdLangId) ->
+compose_voice_body(AppType, Phone, Message, MbirdLangId) ->
     PlusPhone = "+" ++ binary_to_list(Phone),
-    FromPhone = get_from_phone(Phone),
+    FromPhone = get_from_phone(AppType, Phone),
     %% TODO(vipin): 1. Add the callback.
     %% Ref: https://developers.messagebird.com/api/voice-calling/#calls
     Body = #{
@@ -251,7 +259,8 @@ compose_voice_body(Phone, Message, MbirdLangId) ->
     binary_to_list(jiffy:encode(Body)).
 
 
-get_from_phone(Phone) ->
+get_from_phone(katchup, _) -> ?KATCHUP_FROM_PHONE_FOR_US;
+get_from_phone(_, Phone) ->
     case mod_libphonenumber:get_cc(Phone) of
         <<"CA">> -> ?FROM_PHONE_FOR_CANADA;
         _ -> util_sms:lookup_from_phone(mbird_options)

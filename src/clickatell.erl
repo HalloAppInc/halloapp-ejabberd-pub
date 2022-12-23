@@ -16,8 +16,8 @@
 %% API
 -export([
     init/0,
-    can_send_sms/1,
-    can_send_voice_call/1,
+    can_send_sms/2,
+    can_send_voice_call/2,
     send_sms/4,
     send_voice_call/4,
     send_feedback/2,
@@ -29,8 +29,9 @@ init() ->
     FromPhoneList = ["12026842029"],
     util_sms:init_helper(clickatell_options, FromPhoneList).
 
--spec can_send_sms(CC :: binary()) -> boolean().
-can_send_sms(CC) ->
+-spec can_send_sms(AppType :: maybe(app_type()), CC :: binary()) -> boolean().
+can_send_sms(katchup, _CC) -> false;
+can_send_sms(_, CC) ->
     case CC of
         <<"BY">> -> false;     %% Belarus
         <<"CN">> -> false;     %% China
@@ -63,8 +64,8 @@ can_send_sms(CC) ->
         _ -> true
     end.
 
--spec can_send_voice_call(CC :: binary()) -> boolean().
-can_send_voice_call(_CC) ->
+-spec can_send_voice_call(AppType :: maybe(app_type()), CC :: binary()) -> boolean().
+can_send_voice_call(_AppType, _CC) ->
     % TODO: Voice calls are not implemented yet.
     false.
 
