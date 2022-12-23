@@ -218,11 +218,16 @@ compute_counts_by_version() ->
     VersionCountsMap = model_accounts:count_version_keys(),
     lists:foreach(
         fun(Version) ->
-            CountsByVersion = maps:get(Version, VersionCountsMap, 0),
-            Platform = util_ua:get_client_type(Version),
-            IsValid = maps:is_key(Version, ValidVersionsMap),
-            stat:gauge(util:get_stat_namespace(Version) ++ "/client_version", "all_users",
-                CountsByVersion, [{version, Version}, {platform, Platform}, {valid, IsValid}])
+            case binary:match(Version, <<"\d">>) of
+                nomatch when Version =/= <<"undefined">> -> ?ERROR("No number in Version ~p", [Version]);
+                {0, _} -> ok;
+                _ ->
+                    CountsByVersion = maps:get(Version, VersionCountsMap, 0),
+                    Platform = util_ua:get_client_type(Version),
+                    IsValid = maps:is_key(Version, ValidVersionsMap),
+                    stat:gauge(util:get_stat_namespace(Version) ++ "/client_version", "all_users",
+                        CountsByVersion, [{version, Version}, {platform, Platform}, {valid, IsValid}])
+            end
         end, AllVersions),
     End = util:now_ms(),
     ?INFO("Counting took ~p ms", [End - Start]),
