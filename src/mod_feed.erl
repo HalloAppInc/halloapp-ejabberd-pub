@@ -1060,8 +1060,8 @@ convert_moments_to_public_feed_items(Uid, #post{id = PostId, uid = OUid, payload
     UserProfile = model_accounts:get_user_profiles(Uid, OUid),
     PbPost = #pb_post{
         id = PostId,
-        publisher_uid = Uid,
-        publisher_name = model_accounts:get_name_binary(Uid),
+        publisher_uid = OUid,
+        publisher_name = model_accounts:get_name_binary(OUid),
         payload = base64:decode(PayloadBase64),
         timestamp = util:ms_to_sec(TimestampMs),
         moment_info = MomentInfo,
