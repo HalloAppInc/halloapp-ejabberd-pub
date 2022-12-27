@@ -362,12 +362,12 @@ register_user(Uid, _Server, Phone, CampaignId) ->
     StatNamespace = util:get_stat_namespace(AppType),
     case util:is_test_number(Phone) of
         false ->
-            stat:count(StatNamespace ++ "account", "registration"),
+            stat:count(StatNamespace ++ "/account", "registration"),
             CC = mod_libphonenumber:get_region_id(Phone),
             IsInvitedTag = {is_invited, model_invites:is_invited(Phone)},
-            stat:count(StatNamespace ++ "account", "registration_by_cc", 1, [{cc, CC}, IsInvitedTag]),
-            stat:count(StatNamespace ++ "account", "registration_by_cc_and_campaign_id", 1, [{cc, CC}, {campaign_id, CampaignId}]),
-            stat:count(StatNamespace ++ "account", "registration_invites", 1, [IsInvitedTag]),
+            stat:count(StatNamespace ++ "/account", "registration_by_cc", 1, [{cc, CC}, IsInvitedTag]),
+            stat:count(StatNamespace ++ "/account", "registration_by_cc_and_campaign_id", 1, [{cc, CC}, {campaign_id, CampaignId}]),
+            stat:count(StatNamespace ++ "/account", "registration_invites", 1, [IsInvitedTag]),
             %% Fetch their last verified response and count the registration with that lang_id.
             {ok, GatewayResponses} = model_phone:get_all_gateway_responses(Phone, AppType),
             LangId = case lists:search(
@@ -380,7 +380,7 @@ register_user(Uid, _Server, Phone, CampaignId) ->
                     undefined
             end,
             LangId1 = mod_translate:recast_langid(LangId),
-            stat:count(StatNamespace ++ "account", "registration_by_lang_id", 1,
+            stat:count(StatNamespace ++ "/account", "registration_by_lang_id", 1,
                 [{lang_id, util:to_list(LangId1)}]),
             % get most recent inviter and track invite string used
             case IsInvitedTag of
@@ -396,7 +396,7 @@ register_user(Uid, _Server, Phone, CampaignId) ->
             end,
             ok;
         true ->
-            stat:count(StatNamespace ++ "account", "registration_test_account")
+            stat:count(StatNamespace ++ "/account", "registration_test_account")
     end,
     new_user(Uid),
     ok.

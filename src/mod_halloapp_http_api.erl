@@ -677,10 +677,10 @@ log_registration(Phone, Action, UserAgent) ->
     StatNamespace = util:get_stat_namespace(UserAgent),
     case {Action, util:is_test_number(Phone)} of
         {login, false} ->
-            stat:count(StatNamespace ++ "account", "login_by_client_type", 1,
+            stat:count(StatNamespace ++ "/account", "login_by_client_type", 1,
                 [{client_type, util_ua:get_client_type(UserAgent)}]);
         {register, false} ->
-            stat:count(StatNamespace ++ "account", "registration_by_client_type", 1,
+            stat:count(StatNamespace ++ "/account", "registration_by_client_type", 1,
                 [{client_type, util_ua:get_client_type(UserAgent)}]);
         {_, true} ->
             ok
