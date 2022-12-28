@@ -218,9 +218,9 @@ compute_counts_by_version() ->
     VersionCountsMap = model_accounts:count_version_keys(),
     lists:foreach(
         fun(Version) ->
-            case binary:match(Version, <<"\d">>) of
+            case re:run(Version, <<"1|2|3|4|5|6|7|8|9|0">>) of
                 nomatch when Version =/= <<"undefined">> -> ?ERROR("No number in Version ~p", [Version]);
-                {0, _} -> ok;
+                {match, [{0, _}]} -> ok;
                 _ ->
                     CountsByVersion = maps:get(Version, VersionCountsMap, 0),
                     Platform = util_ua:get_client_type(Version),
