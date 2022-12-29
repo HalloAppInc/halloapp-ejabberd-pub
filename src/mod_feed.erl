@@ -394,33 +394,39 @@ publish_post(Uid, PostId, PayloadBase64, PostTag, PSATag, AudienceList, HomeFeed
         halloapp -> AudienceList#pb_audience.uids;
         katchup -> model_follow:get_all_followers(Uid)
     end,
-    MediaCounters = HomeFeedSt#pb_feed_item.item#pb_post.media_counters,
-    MomentInfo = HomeFeedSt#pb_feed_item.item#pb_post.moment_info,
-    %% Store only the audience to be broadcasted to.
-    FilteredAudienceList2 = sets:to_list(get_feed_audience_set(Action, Uid, FilteredAudienceList1)),
-    {ok, FinalTimestampMs} = case model_feed:get_post(PostId) of
-        {error, missing} ->
-            TimestampMs = util:now_ms(),
-            FeedAudienceSize = length(FilteredAudienceList2),
-            ?INFO("Uid: ~s PostId ~p published to ~p audience size: ~p",
-                [Uid, PostId, FeedAudienceType, FeedAudienceSize]),
-            case PostTag of
-                moment ->
-                    ok = model_feed:publish_moment(PostId, Uid, PayloadBase64, PostTag,
-                            FeedAudienceType, FilteredAudienceList2, TimestampMs, MomentInfo);
-                _ ->
-                    ok = model_feed:publish_post(PostId, Uid, PayloadBase64, PostTag,
-                            FeedAudienceType, FilteredAudienceList2, TimestampMs)
+    case AppType =:= halloapp orelse PostTag =:= moment of
+        false ->
+            ?ERROR("Uid: ~p AppType: ~p PostTag: ~p not_supported", [Uid, AppType, PostTag]),
+            {error, not_supported};
+        true ->
+            MediaCounters = HomeFeedSt#pb_feed_item.item#pb_post.media_counters,
+            MomentInfo = HomeFeedSt#pb_feed_item.item#pb_post.moment_info,
+            %% Store only the audience to be broadcasted to.
+            FilteredAudienceList2 = sets:to_list(get_feed_audience_set(Action, Uid, FilteredAudienceList1)),
+            {ok, FinalTimestampMs} = case model_feed:get_post(PostId) of
+                {error, missing} ->
+                    TimestampMs = util:now_ms(),
+                    FeedAudienceSize = length(FilteredAudienceList2),
+                    ?INFO("Uid: ~s PostId ~p published to ~p audience size: ~p",
+                        [Uid, PostId, FeedAudienceType, FeedAudienceSize]),
+                    case PostTag of
+                        moment ->
+                            ok = model_feed:publish_moment(PostId, Uid, PayloadBase64, PostTag,
+                                    FeedAudienceType, FilteredAudienceList2, TimestampMs, MomentInfo);
+                        _ ->
+                            ok = model_feed:publish_post(PostId, Uid, PayloadBase64, PostTag,
+                                    FeedAudienceType, FilteredAudienceList2, TimestampMs)
+                    end,
+                    ejabberd_hooks:run(feed_item_published, AppType,
+                        [Uid, Uid, PostId, post, PostTag, FeedAudienceType, FeedAudienceSize, MediaCounters]),
+                    {ok, TimestampMs};
+                {ok, ExistingPost} ->
+                    ?INFO("Uid: ~s PostId: ~s already published", [Uid, PostId]),
+                    {ok, ExistingPost#post.ts_ms}
             end,
-            ejabberd_hooks:run(feed_item_published, AppType,
-                [Uid, Uid, PostId, post, PostTag, FeedAudienceType, FeedAudienceSize, MediaCounters]),
-            {ok, TimestampMs};
-        {ok, ExistingPost} ->
-            ?INFO("Uid: ~s PostId: ~s already published", [Uid, PostId]),
-            {ok, ExistingPost#post.ts_ms}
-    end,
-    broadcast_post(Uid, FilteredAudienceList2, HomeFeedSt, FinalTimestampMs),
-    {ok, FinalTimestampMs};
+            broadcast_post(Uid, FilteredAudienceList2, HomeFeedSt, FinalTimestampMs),
+            {ok, FinalTimestampMs}
+    end;
 publish_post(Uid, PostId, PayloadBase64, PostTag, PSATag, _AudienceList, HomeFeedSt) ->
     ?INFO("Uid: ~s, PostId: ~s, PSATag: ~p", [Uid, PostId, PSATag]),
     case is_psa_tag_allowed(PSATag, Uid) of
