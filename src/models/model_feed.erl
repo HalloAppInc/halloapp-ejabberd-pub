@@ -76,6 +76,8 @@
     is_post_owner/2,
     get_post_tag/1,
     add_uid_to_audience/2,
+    expire_all_user_posts/1,
+    is_post_expired/1,
     remove_all_user_posts/1,    %% test.
     is_post_deleted/1,    %% test.
     is_comment_deleted/2,    %% test.
@@ -101,6 +103,7 @@
 -define(FIELD_PARENT_COMMENT_ID, <<"pc">>).
 -define(FIELD_COMMENT_TYPE, <<"ct">>).
 -define(FIELD_DELETED, <<"del">>).
+-define(FIELD_EXPIRED, <<"exp">>).
 -define(FIELD_GROUP_ID, <<"gid">>).
 -define(FIELD_PSA_TAG, <<"pst">>).
 -define(FIELD_PSA_TAG_DONE, <<"ptd">>).
@@ -402,9 +405,21 @@ delete_post(PostId, _Uid) ->
     ok.
 
 
+-spec expire_post(PostId :: binary(), Uid :: uid()) -> ok | {error, any()}.
+expire_post(PostId, _Uid) ->
+    %% Set expired field to be 1.
+    {ok, _} = q(["HSET", post_key(PostId), ?FIELD_EXPIRED, 1]),
+    ok.
+
+
 -spec is_post_deleted(PostId :: binary()) -> boolean().
 is_post_deleted(PostId) ->
     {ok, Res} = q(["HGET", post_key(PostId), ?FIELD_DELETED]),
+    util_redis:decode_boolean(Res, false).
+
+
+is_post_expired(PostId) ->
+    {ok, Res} = q(["HGET", post_key(PostId), ?FIELD_EXPIRED]),
     util_redis:decode_boolean(Res, false).
 
 
@@ -422,6 +437,13 @@ retract_comment(CommentId, PostId) ->
     ok.
 
 
+-spec expire_all_user_posts(Uid :: uid()) -> ok.
+expire_all_user_posts(Uid) ->
+    {ok, PostIds} = q(["ZRANGE", reverse_post_key(Uid), "-inf", "+inf", "BYSCORE"]),
+    lists:foreach(fun(PostId) -> ok = expire_post(PostId, Uid) end, PostIds),
+    ok.
+
+
 -spec remove_all_user_posts(Uid :: uid()) -> ok.
 remove_all_user_posts(Uid) ->
     {ok, PostIds} = q(["ZRANGEBYSCORE", reverse_post_key(Uid), "-inf", "+inf"]),
@@ -434,12 +456,12 @@ remove_all_user_posts(Uid) ->
 get_post(PostId) ->
     [
         {ok, [Uid, Payload, PostTag, AudienceType, TimestampMs, Gid, PSATag, IsDeletedBin,
-            NotificationTimestampBin, NumTakesBin, TimeTakenBin]},
+            NotificationTimestampBin, NumTakesBin, TimeTakenBin, IsExpiredBin]},
         {ok, AudienceList}] = qp([
             ["HMGET", post_key(PostId),
                 ?FIELD_UID, ?FIELD_PAYLOAD, ?FIELD_TAG, ?FIELD_AUDIENCE_TYPE, ?FIELD_TIMESTAMP_MS,
                 ?FIELD_GROUP_ID, ?FIELD_PSA_TAG, ?FIELD_DELETED, ?FIELD_NOTIFICATION_TIMESTAMP,
-                ?FIELD_NUM_TAKES, ?FIELD_TIME_TAKEN],
+                ?FIELD_NUM_TAKES, ?FIELD_TIME_TAKEN, ?FIELD_EXPIRED],
             ["SMEMBERS", post_audience_key(PostId)]]),
     IsDeleted = util_redis:decode_boolean(IsDeletedBin, false),
     case Uid =:= undefined orelse IsDeleted =:= true of
@@ -455,7 +477,8 @@ get_post(PostId) ->
                 ts_ms = util_redis:decode_ts(TimestampMs),
                 gid = Gid,
                 psa_tag = PSATag,
-                moment_info = decode_moment_info(NotificationTimestampBin, NumTakesBin, TimeTakenBin)
+                moment_info = decode_moment_info(NotificationTimestampBin, NumTakesBin, TimeTakenBin),
+                expired = util_redis:decode_boolean(IsExpiredBin, false)
             }}
     end.
 
@@ -524,11 +547,12 @@ get_comment_data(PostId, CommentId, ParentId) ->
     [{ok, Res1}, {ok, Res2}, {ok, Res3}] = qp([
         ["HMGET", post_key(PostId), ?FIELD_UID, ?FIELD_PAYLOAD, ?FIELD_TAG,
                 ?FIELD_AUDIENCE_TYPE, ?FIELD_TIMESTAMP_MS, ?FIELD_DELETED, ?FIELD_NOTIFICATION_TIMESTAMP,
-                ?FIELD_NUM_TAKES, ?FIELD_TIME_TAKEN],
+                ?FIELD_NUM_TAKES, ?FIELD_TIME_TAKEN, ?FIELD_EXPIRED],
         ["SMEMBERS", post_audience_key(PostId)],
         ["HMGET", comment_key(CommentId, PostId), ?FIELD_PUBLISHER_UID, ?FIELD_PARENT_COMMENT_ID, ?FIELD_COMMENT_TYPE,
                 ?FIELD_PAYLOAD, ?FIELD_TIMESTAMP_MS, ?FIELD_DELETED]]),
-    [PostUid, PostPayload, PostTag, AudienceType, PostTsMs, IsPostDeletedBin, NotificationTimestampBin, NumTakesBin, TimeTakenBin] = Res1,
+    [PostUid, PostPayload, PostTag, AudienceType, PostTsMs, IsPostDeletedBin,
+        NotificationTimestampBin, NumTakesBin, TimeTakenBin, IsExpiredBin] = Res1,
     AudienceList = Res2,
     [CommentPublisherUid, ParentCommentId, CommentTypeBin, CommentPayload, CommentTsMs, IsCommentDeletedBin] = Res3,
     
@@ -547,7 +571,8 @@ get_comment_data(PostId, CommentId, ParentId) ->
                 payload = PostPayload,
                 tag = decode_post_tag(PostTag),
                 ts_ms = util_redis:decode_ts(PostTsMs),
-                moment_info = decode_moment_info(NotificationTimestampBin, NumTakesBin, TimeTakenBin)
+                moment_info = decode_moment_info(NotificationTimestampBin, NumTakesBin, TimeTakenBin),
+                expired = util_redis:decode_boolean(IsExpiredBin, false)
             },
             %% Fetch push data.
             ParentPushList = lists:usort(get_comment_push_data(ParentId, PostId)),

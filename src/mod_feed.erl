@@ -278,7 +278,7 @@ remove_user(Uid, _Server) ->
 send_moment_notification(Uid) ->
     AppType = util_uid:get_app_type(Uid),
     case AppType of
-        katchup -> model_feed:remove_all_user_posts(Uid);
+        katchup -> model_feed:expire_all_user_posts(Uid);
         _ -> ok
     end,
     ?INFO("Uid: ~p, clearing all old posts for AppType: ~p", [Uid, AppType]),
@@ -974,9 +974,10 @@ filter_latest_moment(_Uid, Items) ->
                         end
                 end
             end, undefined, Posts),
-    case LatestMoment of
-        undefined -> {undefined, []};
-        _ ->
+    %% Dont send expired moments.
+    case LatestMoment =/= undefined andalso LatestMoment#post.expired =/= false of
+        false -> {undefined, []};
+        true ->
             FilteredComments = lists:filter(
                 fun(Comment) -> Comment#comment.post_id =:= LatestMoment#post.id end, Comments),
             {LatestMoment, FilteredComments}
