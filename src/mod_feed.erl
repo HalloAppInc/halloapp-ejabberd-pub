@@ -518,9 +518,10 @@ publish_comment(PublisherUid, CommentId, PostId, ParentCommentId, PayloadBase64,
             FeedAudienceSet = get_feed_audience_set(Action, PostOwnerUid, Post#post.audience_list),
             IsPublisherInFinalAudienceSet = sets:is_element(PublisherUid, FeedAudienceSet),
             IsPublisherInPostAudienceSet = sets:is_element(PublisherUid, PostAudienceSet),
+            IsPublicPost = Post#post.tag =:= public_moment orelse Post#post.tag =:= public_post,
 
             if
-                IsPublisherInFinalAudienceSet ->
+                IsPublicPost orelse IsPublisherInFinalAudienceSet ->
                     %% PublisherUid is allowed to comment since it is part of the final audience set.
                     %% It should be stored and broadcasted.
                     NewPushList = [PostOwnerUid, PublisherUid | ParentPushList],
@@ -606,12 +607,13 @@ retract_comment(PublisherUid, CommentId, PostId, HomeFeedSt) ->
             FeedAudienceSet = get_feed_audience_set(Action, PostOwnerUid, Post#post.audience_list),
             IsPublisherInFinalAudienceSet = sets:is_element(PublisherUid, FeedAudienceSet),
             IsPublisherInPostAudienceSet = sets:is_element(PublisherUid, PostAudienceSet),
+            IsPublicPost = Post#post.tag =:= public_moment orelse Post#post.tag =:= public_post,
 
             case PublisherUid =:= Comment#comment.publisher_uid of
                 false -> {error, not_authorized};
                 true ->
                     if
-                        IsPublisherInFinalAudienceSet orelse IsPublisherInPostAudienceSet ->
+                        IsPublicPost orelse IsPublisherInFinalAudienceSet orelse IsPublisherInPostAudienceSet ->
                             %% PublisherUid is allowed to retract comment since
                             %% it is part of the final audience set or part of the post audience set.
                             %% It should be removed from our db and broadcasted.
