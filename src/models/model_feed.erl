@@ -63,6 +63,7 @@
     get_entire_user_feed/1,
     get_7day_group_feed/1,
     get_entire_group_feed/1,
+    get_recent_user_posts/1,
     get_psa_tag_posts/1,
     is_psa_tag_done/1,
     mark_psa_tag_done/1,
@@ -162,7 +163,6 @@ publish_post(PostId, Uid, Payload, PostTag, FeedAudienceType, FeedAudienceList, 
         TimestampMs :: integer(), MomentInfo :: pb_moment_info()) -> ok | {error, any()}.
 publish_moment(PostId, Uid, Payload, PostTag, FeedAudienceType, FeedAudienceList, TimestampMs, MomentInfo) ->
     publish_post_internal(PostId, Uid, Payload, PostTag, FeedAudienceType, FeedAudienceList, TimestampMs, MomentInfo).
-
 
  -spec publish_post_internal(PostId :: binary(), Uid :: uid(), Payload :: binary(), PostTag :: post_tag(),
         FeedAudienceType :: atom(), FeedAudienceList :: [binary()],
@@ -789,6 +789,35 @@ get_user_feed(Uid, DeadlineMs) ->
     {ok, lists:append(Posts, Comments)}.
 
 
+%% Returns 3 most recent posts + today to display on other user's profile
+-spec get_recent_user_posts(Uid :: uid()) -> [post()].
+get_recent_user_posts(Uid) ->
+    {ok, AllPostIds} = q(["ZRANGE", reverse_post_key(Uid), "-inf", "+inf", "BYSCORE"]),
+    Posts = lists:reverse(get_posts(AllPostIds)),  % list is in order of most to least recent
+    %% If two posts have same moment notification ts, remove older one
+    {FilteredPosts, _} = lists:mapfoldl(
+        fun(#post{moment_info = #pb_moment_info{notification_timestamp = MomentNotifTs}} = Post, MomentNotifTsSet) ->
+            case sets:is_element(MomentNotifTs, MomentNotifTsSet) of
+                true -> {undefined, MomentNotifTsSet};
+                false -> {Post, sets:add_element(MomentNotifTs, MomentNotifTsSet)}
+            end
+        end,
+        sets:new(),
+        Posts),
+    FinalPosts = lists:filter(fun(P) -> P =/= undefined end, FilteredPosts),
+    case lists:partition(fun(#post{expired = Expired}) -> Expired =:= false end, FinalPosts) of
+        {[], FinalPosts} ->
+            %% No post for today
+            lists:sublist(FinalPosts, 3);
+        {TodayPost, _OtherPosts} when length(TodayPost) =:= 1 ->
+            %% Post for today
+            lists:sublist(FinalPosts, 4);
+        Res ->
+            ?ERROR("Unexpected recent post history for ~s: ~p | partitioned: ~p", [Uid, FinalPosts, Res]),
+            lists:sublist(FinalPosts, 4)
+    end.
+
+
 -spec get_group_feed(Uid :: uid(), DeadlineMs :: integer()) -> {ok, [feed_item()]} | {error, any()}.
 get_group_feed(Gid, DeadlineMs) ->
     {ok, AllPostIds} = q(["ZRANGEBYSCORE", reverse_group_post_key(Gid), integer_to_binary(DeadlineMs), "+inf"]),
@@ -967,7 +996,7 @@ encode_moment_info(#pb_moment_info{notification_timestamp = NotifTs, num_takes =
         0 -> <<>>;
         _ -> util:to_integer(TimeTaken)
     end,
-    {NotificationTimestampBin, NumTakesBin, TimeTakenBin}.
+    {NumTakesBin, NotificationTimestampBin, TimeTakenBin}.
 
 
 decode_moment_info(NotificationTimestampBin, NumTakesBin, TimeTakenBin) ->

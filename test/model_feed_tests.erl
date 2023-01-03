@@ -532,6 +532,30 @@ moment_tag_test() ->
     ok.
 
 
+get_recent_user_posts_test() ->
+    setup(),
+    Uid = tutil:generate_uid(?KATCHUP),
+    NowMs = util:now_ms(),
+    PostId4 = <<"P4">>,
+    PostId5 = <<"P5">>,
+    ?assertEqual([], model_feed:get_recent_user_posts(Uid)),
+    ok = model_feed:publish_moment(?POST_ID2, Uid, ?PAYLOAD2, moment, all, [Uid], NowMs - (2 * ?DAYS_MS),
+        #pb_moment_info{notification_timestamp = (NowMs - (2 * ?DAYS_MS))}),
+    ok = model_feed:publish_moment(?POST_ID3, Uid, ?PAYLOAD2, moment, all, [Uid], NowMs - (3 * ?DAYS_MS),
+        #pb_moment_info{notification_timestamp = (NowMs - (3 * ?DAYS_MS))}),
+    ok = model_feed:publish_moment(PostId4, Uid, ?PAYLOAD2, moment, all, [Uid], NowMs - (4 * ?DAYS_MS),
+        #pb_moment_info{notification_timestamp = (NowMs - (4 * ?DAYS_MS))}),
+    ok = model_feed:publish_moment(PostId5, Uid, ?PAYLOAD2, moment, all, [Uid], NowMs - (4 * ?DAYS_MS) + ?HOURS_MS,
+        #pb_moment_info{notification_timestamp = (NowMs - (4 * ?DAYS_MS))}),
+    ok = model_feed:expire_all_user_posts(Uid),
+    ?assertEqual([?POST_ID2, ?POST_ID3, PostId5], lists:map(fun(#post{id = Id}) -> Id end,
+        model_feed:get_recent_user_posts(Uid))),
+    ok = model_feed:publish_moment(?POST_ID1, Uid, ?PAYLOAD1, moment, all, [Uid], NowMs,
+        #pb_moment_info{notification_timestamp = NowMs}),
+    ?assertEqual([?POST_ID1, ?POST_ID2, ?POST_ID3, PostId5], lists:map(fun(#post{id = Id}) -> Id end,
+        model_feed:get_recent_user_posts(Uid))).
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%                      Helper functions                                  %%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

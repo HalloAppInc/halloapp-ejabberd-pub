@@ -20,12 +20,6 @@
 -define(CURSOR_VERSION_V0, <<"V0">>).
 -define(NS_FEED, <<"halloapp:feed">>).
 
-%% functions used in tests
--ifdef(TEST).
--export([
-    get_public_moments/4
-]).
--endif.
 
 %% gen_mod API.
 -export([start/2, stop/1, reload/3, mod_options/1, depends/2]).

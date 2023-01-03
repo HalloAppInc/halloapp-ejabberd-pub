@@ -1784,6 +1784,7 @@ message UserProfileResult {
     }
     Reason reason = 2;
     UserProfile profile = 3;
+    repeated Post recent_posts = 4;
 }
 
 message RelationshipRequest {

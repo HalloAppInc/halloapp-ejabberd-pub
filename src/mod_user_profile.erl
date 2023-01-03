@@ -106,9 +106,11 @@ process_user_profile_request(Uid, Ouid, Iq) ->
     Ret = case model_accounts:account_exists(Ouid) andalso not model_follow:is_blocked_any(Uid, Ouid) of
         true ->
             UserProfile = model_accounts:get_user_profiles(Uid, Ouid),
+            RecentPosts = model_feed:get_recent_user_posts(Uid),
             #pb_user_profile_result{
                 result = ok,
-                profile = UserProfile
+                profile = UserProfile,
+                recent_posts = RecentPosts
             };
         false ->
             #pb_user_profile_result{
