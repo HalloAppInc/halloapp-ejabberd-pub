@@ -42,6 +42,7 @@
     publish_psa_post/6,
     publish_post/7,
     publish_moment/8,
+    check_daily_limit/3,
     index_post_by_user_tags/4,
     get_public_moments/4,
     get_posts_by_time_bucket/6,
@@ -191,6 +192,15 @@ publish_post_internal(PostId, Uid, Payload, PostTag, FeedAudienceType, FeedAudie
     ok = cleanup_reverse_index(Uid),
     index_post_by_user_tags(PostId, Uid, PostTag, TimestampMs),
     ok.
+
+
+check_daily_limit(Uid, PostId, MomentInfo) ->
+    {NumTakesBin, NotificationTimestampBin, TimeTakenBin} = encode_moment_info(MomentInfo),
+    DailyLimitKey = daily_limit_key(Uid, NotificationTimestampBin),
+    [{ok, Count}, {ok, _}] = qp([
+            ["INCR", DailyLimitKey],
+            ["EXPIRE", DailyLimitKey, ?POST_EXPIRATION]]),
+    Count < ?MAX_DAILY_MOMENT_LIMIT.
 
 
 %% Indexes post-id by a specific geotag if the post-tag matches public content.
@@ -1078,6 +1088,12 @@ reverse_post_key(Uid) ->
 -spec reverse_group_post_key(Gid :: uid()) -> binary().
 reverse_group_post_key(Gid) ->
     <<?REVERSE_GROUP_POST_KEY/binary, "{", Gid/binary, "}">>.
+
+
+-spec daily_limit_key(Uid :: binary(), NotificationTimestampBin :: binary()) -> binary().
+daily_limit_key(Uid, NotificationTimestampBin) ->
+    <<?DAILY_LIMIT_KEY/binary, "{", Uid/binary, "}:", NotificationTimestampBin/binary>>.
+
 
 -spec psa_tag_key(PSATag :: binary()) -> binary().
 psa_tag_key(PSATag) ->
