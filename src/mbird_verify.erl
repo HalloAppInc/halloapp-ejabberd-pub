@@ -32,7 +32,7 @@ init() ->
     ok.
 
 -spec can_send_sms(AppType :: maybe(app_type()), CC :: binary()) -> boolean().
-can_send_sms(katckup, _CC) -> false;
+can_send_sms(katchup, _CC) -> false;
 can_send_sms(_, CC) ->
     mbird:is_cc_supported(CC).
 -spec can_send_voice_call(AppType :: maybe(app_type()), CC :: binary()) -> boolean().
