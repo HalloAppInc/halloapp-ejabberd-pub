@@ -365,25 +365,20 @@ publish_post(Uid, PostId, PayloadBase64, public_moment, PSATag, _AudienceList, H
     MediaCounters = HomeFeedSt#pb_feed_item.item#pb_post.media_counters,
     MomentInfo = HomeFeedSt#pb_feed_item.item#pb_post.moment_info,
 
-    %% Check the daily limit for number of moments.
-    case model_feed:check_daily_limit(Uid, PostId, MomentInfo) of
-        false -> {error, too_many_moments};
-        true ->
-            %% Store only the audience to be broadcasted to.
-            {ok, FinalTimestampMs} = case model_feed:get_post(PostId) of
-                {error, missing} ->
-                    TimestampMs = util:now_ms(),
-                    ?INFO("Uid: ~s PostId ~p published as public_moment: ~p", [Uid, PostId]),
-                    ok = model_feed:publish_moment(PostId, Uid, PayloadBase64, public_moment, all, [], TimestampMs, MomentInfo),
-                    ejabberd_hooks:run(feed_item_published, AppType,
-                        [Uid, Uid, PostId, post, public_moment, all, 0, MediaCounters]),
-                    {ok, TimestampMs};
-                {ok, ExistingPost} ->
-                    ?INFO("Uid: ~s PostId: ~s already published", [Uid, PostId]),
-                    {ok, ExistingPost#post.ts_ms}
-            end,
-            {ok, FinalTimestampMs}
-    end;
+    %% Store only the audience to be broadcasted to.
+    {ok, FinalTimestampMs} = case model_feed:get_post(PostId) of
+        {error, missing} ->
+            TimestampMs = util:now_ms(),
+            ?INFO("Uid: ~s PostId ~p published as public_moment: ~p", [Uid, PostId]),
+            ok = model_feed:publish_moment(PostId, Uid, PayloadBase64, public_moment, all, [], TimestampMs, MomentInfo),
+            ejabberd_hooks:run(feed_item_published, AppType,
+                [Uid, Uid, PostId, post, public_moment, all, 0, MediaCounters]),
+            {ok, TimestampMs};
+        {ok, ExistingPost} ->
+            ?INFO("Uid: ~s PostId: ~s already published", [Uid, PostId]),
+            {ok, ExistingPost#post.ts_ms}
+    end,
+    {ok, FinalTimestampMs};
 
 publish_post(Uid, PostId, PayloadBase64, PostTag, PSATag, AudienceList, HomeFeedSt)
         when PSATag =:= undefined; PSATag =:= <<>> ->
@@ -402,37 +397,31 @@ publish_post(Uid, PostId, PayloadBase64, PostTag, PSATag, AudienceList, HomeFeed
         true ->
             MediaCounters = HomeFeedSt#pb_feed_item.item#pb_post.media_counters,
             MomentInfo = HomeFeedSt#pb_feed_item.item#pb_post.moment_info,
-            %% Check daily limit for katchup.
-            case AppType =:= katchup andalso PostTag =:= moment andalso
-                    not model_feed:check_daily_limit(Uid, PostId, MomentInfo) of
-                true -> {error, too_many_moments};
-                false ->
-                    %% Store only the audience to be broadcasted to.
-                    FilteredAudienceList2 = sets:to_list(get_feed_audience_set(Action, Uid, FilteredAudienceList1)),
-                    {ok, FinalTimestampMs} = case model_feed:get_post(PostId) of
-                        {error, missing} ->
-                            TimestampMs = util:now_ms(),
-                            FeedAudienceSize = length(FilteredAudienceList2),
-                            ?INFO("Uid: ~s PostId ~p published to ~p audience size: ~p",
-                                [Uid, PostId, FeedAudienceType, FeedAudienceSize]),
-                            case PostTag of
-                                moment ->
-                                    ok = model_feed:publish_moment(PostId, Uid, PayloadBase64, PostTag,
-                                            FeedAudienceType, FilteredAudienceList2, TimestampMs, MomentInfo);
-                                _ ->
-                                    ok = model_feed:publish_post(PostId, Uid, PayloadBase64, PostTag,
-                                            FeedAudienceType, FilteredAudienceList2, TimestampMs)
-                            end,
-                            ejabberd_hooks:run(feed_item_published, AppType,
-                                [Uid, Uid, PostId, post, PostTag, FeedAudienceType, FeedAudienceSize, MediaCounters]),
-                            {ok, TimestampMs};
-                        {ok, ExistingPost} ->
-                            ?INFO("Uid: ~s PostId: ~s already published", [Uid, PostId]),
-                            {ok, ExistingPost#post.ts_ms}
+            %% Store only the audience to be broadcasted to.
+            FilteredAudienceList2 = sets:to_list(get_feed_audience_set(Action, Uid, FilteredAudienceList1)),
+            {ok, FinalTimestampMs} = case model_feed:get_post(PostId) of
+                {error, missing} ->
+                    TimestampMs = util:now_ms(),
+                    FeedAudienceSize = length(FilteredAudienceList2),
+                    ?INFO("Uid: ~s PostId ~p published to ~p audience size: ~p",
+                        [Uid, PostId, FeedAudienceType, FeedAudienceSize]),
+                    case PostTag of
+                        moment ->
+                            ok = model_feed:publish_moment(PostId, Uid, PayloadBase64, PostTag,
+                                    FeedAudienceType, FilteredAudienceList2, TimestampMs, MomentInfo);
+                        _ ->
+                            ok = model_feed:publish_post(PostId, Uid, PayloadBase64, PostTag,
+                                    FeedAudienceType, FilteredAudienceList2, TimestampMs)
                     end,
-                    broadcast_post(Uid, FilteredAudienceList2, HomeFeedSt, FinalTimestampMs),
-                    {ok, FinalTimestampMs}
-            end
+                    ejabberd_hooks:run(feed_item_published, AppType,
+                        [Uid, Uid, PostId, post, PostTag, FeedAudienceType, FeedAudienceSize, MediaCounters]),
+                    {ok, TimestampMs};
+                {ok, ExistingPost} ->
+                    ?INFO("Uid: ~s PostId: ~s already published", [Uid, PostId]),
+                    {ok, ExistingPost#post.ts_ms}
+            end,
+            broadcast_post(Uid, FilteredAudienceList2, HomeFeedSt, FinalTimestampMs),
+            {ok, FinalTimestampMs}
     end;
 publish_post(Uid, PostId, PayloadBase64, PostTag, PSATag, _AudienceList, HomeFeedSt) ->
     ?INFO("Uid: ~s, PostId: ~s, PSATag: ~p", [Uid, PostId, PSATag]),
