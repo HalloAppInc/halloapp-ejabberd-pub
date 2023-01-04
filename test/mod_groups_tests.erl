@@ -21,10 +21,14 @@ setup() ->
     ok.
 
 setup_accounts() ->
-    model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?UA),
-    model_accounts:create_account(?UID2, ?PHONE2, ?NAME2, ?UA),
-    model_accounts:create_account(?UID3, ?PHONE3, ?NAME3, ?UA),
-    model_accounts:create_account(?UID4, ?PHONE4, ?NAME4, ?UA),
+    model_accounts:create_account(?UID1, ?PHONE1, ?UA),
+    model_accounts:set_name(?UID1, ?NAME1),
+    model_accounts:create_account(?UID2, ?PHONE2, ?UA),
+    model_accounts:set_name(?UID2, ?NAME2),
+    model_accounts:create_account(?UID3, ?PHONE3, ?UA),
+    model_accounts:set_name(?UID3, ?NAME3),
+    model_accounts:create_account(?UID4, ?PHONE4, ?UA),
+    model_accounts:set_name(?UID4, ?NAME4),
     ok.
 
 clear() ->

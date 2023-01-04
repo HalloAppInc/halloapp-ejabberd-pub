@@ -1690,6 +1690,7 @@ message VerifyOtpResponse {
     }
     Reason reason = 5;
     string group_invite_result = 6;
+    string username = 7;
 }
 
 message ClientOtpRequest {

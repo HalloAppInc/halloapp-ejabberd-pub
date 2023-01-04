@@ -202,7 +202,6 @@ compose_verify_otp_noise_request(Phone, Code, Options) ->
     VerifyOtpRequestPkt = #pb_verify_otp_request {
         phone = Phone,
         code = Code,
-        name = maps:get(name, Options, undefined),
         static_key = maps:get(static_key, Options, undefined),
         signed_phrase = maps:get(signed_phrase, Options, undefined),
         identity_key = maps:get(identity_key, Options, ?IDENTITY_KEY),

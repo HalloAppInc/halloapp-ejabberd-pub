@@ -55,7 +55,8 @@ setup_accounts(Accounts) ->
     lists:foreach(
         fun([Uid, Phone, Name, UserAgent]) ->
             AppType = util_uid:get_app_type(Uid),
-            ok = model_accounts:create_account(Uid, Phone, Name, UserAgent),
+            ok = model_accounts:create_account(Uid, Phone, UserAgent),
+            ok = model_accounts:set_name(Uid, Name),
             ok = model_phone:add_phone(Phone, AppType, Uid)
         end, Accounts),
     ok.
