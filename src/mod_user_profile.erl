@@ -10,6 +10,7 @@
 
 -include("ha_types.hrl").
 -include("logger.hrl").
+-include("feed.hrl").
 -include("packets.hrl").
 
 %% gen_mod API
@@ -106,7 +107,20 @@ process_user_profile_request(Uid, Ouid, Iq) ->
     Ret = case model_accounts:account_exists(Ouid) andalso not model_follow:is_blocked_any(Uid, Ouid) of
         true ->
             UserProfile = model_accounts:get_user_profiles(Uid, Ouid),
-            RecentPosts = model_feed:get_recent_user_posts(Uid),
+            RawRecentPosts = model_feed:get_recent_user_posts(Uid),
+            AccountName = model_accounts:get_name_binary(Uid),
+            RecentPosts = lists:map(
+                fun(#post{id = PostId, payload = PayloadBase64, ts_ms = TimestampMs, tag = PostTag, moment_info = MomentInfo}) ->
+                    #pb_post{
+                        id = PostId,
+                        publisher_uid = Uid,
+                        publisher_name = AccountName,
+                        payload = base64:decode(PayloadBase64),
+                        timestamp = util:ms_to_sec(TimestampMs),
+                        moment_info = MomentInfo,
+                        tag = PostTag
+                    }
+                end, RawRecentPosts),
             #pb_user_profile_result{
                 result = ok,
                 profile = UserProfile,
