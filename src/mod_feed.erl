@@ -36,7 +36,7 @@
     send_old_moment/2,
     send_moment_notification/1,
     new_follow_relationship/2,
-    get_public_moments/4,
+    get_public_moments/5,
     convert_moments_to_public_feed_items/2
 ]).
 
@@ -205,7 +205,7 @@ process_local_iq(#pb_iq{from_uid = Uid, payload = #pb_public_feed_request{cursor
         end,
         %% Fetch latest geotag, public moments (convert them to pb feed items) and calculate cursor
         Tag = model_accounts:get_latest_geo_tag(Uid),
-        {ReloadFeed, NewCursor, PublicMoments} = get_public_moments(Tag, util:now_ms(), Cursor, ?NUM_PUBLIC_FEED_ITEMS_PER_REQUEST),
+        {ReloadFeed, NewCursor, PublicMoments} = get_public_moments(Uid, Tag, util:now_ms(), Cursor, ?NUM_PUBLIC_FEED_ITEMS_PER_REQUEST),
         PublicFeedItems = lists:map(fun(PublicMoment) -> convert_moments_to_public_feed_items(Uid, PublicMoment) end, PublicMoments),
         Ret = #pb_public_feed_response{
             result = success,
@@ -358,10 +358,11 @@ set_ts_and_publisher_name(MsgId, #pb_feed_item{item = Item} = FeedItem) ->
 publish_post(_Uid, _PostId, _PayloadBase64, _PostTag, _PSATag, undefined, _HomeFeedSt) ->
     {error, no_audience};
 publish_post(_Uid, _PostId, _PayloadBase64, public_post, _PSATag, _AudienceList, _HomeFeedSt) -> {error, not_supported};
-publish_post(Uid, PostId, PayloadBase64, public_moment, PSATag, _AudienceList, HomeFeedSt)
+publish_post(Uid, PostId, PayloadBase64, public_moment, PSATag, AudienceList, HomeFeedSt)
         when PSATag =:= undefined; PSATag =:= <<>> ->
     ?INFO("Uid: ~s, public_moment PostId: ~s", [Uid, PostId]),
     AppType = util_uid:get_app_type(Uid),
+    Action = publish,
     MediaCounters = HomeFeedSt#pb_feed_item.item#pb_post.media_counters,
     MomentInfo = HomeFeedSt#pb_feed_item.item#pb_post.moment_info,
 
@@ -805,9 +806,9 @@ determine_cursor_action(Cursor) ->
     end.
 
 
-get_public_moments(Tag, TimestampMs, Cursor, Limit) ->
+get_public_moments(Uid, Tag, TimestampMs, Cursor, Limit) ->
     {CursorReload, CursorVersion, RequestTimestampMs, CursorToUse} = determine_cursor_action(Cursor),
-    PublicMoments = get_public_moments(Tag, TimestampMs, CursorToUse, CursorVersion, RequestTimestampMs, Limit, []),
+    PublicMoments = get_public_moments(Uid, Tag, TimestampMs, CursorToUse, CursorVersion, RequestTimestampMs, Limit, []),
     NewCursor = case PublicMoments of
         [] -> <<>>;
         _ ->
@@ -818,30 +819,35 @@ get_public_moments(Tag, TimestampMs, Cursor, Limit) ->
     {CursorReload, NewCursor, PublicMoments}.
 
 
-get_public_moments(Tag, TimestampMs, Cursor, CursorVersion, RequestTimestampMs, Limit, PublicMoments) ->
+get_public_moments(Uid, Tag, TimestampMs, Cursor, CursorVersion, RequestTimestampMs, Limit, PublicMoments) ->
     case length(PublicMoments) >= Limit of
         true ->
             %% Base case: Limit has been reached
             lists:sublist(PublicMoments, Limit);
         false ->
-            %% Fetch 20% more items than needed to account for possible deleted posts
+            %% Fetch 50% more items than needed to account for possible deleted posts and also following posts.
             NumNeeded = Limit - length(PublicMoments),
-            NumToFetch = round(NumNeeded * 1.2),
-            NewPublicMomentIds = model_feed:get_public_moments(Tag, TimestampMs, Cursor, NumToFetch),
+            NumToFetch = round(NumNeeded * 1.5),
+            NewPublicMomentIds = model_feed:get_public_moments(Uid, Tag, TimestampMs, Cursor, NumToFetch),
             %% Filter out deleted posts and convert PostIds to Posts
             NewPublicMoments = model_feed:get_posts(NewPublicMomentIds),
-            case length(NewPublicMomentIds) < NumToFetch of
+            %% Filter out posts from following of Uid.
+            FollowingSet = sets:from_list(model_follow:get_all_following(Uid)),
+            UnrelatedPublicMoments = lists:filter(
+                    fun(PublicMoment) -> not sets:is_element(PublicMoment#post.uid, FollowingSet) end,
+                    NewPublicMoments),
+            case length(UnrelatedPublicMoments) < NumToFetch of
                 true ->
                     %% If length(NewPublicMomentIds) is less than the number of items we tried to fetch,
                     %% we must have reached the end of the possible items, so we should return here
-                    lists:sublist(PublicMoments ++ NewPublicMoments, Limit);
+                    lists:sublist(PublicMoments ++ UnrelatedPublicMoments, Limit);
                 false ->
                     %% Otherwise, recurse
                     PostTsMs = model_feed:get_post_timestamp_ms(lists:last(NewPublicMomentIds)),
                     NewCursor = model_feed:join_cursor(CursorVersion, RequestTimestampMs,
                             lists:last(NewPublicMomentIds), PostTsMs),
-                    get_public_moments(Tag, TimestampMs, NewCursor, CursorVersion,
-                            RequestTimestampMs, Limit, PublicMoments ++ NewPublicMoments)
+                    get_public_moments(Uid, Tag, TimestampMs, NewCursor, CursorVersion,
+                            RequestTimestampMs, Limit, PublicMoments ++ UnrelatedPublicMoments)
             end
     end.
 
