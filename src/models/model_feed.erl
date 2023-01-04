@@ -194,8 +194,8 @@ publish_post_internal(PostId, Uid, Payload, PostTag, FeedAudienceType, FeedAudie
     ok.
 
 
-check_daily_limit(Uid, PostId, MomentInfo) ->
-    {NumTakesBin, NotificationTimestampBin, TimeTakenBin} = encode_moment_info(MomentInfo),
+check_daily_limit(Uid, _PostId, MomentInfo) ->
+    {_NumTakesBin, NotificationTimestampBin, _TimeTakenBin} = encode_moment_info(MomentInfo),
     DailyLimitKey = daily_limit_key(Uid, NotificationTimestampBin),
     [{ok, Count}, {ok, _}] = qp([
             ["INCR", DailyLimitKey],
