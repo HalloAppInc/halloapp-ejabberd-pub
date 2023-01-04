@@ -410,6 +410,7 @@ process_element(#pb_register_request{request = #pb_verify_otp_request{} = Verify
                 uid = maps:get(uid, Result),
                 phone = maps:get(phone, Result),
                 name = maps:get(name, Result),
+                username = maps:get(username, Result),
                 result = success,
                 group_invite_result = util:to_binary(maps:get(group_invite_result, Result, ''))
             };

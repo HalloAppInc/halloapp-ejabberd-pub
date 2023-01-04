@@ -56,9 +56,9 @@
 
 %% API
 -export([
+    create_account/3,
     create_account/4,
-    create_account/5,
-    create_account/6, % CommonTest
+    create_account/5, % CommonTest
     delete_account/1,
     account_exists/1,
     accounts_exist/1,
@@ -235,21 +235,21 @@
 %% Account related API
 %%====================================================================
 
--spec create_account(Uid :: uid(), Phone :: phone(), Name :: binary(),
+-spec create_account(Uid :: uid(), Phone :: phone(),
         UserAgent :: binary()) -> ok | {error, exists}.
-create_account(Uid, Phone, Name, UserAgent) ->
-    create_account(Uid, Phone, Name, UserAgent, <<>>, util:now_ms()).
+create_account(Uid, Phone, UserAgent) ->
+    create_account(Uid, Phone, UserAgent, <<>>, util:now_ms()).
 
--spec create_account(Uid :: uid(), Phone :: phone(), Name :: binary(),
+-spec create_account(Uid :: uid(), Phone :: phone(),
         UserAgent :: binary(), CampaignId :: binary()) -> ok | {error, exists}.
-create_account(Uid, Phone, Name, UserAgent, CampaignId) ->
-    create_account(Uid, Phone, Name, UserAgent, CampaignId, util:now_ms()).
+create_account(Uid, Phone, UserAgent, CampaignId) ->
+    create_account(Uid, Phone, UserAgent, CampaignId, util:now_ms()).
 
 
--spec create_account(Uid :: uid(), Phone :: phone(), Name :: binary(),
+-spec create_account(Uid :: uid(), Phone :: phone(),
         UserAgent :: binary(), CampaignId :: binary(),
         CreationTsMs :: integer()) -> ok | {error, exists | deleted}.
-create_account(Uid, Phone, Name, UserAgent, CampaignId, CreationTsMs) ->
+create_account(Uid, Phone, UserAgent, CampaignId, CreationTsMs) ->
     {ok, Deleted} = q(["EXISTS", deleted_account_key(Uid)]),
     case binary_to_integer(Deleted) == 1 of
         true -> {error, deleted};
@@ -259,7 +259,6 @@ create_account(Uid, Phone, Name, UserAgent, CampaignId, CreationTsMs) ->
                 true ->
                     Res = qp([
                         ["HSET", account_key(Uid),
-                            ?FIELD_NAME, Name,
                             ?FIELD_USER_AGENT, UserAgent,
                             ?FIELD_CAMPAIGN_ID, CampaignId,
                             ?FIELD_CREATION_TIME, integer_to_binary(CreationTsMs),

@@ -60,7 +60,8 @@ get_invites_testparallel(_) ->
 
 % tests existing_user error
 send_invites_error3_testparallel(_) ->
-    ok = model_accounts:create_account(?UID2, ?PHONE2, ?NAME2, ?USER_AGENT2),
+    ok = model_accounts:create_account(?UID2, ?PHONE2, ?USER_AGENT2),
+    ok = model_accounts:set_name(?UID2, ?NAME2),
     ok = model_phone:add_phone(?PHONE2, ?HALLOAPP, ?UID2),
     Actual = mod_invites:process_local_iq(create_invite_iq(?UID1)),
     Expected = [
@@ -161,7 +162,8 @@ time_until_refresh2_test() ->
 
 % tests the existing_user error of the request_invite function
 request_invite_error1_testset(_) ->
-    ok = model_accounts:create_account(?UID2, ?PHONE2, ?NAME2, ?USER_AGENT2),
+    ok = model_accounts:create_account(?UID2, ?PHONE2, ?USER_AGENT2),
+    ok = model_accounts:set_name(?UID2, ?NAME2),
     ok = model_phone:add_phone(?PHONE2, ?HALLOAPP, ?UID2),
     InvReq = mod_invites:request_invite(?UID1, ?PHONE2),
     InvRem = mod_invites:get_invites_remaining(?UID1),
@@ -267,7 +269,8 @@ rm_invite_string_test(_) ->
     EnLang = <<"en">>,
     Uid2String = maps:get(EnLang, mod_invites:get_invite_strings(?UID2), undefined),
     Uid2Plus1 = util:to_binary(util:to_integer(?UID2) + 1),
-    ok = model_accounts:create_account(Uid2Plus1, ?PHONE2, ?NAME2, ?USER_AGENT2),
+    ok = model_accounts:create_account(Uid2Plus1, ?PHONE2, ?USER_AGENT2),
+    ok = model_accounts:set_name(Uid2Plus1, ?NAME2),
     ok = model_accounts:set_push_token(Uid2Plus1, <<>>, <<>>, 0, ?LANG_ID2A),
     Uid2Plus1String = maps:get(EnLang, mod_invites:get_invite_strings(Uid2Plus1), undefined),
     Uid4String = maps:get(EnLang, mod_invites:get_invite_strings(?UID4), undefined),
@@ -323,7 +326,8 @@ setup() ->
         {redis, [redis_accounts, redis_phone]}
     ]),
     phone_number_util:init(undefined, undefined),
-    ok = model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1),
+    ok = model_accounts:create_account(?UID1, ?PHONE1, ?USER_AGENT1),
+    ok = model_accounts:set_name(?UID1, ?NAME1),
     CleanupInfo.
 
 setup_with_meck() ->
@@ -342,13 +346,17 @@ setup_redis_only() ->
 setup_invite_strings() ->
     CleanupInfo = tutil:setup([{redis, redis_accounts}]),
     %% Setup accounts so that each UID has an associated LangId
-    ok = model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1),
+    ok = model_accounts:create_account(?UID1, ?PHONE1, ?USER_AGENT1),
+    ok = model_accounts:set_name(?UID1, ?NAME1),
     ok = model_accounts:set_push_token(?UID1, <<>>, <<>>, 0, ?LANG_ID1),
-    ok = model_accounts:create_account(?UID2, ?PHONE2, ?NAME2, ?USER_AGENT2),
+    ok = model_accounts:create_account(?UID2, ?PHONE2, ?USER_AGENT2),
+    ok = model_accounts:set_name(?UID2, ?NAME2),
     ok = model_accounts:set_push_token(?UID2, <<>>, <<>>, 0, ?LANG_ID2A),
-    ok = model_accounts:create_account(?UID3, ?PHONE3, ?NAME3, ?USER_AGENT3),
+    ok = model_accounts:create_account(?UID3, ?PHONE3, ?USER_AGENT3),
+    ok = model_accounts:set_name(?UID3, ?NAME3),
     ok = model_accounts:set_push_token(?UID3, <<>>, <<>>, 0, ?LANG_ID3),
-    ok = model_accounts:create_account(?UID4, ?PHONE4, ?NAME1, ?USER_AGENT1),
+    ok = model_accounts:create_account(?UID4, ?PHONE4, ?USER_AGENT1),
+    ok = model_accounts:set_name(?UID4, ?NAME1),
     ok = model_accounts:set_push_token(?UID4, <<>>, <<>>, 0, ?LANG_ID4),
     mod_invites:init_pre_invite_string_table(),
     mod_invites:init_invite_string_table(),
