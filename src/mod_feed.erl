@@ -828,7 +828,7 @@ get_public_moments(Uid, Tag, TimestampMs, Cursor, CursorVersion, RequestTimestam
             %% Fetch 50% more items than needed to account for possible deleted posts and also following posts.
             NumNeeded = Limit - length(PublicMoments),
             NumToFetch = round(NumNeeded * 1.5),
-            NewPublicMomentIds = model_feed:get_public_moments(Uid, Tag, TimestampMs, Cursor, NumToFetch),
+            NewPublicMomentIds = model_feed:get_public_moments(Tag, TimestampMs, Cursor, NumToFetch),
             %% Filter out deleted posts and convert PostIds to Posts
             NewPublicMoments = model_feed:get_posts(NewPublicMomentIds),
             %% Filter out posts from following of Uid.
