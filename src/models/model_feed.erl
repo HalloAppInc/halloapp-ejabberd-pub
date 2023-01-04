@@ -200,7 +200,7 @@ check_daily_limit(Uid, _PostId, MomentInfo) ->
     [{ok, Count}, {ok, _}] = qp([
             ["INCR", DailyLimitKey],
             ["EXPIRE", DailyLimitKey, ?POST_EXPIRATION]]),
-    Count < ?MAX_DAILY_MOMENT_LIMIT.
+    util:to_integer(Count) =< ?MAX_DAILY_MOMENT_LIMIT.
 
 
 %% Indexes post-id by a specific geotag if the post-tag matches public content.
