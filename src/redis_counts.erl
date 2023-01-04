@@ -15,7 +15,7 @@
 -export([
     count_key/2,
     count_fold/1,
-    count_by_slot/2
+    count_by_slot/3
 ]).
 
 
@@ -34,8 +34,8 @@ count_fold(Fun) ->
         0,
         lists:seq(0, ?REDIS_CLUSTER_HASH_SLOTS -1)).
 
-count_by_slot(ClusterName, Fun) ->
-    SlotQueries = lists:map(Fun, lists:seq(0, ?REDIS_CLUSTER_HASH_SLOTS - 1)),
+count_by_slot(ClusterName, Fun, AppType) ->
+    SlotQueries = lists:map(fun(Slot) -> Fun(Slot, AppType) end, lists:seq(0, ?REDIS_CLUSTER_HASH_SLOTS - 1)),
     Res = ecredis:qmn(ClusterName, SlotQueries),
     Count = lists:foldl(
         fun(Result, Acc) ->

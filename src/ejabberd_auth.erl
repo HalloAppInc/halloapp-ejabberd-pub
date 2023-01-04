@@ -94,7 +94,9 @@ get_users() ->
 
 -spec count_users() -> non_neg_integer().
 count_users() ->
-    model_accounts:count_accounts().
+    ?ERROR("Unsupported on Katchup"),
+    CountsMap = model_accounts:count_accounts(),
+    maps:get(?HALLOAPP, CountsMap, 0).
 
 
 -spec user_exists(binary()) -> boolean().

@@ -164,8 +164,9 @@ is_inactive_user(Uid) ->
 -spec check_and_delete_accounts(ShouldDelete :: boolean()) -> ok.
 check_and_delete_accounts(ShouldDelete) ->
     NumInactiveAccounts = model_accounts:count_uids_to_delete(),
-    NumTotalAccounts = model_accounts:count_accounts(),
-    ?INFO("Num Inactive: ~p, Total: ~p", [NumInactiveAccounts, NumTotalAccounts]),
+    NumTotalAccountsMap = model_accounts:count_accounts(),
+    ?INFO("Halloapp | Num Inactive: ~p, Total: ~p", [NumInactiveAccounts, maps:get(?HALLOAPP, NumTotalAccountsMap)]),
+    ?INFO("Katchup | Num Inactive: ~p, Total: ~p", [NumInactiveAccounts, maps:get(?KATCHUP, NumTotalAccountsMap)]),
     %% Fraction = NumInactiveAccounts / NumTotalAccounts,
 
     IsNoDevAccount = not (is_any_dev_account()),
@@ -175,14 +176,14 @@ check_and_delete_accounts(ShouldDelete) ->
     %% IsAcceptable = (Fraction < ?ACCEPTABLE_FRACTION) and IsNoDevAccount,
     IsAcceptable = (NumInactiveAccounts < ?MAX_TO_DELETE_ACCOUNTS) and IsNoDevAccount,
     case IsAcceptable of
-        false -> 
+        false ->
             ?ERROR("Not deleting inactive accounts. NumInactive: ~p, Total: ~p, No dev account?: ~p",
-                [NumInactiveAccounts, NumTotalAccounts, IsNoDevAccount]),
+                [NumInactiveAccounts, NumTotalAccountsMap, IsNoDevAccount]),
             ok;
         true ->
             delete_inactive_accounts(ShouldDelete)
-    end,
-    ok.
+    end.
+
 
 -spec is_any_dev_account() -> boolean().
 is_any_dev_account() ->

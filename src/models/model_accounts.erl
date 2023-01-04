@@ -123,11 +123,11 @@
     get_subscribed_uids/1,
     get_broadcast_uids/1,
     count_registrations/0,
-    count_registrations/1,
-    count_registration_query/1,
-    count_accounts_query/1,
+    count_registrations/2,
+    count_registration_query/2,
+    count_accounts_query/2,
     count_accounts/0,
-    count_accounts/1,
+    count_accounts/2,
     get_traced_uids/0,
     add_uid_to_trace/1,
     remove_uid_from_trace/1,
@@ -1224,42 +1224,45 @@ get_user_profiles_internal(Ouid, Uid) ->
 %%====================================================================
 
 
--spec count_registrations() -> non_neg_integer().
+-spec count_registrations() -> #{app_type() => non_neg_integer()}.
 count_registrations() ->
-    redis_counts:count_by_slot(ecredis_accounts, fun count_registration_query/1).
+    HalloAppCount = redis_counts:count_by_slot(ecredis_accounts, fun count_registration_query/2, ?HALLOAPP),
+    KatchupCount = redis_counts:count_by_slot(ecredis_accounts, fun count_registration_query/2, ?KATCHUP),
+    #{?HALLOAPP => HalloAppCount, ?KATCHUP => KatchupCount}.
 
-
--spec count_registrations(Slot :: non_neg_integer()) -> non_neg_integer().
-count_registrations(Slot) ->
-    {ok, CountBin} = q(["GET", count_registrations_key_slot(Slot)]),
+-spec count_registrations(Slot :: non_neg_integer(), AppType :: app_type()) -> non_neg_integer().
+count_registrations(Slot, AppType) ->
+    {ok, CountBin} = q(count_registration_query(Slot, AppType)),
     Count = case CountBin of
-                undefined -> 0;
-                CountBin -> binary_to_integer(CountBin)
-            end,
+        undefined -> 0;
+        CountBin -> binary_to_integer(CountBin)
+    end,
     Count.
 
--spec count_registration_query(Slot :: non_neg_integer()) -> ecredis:redis_command().
-count_registration_query(Slot) ->
-    ["GET", count_registrations_key_slot(Slot)].
+-spec count_registration_query(Slot :: non_neg_integer(), AppType :: app_type()) -> ecredis:redis_command().
+count_registration_query(Slot, AppType) ->
+    ["GET", count_registrations_slot_key(Slot, AppType)].
 
 
--spec count_accounts() -> non_neg_integer().
+-spec count_accounts() -> #{app_type() => non_neg_integer()}.
 count_accounts() ->
-    redis_counts:count_by_slot(ecredis_accounts, fun count_accounts_query/1).
+    HalloAppCount = redis_counts:count_by_slot(ecredis_accounts, fun count_accounts_query/2, ?HALLOAPP),
+    KatchupCount = redis_counts:count_by_slot(ecredis_accounts, fun count_accounts_query/2, ?KATCHUP),
+    #{?HALLOAPP => HalloAppCount, ?KATCHUP => KatchupCount}.
 
 
--spec count_accounts(Slot :: non_neg_integer()) -> non_neg_integer().
-count_accounts(Slot) ->
-    {ok, CountBin} = q(["GET", count_accounts_key_slot(Slot)]),
+    -spec count_accounts(Slot :: non_neg_integer(), AppType :: app_type()) -> non_neg_integer().
+count_accounts(Slot, AppType) ->
+    {ok, CountBin} = q(count_accounts_query(Slot, AppType)),
     Count = case CountBin of
-                undefined -> 0;
-                CountBin -> binary_to_integer(CountBin)
-            end,
+        undefined -> 0;
+        CountBin -> binary_to_integer(CountBin)
+    end,
     Count.
 
--spec count_accounts_query(Slot :: non_neg_integer()) -> ecredis:redis_command().
-count_accounts_query(Slot) ->
-    ["GET", count_accounts_key_slot(Slot)].
+-spec count_accounts_query(Slot :: non_neg_integer(), AppType :: app_type()) -> ecredis:redis_command().
+count_accounts_query(Slot, AppType) ->
+    ["GET", count_accounts_key_slot(Slot, AppType)].
 
 
 -spec count_version_keys() -> map().
@@ -1687,17 +1690,21 @@ moment_sent_notification_key(Uid, Tag) ->
 
 count_registrations_key(Uid) ->
     Slot = crc16_redis:hash(binary_to_list(Uid)),
-    count_registrations_key_slot(Slot).
+    count_registrations_slot_key(Slot, util_uid:get_app_type(Uid)).
 
-count_registrations_key_slot(Slot) ->
-    redis_counts:count_key(Slot, ?COUNT_REGISTRATIONS_KEY).
+count_registrations_slot_key(Slot, ?KATCHUP) ->
+    redis_counts:count_key(Slot, ?COUNT_KATCHUP_REGISTRATIONS_KEY);
+count_registrations_slot_key(Slot, _) ->
+    redis_counts:count_key(Slot, ?COUNT_HALLOAPP_REGISTRATIONS_KEY).
 
 count_accounts_key(Uid) ->
     Slot = crc16_redis:hash(binary_to_list(Uid)),
-    count_accounts_key_slot(Slot).
+    count_accounts_key_slot(Slot, util_uid:get_app_type(Uid)).
 
-count_accounts_key_slot(Slot) ->
-    redis_counts:count_key(Slot, ?COUNT_ACCOUNTS_KEY).
+count_accounts_key_slot(Slot, ?KATCHUP) ->
+    redis_counts:count_key(Slot, ?COUNT_KATCHUP_ACCOUNTS_KEY);
+count_accounts_key_slot(Slot, _) ->
+    redis_counts:count_key(Slot, ?COUNT_HALLOAPP_ACCOUNTS_KEY).
 
 export_data_key(Uid) ->
     <<?EXPORT_DATA_KEY/binary, "{", Uid/binary, "}">>.

@@ -182,12 +182,20 @@ trigger_zset_cleanup() ->
 compute_counts() ->
     Start = util:now_ms(),
     ?INFO("start", []),
-    CountAccounts = model_accounts:count_accounts(),
-    ?INFO("Number of accounts: ~p", [CountAccounts]),
-    stat:gauge("HA/account", "total_accounts", CountAccounts),
-    CountRegistrations = model_accounts:count_registrations(),
-    ?INFO("Number of registrations: ~p", [CountRegistrations]),
-    stat:gauge("HA/account", "total_registrations", CountRegistrations),
+    CountAccountsMap = model_accounts:count_accounts(),
+    maps:foreach(
+        fun(AppType, Count) ->
+            ?INFO("Number of ~p accounts: ~p", [AppType, Count]),
+            stat:gauge(util:get_stat_namespace(AppType) ++ "/account", "total_accounts", Count)
+        end,
+        CountAccountsMap),
+    CountRegistrationsMap = model_accounts:count_registrations(),
+    maps:foreach(
+        fun(AppType, Count) ->
+            ?INFO("Number of ~p registrations: ~p", [AppType, Count]),
+            stat:gauge(util:get_stat_namespace(AppType) ++ "/account", "total_registrations", Count)
+        end,
+        CountRegistrationsMap),
 
     % groups
     CountGroups = model_groups:count_groups(),

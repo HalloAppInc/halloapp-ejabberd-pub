@@ -417,22 +417,25 @@ push_comment(_) ->
 
 
 count(_) ->
-    Slot = crc16_redis:hash(binary_to_list(?UID1)),
-    [?_assertEqual(0, model_accounts:count_accounts()),
-    ?_assertEqual(0, model_accounts:count_registrations()),
-    ?_assertOk(model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1, ?CAMPAIGN_ID, ?TS1)),
-    ?_assertEqual(1, model_accounts:count_accounts(Slot)),
-    ?_assertEqual(1, model_accounts:count_registrations(Slot)),
-    ?_assertEqual(1, model_accounts:count_registrations()),
-    ?_assertEqual(1, model_accounts:count_accounts()),
-    ?_assertOk(model_accounts:create_account(?UID2, ?PHONE2, ?NAME1, ?USER_AGENT1, ?CAMPAIGN_ID, ?TS1)),
-    ?_assertOk(model_accounts:create_account(?UID3, ?PHONE3, ?NAME1, ?USER_AGENT1, ?CAMPAIGN_ID, ?TS1)),
-    ?_assertOk(model_accounts:create_account(?UID4, ?PHONE4, ?NAME1, ?USER_AGENT1, ?CAMPAIGN_ID, ?TS1)),
-    ?_assertEqual(4, model_accounts:count_accounts()),
-    ?_assertEqual(4, model_accounts:count_registrations()),
-    ?_assertOk(model_accounts:delete_account(?UID4)),
-    ?_assertEqual(3, model_accounts:count_accounts()),
-    ?_assertEqual(4, model_accounts:count_registrations())].
+    Uid1 = tutil:generate_uid(?HALLOAPP),
+    Slot = crc16_redis:hash(binary_to_list(Uid1)),
+    [?_assertEqual(#{?HALLOAPP => 0, ?KATCHUP => 0}, model_accounts:count_accounts()),
+    ?_assertEqual(#{?HALLOAPP => 0, ?KATCHUP => 0}, model_accounts:count_registrations()),
+    ?_assertOk(model_accounts:create_account(Uid1, ?PHONE1, ?NAME1, ?USER_AGENT1, ?CAMPAIGN_ID, ?TS1)),
+    ?_assertEqual(1, model_accounts:count_accounts(Slot, ?HALLOAPP)),
+    ?_assertEqual(1, model_accounts:count_registrations(Slot, ?HALLOAPP)),
+    ?_assertEqual(0, model_accounts:count_accounts(Slot, ?KATCHUP)),
+    ?_assertEqual(0, model_accounts:count_registrations(Slot, ?KATCHUP)),
+    ?_assertEqual(#{?HALLOAPP => 1, ?KATCHUP => 0}, model_accounts:count_registrations()),
+    ?_assertEqual(#{?HALLOAPP => 1, ?KATCHUP => 0}, model_accounts:count_accounts()),
+    ?_assertOk(model_accounts:create_account(tutil:generate_uid(?HALLOAPP), ?PHONE2, ?NAME1, ?USER_AGENT1, ?CAMPAIGN_ID, ?TS1)),
+    ?_assertOk(model_accounts:create_account(tutil:generate_uid(?HALLOAPP), ?PHONE3, ?NAME1, ?USER_AGENT1, ?CAMPAIGN_ID, ?TS1)),
+    ?_assertOk(model_accounts:create_account(tutil:generate_uid(?KATCHUP), ?PHONE4, ?NAME1, ?USER_AGENT1, ?CAMPAIGN_ID, ?TS1)),
+    ?_assertEqual(#{?HALLOAPP => 3, ?KATCHUP => 1}, model_accounts:count_accounts()),
+    ?_assertEqual(#{?HALLOAPP => 3, ?KATCHUP => 1}, model_accounts:count_registrations()),
+    ?_assertOk(model_accounts:delete_account(Uid1)),
+    ?_assertEqual(#{?HALLOAPP => 2, ?KATCHUP => 1}, model_accounts:count_accounts()),
+    ?_assertEqual(#{?HALLOAPP => 3, ?KATCHUP => 1}, model_accounts:count_registrations())].
 
 
 traced_uids(_) ->

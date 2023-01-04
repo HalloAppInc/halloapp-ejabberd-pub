@@ -19,8 +19,10 @@
 -define(DELETED_UID_KEY, <<"du:">>).
 -define(SUBSCRIBE_KEY, <<"sub:">>).
 -define(BROADCAST_KEY, <<"bro:">>).
--define(COUNT_REGISTRATIONS_KEY, <<"c_reg:">>).
--define(COUNT_ACCOUNTS_KEY, <<"c_acc:">>).
+-define(COUNT_HALLOAPP_REGISTRATIONS_KEY, <<"c_reg:">>).
+-define(COUNT_KATCHUP_REGISTRATIONS_KEY, <<"kc_reg:">>).
+-define(COUNT_HALLOAPP_ACCOUNTS_KEY, <<"c_acc:">>).
+-define(COUNT_KATCHUP_ACCOUNTS_KEY, <<"kc_acc:">>).
 %% set -> {uid}
 -define(TRACED_UIDS_KEY, <<"traced_uids:">>).
 %% set -> {phone}
