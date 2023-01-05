@@ -835,10 +835,10 @@ get_public_moments(Uid, Tag, TimestampMs, Cursor, CursorVersion, RequestTimestam
             NewPublicMomentIds = model_feed:get_public_moments(Tag, TimestampMs, Cursor, NumToFetch),
             %% Filter out deleted posts and convert PostIds to Posts
             NewPublicMoments = model_feed:get_posts(NewPublicMomentIds),
-            %% Filter out posts from following of Uid.
-            FollowingSet = sets:from_list(model_follow:get_all_following(Uid)),
+            %% Filter out posts from following of Uid and Uid itself.
+            RemoveAuthorSet = sets:from_list(model_follow:get_all_following(Uid) ++ [Uid]),
             UnrelatedPublicMoments = lists:filter(
-                    fun(PublicMoment) -> not sets:is_element(PublicMoment#post.uid, FollowingSet) end,
+                    fun(PublicMoment) -> not sets:is_element(PublicMoment#post.uid, RemoveAuthorSet) end,
                     NewPublicMoments),
             case length(UnrelatedPublicMoments) < NumToFetch of
                 true ->
