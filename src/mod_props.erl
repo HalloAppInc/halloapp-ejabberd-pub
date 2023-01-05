@@ -231,8 +231,16 @@ get_uid_based_props(PropMap, halloapp, Uid) ->
     end,
     apply_uid_prop_overrides(Uid, ResPropMap);
 
-get_uid_based_props(PropMap, katchup, _Uid) ->
-    PropMap.
+get_uid_based_props(PropMap, katchup, Uid) ->
+    ResPropMap = case dev_users:is_dev_uid(Uid) of
+        false ->
+            PropMap;
+        true ->
+            % Set dev to be true.
+            PropMap1 = maps:update(dev, true, PropMap),
+            PropMap1
+    end,
+    apply_uid_prop_overrides(Uid, ResPropMap).
 
 
 -spec get_client_based_props(PropMap :: map(), AppType :: atom(),
