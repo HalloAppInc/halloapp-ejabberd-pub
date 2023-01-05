@@ -79,7 +79,11 @@ get_app_hash(UserAgent) ->
                 {false, true} -> ?ANDROID_RELEASE_HASH;
                 _ -> <<"">>
             end;
-        false -> <<>>
+        false ->
+            case is_android(UserAgent) of
+                true -> ?KATCHUP_ANDROID_RELEASE_HASH;
+                _ -> <<>>
+            end
     end.
 
 
