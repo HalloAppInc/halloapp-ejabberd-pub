@@ -95,7 +95,15 @@ generate_follow_suggestions(Uid, Phone) ->
         FoF1 = model_follow:get_all_following(Elem),
         sets:union(Acc, sets:from_list(FoF1))
     end, sets:new(), AllFollowing),
-    FoFSet = sets:union(RevContactConsiderSet, FoFSet1),
+    FoFSet2 = sets:union(RevContactConsiderSet, FoFSet1),
+
+    %% 3. Find uids of geo tagged users.
+    UidGeoTag = model_accounts:get_latest_geo_tag(Uid),
+    GeoTagPopUids = case UidGeoTag of
+        undefined -> [];
+        _ -> model_accounts:get_geotag_uids(UidGeoTag)
+    end,
+    FoFSet = sets:union(sets:from_list(GeoTagPopUids), FoFSet2),
  
     {ok, RejectedUids} = model_accounts:get_all_rejected_suggestions(Uid),
  
