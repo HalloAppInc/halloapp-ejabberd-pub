@@ -365,8 +365,11 @@ publish_post(Uid, PostId, PayloadBase64, public_moment, PSATag, AudienceList, Ho
     Action = publish,
     MediaCounters = HomeFeedSt#pb_feed_item.item#pb_post.media_counters,
     MomentInfo = HomeFeedSt#pb_feed_item.item#pb_post.moment_info,
-
-    %% Store only the audience to be broadcasted to.
+    FilteredAudienceList1 = case AppType of
+        halloapp -> AudienceList#pb_audience.uids;
+        katchup -> model_follow:get_all_followers(Uid)
+    end,
+    FilteredAudienceList2 = sets:to_list(get_feed_audience_set(Action, Uid, FilteredAudienceList1)),
     {ok, FinalTimestampMs} = case model_feed:get_post(PostId) of
         {error, missing} ->
             TimestampMs = util:now_ms(),
@@ -379,6 +382,7 @@ publish_post(Uid, PostId, PayloadBase64, public_moment, PSATag, AudienceList, Ho
             ?INFO("Uid: ~s PostId: ~s already published", [Uid, PostId]),
             {ok, ExistingPost#post.ts_ms}
     end,
+    broadcast_post(Uid, FilteredAudienceList2, HomeFeedSt, FinalTimestampMs),
     {ok, FinalTimestampMs};
 
 publish_post(Uid, PostId, PayloadBase64, PostTag, PSATag, AudienceList, HomeFeedSt)
