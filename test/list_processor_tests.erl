@@ -76,11 +76,11 @@ check_file_processing_test() ->
     ok = file:delete(?TEMP_FILE_NAME),
 
     setup(),
-    {ok, Uid1, register} = ejabberd_auth:check_and_register(?PHONE1, ?SERVER, ?PASS, ?UA, ?CAMPAIGN_ID),
-    {ok, Uid2, register} = ejabberd_auth:check_and_register(?PHONE2, ?SERVER, ?PASS, ?UA, ?CAMPAIGN_ID),
-    {ok, Uid3, register} = ejabberd_auth:check_and_register(?PHONE3, ?SERVER, ?PASS, ?UA, ?CAMPAIGN_ID),
-    {ok, Uid4, register} = ejabberd_auth:check_and_register(?PHONE4, ?SERVER, ?PASS, ?UA, ?CAMPAIGN_ID),
-    {ok, Uid5, register} = ejabberd_auth:check_and_register(?PHONE5, ?SERVER, ?PASS, ?UA, ?CAMPAIGN_ID),
+    {ok, Uid1, register} = ejabberd_auth:check_and_register(?PHONE1, ?SERVER, ?PASS, ?NAME1, ?UA, ?CAMPAIGN_ID),
+    {ok, Uid2, register} = ejabberd_auth:check_and_register(?PHONE2, ?SERVER, ?PASS, ?NAME2, ?UA, ?CAMPAIGN_ID),
+    {ok, Uid3, register} = ejabberd_auth:check_and_register(?PHONE3, ?SERVER, ?PASS, ?NAME3, ?UA, ?CAMPAIGN_ID),
+    {ok, Uid4, register} = ejabberd_auth:check_and_register(?PHONE4, ?SERVER, ?PASS, ?NAME4, ?UA, ?CAMPAIGN_ID),
+    {ok, Uid5, register} = ejabberd_auth:check_and_register(?PHONE5, ?SERVER, ?PASS, ?NAME5, ?UA, ?CAMPAIGN_ID),
 
     {ok, Fh2} = file:open(?TEMP_FILE_NAME, [write]),
     io:format(Fh2, "~p~n", [Uid1]),
@@ -96,11 +96,11 @@ check_file_processing_test() ->
     ok = file:delete(?TEMP_FILE_NAME),
 
     %% Register again.
-    {ok, _, register} = ejabberd_auth:check_and_register(?PHONE1, ?SERVER, ?PASS, ?UA, ?CAMPAIGN_ID),
-    {ok, _, register} = ejabberd_auth:check_and_register(?PHONE2, ?SERVER, ?PASS, ?UA, ?CAMPAIGN_ID),
-    {ok, _, register} = ejabberd_auth:check_and_register(?PHONE3, ?SERVER, ?PASS, ?UA, ?CAMPAIGN_ID),
-    {ok, _, register} = ejabberd_auth:check_and_register(?PHONE4, ?SERVER, ?PASS, ?UA, ?CAMPAIGN_ID),
-    {ok, _, register} = ejabberd_auth:check_and_register(?PHONE5, ?SERVER, ?PASS, ?UA, ?CAMPAIGN_ID),
+    {ok, _, register} = ejabberd_auth:check_and_register(?PHONE1, ?SERVER, ?PASS, ?NAME1, ?UA, ?CAMPAIGN_ID),
+    {ok, _, register} = ejabberd_auth:check_and_register(?PHONE2, ?SERVER, ?PASS, ?NAME2, ?UA, ?CAMPAIGN_ID),
+    {ok, _, register} = ejabberd_auth:check_and_register(?PHONE3, ?SERVER, ?PASS, ?NAME3, ?UA, ?CAMPAIGN_ID),
+    {ok, _, register} = ejabberd_auth:check_and_register(?PHONE4, ?SERVER, ?PASS, ?NAME4, ?UA, ?CAMPAIGN_ID),
+    {ok, _, register} = ejabberd_auth:check_and_register(?PHONE5, ?SERVER, ?PASS, ?NAME5, ?UA, ?CAMPAIGN_ID),
 
     {ok, Fh3} = file:open(?TEMP_FILE_NAME, [write]),
     io:format(Fh3, "~p~n", [?PHONE1]),

@@ -132,6 +132,14 @@ register_fail_test(_Conf) ->
         result = failure,
         reason = bad_request
     } = Data2,
+
+    % Passing invalid name.
+    {ok, Data3} = registration_client:register(?PHONE10, <<"111111">>, <<>>, #{}),
+    ct:pal("~p", [Data3]),
+    #pb_verify_otp_response{
+        result = failure,
+        reason = invalid_name
+    } = Data3,
     ok.
 
 
@@ -139,13 +147,13 @@ register_test(_Conf) ->
     {ok, Data} = registration_client:register(?PHONE10, <<"111111">>, ?NAME10, #{}),
     ct:pal("~p", [Data]),
     #pb_verify_otp_response{    
-        name = <<>>,
+        name = ?NAME10,
         phone = ?PHONE10,
         result = success
     } = Data,
     Uid = Data#pb_verify_otp_response.uid,
     ?assertEqual(true, model_accounts:account_exists(Uid)),
-    ?assertEqual({ok, undefined}, model_accounts:get_name(Uid)),
+    ?assertEqual({ok, ?NAME10}, model_accounts:get_name(Uid)),
     ok.
 
 
@@ -202,7 +210,7 @@ request_and_verify_otp_noise_test(_Conf) ->
     Response2 = ActualResponse2#pb_register_response.response,
     ?assertEqual(Phone, Response2#pb_verify_otp_response.phone),
     ?assertEqual(success, Response2#pb_verify_otp_response.result),
-    ?assertEqual(<<>>, Response2#pb_verify_otp_response.name),
+    ?assertEqual(Name, Response2#pb_verify_otp_response.name),
     ok.
 
 
@@ -261,7 +269,7 @@ request_and_verify_otp_noise2_test(_Conf) ->
     Response2 = ActualResponse2#pb_register_response.response,
     ?assertEqual(Phone, Response2#pb_verify_otp_response.phone),
     ?assertEqual(success, Response2#pb_verify_otp_response.result),
-    ?assertEqual(<<>>, Response2#pb_verify_otp_response.name),
+    ?assertEqual(Name, Response2#pb_verify_otp_response.name),
     ok.
 
 
@@ -325,7 +333,7 @@ request_and_verify_otp_noise3_test(_Conf) ->
     Response2 = ActualResponse2#pb_register_response.response,
     ?assertEqual(Phone, Response2#pb_verify_otp_response.phone),
     ?assertEqual(success, Response2#pb_verify_otp_response.result),
-    ?assertEqual(<<>>, Response2#pb_verify_otp_response.name),
+    ?assertEqual(Name, Response2#pb_verify_otp_response.name),
     ok.
 
 

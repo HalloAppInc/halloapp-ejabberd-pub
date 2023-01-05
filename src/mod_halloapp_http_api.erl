@@ -14,6 +14,7 @@
 -ifdef(TEST).
 -export([
     check_ua/1,
+    check_name/1,
     check_sms_code/6,
     check_hashcash_solution/2,
     check_attempts_by_ip/1,
@@ -54,7 +55,6 @@
 %% API
 -export([start/2, stop/1, reload/3, depends/2, mod_options/1]).
 -export([
-    check_name/1,
     process/2,
     process_hashcash_request/1,
     process_otp_request/1,
@@ -328,7 +328,7 @@ process_otp_request(#{raw_phone := RawPhone, lang_id := LangId, ua := UserAgent,
 
 %% TODO (murali@): using a map is not great. try to use the original record itself.
 -spec process_register_request(RequestData :: map()) -> {ok, map()} | {error, any()}.
-process_register_request(#{raw_phone := RawPhone, ua := UserAgent, code := Code,
+process_register_request(#{raw_phone := RawPhone, name := Name, ua := UserAgent, code := Code,
         ip := ClientIP, group_invite_token := GroupInviteToken, s_ed_pub := SEdPubB64,
         signed_phrase := SignedPhraseB64, id_key := IdentityKeyB64, sd_key := SignedKeyB64,
         otp_keys := OneTimeKeysB64, push_payload := PushPayload, raw_data := RawData,
@@ -341,31 +341,23 @@ process_register_request(#{raw_phone := RawPhone, ua := UserAgent, code := Code,
         Phone = normalize_by_version(RawPhone, UserAgent),
         check_sms_code(Phone, AppType, ClientIP, Protocol, Code, RemoteStaticKey),
         ok = otp_checker:otp_delivered(Phone, ClientIP, Protocol, RemoteStaticKey),
+        LName = check_name(Name),
         SEdPubBin = base64:decode(SEdPubB64),
         check_s_ed_pub_size(SEdPubBin),
         SignedPhraseBin = base64:decode(SignedPhraseB64),
         check_signed_phrase(SignedPhraseBin, SEdPubBin),
         SPub = base64:encode(enacl:crypto_sign_ed25519_public_to_curve25519(SEdPubBin)),
-        {ok, Phone, Uid} = finish_registration_spub(Phone, UserAgent, SPub, CampaignId),
+        {ok, Phone, Uid} = finish_registration_spub(Phone, LName, UserAgent, SPub, CampaignId),
         process_whisper_keys(Uid, IdentityKeyB64, SignedKeyB64, OneTimeKeysB64),
         process_push_token(Uid, PushPayload),
         CC = mod_libphonenumber:get_region_id(Phone),
-        Name = case model_accounts:get_name(Uid) of
-            {ok, undefined} -> <<>>;
-            {ok, AccountName} -> AccountName
-        end,
-        Username = case model_accounts:get_username(Uid) of
-            {ok, undefined} -> <<>>;
-            {ok, AccountUsername} -> AccountUsername
-        end,
         ?INFO("registration complete uid: ~s phone: ~s country_code: ~s campaign_id: ~s",
             [Uid, Phone, CC, CampaignId]),
         Result = #{
             uid => Uid,
             phone => Phone,
-            result => ok,
-            name => Name,
-            username => Username
+            name => LName,
+            result => ok
         },
         Result2 = case GroupInviteToken of
             undefined -> Result;
@@ -670,11 +662,11 @@ process_push_token(Uid, PushPayload) ->
     end.
 
 
--spec finish_registration_spub(phone(), binary(), binary(), binary()) -> {ok, phone(), binary()}.
-finish_registration_spub(Phone, UserAgent, SPub, CampaignId) ->
+-spec finish_registration_spub(phone(), binary(), binary(), binary(), binary()) -> {ok, phone(), binary()}.
+finish_registration_spub(Phone, Name, UserAgent, SPub, CampaignId) ->
     Host = util:get_host(),
     {ok, Uid, Action} = ejabberd_auth:check_and_register(
-        Phone, Host, SPub, UserAgent, CampaignId),
+        Phone, Host, SPub, Name, UserAgent, CampaignId),
     ?INFO("Phone: ~s, UserAgent: ~s, Campaign Id: ~s", [Phone, UserAgent, CampaignId]),
     %% Action = login, updates the spub.
     %% Action = register, creates a new user id and registers the user for the first time.

@@ -470,6 +470,7 @@ dtl_path(HotSwapDtlDir, DtlFileName) ->
 -define(MENTION2_USERID, "321").
 -define(MENTION2_USERNAME, "Tony").
 -define(SOME_USERID, <<"322">>).
+-define(SOME_USERNAME, <<"Don">>).
 -define(SOME_PHONE, <<"16502109999">>).
 -define(SOME_USER_AGENT, <<"Android">>).
 -define(SOME_AVATAR_ID, <<"SOME_AVATAR">>).
@@ -490,7 +491,7 @@ store_text_post_no_preview() ->
 
 store_blob(Blob) ->
     {ok, Key, EncBlob} = util_crypto:encrypt_blob(Blob, 15, ?SHARE_POST_HKDF_INFO),
-    ok = model_accounts:create_account(?SOME_USERID, ?SOME_PHONE, ?SOME_USER_AGENT),
+    ok = model_accounts:create_account(?SOME_USERID, ?SOME_PHONE, ?SOME_USERNAME, ?SOME_USER_AGENT),
     ok = model_accounts:set_avatar_id(?SOME_USERID, ?SOME_AVATAR_ID),
     {ok, BlobId} = mod_external_share_post:store_share_post(?SOME_USERID, EncBlob, 4 * ?WEEKS, undefined, 1),
     ?INFO("Stored Text Blob, id: ~s, key: ~s", [BlobId, base64url:encode(Key)]).

@@ -62,8 +62,7 @@ send_im_test(_Conf) ->
 delete_account_msg_test(_Conf) ->
     {ok, C1} = ha_client:connect_and_login(?UID1, ?KEYPAIR1),
     AppType = util_ua:get_app_type(?UA),
-    ok = model_accounts:create_account(?UID8, ?PHONE1, ?UA, ?CAMPAIGN_ID, ?TS1),
-    ok = model_accounts:set_name(?UID8, ?NAME3),
+    ok = model_accounts:create_account(?UID8, ?PHONE1, ?NAME3, ?UA, ?CAMPAIGN_ID, ?TS1),
     ok = model_phone:add_phone(?PHONE1, AppType, ?UID8),
     ok = ejabberd_auth:set_spub(?UID8, ?SPUB1),
     {ok, C2} = ha_client:connect_and_login(?UID8, ?KEYPAIR1),

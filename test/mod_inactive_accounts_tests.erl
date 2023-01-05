@@ -83,8 +83,7 @@ setup() ->
     tutil:setup(),
     ha_redis:start(),
     clear(),
-    ok = model_accounts:create_account(?UID1, ?PHONE1, ?USER_AGENT1),
-    ok = model_accounts:set_name(?UID1, ?NAME1),
+    ok = model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1),
     ok.
 
 clear() ->

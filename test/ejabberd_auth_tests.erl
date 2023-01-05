@@ -36,30 +36,32 @@ check_spub(_) ->
 
 
 check_and_register(_) ->
-    {ok, Uid1, Result1} = ejabberd_auth:check_and_register(?PHONE, ?SERVER, ?SPUB, ?UA, ?CAMPAIGN_ID),
-    {ok, Uid2, Result2} = ejabberd_auth:check_and_register(?PHONE, ?SERVER, ?SPUB, ?UA, ?CAMPAIGN_ID),
+    {ok, Uid1, Result1} = ejabberd_auth:check_and_register(?PHONE, ?SERVER, ?SPUB, ?NAME, ?UA, ?CAMPAIGN_ID),
+    {ok, Uid2, Result2} = ejabberd_auth:check_and_register(?PHONE, ?SERVER, ?SPUB, ?NAME, ?UA, ?CAMPAIGN_ID),
     [?_assertEqual(Uid1, Uid2),
     ?_assertEqual(Result1, register),
     ?_assertEqual(Result2, login)].
 
 
 ha_try_register(_) ->
-    {ok, SPub, Uid} = ejabberd_auth:ha_try_register(?PHONE, ?SPUB, ?UA, <<>>),
+    {ok, SPub, Uid} = ejabberd_auth:ha_try_register(?PHONE, ?SPUB, ?NAME, ?UA, <<>>),
     [?_assertEqual(?SPUB, SPub),
     ?_assert(model_accounts:account_exists(Uid)),
     ?_assert(ejabberd_auth:check_spub(Uid, ?SPUB)),
     ?_assertEqual({ok, ?PHONE}, model_accounts:get_phone(Uid)),
     ?_assertEqual({ok, Uid}, model_phone:get_uid(?PHONE, ?HALLOAPP)),
+    ?_assertEqual({ok, ?NAME}, model_accounts:get_name(Uid)),
     ?_assertEqual({ok, ?UA}, model_accounts:get_signup_user_agent(Uid)),
     ?_assertEqual(?HALLOAPP, util_uid:get_app_type(Uid))].
 
 ka_try_register(_) ->
-    {ok, SPub, Uid} = ejabberd_auth:ha_try_register(?PHONE, ?SPUB, <<"Katchup/iOS1.2.93">>, <<>>),
+    {ok, SPub, Uid} = ejabberd_auth:ha_try_register(?PHONE, ?SPUB, ?NAME, <<"Katchup/iOS1.2.93">>, <<>>),
     [?_assertEqual(?SPUB, SPub),
     ?_assert(model_accounts:account_exists(Uid)),
     ?_assert(ejabberd_auth:check_spub(Uid, ?SPUB)),
     ?_assertEqual({ok, ?PHONE}, model_accounts:get_phone(Uid)),
     ?_assertEqual({ok, Uid}, model_phone:get_uid(?PHONE, ?KATCHUP)),
+    ?_assertEqual({ok, ?NAME}, model_accounts:get_name(Uid)),
     ?_assertEqual({ok, <<"Katchup/iOS1.2.93">>}, model_accounts:get_signup_user_agent(Uid)),
     ?_assertEqual(?KATCHUP, util_uid:get_app_type(Uid))].
 
@@ -71,14 +73,14 @@ try_enroll(_) ->
 
 user_exists(_) ->
     UserDoesntExist = ejabberd_auth:user_exists(?UID),
-    {ok, Uid, register} = ejabberd_auth:check_and_register(?PHONE, ?SERVER, ?SPUB, ?UA, ?CAMPAIGN_ID),
+    {ok, Uid, register} = ejabberd_auth:check_and_register(?PHONE, ?SERVER, ?SPUB, ?NAME, ?UA, ?CAMPAIGN_ID),
     UserExists = ejabberd_auth:user_exists(Uid),
     [?_assertNot(UserDoesntExist),
     ?_assert(UserExists)].
 
 
 remove_user(_) ->
-    {ok, Uid, register} = ejabberd_auth:check_and_register(?PHONE, ?SERVER, ?SPUB, ?UA, ?CAMPAIGN_ID),
+    {ok, Uid, register} = ejabberd_auth:check_and_register(?PHONE, ?SERVER, ?SPUB, ?NAME, ?UA, ?CAMPAIGN_ID),
     Exists = ejabberd_auth:user_exists(Uid),
     ok = ejabberd_auth:remove_user(Uid, ?SERVER),
     [?_assert(Exists),

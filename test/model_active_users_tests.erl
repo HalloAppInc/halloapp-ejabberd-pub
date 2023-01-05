@@ -162,15 +162,11 @@ create_accounts(Num) ->
     PhoneKA = integer_to_binary(?PHONE - Num),
     case Num rem 2 of
         0 ->
-            ok = model_accounts:create_account(UidHA, PhoneHA, ?UA_IOS),
-            ok = model_accounts:set_name(UidHA, ?NAME),
-            ok = model_accounts:create_account(UidKA, PhoneKA, ?UA_IOS),
-            ok = model_accounts:set_name(UidKA, ?NAME);
+            ok = model_accounts:create_account(UidHA, PhoneHA, ?NAME, ?UA_IOS),
+            ok = model_accounts:create_account(UidKA, PhoneKA, ?NAME, ?UA_IOS);
         1 ->
-            ok = model_accounts:create_account(UidHA, PhoneHA, ?UA_ANDROID),
-            ok = model_accounts:set_name(UidHA, ?NAME),
-            ok = model_accounts:create_account(UidKA, PhoneKA, ?UA_ANDROID),
-            ok = model_accounts:set_name(UidKA, ?NAME)
+            ok = model_accounts:create_account(UidHA, PhoneHA, ?NAME, ?UA_ANDROID),
+            ok = model_accounts:create_account(UidKA, PhoneKA, ?NAME, ?UA_ANDROID)
     end,
     [{UidHA, UidKA}] ++ create_accounts(Num - 1).
 

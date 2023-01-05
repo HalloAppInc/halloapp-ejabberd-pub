@@ -165,10 +165,9 @@ key_test_() ->
 create_account(_) ->
     [?_assertNot(model_accounts:account_exists(?UID1)),
     ?_assertNot(model_accounts:is_account_deleted(?UID1)),
-    ?_assertOk(model_accounts:create_account(?UID1, ?PHONE1, ?USER_AGENT1, ?CAMPAIGN_ID, ?TS1)),
-    ?_assertOk(model_accounts:set_name(?UID1, ?NAME1)),
+    ?_assertOk(model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1, ?CAMPAIGN_ID, ?TS1)),
     ?_assertEqual({error, exists},
-        model_accounts:create_account(?UID1, ?PHONE1, ?USER_AGENT1, ?CAMPAIGN_ID, ?TS1)),
+        model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1, ?CAMPAIGN_ID, ?TS1)),
     ?_assert(model_accounts:account_exists(?UID1)),
     ?_assertNot(model_accounts:is_account_deleted(?UID1)),
     ?_assertEqual({ok, ?PHONE1}, model_accounts:get_phone(?UID1)),
@@ -178,21 +177,19 @@ create_account(_) ->
 
 
 delete_account(_) ->
-    [?_assertOk(model_accounts:create_account(?UID1, ?PHONE1, ?USER_AGENT1, ?CAMPAIGN_ID, ?TS1)),
-    ?_assertOk(model_accounts:set_name(?UID1, ?NAME1)),
+    [?_assertOk(model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1, ?CAMPAIGN_ID, ?TS1)),
     ?_assert(model_accounts:account_exists(?UID1)),
     ?_assertNot(model_accounts:is_account_deleted(?UID1)),
     ?_assertOk(model_accounts:delete_account(?UID1)),
     ?_assertNot(model_accounts:account_exists(?UID1)),
     ?_assert(model_accounts:is_account_deleted(?UID1)),
     ?_assertEqual({error, deleted},
-        model_accounts:create_account(?UID1, ?PHONE1, ?USER_AGENT1)),
+        model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1)),
     ?_assertEqual({error, missing}, model_accounts:get_signup_user_agent(?UID1))].
 
 
 get_account(_) ->
-    ok = model_accounts:create_account(?UID1, ?PHONE1, ?USER_AGENT1, ?CAMPAIGN_ID, ?TS1),
-    ok = model_accounts:set_name(?UID1, ?NAME1),
+    ok = model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1, ?CAMPAIGN_ID, ?TS1),
     {ok, Account} = model_accounts:get_account(?UID1),
     Test1 = [?_assertEqual(?PHONE1, Account#account.phone),
     ?_assertEqual(?NAME1, Account#account.name),
@@ -214,8 +211,7 @@ get_account(_) ->
 
 
 get_deleted_account(_) ->
-    ok = model_accounts:create_account(?UID1, ?PHONE1, ?USER_AGENT1, ?CAMPAIGN_ID, ?TS1),
-    ok = model_accounts:set_name(?UID1, ?NAME1),
+    ok = model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1, ?CAMPAIGN_ID, ?TS1),
     ok = model_accounts:delete_account(?UID1),
     {DeletionTsMs, Account} = model_accounts:get_deleted_account(?UID1),
     [?_assert(util:now_ms() >= DeletionTsMs andalso DeletionTsMs >= util:now_ms() - 250),
@@ -425,20 +421,16 @@ count(_) ->
     Slot = crc16_redis:hash(binary_to_list(Uid1)),
     [?_assertEqual(#{?HALLOAPP => 0, ?KATCHUP => 0}, model_accounts:count_accounts()),
     ?_assertEqual(#{?HALLOAPP => 0, ?KATCHUP => 0}, model_accounts:count_registrations()),
-    ?_assertOk(model_accounts:create_account(Uid1, ?PHONE1, ?USER_AGENT1, ?CAMPAIGN_ID, ?TS1)),
-    ?_assertOk(model_accounts:set_name(?UID1, ?NAME1)),
+    ?_assertOk(model_accounts:create_account(Uid1, ?PHONE1, ?NAME1, ?USER_AGENT1, ?CAMPAIGN_ID, ?TS1)),
     ?_assertEqual(1, model_accounts:count_accounts(Slot, ?HALLOAPP)),
     ?_assertEqual(1, model_accounts:count_registrations(Slot, ?HALLOAPP)),
     ?_assertEqual(0, model_accounts:count_accounts(Slot, ?KATCHUP)),
     ?_assertEqual(0, model_accounts:count_registrations(Slot, ?KATCHUP)),
     ?_assertEqual(#{?HALLOAPP => 1, ?KATCHUP => 0}, model_accounts:count_registrations()),
     ?_assertEqual(#{?HALLOAPP => 1, ?KATCHUP => 0}, model_accounts:count_accounts()),
-    ?_assertOk(model_accounts:create_account(tutil:generate_uid(?HALLOAPP), ?PHONE2, ?USER_AGENT1, ?CAMPAIGN_ID, ?TS1)),
-    ?_assertOk(model_accounts:set_name(?UID2, ?NAME1)),
-    ?_assertOk(model_accounts:create_account(tutil:generate_uid(?HALLOAPP), ?PHONE3, ?USER_AGENT1, ?CAMPAIGN_ID, ?TS1)),
-    ?_assertOk(model_accounts:set_name(?UID3, ?NAME1)),
-    ?_assertOk(model_accounts:create_account(tutil:generate_uid(?KATCHUP), ?PHONE4, ?USER_AGENT1, ?CAMPAIGN_ID, ?TS1)),
-    ?_assertOk(model_accounts:set_name(?UID4, ?NAME1)),
+    ?_assertOk(model_accounts:create_account(tutil:generate_uid(?HALLOAPP), ?PHONE2, ?NAME1, ?USER_AGENT1, ?CAMPAIGN_ID, ?TS1)),
+    ?_assertOk(model_accounts:create_account(tutil:generate_uid(?HALLOAPP), ?PHONE3, ?NAME1, ?USER_AGENT1, ?CAMPAIGN_ID, ?TS1)),
+    ?_assertOk(model_accounts:create_account(tutil:generate_uid(?KATCHUP), ?PHONE4, ?NAME1, ?USER_AGENT1, ?CAMPAIGN_ID, ?TS1)),
     ?_assertEqual(#{?HALLOAPP => 3, ?KATCHUP => 1}, model_accounts:count_accounts()),
     ?_assertEqual(#{?HALLOAPP => 3, ?KATCHUP => 1}, model_accounts:count_registrations()),
     ?_assertOk(model_accounts:delete_account(Uid1)),
@@ -496,8 +488,7 @@ get_avatar_ids(_) ->
 
 check_account_exists(_) ->
     [?_assertNot(model_accounts:account_exists(?UID1)),
-    ?_assertOk(model_accounts:create_account(?UID1, ?PHONE1, ?USER_AGENT1, ?CAMPAIGN_ID, ?TS1)),
-    ?_assertOk(model_accounts:set_name(?UID1, ?NAME1)),
+    ?_assertOk(model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1, ?CAMPAIGN_ID, ?TS1)),
     ?_assert(model_accounts:account_exists(?UID1))].
 
 
@@ -519,16 +510,11 @@ check_uid_to_delete(_) ->
             [],
             lists:seq(0, ?NUM_SLOTS - 1))
         end,
-    [?_assertOk(model_accounts:create_account(?UID1, ?PHONE1, ?USER_AGENT1, ?CAMPAIGN_ID, ?TS1)),
-    ?_assertOk(model_accounts:set_name(?UID1, ?NAME1)),
-    ?_assertOk(model_accounts:create_account(?UID2, ?PHONE2, ?USER_AGENT2, ?CAMPAIGN_ID, ?TS2)),
-    ?_assertOk(model_accounts:set_name(?UID2, ?NAME2)),
-    ?_assertOk(model_accounts:create_account(?UID3, ?PHONE3, ?USER_AGENT3, ?CAMPAIGN_ID, ?TS1)),
-    ?_assertOk(model_accounts:set_name(?UID3, ?NAME3)),
-    ?_assertOk(model_accounts:create_account(?UID4, ?PHONE4, ?USER_AGENT4, ?CAMPAIGN_ID, ?TS2)),
-    ?_assertOk(model_accounts:set_name(?UID4, ?NAME4)),
-    ?_assertOk(model_accounts:create_account(?UID5, ?PHONE5, ?USER_AGENT5, ?CAMPAIGN_ID, ?TS1)),
-    ?_assertOk(model_accounts:set_name(?UID5, ?NAME5)),
+    [?_assertOk(model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1, ?CAMPAIGN_ID, ?TS1)),
+    ?_assertOk(model_accounts:create_account(?UID2, ?PHONE2, ?NAME2, ?USER_AGENT2, ?CAMPAIGN_ID, ?TS2)),
+    ?_assertOk(model_accounts:create_account(?UID3, ?PHONE3, ?NAME3, ?USER_AGENT3, ?CAMPAIGN_ID, ?TS1)),
+    ?_assertOk(model_accounts:create_account(?UID4, ?PHONE4, ?NAME4, ?USER_AGENT4, ?CAMPAIGN_ID, ?TS2)),
+    ?_assertOk(model_accounts:create_account(?UID5, ?PHONE5, ?NAME5, ?USER_AGENT5, ?CAMPAIGN_ID, ?TS1)),
     ?_assertEqual(0, model_accounts:count_uids_to_delete()),
     ?_assertOk(model_accounts:add_uid_to_delete(?UID1)),
     ?_assertEqual(1, model_accounts:count_uids_to_delete()),
@@ -647,10 +633,8 @@ username_test(_) ->
     ?_assertEqual({ok, [?USERNAME2]}, model_accounts:search_username_prefix(?USERNAMEPFIX2, 10)),
     ?_assertEqual({ok, []}, model_accounts:search_username_prefix(?USERNAMEPFIX3, 10)),
     ?_assertEqual({ok, [?USERNAME2]}, model_accounts:search_username_prefix(?USERNAMEPFIX4, 10)),
-    ?_assertOk(model_accounts:create_account(?UID1, ?PHONE1, ?USER_AGENT1, ?CAMPAIGN_ID, ?TS1)),
-    ?_assertOk(model_accounts:set_name(?UID1, ?NAME1)),
-    ?_assertOk(model_accounts:create_account(?UID2, ?PHONE2, ?USER_AGENT2, ?CAMPAIGN_ID, ?TS2)),
-    ?_assertOk(model_accounts:set_name(?UID2, ?NAME2)),
+    ?_assertOk(model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1, ?CAMPAIGN_ID, ?TS1)),
+    ?_assertOk(model_accounts:create_account(?UID2, ?PHONE2, ?NAME2, ?USER_AGENT2, ?CAMPAIGN_ID, ?TS2)),
     ?_assert(model_accounts:set_username(?UID1, ?USERNAME1)),
     ?_assertOk(model_accounts:set_avatar_id(?UID1, ?AVATAR_ID1)),
     ?_assertOk(model_accounts:set_avatar_id(?UID2, ?AVATAR_ID2)),
@@ -746,8 +730,7 @@ user_profile_test(_) ->
             UserProfile#pb_user_profile{links = sets:from_list(LinkList)}
     end,
     [
-        ?_assertOk(model_accounts:create_account(?UID1, ?PHONE1, ?USER_AGENT1)),
-        ?_assertOk(model_accounts:set_name(?UID1, ?NAME1)),
+        ?_assertOk(model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1)),
         ?_assert(model_accounts:set_username(?UID1, Username)),
         ?_assertOk(model_accounts:set_avatar_id(?UID1, AvatarId)),
         ?_assertOk(model_accounts:set_bio(?UID1, Bio)),
@@ -810,9 +793,7 @@ setup() ->
 
 setup_accounts() ->
     CleanupInfo = setup(),
-    model_accounts:create_account(?UID1, ?PHONE1, ?USER_AGENT1, ?CAMPAIGN_ID, ?TS1),
-    model_accounts:set_name(?UID1, ?NAME1),
-    model_accounts:create_account(?UID2, ?PHONE2, ?USER_AGENT2, ?CAMPAIGN_ID, ?TS2),
-    model_accounts:set_name(?UID2, ?NAME2),
+    model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1, ?CAMPAIGN_ID, ?TS1),
+    model_accounts:create_account(?UID2, ?PHONE2, ?NAME2, ?USER_AGENT2, ?CAMPAIGN_ID, ?TS2),
     CleanupInfo.
 
