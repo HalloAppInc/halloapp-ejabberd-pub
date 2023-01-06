@@ -60,10 +60,10 @@ process_local_iq(
     SearchResult = search_username_prefix(Prefix, Uid),
     pb:make_iq_result(IQ, #pb_search_response{result = ok, search_result = SearchResult}).
 
--spec search_username_prefix(Prefix :: binary(), Uid :: uid()) -> [pb_user_profile()].
+-spec search_username_prefix(Prefix :: binary(), Uid :: uid()) -> [pb_basic_user_profile()].
 search_username_prefix(Prefix, Uid) ->
     {ok, Usernames} = model_accounts:search_username_prefix(Prefix, 20),
     Ouids = maps:values(model_accounts:get_username_uids(Usernames)),
     FilteredOuids = lists:filter(fun(Ouid) -> not model_follow:is_blocked_any(Uid, Ouid) end, Ouids),
-    model_accounts:get_user_profiles(Uid, FilteredOuids).
+    model_accounts:get_basic_user_profiles(Uid, FilteredOuids).
 

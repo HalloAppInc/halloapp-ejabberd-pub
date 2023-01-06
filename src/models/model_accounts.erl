@@ -174,6 +174,7 @@
     get_username_uid/1,
     get_username_uids/1,
     search_username_prefix/2,
+    get_basic_user_profiles/2,
     get_user_profiles/2,
     add_rejected_suggestions/2,
     get_all_rejected_suggestions/1,
@@ -1157,15 +1158,47 @@ get_broadcast_uids(Uid) ->
     {ok, Buids}.
 
 
+-spec get_basic_user_profiles(Uid :: uid(), Ouids :: uid() | list(uid()))
+        -> pb_basic_user_profile() | list(pb_basic_user_profile()).
+get_basic_user_profiles(Uid, Ouids) when is_list(Ouids) ->
+    lists:map(fun(Ouid) -> get_basic_user_profiles(Uid, Ouid) end, Ouids);
+
+get_basic_user_profiles(Uid, Ouid) ->
+    [{ok, Username}, {ok, Name}, {ok, AvatarId}, {ok, IsFollower}, {ok, IsFollowing}] = qmn([
+        ["HGET", account_key(Ouid), ?FIELD_USERNAME],
+        ["HGET", account_key(Ouid), ?FIELD_NAME],
+        ["HGET", account_key(Ouid), ?FIELD_AVATAR_ID],
+        ["ZSCORE", model_follow:follower_key(Uid), Ouid],
+        ["ZSCORE", model_follow:following_key(Uid), Ouid]
+    ]),
+    FollowerStatus = case util_redis:decode_int(IsFollower) of
+        undefined -> none;
+        0 -> none;
+        _ -> following
+    end,
+    FollowingStatus = case util_redis:decode_int(IsFollowing) of
+        undefined -> none;
+        0 -> none;
+        _ -> following
+    end,
+    Following = sets:from_list(model_follow:get_all_following(Uid)),
+    OFollowing = sets:from_list(model_follow:get_all_following(Ouid)),
+    #pb_basic_user_profile{
+        uid = Ouid,
+        username = Username,
+        name = Name,
+        avatar_id = AvatarId,
+        follower_status = FollowerStatus,
+        following_status = FollowingStatus,
+        num_mutual_following = sets:size(sets:intersection(OFollowing, Following))
+    }.
+
+
 -spec get_user_profiles(uid(), uid() | list(uid())) -> pb_user_profile() | list(pb_user_profile()).
-get_user_profiles(Uid, Ouids) ->
-    {Res, Uid} = get_user_profiles_internal(Ouids, Uid),
-    Res.
+get_user_profiles(Uid, Ouids) when is_list(Ouids) ->
+    lists:map(fun(Ouid) -> get_user_profiles(Uid, Ouid) end, Ouids);
 
-get_user_profiles_internal(Ouids, Uid) when is_list(Ouids) ->
-    lists:mapfoldl(fun get_user_profiles_internal/2, Uid, Ouids);
-
-get_user_profiles_internal(Ouid, Uid) ->
+get_user_profiles(Uid, Ouid) ->
     [{ok, Username}, {ok, Name}, {ok, AvatarId}, {ok, RawBio}, {ok, LinksJson},
             {ok, IsFollower}, {ok, IsFollowing}] = qmn([
         ["HGET", account_key(Ouid), ?FIELD_USERNAME],
@@ -1177,15 +1210,15 @@ get_user_profiles_internal(Ouid, Uid) ->
         ["ZSCORE", model_follow:following_key(Uid), Ouid]
     ]),
     FollowerStatus = case util_redis:decode_int(IsFollower) of
-                         undefined -> none;
-                         0 -> none;
-                         _ -> following
-                     end,
+        undefined -> none;
+        0 -> none;
+        _ -> following
+    end,
     FollowingStatus = case util_redis:decode_int(IsFollowing) of
-                          undefined -> none;
-                          0 -> none;
-                          _ -> following
-                      end,
+        undefined -> none;
+        0 -> none;
+        _ -> following
+    end,
     Following = sets:from_list(model_follow:get_all_following(Uid)),
     OFollowing = sets:from_list(model_follow:get_all_following(Ouid)),
     Bio = case RawBio of
@@ -1205,7 +1238,7 @@ get_user_profiles_internal(Ouid, Uid) ->
                 end,
                 LinksListRaw)
     end,
-    UserProfile = #pb_user_profile{
+    #pb_user_profile{
         uid = Ouid,
         username = Username,
         name = Name,
@@ -1215,8 +1248,7 @@ get_user_profiles_internal(Ouid, Uid) ->
         num_mutual_following = sets:size(sets:intersection(OFollowing, Following)),
         bio = Bio,
         links = Links
-    },
-    {UserProfile, Uid}.
+    }.
 
 %%====================================================================
 %% Counts related API

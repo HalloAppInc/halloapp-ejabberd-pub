@@ -38,9 +38,9 @@ test_follow_iq_(#{testdata := {Uid1, Uid2}} = _CleanupInfo) ->
     },
     ExpectedResultPayload = #pb_relationship_response{
         result = ok,
-        profile = (model_accounts:get_user_profiles(Uid1, Uid2))#pb_user_profile{following_status = following}
+        profile = (model_accounts:get_basic_user_profiles(Uid1, Uid2))#pb_basic_user_profile{following_status = following}
     },
-    UserProfileUid1 = (model_accounts:get_user_profiles(Uid2, Uid1))#pb_user_profile{follower_status = following},
+    UserProfileUid1 = (model_accounts:get_basic_user_profiles(Uid2, Uid1))#pb_basic_user_profile{follower_status = following},
     ServerMsgToUid2 = pb_msg(profile_update(UserProfileUid1, normal)),
     [
         ?_assertMatch(ExpectedResultPayload, tutil:get_result_iq_sub_el(mod_follow:process_local_iq(ClientIQ))),
@@ -64,9 +64,9 @@ test_unfollow_iq_(#{testdata := {Uid1, Uid2}} = _CleanupInfo) ->
     },
     ExpectedResultPayload = #pb_relationship_response{
         result = ok,
-        profile = (model_accounts:get_user_profiles(Uid1, Uid2))#pb_user_profile{following_status = none}
+        profile = (model_accounts:get_basic_user_profiles(Uid1, Uid2))#pb_basic_user_profile{following_status = none}
     },
-    UserProfileUid1 = (model_accounts:get_user_profiles(Uid2, Uid1))#pb_user_profile{follower_status = none},
+    UserProfileUid1 = (model_accounts:get_basic_user_profiles(Uid2, Uid1))#pb_basic_user_profile{follower_status = none},
     ServerMsgToUid2 = pb_msg(profile_update(UserProfileUid1, normal)),
     [
         ?_assertMatch(ExpectedResultPayload, tutil:get_result_iq_sub_el(mod_follow:process_local_iq(ClientIQ))),
@@ -90,9 +90,9 @@ test_remove_follower_iq(#{testdata := {Uid1, Uid2}} = _CleanupInfo) ->
     },
     ExpectedResultPayload = #pb_relationship_response{
         result = ok,
-        profile = (model_accounts:get_user_profiles(Uid1, Uid2))#pb_user_profile{following_status = none}
+        profile = (model_accounts:get_basic_user_profiles(Uid1, Uid2))#pb_basic_user_profile{following_status = none}
     },
-    UserProfileUid1 = (model_accounts:get_user_profiles(Uid2, Uid1))#pb_user_profile{follower_status = none},
+    UserProfileUid1 = (model_accounts:get_basic_user_profiles(Uid2, Uid1))#pb_basic_user_profile{follower_status = none},
     ServerMsgToUid2 = pb_msg(profile_update(UserProfileUid1, normal)),
     [
         %% setup state
@@ -170,9 +170,9 @@ test_unblock_iq(#{testdata := {Uid1, Uid2}} = _CleanupInfo) ->
     },
     ExpectedResultPayload = #pb_relationship_response{
         result = ok,
-        profile = model_accounts:get_user_profiles(Uid1, Uid2)
+        profile = model_accounts:get_basic_user_profiles(Uid1, Uid2)
     },
-    ServerMsgToUid2 = pb_msg(profile_update(model_accounts:get_user_profiles(Uid2, Uid1), normal)),
+    ServerMsgToUid2 = pb_msg(profile_update(model_accounts:get_basic_user_profiles(Uid2, Uid1), normal)),
     NumRouterCalls = 2,  %% from previous tests: test_block_iq, test_block_notify_iq
     [
         ?_assertMatch(ExpectedResultPayload, tutil:get_result_iq_sub_el(mod_follow:process_local_iq(ClientIQ))),
@@ -221,8 +221,8 @@ setup_relationships() ->
 
 test_get_following_iq(#{testdata := {Uid1, Uid2, Uid3, _Uid4, _Uid5, _Uid6, _Uid7}} = _CleanupInfo) ->
     %% Uid1 is following Uid2, Uid3
-    Uid2UserInfo = model_accounts:get_user_profiles(Uid1, Uid2),
-    Uid3UserInfo = model_accounts:get_user_profiles(Uid1, Uid3),
+    Uid2UserInfo = model_accounts:get_basic_user_profiles(Uid1, Uid2),
+    Uid3UserInfo = model_accounts:get_basic_user_profiles(Uid1, Uid3),
     Request = #pb_iq{
         type = get,
         from_uid = Uid1,
@@ -240,8 +240,8 @@ test_get_following_iq(#{testdata := {Uid1, Uid2, Uid3, _Uid4, _Uid5, _Uid6, _Uid
 
 test_get_followers_iq(#{testdata := {Uid1, _Uid2, _Uid3, Uid4, Uid5, _Uid6, _Uid7}} = _CleanupInfo) ->
     %% Uid1 has followers Uid4 and Uid5
-    Uid4UserInfo = model_accounts:get_user_profiles(Uid1, Uid4),
-    Uid5UserInfo = model_accounts:get_user_profiles(Uid1, Uid5),
+    Uid4UserInfo = model_accounts:get_basic_user_profiles(Uid1, Uid4),
+    Uid5UserInfo = model_accounts:get_basic_user_profiles(Uid1, Uid5),
     Request = #pb_iq{
         type = get,
         from_uid = Uid1,
@@ -325,7 +325,7 @@ get_follower_status(ProfileUpdate) when is_record(ProfileUpdate, pb_profile_upda
     get_follower_status(ProfileUpdate#pb_profile_update.profile);
 
 get_follower_status(UserProfile) ->
-    UserProfile#pb_user_profile.follower_status.
+    UserProfile#pb_basic_user_profile.follower_status.
 
 
 get_following_status(Iq) when is_record(Iq, pb_iq) ->
@@ -341,11 +341,11 @@ get_following_status(ProfileUpdate) when is_record(ProfileUpdate, pb_profile_upd
     get_following_status(ProfileUpdate#pb_profile_update.profile);
 
 get_following_status(UserProfile) ->
-    UserProfile#pb_user_profile.following_status.
+    UserProfile#pb_basic_user_profile.following_status.
 
 
 blocked_user_profile(Uid) ->
-    #pb_user_profile{
+    #pb_basic_user_profile{
         uid = Uid,
         username = undefined,
         follower_status = none,

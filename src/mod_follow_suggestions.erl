@@ -131,7 +131,7 @@ get_sorted_uids(Uid, SuggestionsSet) ->
     [Elem || {Elem, _} <- SortedTuples].
 
 fetch_suggested_profiles(Uid, Suggestions, Reason, StartingRank) ->
-    Profiles = model_accounts:get_user_profiles(Uid, Suggestions),
+    Profiles = model_accounts:get_basic_user_profiles(Uid, Suggestions),
     ProfilesWithRank =
         lists:zip(Profiles, lists:seq(StartingRank, StartingRank + length(Profiles) - 1)),
     [#pb_suggested_profile{user_profile = UserProfile, reason = Reason, rank = Rank} ||

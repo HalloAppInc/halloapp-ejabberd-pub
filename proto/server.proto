@@ -278,7 +278,7 @@ message PublicFeedResponse {
 
 
 message PublicFeedItem {
-    UserProfile user_profile = 1;
+    BasicUserProfile user_profile = 1;
     Post post = 2;
     repeated Comment comments = 3; // Comments will be capped - 20 per post for now.
     enum Reason {
@@ -1747,6 +1747,16 @@ enum FollowStatus {
     FOLLOWING = 2;
 }
 
+message BasicUserProfile {
+    int64 uid = 1 [ebin = true];
+    string username = 2;
+    string name = 3;
+    string avatar_id = 4;
+    FollowStatus follower_status = 5;  // is uid my follower
+    FollowStatus following_status = 6;  // am I following uid
+    int32 num_mutual_following = 7;
+}
+
 message UserProfile {
     int64 uid = 1 [ebin = true];
     string username = 2;
@@ -1757,6 +1767,7 @@ message UserProfile {
     int32 num_mutual_following = 7;
     string bio = 8;
     repeated Link links = 9;
+    repeated BasicUserProfile relevant_followers = 10;  // list of users I am following that follow this user
 }
 
 message ProfileUpdate {
@@ -1765,7 +1776,7 @@ message ProfileUpdate {
         DELETE = 1;
     }
     Type type = 1;
-    UserProfile profile = 2;
+    BasicUserProfile profile = 2;
 }
 
 message UserProfileRequest {
@@ -1808,7 +1819,7 @@ message RelationshipResponse {
         FAIL = 1;
     }
     Result result = 1;
-    UserProfile profile = 2;
+    BasicUserProfile profile = 2;
 }
 
 message RelationshipList {
@@ -1821,7 +1832,7 @@ message RelationshipList {
     }
     Type type = 1;
     string cursor = 2;
-    repeated UserProfile users = 3;
+    repeated BasicUserProfile users = 3;
 }
 
 // Usernames
@@ -1860,7 +1871,7 @@ message SearchResponse {
       FAIL = 1;
   }
   Result result = 1;
-  repeated UserProfile search_result = 2;
+  repeated BasicUserProfile search_result = 2;
 }
 
 message FollowSuggestionsRequest {
@@ -1874,7 +1885,7 @@ message FollowSuggestionsRequest {
 }
 
 message SuggestedProfile {
-  UserProfile user_profile = 1;
+  BasicUserProfile user_profile = 1;
   enum Reason {
     UNKNOWN_REASON = 0;
     DIRECT_CONTACT = 1;

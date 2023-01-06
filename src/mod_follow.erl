@@ -57,7 +57,7 @@ mod_options(_Host) ->
 process_local_iq(#pb_iq{from_uid = Uid, type = get,
         payload = #pb_relationship_list{type = following, cursor = Cursor} = RelationshipList} = IQ) ->
     {FollowingUids, NewCursor} = model_follow:get_following(Uid, Cursor, ?USERS_PER_PAGE),
-    UserProfiles = model_accounts:get_user_profiles(Uid, FollowingUids),
+    UserProfiles = model_accounts:get_basic_user_profiles(Uid, FollowingUids),
     pb:make_iq_result(IQ, RelationshipList#pb_relationship_list{cursor = NewCursor, users = UserProfiles});
 
 
@@ -65,7 +65,7 @@ process_local_iq(#pb_iq{from_uid = Uid, type = get,
 process_local_iq(#pb_iq{from_uid = Uid, type = get,
         payload = #pb_relationship_list{type = follower, cursor = Cursor} = RelationshipList} = IQ) ->
     {FollowerUids, NewCursor} = model_follow:get_followers(Uid, Cursor, ?USERS_PER_PAGE),
-    UserProfiles = model_accounts:get_user_profiles(Uid, FollowerUids),
+    UserProfiles = model_accounts:get_basic_user_profiles(Uid, FollowerUids),
     pb:make_iq_result(IQ, RelationshipList#pb_relationship_list{cursor = NewCursor, users = UserProfiles});
 
 
@@ -74,7 +74,7 @@ process_local_iq(#pb_iq{from_uid = Uid, type = get,
         payload = #pb_relationship_list{type = blocked} = RelationshipList} = IQ) ->
     BlockedUids = model_follow:get_blocked_uids(Uid),
     UserProfiles = filter_info_in_for_blocked_user_profiles(
-        model_accounts:get_user_profiles(Uid, BlockedUids)
+        model_accounts:get_basic_user_profiles(Uid, BlockedUids)
     ),
     pb:make_iq_result(IQ, RelationshipList#pb_relationship_list{cursor = <<>>, users = UserProfiles});
 
@@ -97,7 +97,7 @@ process_local_iq(#pb_iq{from_uid = Uid,
             ?INFO("~s follows ~s", [Uid, Ouid]),
             #pb_relationship_response{
                 result = ok,
-                profile = model_accounts:get_user_profiles(Uid, Ouid)
+                profile = model_accounts:get_basic_user_profiles(Uid, Ouid)
             };
         true ->
             ?INFO("~s follows ~s failed (someone was blocked)"),
@@ -121,7 +121,7 @@ process_local_iq(#pb_iq{from_uid = Uid,
     end,
     Ret = #pb_relationship_response{
         result = ok,
-        profile = model_accounts:get_user_profiles(Uid, Ouid)
+        profile = model_accounts:get_basic_user_profiles(Uid, Ouid)
     },
     ?INFO("~s unfollows ~s", [Uid, Ouid]),
     pb:make_iq_result(IQ, Ret);
@@ -141,7 +141,7 @@ process_local_iq(#pb_iq{from_uid = Uid,
     end,
     Ret = #pb_relationship_response{
         result = ok,
-        profile = model_accounts:get_user_profiles(Uid, Ouid)
+        profile = model_accounts:get_basic_user_profiles(Uid, Ouid)
     },
     ?INFO("~s removes ~s as a follower", [Uid, Ouid]),
     pb:make_iq_result(IQ, Ret);
@@ -159,7 +159,7 @@ process_local_iq(#pb_iq{from_uid = Uid,
         false -> ok
     end,
     ejabberd_hooks:run(block_uids, ?KATCHUP, [Uid, util:get_host(), [Ouid]]),
-    UserProfile = filter_info_in_for_blocked_user_profiles(model_accounts:get_user_profiles(Uid, Ouid)),
+    UserProfile = filter_info_in_for_blocked_user_profiles(model_accounts:get_basic_user_profiles(Uid, Ouid)),
     Ret = #pb_relationship_response{
         result = ok,
         profile = UserProfile
@@ -175,7 +175,7 @@ process_local_iq(#pb_iq{from_uid = Uid,
     ejabberd_hooks:run(unblock_uids, ?KATCHUP, [Uid, util:get_host(), [Ouid]]),
     Ret = #pb_relationship_response{
         result = ok,
-        profile = model_accounts:get_user_profiles(Uid, Ouid)
+        profile = model_accounts:get_basic_user_profiles(Uid, Ouid)
     },
     ?INFO("~s unblocked ~s", [Uid, Ouid]),
     pb:make_iq_result(IQ, Ret).
@@ -205,36 +205,39 @@ remove_user(Uid, _Server) ->
 %% Internal functions
 %%====================================================================
 
-filter_info_in_for_blocked_user_profiles(UserProfile) when not is_list(UserProfile) ->
-    [Res] = filter_info_in_for_blocked_user_profiles([UserProfile]),
-    Res;
+%% UserProfiles of blocked/deleted users should only return
+%% uid, username, follower_status, following_status
+filter_info_in_for_blocked_user_profiles(UserProfiles) when is_list(UserProfiles) ->
+    lists:map(fun filter_info_in_for_blocked_user_profiles/1, UserProfiles);
 
-filter_info_in_for_blocked_user_profiles(UserProfiles) ->
-    %% UserProfiles of blocked/deleted users should only return
-    %% uid, username, follower_status, following_status
-    lists:map(
-        fun(UP) ->
-            #pb_user_profile{
-                uid = UP#pb_user_profile.uid,
-                username = UP#pb_user_profile.username,
-                follower_status = UP#pb_user_profile.follower_status,
-                following_status = UP#pb_user_profile.following_status
-            }
-        end,
-        UserProfiles).
+filter_info_in_for_blocked_user_profiles(UserProfile) when is_record(UserProfile, pb_user_profile) ->
+    #pb_user_profile{
+        uid = UserProfile#pb_user_profile.uid,
+        username = UserProfile#pb_user_profile.username,
+        follower_status = UserProfile#pb_user_profile.follower_status,
+        following_status = UserProfile#pb_user_profile.following_status
+    };
+
+filter_info_in_for_blocked_user_profiles(UserProfile) when is_record(UserProfile, pb_basic_user_profile) ->
+    #pb_basic_user_profile{
+        uid = UserProfile#pb_basic_user_profile.uid,
+        username = UserProfile#pb_basic_user_profile.username,
+        follower_status = UserProfile#pb_basic_user_profile.follower_status,
+        following_status = UserProfile#pb_basic_user_profile.following_status
+    }.
 
 
 notify_account_deleted(Uid, Ouid) ->
     %% Notify Ouid that Uid's account no longer exists
     %% this could also mean Ouid has been blocked by Uid
-    UserProfile = filter_info_in_for_blocked_user_profiles(model_accounts:get_user_profiles(Ouid, Uid)),
+    UserProfile = filter_info_in_for_blocked_user_profiles(model_accounts:get_basic_user_profiles(Ouid, Uid)),
     ProfileUpdate = #pb_profile_update{type = delete, profile = UserProfile},
     send_msg(Uid, Ouid, ProfileUpdate).
 
 
 notify_relationship_change(Uid, Ouid)  ->
     %% Notify Ouid that Uid has changed the status of the relationship
-    ProfileUpdate = #pb_profile_update{type = normal, profile = model_accounts:get_user_profiles(Ouid, Uid)},
+    ProfileUpdate = #pb_profile_update{type = normal, profile = model_accounts:get_basic_user_profiles(Ouid, Uid)},
     send_msg(Uid, Ouid, ProfileUpdate).
 
 

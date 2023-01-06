@@ -1072,7 +1072,7 @@ get_feed_audience_set(Action, Uid, AudienceList) ->
 
 -spec convert_moments_to_public_feed_items(uid(), post()) -> pb_public_feed_item().
 convert_moments_to_public_feed_items(Uid, #post{id = PostId, uid = OUid, payload = PayloadBase64, ts_ms = TimestampMs, tag = PostTag, moment_info = MomentInfo}) ->
-    UserProfile = model_accounts:get_user_profiles(Uid, OUid),
+    UserProfile = model_accounts:get_basic_user_profiles(Uid, OUid),
     PbPost = #pb_post{
         id = PostId,
         publisher_uid = OUid,
