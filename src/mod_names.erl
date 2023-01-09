@@ -97,8 +97,8 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
 
 
 -spec re_register_user(UserId :: binary(), Server :: binary(), Phone :: binary(), CampaignId :: binary()) -> ok.
-re_register_user(UserId, _Server, _Phone, _CampaignId) ->
-    ok = model_accounts:delete_name(UserId).
+re_register_user(_UserId, _Server, _Phone, _CampaignId) ->
+    ok.
 
 
 % TODO: (nikola): need common test.
