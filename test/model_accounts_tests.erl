@@ -625,7 +625,7 @@ username_test(_) ->
     ?_assertEqual({false, badexpr}, mod_username:is_valid_username(<<"aAbc">>)),
     ?_assert(model_accounts:is_username_available(?USERNAME1)),
     ?_assert(model_accounts:set_username(?UID1, ?USERNAME1)),
-    ?_assertEqual({false, notuniq}, model_accounts:set_username(?UID1, ?USERNAME1)),
+    ?_assert(model_accounts:set_username(?UID1, ?USERNAME1)),
     ?_assertNot(model_accounts:is_username_available(?USERNAME1)),
     ?_assertEqual({ok, ?USERNAME1}, model_accounts:get_username(?UID1)),
     ?_assertEqual({ok, ?UID1}, model_accounts:get_username_uid(?USERNAME1)),

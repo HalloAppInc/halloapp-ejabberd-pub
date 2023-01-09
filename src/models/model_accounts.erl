@@ -181,7 +181,8 @@
     set_bio/2,
     get_bio/1,
     set_links/2,
-    get_links/1
+    get_links/1,
+    delete_old_username/1
 ]).
 
 %%====================================================================
@@ -435,16 +436,20 @@ is_username_available(Username) ->
 
 -spec set_username(Uid :: uid(), Username :: binary()) -> true | {false, any()} | {error, any()}.
 set_username(Uid, Username) ->
-    {ok, NotExists} = q(["HSETNX", username_uid_key(Username), ?FIELD_USERNAME_UID, Uid]),
-    case NotExists =:= <<"1">> of
-        true ->
-            delete_old_username(Uid),
-            {ok, _} = q(["HSET", account_key(Uid), ?FIELD_USERNAME, Username]),
-            add_username_prefix(Username, byte_size(Username)),
-            true;
-        false ->
-            {false, notuniq}
-    end. 
+    case get_username(Uid) of
+        {ok, Username} -> true;
+        _ ->
+            {ok, NotExists} = q(["HSETNX", username_uid_key(Username), ?FIELD_USERNAME_UID, Uid]),
+            case NotExists =:= <<"1">> of
+                true ->
+                    delete_old_username(Uid),
+                    {ok, _} = q(["HSET", account_key(Uid), ?FIELD_USERNAME, Username]),
+                    add_username_prefix(Username, byte_size(Username)),
+                    true;
+                false ->
+                    {false, notuniq}
+            end
+    end.
 
 
 -spec get_username(Uid :: uid()) -> {ok, maybe(binary())} | {error, any()}.
