@@ -37,6 +37,7 @@
     send_moment_notification/1,
     new_follow_relationship/2,
     get_public_moments/5,
+    re_register_user/4,
     convert_moments_to_public_feed_items/2
 ]).
 
@@ -55,6 +56,7 @@ start(_Host, _Opts) ->
     ejabberd_hooks:add(user_send_packet, katchup, ?MODULE, user_send_packet, 50),
     ejabberd_hooks:add(send_moment_notification, katchup, ?MODULE, send_moment_notification, 50),
     ejabberd_hooks:add(new_follow_relationship, katchup, ?MODULE, new_follow_relationship, 50),
+    ejabberd_hooks:add(re_register_user, katchup, ?MODULE, re_register_user, 50),
     ok.
 
 stop(_Host) ->
@@ -70,6 +72,7 @@ stop(_Host) ->
     ejabberd_hooks:delete(user_send_packet, katchup, ?MODULE, user_send_packet, 50),
     ejabberd_hooks:delete(send_moment_notification, katchup, ?MODULE, send_moment_notification, 50),
     ejabberd_hooks:delete(new_follow_relationship, katchup, ?MODULE, new_follow_relationship, 50),
+    ejabberd_hooks:delete(re_register_user, katchup, ?MODULE, re_register_user, 50),
     ok.
 
 reload(_Host, _NewOpts, _OldOpts) ->
@@ -282,6 +285,24 @@ send_moment_notification(Uid) ->
 new_follow_relationship(Uid, Ouid) ->
     ?INFO("New follow relationship, send old moment fromUid: ~p, ToUid: ~p", [Ouid, Uid]),
     send_old_moment(Ouid, Uid),
+    ok.
+
+
+-spec re_register_user(Uid :: binary(), Server :: binary(), Phone :: binary(), CampaignId :: binary()) -> ok.
+re_register_user(Uid, _Server, _Phone, _CampaignId) ->
+    ?INFO("re_register_user Uid: ~p", [Uid]),
+    send_old_moment(Uid, Uid),
+    AppType = util_uid:get_app_type(Uid),
+    case AppType of
+        katchup ->
+            Ouids = model_follow:get_all_following(Uid),
+            lists:foreach(
+                fun(Ouid) ->
+                    send_old_moment(Ouid, Uid)
+                end, Ouids);
+        _ ->
+            ok
+    end,
     ok.
 
 
