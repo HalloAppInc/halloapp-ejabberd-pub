@@ -182,7 +182,9 @@
     get_bio/1,
     set_links/2,
     get_links/1,
-    delete_old_username/1
+    delete_old_username/1,
+    get_geotag_uids/1,
+    update_geo_tag_index/2
 ]).
 
 %%====================================================================
@@ -1557,12 +1559,40 @@ test_set_export_time(Uid, Ts) ->
     {ok, _} = q(["HSET", export_data_key(Uid), ?FIELD_EXPORT_START_TS, Ts]),
     ok.
 
+-spec get_geotag_uids(GeoTag :: atom()) -> list().
+get_geotag_uids(GeoTag) ->
+    lists:foldl(
+        fun (Slot, Acc) ->
+            ExpiredTs = util:now() - ?GEO_TAG_EXPIRATION,
+            Key = geotag_index_key(Slot, GeoTag),
+            case q(["ZRANGE", Key, "+inf", util:to_list(ExpiredTs), "BYSCORE", "REV"]) of
+                {ok, TaggedUids} ->
+                    Acc ++ TaggedUids;
+                Err ->
+                    ?ERROR("Failed to get all uids for ~p: ~p, Error: ~p", [GeoTag, Slot, Err]),
+                    Acc
+            end
+        end,
+        [],
+        lists:seq(0, ?NUM_SLOTS - 1)).
+
+
+-spec update_geo_tag_index(Uid :: binary(), GeoTag :: atom()) -> ok.
+update_geo_tag_index(Uid, GeoTag) ->
+    HashSlot = util_redis:eredis_hash(binary_to_list(Uid)),
+    UidSlot = HashSlot rem ?NUM_SLOTS,
+    Timestamp = util:now(),
+    [{ok, _}] = qp([["ZADD", geotag_index_key(UidSlot, GeoTag), Timestamp, Uid]]),
+    ok.
+
+
 -spec add_geo_tag(Uid :: uid(), Tag :: atom(), Timestamp :: integer()) -> ok.
 add_geo_tag(Uid, Tag, Timestamp) ->
     ExpiredTs = util:now() - ?GEO_TAG_EXPIRATION,
     Key = geo_tag_key(Uid),
     qp([["ZADD", Key, Timestamp, Tag],
         ["ZREMRANGEBYSCORE", Key, "-inf", ExpiredTs]]),
+    update_geo_tag_index(Uid, Tag),
     ok.
 
 -spec get_latest_geo_tag(Uid :: uid()) -> maybe(atom()).
@@ -1692,6 +1722,11 @@ broadcast_key(Uid) ->
 version_key(Slot) ->
     SlotBinary = integer_to_binary(Slot),
     <<?VERSION_KEY/binary, <<"{">>/binary, SlotBinary/binary, <<"}">>/binary>>.
+
+geotag_index_key(Slot, GeoTag) ->
+    SlotBinary = integer_to_binary(Slot),
+    GeoTagBin = util:to_binary(GeoTag),
+    <<?GEO_TAG_INDEX_KEY/binary, <<"{">>/binary, SlotBinary/binary, <<"}:">>/binary, GeoTagBin/binary>>.
 
 os_version_key(Slot, AppType) ->
     SlotBinary = integer_to_binary(Slot),

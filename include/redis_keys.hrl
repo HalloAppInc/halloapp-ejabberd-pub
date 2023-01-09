@@ -31,6 +31,7 @@
 -define(VIDEOCALL_UIDS_KEY, <<"videocall_uids:">>).
 %% SortedSet of phone invited by the user: in2:{Uid} -> zset(Phone, Ts)
 -define(INVITES2_KEY, <<"in2:">>).
+-define(GEO_TAG_INDEX_KEY, <<"gti:">>).
 
 %% Active users keys
 -define(ACTIVE_USERS_ALL_KEY_HA, <<"active_users_all:">>).
