@@ -631,7 +631,8 @@ retract_comment(PublisherUid, CommentId, PostId, HomeFeedSt) ->
             IsPublisherInPostAudienceSet = sets:is_element(PublisherUid, PostAudienceSet),
             IsPublicPost = Post#post.tag =:= public_moment orelse Post#post.tag =:= public_post,
 
-            case PublisherUid =:= Comment#comment.publisher_uid of
+            case PublisherUid =:= Comment#comment.publisher_uid orelse
+                    (AppType =:= katchup andalso Post#post.uid =:= PublisherUid) of
                 false -> {error, not_authorized};
                 true ->
                     if
