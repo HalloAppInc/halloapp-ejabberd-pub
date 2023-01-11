@@ -66,6 +66,7 @@ listen:
     request_handlers:
       /.well-known: mod_http_well_known
       /invite/.well-known: mod_http_well_known
+      /katchup: mod_http_katchup
       /share_post: mod_http_share_post
       /share_media: mod_http_share_media
       /export: mod_http_export
@@ -230,6 +231,7 @@ modules:
   mod_follow_suggestions: {}
   mod_user_profile: {}
   mod_prompts: {}
+  mod_http_katchup: {}
 
 ### Local Variables:
 ### mode: yaml

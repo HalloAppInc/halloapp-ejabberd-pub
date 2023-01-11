@@ -1,0 +1,11 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.halloapp.katchup",
+      "sha256_cert_fingerprints":
+        ["CA:8D:0D:42:5D:69:51:D2:AF:CA:AB:9E:53:21:89:68:DE:59:EE:7C:B8:E2:99:BD:60:6E:B6:25:53:1F:4B:CC"]
+    }
+  }
+]

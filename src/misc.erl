@@ -36,7 +36,7 @@
     now_to_usec/1, usec_to_now/1, encode_pid/1, decode_pid/2,
     compile_exprs/2, join_atoms/2, try_read_file/1, get_descr/2,
     css_dir/0, img_dir/0, js_dir/0, msgs_dir/0, sql_dir/0, lua_dir/0,
-    xml_dir/0, data_dir/0, dtl_dir/0, share_post_dir/0, read_css/1, read_img/1, read_js/1,
+    xml_dir/0, data_dir/0, dtl_dir/0, share_post_dir/0, katchup_dir/0, read_css/1, read_img/1, read_js/1,
     read_lua/1, try_url/1,
     intersection/2, format_val/1, cancel_timer/1, unique_timestamp/0,
     best_match/2, pmap/2, peach/2, format_exception/4,
@@ -293,6 +293,10 @@ dtl_dir() ->
 -spec share_post_dir() -> file:filename().
 share_post_dir() ->
     filename:join([get_dir("data"), "share_post"]).
+
+-spec katchup_dir() -> file:filename().
+katchup_dir() ->
+    filename:join([get_dir("data"), "katchup"]).
 
 -spec read_css(file:filename()) -> {ok, binary()} | {error, file:posix()}.
 read_css(File) ->
