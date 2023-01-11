@@ -62,7 +62,10 @@ process_local_iq(
         false -> notuniq
     end,
     ?INFO("Uid: ~p, is_available username ~p, result: ~p", [Uid, Username, Result]),
-    pb:make_iq_result(IQ, #pb_username_response{result = Result});
+    case Result of
+        ok -> pb:make_iq_result(IQ, #pb_username_response{result = Result});
+        _ -> pb:make_iq_result(IQ, #pb_username_response{result = fail, reason = Result})
+    end;
 process_local_iq(#pb_iq{from_uid = Uid, type = set,
         payload = #pb_username_request{action = set, username = Username}} = IQ) ->
     ?INFO("Uid: ~p, set username ~p", [Uid, Username]),
