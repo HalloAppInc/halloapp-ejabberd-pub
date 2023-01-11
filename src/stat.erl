@@ -311,7 +311,6 @@ init(_Stuff) ->
             {ok, _Tref2} = timer:apply_interval(5 * ?MINUTES_MS, ?MODULE, trigger_count_users, []),
             {ok, _Tref3} = timer:apply_interval(10 * ?MINUTES_MS, ?MODULE, trigger_zset_cleanup, []),
             {ok, _Tref4} = timer:apply_interval(2 * ?HOURS_MS, ?MODULE, trigger_count_users_by_version, []),
-            {ok, _Tref5} = timer:apply_interval(1 * ?HOURS_MS, mod_athena_stats, run_athena_queries, []),
             {ok, _Tref6} = timer:apply_interval(15 * ?MINUTES_MS, ?MODULE, trigger_check_sms_reg, [recent]),
             {ok, _Tref7} = timer:apply_interval(4 * ?HOURS_MS, ?MODULE, trigger_check_sms_reg, [past]),
             {ok, _Tref8} = timer:apply_interval(2 * ?HOURS_MS, ?MODULE, trigger_count_users_by_langid, []),

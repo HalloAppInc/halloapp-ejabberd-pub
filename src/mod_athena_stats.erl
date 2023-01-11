@@ -22,8 +22,6 @@
 
 -export([
     run_query/1,
-    run_athena_queries/0,
-    force_run_athena_queries/0, %% DEBUG-only
     check_queries/0,
     fetch_query_results/1,
     delete_query/1
@@ -85,10 +83,6 @@ handle_cast({ping, Id, Ts, From}, State) ->
 handle_cast({run_query, Query}, State) ->
     State2 = run_query_internal(Query, State),
     {noreply, State2};
-handle_cast(run_athena_queries, State) ->
-    Queries = get_athena_queries(),
-    State2 = run_queries_internal(Queries, State),
-    {noreply, State2};
 handle_cast({fetch_query_results, ExecutionId}, State) ->
     {noreply, fetch_query_results_internal(ExecutionId, State)};
 handle_cast({delete_query, Id}, #{queries := Queries} = State) ->
@@ -106,28 +100,9 @@ code_change(_OldVsn, State, _Extra) ->
 %% api
 %%====================================================================
 
--spec run_athena_queries() -> ok.
-run_athena_queries() ->
-    case calendar:local_time_to_universal_time(calendar:local_time()) of
-        {_Date, {Hr, _Min, _Sec}} when Hr >= 12 andalso Hr =< 22 -> %% 5AM - 3PM PDT
-            case model_whisper_keys:mark_e2e_stats_query() of
-                true ->
-                    gen_server:cast(?PROC(), run_athena_queries);
-                false ->
-                    ok
-            end;
-        _ -> ok
-    end,
-    ok.
-
 run_query(Query) ->
     gen_server:cast(?PROC(), {run_query, Query}).
 
-
--spec force_run_athena_queries() -> ok.
-force_run_athena_queries() ->
-    gen_server:cast(?PROC(), run_athena_queries),
-    ok.
 
 -spec check_queries() -> ok.
 check_queries() ->
@@ -171,13 +146,6 @@ run_query_internal(Query, #{queries := Queries} = State) ->
                 [Reason, lager:pr_stacktrace(Stacktrace, {Class, Reason})]),
             State
     end.
-
--spec run_queries_internal(Queries ::  list(athena_query()), State :: map()) -> State2 :: map().
-run_queries_internal([], State) ->
-    State;
-run_queries_internal([Query | Rest], State) ->
-    State2 = run_query_internal(Query, State),
-    run_queries_internal(Rest, State2).
 
 
 check_queries_internal(#{queries := Queries} = State) when map_size(Queries) =:= 0 ->
@@ -279,20 +247,4 @@ pretty_print_internal([#{<<"Data">> := RowValues} | Rest]) ->
     pretty_print_internal(Rest);
 pretty_print_internal([]) ->
     ok.
-
-
-get_athena_queries() ->
-    Modules = get_athena_modules(),
-    Queries = lists:map(
-        fun(Module) ->
-            erlang:apply(Module, get_queries, [])
-        end, Modules),
-    lists:flatten(Queries).
-
-
-get_athena_modules() ->
-    [
-        athena_push,
-        athena_push_api
-    ].
 
