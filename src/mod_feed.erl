@@ -395,7 +395,7 @@ publish_post(Uid, PostId, PayloadBase64, public_moment, PSATag, AudienceList, Ho
         {error, missing} ->
             TimestampMs = util:now_ms(),
             ?INFO("Uid: ~s PostId ~p published as public_moment: ~p", [Uid, PostId]),
-            ok = model_feed:publish_moment(PostId, Uid, PayloadBase64, public_moment, all, [], TimestampMs, MomentInfo),
+            ok = model_feed:publish_moment(PostId, Uid, PayloadBase64, public_moment, all, FilteredAudienceList2, TimestampMs, MomentInfo),
             ejabberd_hooks:run(feed_item_published, AppType,
                 [Uid, Uid, PostId, post, public_moment, all, 0, MediaCounters]),
             {ok, TimestampMs};
@@ -1070,7 +1070,7 @@ get_feed_audience_set(Action, Uid, AudienceList) ->
             NewAudienceSet = sets:intersection(AudienceSet, sets:from_list(FollowerUids)),
             FinalAudienceSet = case Action of
                 publish -> sets:subtract(NewAudienceSet, sets:from_list(BlockedUids));
-                retract -> AudienceSet
+                retract -> sets:union(AudienceSet, sets:from_list(FollowerUids))
             end,
             sets:add_element(Uid, FinalAudienceSet);
         %% HalloApp
