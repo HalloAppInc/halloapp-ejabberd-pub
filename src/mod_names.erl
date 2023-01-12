@@ -35,7 +35,6 @@
     process_local_iq/1,
     re_register_user/4,
     account_name_updated/2,
-    katchup_account_name_updated/2,
     check_name/1
 ]).
 
@@ -49,7 +48,6 @@ start(_Host, _Opts) ->
     %% Katchup
     gen_iq_handler:add_iq_handler(ejabberd_local, katchup, pb_name, ?MODULE, process_local_iq),
     ejabberd_hooks:add(re_register_user, katchup, ?MODULE, re_register_user, 50),
-    ejabberd_hooks:add(account_name_updated, katchup, ?MODULE, katchup_account_name_updated, 50),
     ok.
 
 stop(_Host) ->
@@ -60,7 +58,6 @@ stop(_Host) ->
     %% Katchup
     gen_iq_handler:remove_iq_handler(ejabberd_local, katchup, pb_name),
     ejabberd_hooks:delete(re_register_user, katchup, ?MODULE, re_register_user, 50),
-    ejabberd_hooks:delete(account_name_updated, katchup, ?MODULE, katchup_account_name_updated, 50),
     ok.
 
 depends(_Host, _Opts) ->
@@ -124,12 +121,6 @@ account_name_updated(Uid, Name) ->
             },
             ejabberd_router:route(Message)
         end, UidsToNotify).
-
-
--spec katchup_account_name_updated(Uid :: binary(), Name :: binary()) -> ok.
-katchup_account_name_updated(_Uid, _Name) ->
-    %% TODO: Wip.
-    ok.
 
 
 %%====================================================================

@@ -11,6 +11,7 @@
 -include("ha_types.hrl").
 -include("logger.hrl").
 -include("feed.hrl").
+-include("account.hrl").
 -include("packets.hrl").
 
 %% gen_mod API
@@ -18,7 +19,11 @@
 
 %% API
 -export([
-    process_local_iq/1
+    process_local_iq/1,
+    account_name_updated/2,
+    user_avatar_published/3,
+    username_updated/2,
+    broadcast_profile_update/1
 ]).
 
 -define(MAX_BIO_LENGTH, 150).
@@ -30,10 +35,16 @@
 
 start(_Host, _Opts) ->
     gen_iq_handler:add_iq_handler(ejabberd_local, ?KATCHUP, pb_user_profile_request, ?MODULE, process_local_iq),
+    ejabberd_hooks:add(account_name_updated, katchup, ?MODULE, account_name_updated, 50),
+    ejabberd_hooks:add(user_avatar_published, katchup, ?MODULE, user_avatar_published, 50),
+    ejabberd_hooks:add(username_updated, katchup, ?MODULE, username_updated, 50),
     ok.
 
 stop(_Host) ->
     gen_iq_handler:remove_iq_handler(ejabberd_local, ?KATCHUP, pb_user_profile_request),
+    ejabberd_hooks:delete(account_name_updated, katchup, ?MODULE, account_name_updated, 50),
+    ejabberd_hooks:delete(user_avatar_published, katchup, ?MODULE, user_avatar_published, 50),
+    ejabberd_hooks:delete(username_updated, katchup, ?MODULE, username_updated, 50),
     ok.
 
 depends(_Host, _Opts) ->
@@ -100,6 +111,27 @@ process_local_iq(#pb_iq{payload = #pb_user_profile_request{}} = Iq) ->
     pb:make_iq_result(Iq, Ret).
 
 %%====================================================================
+%% Hooks
+%%====================================================================
+
+-spec account_name_updated(Uid :: binary(), Name :: binary()) -> ok.
+account_name_updated(Uid, _Name) ->
+    broadcast_profile_update(Uid),
+    ok.
+
+-spec user_avatar_published(Uid :: binary(), Server :: binary(), AvatarId :: binary()) -> ok.
+user_avatar_published(Uid, _Server, _AvatarId) ->
+    broadcast_profile_update(Uid),
+    ok.
+
+
+-spec username_updated(Uid :: binary(), Username :: binary()) -> ok.
+username_updated(Uid, _Username) ->
+    broadcast_profile_update(Uid),
+    ok.
+
+
+%%====================================================================
 %% Internal functions
 %%====================================================================
 
@@ -133,4 +165,42 @@ process_user_profile_request(Uid, Ouid, Iq) ->
             }
     end,
     pb:make_iq_result(Iq, Ret).
+
+
+%% Broadcasts profile update to followers.
+%% TODO: Send this to contactUids who have this number.
+-spec broadcast_profile_update(Uid :: binary()) -> ok.
+broadcast_profile_update(Uid) ->
+    ?INFO("Broadcasting update Uid: ~p", [Uid]),
+    Followers = model_follow:get_all_followers(Uid),
+    Following = model_follow:get_all_following(Uid),
+    {ok, Account} = model_accounts:get_account(Uid),
+
+    lists:foreach(
+        fun(FollowerUid) ->
+            ?INFO("Sending update of Uid: ~p ToUid: ~p", [Uid, FollowerUid]),
+            FollowingStatus = case sets:is_element(FollowerUid, sets:from_list(Following)) of
+                true -> following;
+                false -> none
+            end,
+            OFollowing = model_follow:get_all_following(FollowerUid),
+            Message = #pb_msg{
+                id = util_id:new_msg_id(),
+                to_uid = FollowerUid,
+                payload = #pb_profile_update{
+                    type = normal,
+                    profile =  #pb_basic_user_profile{
+                            uid = Uid,
+                            username = Account#account.username,
+                            name = Account#account.name,
+                            avatar_id = Account#account.avatar_id,
+                            follower_status = following,
+                            following_status = FollowingStatus,
+                            num_mutual_following = sets:size(sets:intersection(sets:from_list(Following), sets:from_list(OFollowing)))
+                        }
+                    }
+                },
+            ejabberd_router:route(Message)
+        end, Followers),
+    ok.
 

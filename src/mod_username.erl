@@ -80,6 +80,8 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
     end,
     case Result of
         ok ->
+            AppType = util_uid:get_app_type(Uid),
+            ejabberd_hooks:run(username_updated, AppType, [Uid, Username]),
             pb:make_iq_result(IQ, #pb_username_response{result = ok});
         {fail, Err2} ->
             pb:make_iq_result(IQ, #pb_username_response{result = fail, reason = Err2})
