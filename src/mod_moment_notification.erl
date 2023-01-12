@@ -399,7 +399,8 @@ send_moment_notification(Uid, NotificationId, NotificationType, Prompt) ->
     ejabberd_hooks:run(send_moment_notification, AppType, [Uid]),
     ok.
 
-get_offset_region(ZoneOffsetSec) ->
+
+get_offset_region(ZoneOffsetSec) when is_integer(ZoneOffsetSec) ->
     ZoneOffsetHr = ZoneOffsetSec / ?HOURS,
     if
         ZoneOffsetHr >= -10 andalso ZoneOffsetHr =< -3 -> america;
@@ -409,7 +410,9 @@ get_offset_region(ZoneOffsetSec) ->
         true ->
             ?ERROR("Invalid zone_offset: ~p", [ZoneOffsetSec]),
             undefined
-    end.
+    end;
+get_offset_region(ZoneOffsetSec) ->
+    undefined.
 
 
 -spec get_offset_region_by_uid(Uid :: uid()) -> maybe(america | europe | west_asia | east_asia).
