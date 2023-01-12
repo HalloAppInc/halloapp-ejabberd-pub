@@ -651,7 +651,8 @@ verify_incoming_packet_to(#{user := LUser, stream_state := StreamState} = State,
                     allow
             end;
         _ ->
-            ?ERROR("unexpected incoming packets before establish "
+            %% TODO - switch  modes for now.
+            ?INFO("unexpected incoming packets before establish "
                 "Pkt: ~p StreamState: ~p", [Pkt, StreamState]),
             % TODO: Update to deny once it looks ok.
             allow
