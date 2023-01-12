@@ -208,6 +208,7 @@ check_daily_limit(Uid, _PostId, MomentInfo) ->
     util:to_integer(Count) =< ?MAX_DAILY_MOMENT_LIMIT.
 
 
+mark_discovered_posts(_Uid, _RequestTimestampMs, []) -> ok;
 mark_discovered_posts(Uid, RequestTimestampMs, PostIds) ->
     [{ok, _}, {ok, _}] = qp([
             ["SADD", discovered_posts_key(Uid, RequestTimestampMs)] ++ PostIds,

@@ -411,7 +411,7 @@ get_offset_region(ZoneOffsetSec) when is_integer(ZoneOffsetSec) ->
             ?ERROR("Invalid zone_offset: ~p", [ZoneOffsetSec]),
             undefined
     end;
-get_offset_region(ZoneOffsetSec) ->
+get_offset_region(_ZoneOffsetSec) ->
     undefined.
 
 
