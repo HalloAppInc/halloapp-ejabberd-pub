@@ -14,7 +14,7 @@
 
 -define(APPLE_APP_SITE_ASSOCIATION, <<"apple-app-site-association">>).
 -define(ASSET_LINKS, <<"assetlinks.json">>).
--define(WEBSITE, <<"https://katchup.com">>).
+-define(WEBSITE, <<"https://katchup.com/web/">>).
 
 %%%----------------------------------------------------------------------
 %%% API
@@ -37,7 +37,7 @@ process([<<".well-known">>, FileBin], #request{method = 'GET'} = _R)
 
 %% /katchup/username
 process([Username],
-        #request{method = 'GET', q = _Q, ip = {NetIP, _Port}, headers = Headers} = _R) ->
+        #request{method = 'GET', q = _Q, ip = {NetIP, _Port}, headers = Headers} = _R) when size(Username) > 2 ->
     try
         UserAgent = util_http:get_user_agent(Headers),
         Platform = util_http:get_platform(UserAgent),
@@ -52,13 +52,13 @@ process([Username],
             util_http:return_500()
     end;
 
-process([], Request) ->
-    ?INFO("404 Empty Username Id, r:~p", [Request]),
-    util_http:return_404();
+process([Path], _Request) ->
+    ?INFO("Path: ~p", [Path]),
+    {302, [?LOCATION_HEADER(?WEBSITE)], <<"">>};
 
-process(Path, Request) ->
-    ?INFO("404 Not Found path: ~p, r:~p", [Path, Request]),
-    util_http:return_404().
+process(Path, _Request) ->
+    ?INFO("Path: ~p", [Path]),
+    {302, [?LOCATION_HEADER(?WEBSITE)], <<"">>}.
 
 start(_Host, Opts) ->
     ?INFO("start ~w ~p", [?MODULE, Opts]),

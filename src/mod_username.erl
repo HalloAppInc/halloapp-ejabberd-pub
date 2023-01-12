@@ -88,6 +88,8 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
 -spec is_valid_username(Username :: binary()) -> true | {false, any()}.
 is_valid_username(undefined) ->
     {false, tooshort};
+is_valid_username(<<"web">>) ->
+    {false, notuniq};
 is_valid_username(Username) when byte_size(Username) < ?MIN_USERNAME_LEN ->
     {false, tooshort};
 is_valid_username(Username) when byte_size(Username) > ?MAX_USERNAME_LEN ->
