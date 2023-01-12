@@ -87,7 +87,12 @@
     store_external_share_post/3,
     delete_external_share_post/1,
     get_external_share_post/1,
-    generate_notification_time/1 %% test
+    generate_notification_time/1, %% test
+    get_all_public_moments/2,
+    get_all_posts_by_time_bucket/3,
+    get_all_posts_by_geo_tag_time_bucket/4,
+    mark_discovered_posts/3,
+    get_past_discovered_posts/2
 ]).
 
 %% TODO(murali@): expose more apis specific to posts and comments only if necessary.
@@ -203,6 +208,18 @@ check_daily_limit(Uid, _PostId, MomentInfo) ->
     util:to_integer(Count) =< ?MAX_DAILY_MOMENT_LIMIT.
 
 
+mark_discovered_posts(Uid, RequestTimestampMs, PostIds) ->
+    [{ok, _}, {ok, _}] = qp([
+            ["SADD", discovered_posts_key(Uid, RequestTimestampMs)] ++ PostIds,
+            ["EXPIRE", discovered_posts_key(Uid, RequestTimestampMs), ?MOMENT_TAG_EXPIRATION]]),
+    ok.
+
+
+get_past_discovered_posts(Uid, RequestTimestampMs) ->
+    {ok, PostIds} = q(["SMEMBERS", discovered_posts_key(Uid, RequestTimestampMs)]),
+    PostIds.
+
+
 %% Indexes post-id by a specific geotag if the post-tag matches public content.
 -spec index_post_by_user_tags(PostId :: binary(), Uid :: uid(), PostTag :: post_tag(), TimestampMs :: integer()) -> ok.
 index_post_by_user_tags(PostId, Uid, PostTag, TimestampMs) ->
@@ -211,25 +228,18 @@ index_post_by_user_tags(PostId, Uid, PostTag, TimestampMs) ->
         %% Ignore posts for now.
         case PostTag =:= public_moment of
             true ->
+                %% Index onto time buckets.
+                [{ok, _}, {ok, _}] = qp([
+                    ["ZADD", time_bucket_key(TimestampMs), TimestampMs, PostId],
+                    ["EXPIRE", time_bucket_key(TimestampMs), ?MOMENT_EXPIRATION]]),
+
                 %% We could obtain other user info here like lang-id or cc etc and index by them as well.
-                %% Obtain geo tag.
+                %% Obtain geo tag and index by geotag.
                 GeoTag = model_accounts:get_latest_geo_tag(Uid),
-                case GeoTag =:= undefined of
-                    true ->
-                        %% If GeoTag of the user is empty then index this post into other buckets
-                        %% TODO: Extend this to other time buckets as well like country or language id.
-                        %% Index onto time buckets only for now.
-                        [{ok, _}, {ok, _}] = qp([
-                            ["ZADD", time_bucket_key(TimestampMs), TimestampMs, PostId],
-                            ["EXPIRE", time_bucket_key(TimestampMs), ?MOMENT_EXPIRATION]]),
-                        ok;
-                    false ->
-                        %% Index onto geo-tag and time buckets.
-                        [{ok, _}, {ok, _}] = qp([
+                [{ok, _}, {ok, _}] = qp([
                             ["ZADD", geo_tag_time_bucket_key(GeoTag, TimestampMs), TimestampMs, PostId],
                             ["EXPIRE", geo_tag_time_bucket_key(GeoTag, TimestampMs), ?MOMENT_EXPIRATION]]),
-                        ok
-                end;
+                ok;
             false -> ok
         end,
         ok
@@ -238,6 +248,16 @@ index_post_by_user_tags(PostId, Uid, PostTag, TimestampMs) ->
             ok
     end,
     ok.
+
+
+get_all_public_moments(GeoTag, TimestampMs) ->
+    TimestampHr = floor(TimestampMs / ?HOURS_MS),
+    case GeoTag =:= undefined orelse GeoTag =:= <<>> of
+        true ->
+            get_all_posts_by_time_bucket(TimestampHr, TimestampHr, []);
+        false ->
+            get_all_posts_by_geo_tag_time_bucket(GeoTag, TimestampHr, TimestampHr, [])
+    end.
 
 
 -spec get_public_moments(GeoTag :: maybe(binary()), TimestampMs :: integer(), Cursor :: maybe(binary()), Limit :: integer()) -> [binary()].
@@ -310,6 +330,29 @@ get_posts_by_geo_tag_time_bucket(GeoTag, StartTimestampHr, CurTimestampHr,
             get_posts_by_geo_tag_time_bucket(GeoTag, StartTimestampHr, CurTimestampHr-1,
                 CursorPostId, NewLimit, Limit, FinalResultPostIds)
     end.
+
+
+-spec get_all_posts_by_time_bucket(StartTimestampHr :: integer(), CurTimestampHr :: integer(),
+        ResultPostIds :: [binary()]) -> [binary()].
+get_all_posts_by_time_bucket(StartTimestampHr, CurTimestampHr, ResultPostIds)
+        when StartTimestampHr - CurTimestampHr >= 24 ->
+    ResultPostIds;
+get_all_posts_by_time_bucket(StartTimestampHr, CurTimestampHr, ResultPostIds) ->
+    {ok, PostIds} = q(["ZREVRANGEBYSCORE", time_bucket_key_hr(CurTimestampHr), "+inf", "-inf"]),
+    FinalResultPostIds = ResultPostIds ++ PostIds,
+    get_all_posts_by_time_bucket(StartTimestampHr, CurTimestampHr-1, FinalResultPostIds).
+
+
+
+-spec get_all_posts_by_geo_tag_time_bucket(GeoTag :: binary(), StartTimestampHr :: integer(), CurTimestampHr :: integer(),
+        ResultPostIds :: [binary()]) -> [binary()].
+get_all_posts_by_geo_tag_time_bucket(_GeoTag, StartTimestampHr, CurTimestampHr, ResultPostIds)
+        when StartTimestampHr - CurTimestampHr >= 24 ->
+    ResultPostIds;
+get_all_posts_by_geo_tag_time_bucket(GeoTag, StartTimestampHr, CurTimestampHr, ResultPostIds) ->
+    {ok, PostIds} = q(["ZREVRANGEBYSCORE", geo_tag_time_bucket_key_hr(GeoTag, CurTimestampHr), "+inf", "-inf"]),
+    FinalResultPostIds = ResultPostIds ++ PostIds,
+    get_all_posts_by_geo_tag_time_bucket(GeoTag, StartTimestampHr, CurTimestampHr-1, FinalResultPostIds).
 
 
 -spec split_cursor(Cursor :: binary()) -> {maybe(binary()), maybe(integer()), maybe(binary()), maybe(integer())}.
@@ -1149,4 +1192,10 @@ geo_tag_time_bucket_key_hr(GeoTag, TimestampHr) ->
     GeoTagBin = util:to_binary(GeoTag),
     TimestampHrBin = util:to_binary(TimestampHr),
     <<?GEO_TAG_TIME_BUCKET_KEY/binary, ":", GeoTagBin/binary, "{", TimestampHrBin/binary, "}">>.
+
+
+-spec discovered_posts_key(Uid :: binary(), RequestTimestampMs :: integer()) -> binary().
+discovered_posts_key(Uid, RequestTimestampMs) ->
+    TimestampBin = util:to_binary(RequestTimestampMs),
+    <<?DISCOVERED_POSTS_KEY/binary, "{", Uid/binary, "}:", TimestampBin/binary>>.
 

@@ -563,6 +563,7 @@ publish_comment(PublisherUid, CommentId, PostId, ParentCommentId, PayloadBase64,
                     {ok, TimestampMs};
 
                 true ->
+                    ?ERROR("Failed to post, PublisherUid: ~p, PostId: ~p, CommentId: ~p", [PublisherUid, PostId, CommentId]),
                     %% PublisherUid is not allowed to comment.
                     %% Post was not shared to them, so reject with an error.
                     {error, invalid_post_id}
@@ -833,49 +834,50 @@ determine_cursor_action(Cursor) ->
 
 
 get_public_moments(Uid, Tag, TimestampMs, Cursor, Limit) ->
-    {CursorReload, CursorVersion, RequestTimestampMs, CursorToUse} = determine_cursor_action(Cursor),
-    PublicMoments = get_public_moments(Uid, Tag, TimestampMs, CursorToUse, CursorVersion, RequestTimestampMs, Limit, []),
-    NewCursor = case PublicMoments of
+    Time1 = util:now_ms(),
+    ?INFO("Uid: ~p, Tag: ~p, TimestampMs: ~p, Cursor: ~p, Limit: ~p", [Uid, Tag, TimestampMs, Cursor, Limit]),
+    %% Check on cursor if it is too old or invalid.
+    {CursorReload, _CursorVersion, RequestTimestampMs, _CursorToUse} = determine_cursor_action(Cursor),
+    %% Fetch all moment ids so far.
+    PublicMomentIds = model_feed:get_all_public_moments(undefined, TimestampMs),
+    %% Get past posts that have been seen recently.
+    PostIds = model_feed:get_past_discovered_posts(Uid, RequestTimestampMs),
+    OldPostIdSet = sets:from_list(PostIds),
+    %% Filter out past seen posts
+    PublicMomentIdsToRank = sets:to_list(sets:subtract(sets:from_list(PublicMomentIds),  OldPostIdSet)),
+    %% Rank posts in order of priority.
+    RankedPublicMoments = rank_public_moments(Uid, Tag, PublicMomentIdsToRank),
+    %% TODO: we should cache this for each user and then update as users post.
+    %% Send only some of them to the user.
+    DisplayPublicMoments = lists:sublist(RankedPublicMoments, Limit),
+    DisplayMomentIds = lists:map(fun(PublicMoment) -> PublicMoment#post.id end, DisplayPublicMoments),
+    ok = model_feed:mark_discovered_posts(Uid, RequestTimestampMs, DisplayMomentIds),
+    NewCursor = case DisplayMomentIds of
         [] -> <<>>;
         _ ->
-            PostId = (lists:last(PublicMoments))#post.id,
+            PostId = (lists:last(DisplayMomentIds)),
             PostTsMs = model_feed:get_post_timestamp_ms(PostId),
             model_feed:join_cursor(?CURSOR_VERSION_V0, RequestTimestampMs, PostId, PostTsMs)
     end,
-    {CursorReload, NewCursor, PublicMoments}.
+    Time2 = util:now_ms(),
+    ?INFO("Total Time Taken for Uid: ~p, Tag: ~p is : ~p", [Uid, Tag, (Time2 - Time1)]),
+    {CursorReload, NewCursor, DisplayPublicMoments}.
 
 
-get_public_moments(Uid, Tag, TimestampMs, Cursor, CursorVersion, RequestTimestampMs, Limit, PublicMoments) ->
-    case length(PublicMoments) >= Limit of
-        true ->
-            %% Base case: Limit has been reached
-            lists:sublist(PublicMoments, Limit);
-        false ->
-            %% Fetch 50% more items than needed to account for possible deleted posts and also following posts.
-            NumNeeded = Limit - length(PublicMoments),
-            NumToFetch = round(NumNeeded * 1.5),
-            NewPublicMomentIds = model_feed:get_public_moments(Tag, TimestampMs, Cursor, NumToFetch),
-            %% Filter out deleted posts and convert PostIds to Posts
-            NewPublicMoments = model_feed:get_posts(NewPublicMomentIds),
-            %% Filter out posts from following of Uid and Uid itself.
-            RemoveAuthorSet = sets:from_list(model_follow:get_all_following(Uid) ++ [Uid]),
-            UnrelatedPublicMoments = lists:filter(
-                    fun(PublicMoment) -> not sets:is_element(PublicMoment#post.uid, RemoveAuthorSet) end,
-                    NewPublicMoments),
-            case length(UnrelatedPublicMoments) < NumToFetch of
-                true ->
-                    %% If length(NewPublicMomentIds) is less than the number of items we tried to fetch,
-                    %% we must have reached the end of the possible items, so we should return here
-                    lists:sublist(PublicMoments ++ UnrelatedPublicMoments, Limit);
-                false ->
-                    %% Otherwise, recurse
-                    PostTsMs = model_feed:get_post_timestamp_ms(lists:last(NewPublicMomentIds)),
-                    NewCursor = model_feed:join_cursor(CursorVersion, RequestTimestampMs,
-                            lists:last(NewPublicMomentIds), PostTsMs),
-                    get_public_moments(Uid, Tag, TimestampMs, NewCursor, CursorVersion,
-                            RequestTimestampMs, Limit, PublicMoments ++ UnrelatedPublicMoments)
-            end
-    end.
+rank_public_moments(Uid, _Tag, NewPublicMomentIds) ->
+    %% Filter out deleted posts and convert PostIds to Posts
+    NewPublicMoments = model_feed:get_posts(NewPublicMomentIds),
+    %% Filter out expired posts.
+    NewUnexpiredPublicMoments = lists:filter(fun(Moment) -> Moment#post.expired =:= false end, NewPublicMoments),
+    %% Filter out content from self and following uids.
+    RemoveAuthorSet = sets:from_list(model_follow:get_all_following(Uid) ++ [Uid]),
+    NewUnexpiredUnrelatedPublicMoments = lists:filter(
+            fun(PublicMoment) -> not sets:is_element(PublicMoment#post.uid, RemoveAuthorSet) end,
+            NewUnexpiredPublicMoments),
+    %% No ranking for now.
+
+    %% TODO: Rank those based on geo-tag higher for now.
+    NewUnexpiredUnrelatedPublicMoments.
 
 %%====================================================================
 %% feed: helper internal functions

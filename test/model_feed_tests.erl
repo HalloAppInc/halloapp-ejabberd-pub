@@ -556,6 +556,19 @@ get_recent_user_posts_test() ->
         model_feed:get_recent_user_posts(Uid))).
 
 
+get_public_moments_test() ->
+    setup(),
+    Uid1 = tutil:generate_uid(?KATCHUP),
+    Uid2 = tutil:generate_uid(?KATCHUP),
+    NowMs = util:now_ms(),
+    ok = model_feed:publish_moment(?POST_ID2, Uid1, ?PAYLOAD2, public_moment, all, [Uid2], NowMs - 2 * ?HOURS_MS,
+        #pb_moment_info{notification_timestamp = (NowMs - 2 * ?HOURS_MS)}),
+    ok = model_feed:publish_moment(?POST_ID3, Uid2, ?PAYLOAD2, public_moment, all, [Uid1], NowMs,
+        #pb_moment_info{notification_timestamp = (NowMs - 2 * ?HOURS_MS)}),
+    ?assertEqual([?POST_ID3, ?POST_ID2], model_feed:get_all_public_moments(undefined, NowMs)),
+    ok.
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%                      Helper functions                                  %%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
