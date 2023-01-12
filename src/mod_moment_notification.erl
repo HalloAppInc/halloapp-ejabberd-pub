@@ -202,7 +202,7 @@ process_moment_tag(UidsList, TodaySecs, IsImmediateNotification) ->
                 {ok, PushInfo} = model_accounts:get_push_info(Uid),
                 ClientVersion = PushInfo#push_info.client_version,
                 ZoneOffset = case is_client_version_ok(ClientVersion) of
-                    true -> get_four_zone_offset_hr(PushInfo#push_info.zone_offset) * ?HOURS;
+                    true -> get_four_zone_offset_hr(Uid, Phone, PushInfo) * ?HOURS;
                     false -> undefined
                 end,
                 {TimeOk, MinToWait, DayAdjustment} = 
@@ -267,26 +267,46 @@ get_zone_tag_uids(ZoneOffsetDiff) ->
     end,
     UidsList.
 
+
+get_four_zone_offset_hr(_Uid, Phone, PushInfo) ->
+    case PushInfo#push_info.token =:= undefined of
+        false -> get_region_offset_hr(get_offset_region(PushInfo#push_info.zone_offset));
+        true ->
+            case mod_libphonenumber:get_cc(Phone) of
+                <<"US">> -> get_region_offset_hr(america);
+                _ ->
+                    %% Ignoring everything other than the US for now and we default to the US.
+                    get_region_offset_hr(america)
+            end
+    end.
+
+
+get_four_zone_offset_hr(ZoneOffsetSec) ->
+    get_region_offset_hr(get_offset_region(ZoneOffsetSec)).
+
+
 %% California time for America
 %% UK time for Europe
 %% Saudi Arabia time for West Asia
 %% China time for East Asia
--spec get_four_zone_offset_hr(ZoneOffsetSec :: integer()) -> integer().
-get_four_zone_offset_hr(ZoneOffsetSec) ->
-    case get_offset_region(ZoneOffsetSec) of
+-spec get_region_offset_hr(Region :: atom()) -> integer().
+get_region_offset_hr(Region) ->
+    case Region of
+        europe -> 0;  %% UK
+        west_asia -> 3;  %% Saudi Arabia
+        east_asia -> 8;  %% China
         america ->
             {{_, Month, _}, {_, _, _}} = calendar:local_time(),
             case Month >= 4 andalso Month =< 10 of %% April to Oct
                 true -> -7;   %% PDT
                 false -> -8   %% PST
             end;
-        europe -> 0;  %% UK
-        west_asia -> 3;  %% Saudi Arabia
-        east_asia -> 8;  %% China
         _ ->
-            ?ERROR("ZoneOffsetSec: ~p, Region: ~p", [ZoneOffsetSec, get_offset_region(ZoneOffsetSec)]),
-            0  %% UK
+            ?ERROR("Invalid Region: ~p", [Region]),
+            get_region_offset_hr(america)
     end.
+
+
  
 %% If localtime if within GMT day, use MinToSendToday. If locatime is in the prev day with
 %% respect to GMT day, use MinToSendPrevDay. If localtime is in the next day with respect to
@@ -386,8 +406,11 @@ get_offset_region(ZoneOffsetSec) ->
         ZoneOffsetHr > -3 andalso ZoneOffsetHr < 3 -> europe;
         ZoneOffsetHr >= 3 andalso ZoneOffsetHr < 8 -> west_asia;
         ZoneOffsetHr >= 8 orelse ZoneOffsetHr < -10 -> east_asia;
-        true -> undefined
+        true ->
+            ?ERROR("Invalid zone_offset: ~p", [ZoneOffsetSec]),
+            undefined
     end.
+
 
 -spec get_offset_region_by_uid(Uid :: uid()) -> maybe(america | europe | west_asia | east_asia).
 get_offset_region_by_uid(Uid) ->
