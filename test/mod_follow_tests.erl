@@ -261,7 +261,7 @@ test_get_blocked_iq(#{testdata := {Uid1, _Uid2, _Uid3, _Uid4, _Uid5, Uid6, Uid7}
     %% Uid1 has blocked Uid6 and Uid7
     Uid6UserInfo = blocked_user_profile(Uid6),
     Uid7UserInfo = blocked_user_profile(Uid7),
-        Request = #pb_iq{
+    Request = #pb_iq{
         type = get,
         from_uid = Uid1,
         payload = #pb_relationship_list{type = blocked}

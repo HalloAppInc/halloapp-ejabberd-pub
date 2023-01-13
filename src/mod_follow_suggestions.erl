@@ -89,12 +89,13 @@ generate_follow_suggestions(Uid, Phone) ->
     {ok, RevContactUids} = model_contacts:get_contact_uids(Phone, AppType),
     RevContactConsiderSet = sets:subtract(sets:from_list(RevContactUids), ContactUidsSet),
  
-    %% 2. Find uids of followed by various follows
+    %% 2. Find uids of followed by various follows and contacts
     AllFollowing = model_follow:get_all_following(Uid),
+    AllFollowingAndContacts = sets:to_list(sets:union(sets:from_list(AllFollowing), ContactUidsSet)),
     FoFSet1 = lists:foldl(fun(Elem, Acc) ->
         FoF1 = model_follow:get_all_following(Elem),
         sets:union(Acc, sets:from_list(FoF1))
-    end, sets:new(), AllFollowing),
+    end, sets:new(), AllFollowingAndContacts),
     FoFSet2 = sets:union(RevContactConsiderSet, FoFSet1),
 
     %% 3. Find uids of geo tagged users.
