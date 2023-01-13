@@ -1005,7 +1005,7 @@ filter_latest_moment(_Uid, Items) ->
                 end
             end, undefined, Posts),
     %% Dont send expired moments.
-    case LatestMoment =/= undefined andalso LatestMoment#post.expired =/= false of
+    case LatestMoment =/= undefined andalso LatestMoment#post.expired =:= false of
         false -> {undefined, []};
         true ->
             FilteredComments = lists:filter(
