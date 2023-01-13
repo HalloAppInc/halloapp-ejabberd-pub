@@ -97,7 +97,7 @@ is_valid_username(Username) when byte_size(Username) < ?MIN_USERNAME_LEN ->
 is_valid_username(Username) when byte_size(Username) > ?MAX_USERNAME_LEN ->
     {false, toolong};
 is_valid_username(Username) ->
-    case re:run(Username, "^[a-z][a-z0-9]*$") of
+    case re:run(Username, "^[a-z][a-z0-9._]*$") of
         nomatch -> {false, badexpr};
         {match, _} -> true
     end.
