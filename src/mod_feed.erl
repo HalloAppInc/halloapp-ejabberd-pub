@@ -989,7 +989,7 @@ filter_latest_moment(_Uid, Items) ->
     {Posts, Comments} = lists:partition(fun(Item) -> is_record(Item, post) end, Items),
     LatestMoment = lists:foldl(
             fun(Post, Acc) ->
-                case Post#post.tag =:= moment of
+                case Post#post.tag =:= moment orelse Post#post.tag =:= public_moment of
                     false -> Acc;
                     true ->
                         TsMs = Post#post.ts_ms,
