@@ -1,0 +1,12 @@
+{
+    "applinks": {
+        "details": [
+            {
+                "appID": "5M78D698HF.com.halloapp.katchup",
+                "components": [
+                    { "/": "/$(lower)*" }
+                ]
+            }
+        ]
+    }
+}
