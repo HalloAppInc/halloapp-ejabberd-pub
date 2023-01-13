@@ -726,10 +726,10 @@ get_account(Uid) ->
             Account = #account{
                     uid = Uid,
                     phone = Phone,
-                    name = maps:get(?FIELD_NAME, M),
-                    signup_user_agent = maps:get(?FIELD_USER_AGENT, M),
+                    name = maps:get(?FIELD_NAME, M, undefined),
+                    signup_user_agent = maps:get(?FIELD_USER_AGENT, M, undefined),
                     campaign_id = maps:get(?FIELD_CAMPAIGN_ID, M, <<>>),
-                    creation_ts_ms = util_redis:decode_ts(maps:get(?FIELD_CREATION_TIME, M)),
+                    creation_ts_ms = util_redis:decode_ts(maps:get(?FIELD_CREATION_TIME, M, undefined)),
                     last_registration_ts_ms = util_redis:decode_ts(maps:get(?FIELD_LAST_REGISTRATION_TIME, M, undefined)),
                     last_activity_ts_ms = util_redis:decode_ts(maps:get(?FIELD_LAST_ACTIVITY, M, undefined)),
                     activity_status = util:to_atom(maps:get(?FIELD_ACTIVITY_STATUS, M, undefined)),
