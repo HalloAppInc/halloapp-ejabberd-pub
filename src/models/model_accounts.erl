@@ -439,7 +439,10 @@ is_username_available(Username) ->
 -spec set_username(Uid :: uid(), Username :: binary()) -> true | {false, any()} | {error, any()}.
 set_username(Uid, Username) ->
     case get_username(Uid) of
-        {ok, Username} -> true;
+        {ok, Username} ->
+            {ok, _} = q(["HSETNX", username_uid_key(Username), ?FIELD_USERNAME_UID, Uid]),
+            add_username_prefix(Username, byte_size(Username)),
+            true;
         _ ->
             {ok, NotExists} = q(["HSETNX", username_uid_key(Username), ?FIELD_USERNAME_UID, Uid]),
             case NotExists =:= <<"1">> of
