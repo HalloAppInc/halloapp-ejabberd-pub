@@ -36,7 +36,7 @@
 
 -define(HASHCASH_EXPIRE_IN, 21600).
 -define(HASHCASH_DIFFICULTY, 10).
--define(SPAM_CC_HASHCASH_DIFFICULTY, 20).
+-define(SPAM_CC_HASHCASH_DIFFICULTY, 25).
 -define(DEV_HASHCASH_DIFFICULTY, 10).
 -define(HASHCASH_THRESHOLD_MS, 30 * ?SECONDS_MS).
 %% allow 10 attempts to guess the code per day, 20 for test numbers
