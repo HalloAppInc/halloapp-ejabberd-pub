@@ -145,7 +145,7 @@ hashcash_register(Name, Phone, Options) ->
             Result = case Resp1 of
                 #pb_register_response{response = #pb_hashcash_response{hashcash_challenge = Challenge}} ->
                 % ask for an otp request for the test number
-                {ok, RegisterRequestPkt} = compose_otp_noise_request(Phone, #{challenge => Challenge}),
+                {ok, RegisterRequestPkt} = compose_otp_noise_request(Phone, #{challenge => Challenge, user_agent => UserAgent}),
                 ha_client:send(Pid, enif_protobuf:encode(RegisterRequestPkt)),
                 Resp2 = ha_client:recv(Pid),
                 case Resp2 of
@@ -157,7 +157,7 @@ hashcash_register(Name, Phone, Options) ->
                         {ok, Code} = model_phone:get_sms_code2(Phone, AppType, AttemptId),
                         % verify with the code.
                         SignedMessage = enacl:sign("HALLO", maps:get(secret, KeyPair)),
-                        VerifyOtpOptions = #{name => Name, static_key => maps:get(public, KeyPair), signed_phrase => SignedMessage}, 
+                        VerifyOtpOptions = #{name => Name, static_key => maps:get(public, KeyPair), signed_phrase => SignedMessage, user_agent => UserAgent},
                         {ok, VerifyOTPRequestPkt} = registration_client:compose_verify_otp_noise_request(Phone, Code, VerifyOtpOptions),
                         ha_client:send(Pid, enif_protobuf:encode(VerifyOTPRequestPkt)),
                         Resp3 = ha_client:recv(Pid),
