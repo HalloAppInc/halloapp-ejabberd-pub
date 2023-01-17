@@ -36,7 +36,7 @@
 
 -define(HASHCASH_EXPIRE_IN, 21600).
 -define(HASHCASH_DIFFICULTY, 10).
--define(SPAM_CC_HASHCASH_DIFFICULTY, 15).
+-define(SPAM_CC_HASHCASH_DIFFICULTY, 20).
 -define(DEV_HASHCASH_DIFFICULTY, 10).
 -define(HASHCASH_THRESHOLD_MS, 30 * ?SECONDS_MS).
 %% allow 10 attempts to guess the code per day, 20 for test numbers
@@ -210,6 +210,10 @@ get_hashcash_difficulty(CC) ->
         <<"JO">> -> ?SPAM_CC_HASHCASH_DIFFICULTY;
         <<"OM">> -> ?SPAM_CC_HASHCASH_DIFFICULTY;
         <<"SN">> -> ?SPAM_CC_HASHCASH_DIFFICULTY;
+        <<"KG">> -> ?SPAM_CC_HASHCASH_DIFFICULTY;
+        <<"PK">> -> ?SPAM_CC_HASHCASH_DIFFICULTY;
+        <<"PH">> -> ?SPAM_CC_HASHCASH_DIFFICULTY;
+        <<"UZ">> -> ?SPAM_CC_HASHCASH_DIFFICULTY;
         _ -> ?HASHCASH_DIFFICULTY
     end,
     case config:get_hallo_env() of
