@@ -15,6 +15,8 @@
 -define(APPLE_APP_SITE_ASSOCIATION, <<"apple-app-site-association">>).
 -define(ASSET_LINKS, <<"assetlinks.json">>).
 -define(WEBSITE, <<"https://katchup.com/web/">>).
+-define(IOS_LINK, <<"https://testflight.apple.com/join/aBZO6VoG">>).
+-define(ANDROID_LINK, <<"https://play.google.com/store/apps/details?id=com.halloapp.katchup">>).
 
 %%%----------------------------------------------------------------------
 %%% API
@@ -43,8 +45,11 @@ process([Username],
         Platform = util_http:get_platform(UserAgent),
         IP = util_http:get_ip(NetIP, Headers),
         ?INFO("Username: ~p, UserAgent ~p Platform: ~p, IP: ~p", [Username, UserAgent, Platform, IP]),
-        %% TODO: need to redirect to playstore/appstore
-        {302, [?LOCATION_HEADER(?WEBSITE)], <<"">>}
+        case Platform of
+            android -> {302, [?LOCATION_HEADER(?ANDROID_LINK)], <<"">>};
+            ios -> {302, [?LOCATION_HEADER(?IOS_LINK)], <<"">>};
+            _ -> {302, [?LOCATION_HEADER(?WEBSITE)], <<"">>}
+        end
    catch
         error : Reason : Stacktrace ->
             ?ERROR("error: Stacktrace: ~s",
