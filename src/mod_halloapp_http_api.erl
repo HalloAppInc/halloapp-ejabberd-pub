@@ -36,7 +36,7 @@
 
 -define(HASHCASH_EXPIRE_IN, 21600).
 -define(HASHCASH_DIFFICULTY, 10).
--define(SPAM_CC_HASHCASH_DIFFICULTY, 25).
+-define(SPAM_CC_HASHCASH_DIFFICULTY, 21).
 -define(DEV_HASHCASH_DIFFICULTY, 10).
 -define(HASHCASH_THRESHOLD_MS, 30 * ?SECONDS_MS).
 %% allow 10 attempts to guess the code per day, 20 for test numbers
@@ -191,6 +191,7 @@ process_otp_request_dummy(Data, IP, Headers) ->
 -spec process_hashcash_request(RequestData :: map()) -> {ok, binary()}.
 process_hashcash_request(#{cc := CC, ip := ClientIP}) ->
     Challenge = create_hashcash_challenge(CC, ClientIP),
+    ?INFO("CC: ~p, IP: ~p, Challenge: ~p", [CC, ClientIP, Challenge]),
     {ok, Challenge}.
 
 -spec create_hashcash_challenge(CC :: any(), _IP :: any()) -> binary().
@@ -214,6 +215,7 @@ get_hashcash_difficulty(CC) ->
         <<"PK">> -> ?SPAM_CC_HASHCASH_DIFFICULTY;
         <<"PH">> -> ?SPAM_CC_HASHCASH_DIFFICULTY;
         <<"UZ">> -> ?SPAM_CC_HASHCASH_DIFFICULTY;
+        undefined -> ?SPAM_CC_HASHCASH_DIFFICULTY;
         _ -> ?HASHCASH_DIFFICULTY
     end,
     case config:get_hallo_env() of

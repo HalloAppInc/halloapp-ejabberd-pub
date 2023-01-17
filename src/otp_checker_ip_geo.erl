@@ -51,9 +51,7 @@ check_otp_request(Phone, _IP, PhoneCC, IPCC) ->
                         true ->
                             ?INFO("Need to block phone: ~s CC: ~s count: ~p last ts: ~p IP CC: ~s",
                                 [Phone, PhoneCC, Count, LastTs, IPCC]),
-                            %% TODO, uncomment
-                            %% {block, ip_geo_block, {PhoneCC, Count, LastTs}};
-                            ok;
+                            {block, ip_geo_block, {PhoneCC, Count, LastTs}};
                         false ->
                             ?INFO("Need to slow down phone: ~s CC: ~s count: ~p last ts: ~p IP CC: ~s",
                                 [Phone, PhoneCC, Count, LastTs, IPCC]),
