@@ -15,6 +15,7 @@
 -export([
     parse_info/1,
     decode_ts/1,
+    encode_int/1,
     decode_int/1,
     decode_maybe_binary/1,
     encode_maybe_binary/1,
@@ -58,10 +59,16 @@ decode_ts(TsMsBinary) ->
     decode_int(TsMsBinary).
 
 
+-spec encode_int(Input :: integer()) -> binary().
+encode_int(undefined) -> <<>>;
+encode_int(Input) -> util:to_binary(Input).
+
+
 decode_int(Bin) ->
     case Bin of
         undefined -> undefined;
         <<"undefined">> -> undefined;
+        <<>> -> undefined;
         _ -> binary_to_integer(Bin)
     end.
 

@@ -118,6 +118,8 @@
 -define(FIELD_NUM_TAKES, <<"nt">>).
 -define(FIELD_NOTIFICATION_TIMESTAMP, <<"nts">>).
 -define(FIELD_TIME_TAKEN, <<"tt">>).
+-define(FIELD_NUM_SELFIE_TAKES, <<"nst">>).
+-define(FIELD_NOTIFICATION_ID, <<"nid">>).
 -define(FIELD_MOMENT_NOTIFICATION_ID, <<"nfi">>).
 -define(FIELD_MOMENT_NOTIFICATION_TYPE, <<"nft">>).
 -define(FIELD_MOMENT_NOTIFICATION_PROMPT, <<"nfp">>).
@@ -174,7 +176,7 @@ publish_moment(PostId, Uid, Payload, PostTag, FeedAudienceType, FeedAudienceList
         FeedAudienceType :: atom(), FeedAudienceList :: [binary()],
         TimestampMs :: integer(), MomentInfo :: maybe(pb_moment_info())) -> ok | {error, any()}.
 publish_post_internal(PostId, Uid, Payload, PostTag, FeedAudienceType, FeedAudienceList, TimestampMs, MomentInfo) ->
-    {NumTakesBin, NotificationTimestampBin, TimeTakenBin} = encode_moment_info(MomentInfo),
+    {NotificationTimestampBin, NumTakesBin, TimeTakenBin, NumSelfieTakesBin, NotificationIdBin} = encode_moment_info(MomentInfo),
     C1 = [["HSET", post_key(PostId),
         ?FIELD_UID, Uid,
         ?FIELD_PAYLOAD, Payload,
@@ -183,7 +185,9 @@ publish_post_internal(PostId, Uid, Payload, PostTag, FeedAudienceType, FeedAudie
         ?FIELD_TIMESTAMP_MS, integer_to_binary(TimestampMs),
         ?FIELD_NUM_TAKES, NumTakesBin,
         ?FIELD_NOTIFICATION_TIMESTAMP, NotificationTimestampBin,
-        ?FIELD_TIME_TAKEN, TimeTakenBin]],
+        ?FIELD_TIME_TAKEN, TimeTakenBin,
+        ?FIELD_NUM_SELFIE_TAKES, NumSelfieTakesBin,
+        ?FIELD_NOTIFICATION_ID, NotificationIdBin]],
     C2 = case FeedAudienceList of
         [] -> [];
         _ -> [["SADD", post_audience_key(PostId) | FeedAudienceList]]
@@ -200,8 +204,8 @@ publish_post_internal(PostId, Uid, Payload, PostTag, FeedAudienceType, FeedAudie
 
 
 check_daily_limit(Uid, _PostId, MomentInfo) ->
-    {_NumTakesBin, NotificationTimestampBin, _TimeTakenBin} = encode_moment_info(MomentInfo),
-    DailyLimitKey = daily_limit_key(Uid, NotificationTimestampBin),
+    {_NotificationTimestampBin, _NumTakesBin, _TimeTakenBin, _NumSelfieTakesBin, NotificationIdBin} = encode_moment_info(MomentInfo),
+    DailyLimitKey = daily_limit_key(Uid, NotificationIdBin),
     [{ok, Count}, {ok, _}] = qp([
             ["INCR", DailyLimitKey],
             ["EXPIRE", DailyLimitKey, ?POST_EXPIRATION]]),
@@ -510,12 +514,12 @@ remove_all_user_posts(Uid) ->
 get_post(PostId) ->
     [
         {ok, [Uid, Payload, PostTag, AudienceType, TimestampMs, Gid, PSATag, IsDeletedBin,
-            NotificationTimestampBin, NumTakesBin, TimeTakenBin, IsExpiredBin]},
+            NotificationTimestampBin, NumTakesBin, TimeTakenBin, NumSelfieTakesBin, NotificationIdBin, IsExpiredBin]},
         {ok, AudienceList}] = qp([
             ["HMGET", post_key(PostId),
                 ?FIELD_UID, ?FIELD_PAYLOAD, ?FIELD_TAG, ?FIELD_AUDIENCE_TYPE, ?FIELD_TIMESTAMP_MS,
                 ?FIELD_GROUP_ID, ?FIELD_PSA_TAG, ?FIELD_DELETED, ?FIELD_NOTIFICATION_TIMESTAMP,
-                ?FIELD_NUM_TAKES, ?FIELD_TIME_TAKEN, ?FIELD_EXPIRED],
+                ?FIELD_NUM_TAKES, ?FIELD_TIME_TAKEN, ?FIELD_NUM_SELFIE_TAKES, ?FIELD_NOTIFICATION_ID, ?FIELD_EXPIRED],
             ["SMEMBERS", post_audience_key(PostId)]]),
     IsDeleted = util_redis:decode_boolean(IsDeletedBin, false),
     case Uid =:= undefined orelse IsDeleted =:= true of
@@ -531,7 +535,7 @@ get_post(PostId) ->
                 ts_ms = util_redis:decode_ts(TimestampMs),
                 gid = Gid,
                 psa_tag = PSATag,
-                moment_info = decode_moment_info(NotificationTimestampBin, NumTakesBin, TimeTakenBin),
+                moment_info = decode_moment_info(NotificationTimestampBin, NumTakesBin, TimeTakenBin, NumSelfieTakesBin, NotificationIdBin),
                 expired = util_redis:decode_boolean(IsExpiredBin, false)
             }}
     end.
@@ -601,12 +605,12 @@ get_comment_data(PostId, CommentId, ParentId) ->
     [{ok, Res1}, {ok, Res2}, {ok, Res3}] = qp([
         ["HMGET", post_key(PostId), ?FIELD_UID, ?FIELD_PAYLOAD, ?FIELD_TAG,
                 ?FIELD_AUDIENCE_TYPE, ?FIELD_TIMESTAMP_MS, ?FIELD_DELETED, ?FIELD_NOTIFICATION_TIMESTAMP,
-                ?FIELD_NUM_TAKES, ?FIELD_TIME_TAKEN, ?FIELD_EXPIRED],
+                ?FIELD_NUM_TAKES, ?FIELD_TIME_TAKEN, ?FIELD_NUM_SELFIE_TAKES, ?FIELD_NOTIFICATION_ID, ?FIELD_EXPIRED],
         ["SMEMBERS", post_audience_key(PostId)],
         ["HMGET", comment_key(CommentId, PostId), ?FIELD_PUBLISHER_UID, ?FIELD_PARENT_COMMENT_ID, ?FIELD_COMMENT_TYPE,
                 ?FIELD_PAYLOAD, ?FIELD_TIMESTAMP_MS, ?FIELD_DELETED]]),
     [PostUid, PostPayload, PostTag, AudienceType, PostTsMs, IsPostDeletedBin,
-        NotificationTimestampBin, NumTakesBin, TimeTakenBin, IsExpiredBin] = Res1,
+        NotificationTimestampBin, NumTakesBin, TimeTakenBin, NumSelfieTakesBin, NotificationIdBin, IsExpiredBin] = Res1,
     AudienceList = Res2,
     [CommentPublisherUid, ParentCommentId, CommentTypeBin, CommentPayload, CommentTsMs, IsCommentDeletedBin] = Res3,
     
@@ -625,7 +629,7 @@ get_comment_data(PostId, CommentId, ParentId) ->
                 payload = PostPayload,
                 tag = decode_post_tag(PostTag),
                 ts_ms = util_redis:decode_ts(PostTsMs),
-                moment_info = decode_moment_info(NotificationTimestampBin, NumTakesBin, TimeTakenBin),
+                moment_info = decode_moment_info(NotificationTimestampBin, NumTakesBin, TimeTakenBin, NumSelfieTakesBin, NotificationIdBin),
                 expired = util_redis:decode_boolean(IsExpiredBin, false)
             },
             %% Fetch push data.
@@ -850,11 +854,14 @@ get_recent_user_posts(Uid) ->
     Posts = lists:reverse(get_posts(AllPostIds)),  % list is in order of most to least recent
     %% If two posts have same moment notification ts, remove older one
     {FilteredPosts, _} = lists:mapfoldl(
-        fun(#post{moment_info = #pb_moment_info{notification_timestamp = MomentNotifTs}} = Post, MomentNotifTsSet) ->
-            case sets:is_element(MomentNotifTs, MomentNotifTsSet) of
-                true -> {undefined, MomentNotifTsSet};
-                false -> {Post, sets:add_element(MomentNotifTs, MomentNotifTsSet)}
-            end
+        fun (#post{moment_info = undefined} = Post, NotifTsSet) ->
+                ?ERROR("Invalid Post: ~p", [Post]),
+                {undefined, NotifTsSet};
+            (#post{moment_info = #pb_moment_info{notification_timestamp = NotifTs}} = Post, NotifTsSet) ->
+                case sets:is_element(NotifTs, NotifTsSet) of
+                    true -> {undefined, NotifTsSet};
+                    false -> {Post, sets:add_element(NotifTs, NotifTsSet)}
+                end
         end,
         sets:new(),
         Posts),
@@ -1033,49 +1040,47 @@ decode_post_tag(<<"pm">>) -> public_moment;
 decode_post_tag(_) -> undefined.
 
 
-encode_moment_info(undefined) -> {<<>>, <<>>, <<>>};
-encode_moment_info(#pb_moment_info{notification_timestamp = NotifTs, num_takes = NumTakes, time_taken = TimeTaken}) ->
-    NotificationTimestampBin = case NotifTs of
-        undefined -> <<>>;
-        0 -> <<>>;
-        _ -> util:to_binary(NotifTs)
-    end,
-    NumTakesBin = case NumTakes of
-        undefined -> <<>>;
-        0 -> <<>>;
-        _ -> util:to_integer(NumTakes)
-    end,
-    TimeTakenBin = case TimeTaken of
-        undefined -> <<>>;
-        0 -> <<>>;
-        _ -> util:to_integer(TimeTaken)
-    end,
-    {NumTakesBin, NotificationTimestampBin, TimeTakenBin}.
+encode_moment_info(undefined) -> {<<>>, <<>>, <<>>, <<>>, <<>>};
+encode_moment_info(#pb_moment_info{notification_timestamp = NotificationTimestamp, num_takes = NumTakes,
+        time_taken = TimeTaken, num_selfie_takes = NumSelfieTakes, notification_id = NotificationId}) ->
+    NotificationTimestampBin = util_redis:encode_int(NotificationTimestamp),
+    NumTakesBin = util_redis:encode_int(NumTakes),
+    TimeTakenBin = util_redis:encode_int(TimeTaken),
+    NumSelfieTakesBin = util_redis:encode_int(NumSelfieTakes),
+    NotificationIdBin = util_redis:encode_int(NotificationId),
+    {NotificationTimestampBin, NumTakesBin, TimeTakenBin, NumSelfieTakesBin, NotificationIdBin}.
 
 
-decode_moment_info(NotificationTimestampBin, NumTakesBin, TimeTakenBin) ->
-    NotifTs = case NotificationTimestampBin of
+decode_moment_info(NotificationTimestampBin, NumTakesBin, TimeTakenBin, NumSelfieTakesBin, NotificationIdBin) ->
+    NotifTs = case util_redis:decode_int(NotificationTimestampBin) of
         undefined -> 0;
-        <<>> -> 0;
-        _ -> util:to_integer(NotificationTimestampBin)
+        Val -> Val
     end,
-    NumTakes = case NumTakesBin of
+    NumTakes = case util_redis:decode_int(NumTakesBin) of
         undefined -> 0;
-        <<>> -> 0;
-        _ -> util:to_integer(NumTakesBin)
+        Val2 -> Val2
     end,
-    TimeTaken = case TimeTakenBin of
+    TimeTaken = case util_redis:decode_int(TimeTakenBin) of
         undefined -> 0;
-        <<>> -> 0;
-        _ -> util:to_integer(TimeTakenBin)
+        Val3 -> Val3
     end,
-    case NotifTs =:= 0 andalso NumTakes =:= 0 andalso TimeTaken =:= 0 of
+    NumSelfieTakes = case util_redis:decode_int(NumSelfieTakesBin) of
+        undefined -> 0;
+        Val4 -> Val4
+    end,
+    NotificationId = case util_redis:decode_int(NotificationIdBin) of
+        undefined -> 0;
+        Val5 -> Val5
+    end,
+    case NotifTs =:= 0 andalso NotificationId =:= 0 of
         true -> undefined;
         false ->
             #pb_moment_info{
                 notification_timestamp = NotifTs,
                 num_takes = NumTakes,
-                time_taken = TimeTaken
+                time_taken = TimeTaken,
+                num_selfie_takes = NumSelfieTakes,
+                notification_id = NotificationId
             }
     end.
 
