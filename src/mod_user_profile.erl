@@ -61,7 +61,7 @@ mod_options(_Host) ->
 %%====================================================================
 
 %% SetBioRequest
-process_local_iq(#pb_iq{from_uid = Uid, payload = #pb_set_bio_request{text = Text}} = Iq) ->
+process_local_iq(#pb_iq{type = set, from_uid = Uid, payload = #pb_set_bio_request{text = Text}} = Iq) ->
     Ret = case byte_size(Text) >= ?MAX_BIO_LENGTH of
         true ->
             #pb_set_bio_result{
@@ -76,7 +76,7 @@ process_local_iq(#pb_iq{from_uid = Uid, payload = #pb_set_bio_request{text = Tex
 
 
 %% SetLinkRequest
-process_local_iq(#pb_iq{from_uid = Uid,
+process_local_iq(#pb_iq{type = set, from_uid = Uid,
         payload = #pb_set_link_request{link = #pb_link{type = BinType, text = Text}}} = Iq) ->
     Type = util:to_atom(BinType),
     Ret = case lists:member(Type, ?VALID_LINK_TYPES) of
@@ -91,12 +91,12 @@ process_local_iq(#pb_iq{from_uid = Uid,
 
 
 %% UserProfileRequest for uid
-process_local_iq(#pb_iq{from_uid = Uid,
+process_local_iq(#pb_iq{type = get, from_uid = Uid,
         payload = #pb_user_profile_request{uid = Ouid}} = Iq) when Ouid =/= undefined andalso Ouid =/= <<>> ->
     process_user_profile_request(Uid, Ouid, Iq);
 
 %% UserProfileRequest for username
-process_local_iq(#pb_iq{from_uid = Uid,
+process_local_iq(#pb_iq{type = get, from_uid = Uid,
         payload = #pb_user_profile_request{username = Username}} = Iq)
         when Username =/= undefined andalso Username =/= <<>> ->
     {ok, Ouid} = model_accounts:get_username_uid(Username),
@@ -139,13 +139,13 @@ process_user_profile_request(Uid, Ouid, Iq) ->
     Ret = case model_accounts:account_exists(Ouid) andalso not model_follow:is_blocked_any(Uid, Ouid) of
         true ->
             UserProfile = model_accounts:get_user_profiles(Uid, Ouid),
-            RawRecentPosts = model_feed:get_recent_user_posts(Uid),
-            AccountName = model_accounts:get_name_binary(Uid),
+            RawRecentPosts = model_feed:get_recent_user_posts(Ouid),
+            AccountName = model_accounts:get_name_binary(Ouid),
             RecentPosts = lists:map(
                 fun(#post{id = PostId, payload = PayloadBase64, ts_ms = TimestampMs, tag = PostTag, moment_info = MomentInfo}) ->
                     #pb_post{
                         id = PostId,
-                        publisher_uid = Uid,
+                        publisher_uid = Ouid,
                         publisher_name = AccountName,
                         payload = base64:decode(PayloadBase64),
                         timestamp = util:ms_to_sec(TimestampMs),

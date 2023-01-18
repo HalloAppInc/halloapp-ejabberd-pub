@@ -19,10 +19,10 @@ setup() ->
 set_bio_testparallel() ->
     Uid = tutil:generate_uid(?KATCHUP),
     BadText = util:to_binary("text over 150 chars " ++ ["a" || _ <- lists:seq(1,150)]),
-    BadRequest = #pb_iq{from_uid = Uid, payload = #pb_set_bio_request{text = BadText}},
+    BadRequest = #pb_iq{type = set, from_uid = Uid, payload = #pb_set_bio_request{text = BadText}},
     BadResult = #pb_iq{to_uid = Uid, type = result, payload = #pb_set_bio_result{result = fail, reason = too_long}},
     GoodText = <<"text under 150 chars">>,
-    GoodRequest = #pb_iq{from_uid = Uid, payload = #pb_set_bio_request{text = GoodText}},
+    GoodRequest = #pb_iq{type = set, from_uid = Uid, payload = #pb_set_bio_request{text = GoodText}},
     GoodResult = #pb_iq{to_uid = Uid, type = result, payload = #pb_set_bio_result{result = ok}},
     [
         ?_assertMatch(BadResult, mod_user_profile:process_local_iq(BadRequest)),
@@ -33,7 +33,7 @@ set_links_testparallel() ->
     Uid = tutil:generate_uid(?KATCHUP),
     BadLink = #pb_link{type = not_a_valid_type, text = "no"},
     GoodLink = #pb_link{type = snapchat, text = "snapchat"},
-    Request = fun(Link) -> #pb_iq{from_uid = Uid, payload = #pb_set_link_request{link = Link}} end,
+    Request = fun(Link) -> #pb_iq{type = set, from_uid = Uid, payload = #pb_set_link_request{link = Link}} end,
     BadResult = #pb_iq{to_uid = Uid, type = result,
         payload = #pb_set_link_result{result = fail, reason = bad_type}},
     GoodResult = #pb_iq{to_uid = Uid, type = result,
