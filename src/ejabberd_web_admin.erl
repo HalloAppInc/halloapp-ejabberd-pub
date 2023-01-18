@@ -2072,7 +2072,7 @@ generate_sms_info(Phone) ->
 process_search_query(Query, PhoneFun, ElseFun) ->
     case Query of
         [{nokey, _}] -> [];
-        [{<<"search">>, PhoneOrUid}] ->
+        [{<<"search">>, PhoneOrUid}, _] ->
            case PhoneOrUid of
                <<"+", Number/binary>> -> PhoneFun(Number);
                _ -> ElseFun(PhoneOrUid)

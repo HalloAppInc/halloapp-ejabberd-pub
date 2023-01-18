@@ -43,6 +43,7 @@
 
 -include("logger.hrl").
 -include("ejabberd_http.hrl").
+-include("xmlel.hrl").
 -include_lib("kernel/include/file.hrl").
 
 -record(state, {
@@ -490,6 +491,10 @@ process_request(#state{request_method = Method,
             RequestHandlers1 = ejabberd_hooks:run_fold(
                 http_request_handlers, RequestHandlers, [Host, Request]),
             Res = case process(RequestHandlers1, Request) of
+                El when is_record(El, xmlel) ->
+                    make_xhtml_output(State, 200, CustomHeaders, El);
+                {Status, Headers, El} when is_record(El, xmlel) ->
+                    make_xhtml_output(State, Status, Headers ++ CustomHeaders, El);
                 Output when is_binary(Output) or is_list(Output) ->
                     make_text_output(State, 200, CustomHeaders, Output);
                 {Status, Headers, Output} when is_binary(Output) or is_list(Output) ->
@@ -500,6 +505,7 @@ process_request(#state{request_method = Method,
                     make_text_output(State, Status, Reason,
                         Headers ++ CustomHeaders, Output);
                 _ ->
+                    ?WARNING("No return for request: ~p", [Request]),
                     none
             end,
             {State2#state{trail = <<>>}, Res}
@@ -638,6 +644,59 @@ make_text_output(State, Status, Reason, Headers, Text) ->
     end,
     EncodedHdrs = make_headers(State, Status, Reason, Headers, Data2),
     [EncodedHdrs, Data2].
+
+make_xhtml_output(State, Status, Headers, XHTML) ->
+    Data = case State#state.request_method of
+        'HEAD' -> <<"">>;
+        _ ->
+            DocType = case lists:member(html, Headers) of
+                true -> ?HTML_DOCTYPE;
+                false -> ?XHTML_DOCTYPE
+            end,
+            iolist_to_binary([DocType, element_to_binary(XHTML)])
+    end,
+    EncodedHdrs = make_headers(State, Status, <<"">>, Headers, Data),
+    [EncodedHdrs, Data].
+
+
+%% Some of the web-related code passes module/fun names in variables.
+%% When these variables are called, they work, but dialyzer is unable to follow the logic.
+%% Thus, it will deem some code in this function impossible to reach when really it is not.
+-dialyzer({nowarn_function, element_to_binary/1}).
+element_to_binary(#xmlel{name = Name, attrs = Attrs, children = Children} = Xmlel) when is_record(Xmlel, xmlel) ->
+    NameStr = case is_list(Name) of
+        true -> Name;
+        false -> util:to_list(Name)
+    end,
+    InitStr = "<" ++ NameStr,
+    StrWithAttrs = lists:foldl(
+        fun({AttrRaw, ValRaw}, Str) ->
+            Attr = case is_list(AttrRaw) of
+                true -> AttrRaw;
+                false -> util:to_list(AttrRaw)
+            end,
+            Val = case is_list(ValRaw) of
+                true -> ValRaw;
+                false -> util:to_list(ValRaw)
+            end,
+            Str ++ " " ++ Attr ++ "=" ++ Val
+        end,
+        InitStr,
+        Attrs)
+        ++ ">",
+    StrWithChildren = lists:foldl(
+        fun(Child, Str) ->
+            Str ++ binary_to_list(element_to_binary(Child))
+        end,
+        StrWithAttrs,
+        Children),
+    list_to_binary(StrWithChildren ++ "</" ++ NameStr ++ ">");
+
+element_to_binary({xmlcdata, Val}) ->
+    util:to_binary(Val);
+
+element_to_binary(El) ->
+    erlang:error("Unexpected element, cannot convert to binary: ~p", [El]).
 
 make_file_output(State, Status, Headers, FileName) ->
     case file:read_file_info(FileName) of

@@ -806,7 +806,11 @@ is_main_stest(Node, Nodes) ->
             end
         end, Nodes),
     case length(ShardNums) =:= 0 of
-        true -> true;
+        true ->
+            case config:get_hallo_env() of
+                localhost -> false;
+                _ -> true
+            end;
         false ->
             OwnShard = get_shard(Node),
             is_node_stest(Node) andalso OwnShard < lists:min(ShardNums)
