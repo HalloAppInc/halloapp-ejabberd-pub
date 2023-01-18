@@ -24,7 +24,8 @@
     is_apple_request/3,
     is_google_request/3,
     is_hashcash_enabled/2,
-    resolve_sms_lang/2
+    resolve_sms_lang/2,
+    is_spam_country/1
 ]).
 
 -spec init_helper(GWOptions :: atom(), FromPhoneList :: [string() | binary()]) -> ok.
@@ -137,4 +138,19 @@ is_hashcash_enabled(UserAgent, _Solution) ->
         ios -> util_ua:is_version_greater_than(UserAgent, <<"HalloApp/iOS1.20.261">>);
         undefined -> false
     end.
+
+is_spam_country(<<"AZ">>) -> true;
+is_spam_country(<<"SD">>) -> true;
+is_spam_country(<<"VN">>) -> true;
+is_spam_country(<<"NG">>) -> true;
+is_spam_country(<<"LK">>) -> true;
+is_spam_country(<<"BD">>) -> true;
+is_spam_country(<<"JO">>) -> true;
+is_spam_country(<<"OM">>) -> true;
+is_spam_country(<<"SN">>) -> true;
+is_spam_country(<<"KG">>) -> true;
+is_spam_country(<<"PK">>) -> true;
+is_spam_country(<<"PH">>) -> true;
+is_spam_country(<<"UZ">>) -> true;
+is_spam_country(_) -> false.
  

@@ -28,8 +28,33 @@ check_otp_request(Phone, IP, _UserAgent, _Method, _Protocol, _RemoteStaticKey) -
     IPCC = mod_geodb:lookup(IP),
     check_otp_request(Phone, IP, PhoneCC, IPCC).
 
+%% Allow in case IP of Phone and CC is same.
 check_otp_request(_Phone, _IP, PhoneCC, PhoneCC) ->
     ok;
+check_otp_request(_Phone, _IP, <<"AZ">>, CC) ->
+    {block, phone_cc_block, {<<"AZ">>, CC}};
+check_otp_request(_Phone, _IP, <<"SD">>, CC) ->
+    {block, phone_cc_block, {<<"SD">>, CC}};
+check_otp_request(_Phone, _IP, <<"VN">>, CC) ->
+    {block, phone_cc_block, {<<"VN">>, CC}};
+check_otp_request(_Phone, _IP, <<"NG">>, CC) ->
+    {block, phone_cc_block, {<<"NG">>, CC}};
+check_otp_request(_Phone, _IP, <<"LK">>, CC) ->
+    {block, phone_cc_block, {<<"LK">>, CC}};
+check_otp_request(_Phone, _IP, <<"BD">>, CC) ->
+    {block, phone_cc_block, {<<"BD">>, CC}};
+check_otp_request(_Phone, _IP, <<"JO">>, CC) ->
+    {block, phone_cc_block, {<<"JO">>, CC}};
+check_otp_request(_Phone, _IP, <<"OM">>, CC) ->
+    {block, phone_cc_block, {<<"OM">>, CC}};
+check_otp_request(_Phone, _IP, <<"SN">>, CC) ->
+    {block, phone_cc_block, {<<"SN">>, CC}};
+check_otp_request(_Phone, _IP, <<"KG">>, CC) ->
+    {block, phone_cc_block, {<<"KG">>, CC}};
+check_otp_request(_Phone, _IP, <<"PH">>, CC) ->
+    {block, phone_cc_block, {<<"PH">>, CC}};
+check_otp_request(_Phone, _IP, <<"UZ">>, CC) ->
+    {block, phone_cc_block, {<<"UZ">>, CC}};
 check_otp_request(_PHONE, IP, _PhoneCC, <<"ZZ">>) ->
     ?WARNING("Unable to find cc for ip: ~s", [IP]),
     ok;
@@ -55,9 +80,7 @@ check_otp_request(Phone, _IP, PhoneCC, IPCC) ->
                         false ->
                             ?INFO("Need to slow down phone: ~s CC: ~s count: ~p last ts: ~p IP CC: ~s",
                                 [Phone, PhoneCC, Count, LastTs, IPCC]),
-                            %% TODO, uncomment
-                            %% {error, retried_too_soon, NextTs - CurrentTs}
-                            ok
+                            {error, retried_too_soon, NextTs - CurrentTs}
                     end;
                 false -> ok
             end
