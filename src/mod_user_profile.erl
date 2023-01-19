@@ -34,6 +34,8 @@
 %%====================================================================
 
 start(_Host, _Opts) ->
+    gen_iq_handler:add_iq_handler(ejabberd_local, ?KATCHUP, pb_set_bio_request, ?MODULE, process_local_iq),
+    gen_iq_handler:add_iq_handler(ejabberd_local, ?KATCHUP, pb_set_link_request, ?MODULE, process_local_iq),
     gen_iq_handler:add_iq_handler(ejabberd_local, ?KATCHUP, pb_user_profile_request, ?MODULE, process_local_iq),
     ejabberd_hooks:add(account_name_updated, katchup, ?MODULE, account_name_updated, 50),
     ejabberd_hooks:add(user_avatar_published, katchup, ?MODULE, user_avatar_published, 50),
@@ -41,6 +43,8 @@ start(_Host, _Opts) ->
     ok.
 
 stop(_Host) ->
+    gen_iq_handler:remove_iq_handler(ejabberd_local, ?KATCHUP, pb_set_bio_request),
+    gen_iq_handler:remove_iq_handler(ejabberd_local, ?KATCHUP, pb_set_link_request),
     gen_iq_handler:remove_iq_handler(ejabberd_local, ?KATCHUP, pb_user_profile_request),
     ejabberd_hooks:delete(account_name_updated, katchup, ?MODULE, account_name_updated, 50),
     ejabberd_hooks:delete(user_avatar_published, katchup, ?MODULE, user_avatar_published, 50),
