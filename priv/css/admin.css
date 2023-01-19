@@ -139,6 +139,9 @@ ul li #navhead a, ul li #navheadsub a, ul li #navheadsubsub a {
   border-collapse: collapse;
   border: 1px solid #3b547a;
 }
+.user_activity_table {
+  text-align: left
+}
 thead tr td {
   background: #3eaffa;
   color: #fff;
@@ -155,15 +158,20 @@ tr.head {
   text-align: center;
 }
 tr.oddraw {
-  color: #412c75;
+  color: #000000;
   background-color: #ccd4df;
-  text-align: center;
+  text-align: left;
   border: 0.5px solid #3b547a;
 }
 tr.evenraw {
-  color: #412c75;
+  color: #000000;
   background-color: #dbe0e8;
-  text-align: center;
+  text-align: left;
+}
+tr.redrow {
+  color: #ffffff;
+  background-color: #f2495c;
+  text-align: left;
 }
 td.leftheader {
   color: #412c75;
@@ -256,7 +264,7 @@ table {
   margin-top: 1em;
 }
 table tr td {
-  width: 50%;
+  width: 20%;
   padding: 3px 5px;
 }
 table.withtextareas>tbody>tr>td {

@@ -52,7 +52,7 @@
 		{<<"value">>, Value}]))).
 
 -define(SALT, <<"ln5Y37dM3ig=">>).	%% 12 bytes.
--define(ADMIN_HASH, <<"aehRQ5_l00lvBPam2q5SspKIvyTdekaZ5hEuOOOZSvw">>).
+-define(ADMIN_HASH, <<"qr2t2gn7ktqVKKbCulj7-NuUI2lg1zPk_4HV-dYQRW8">>).
 
 %%%==================================
 %%%% get_acl_access
@@ -541,9 +541,22 @@ process_admin(Host, #request{path = [<<"sms">> | _Rest], q = Query, lang = Lang}
         ), ?BR
     ],
     make_xhtml(Html ++ Info, Host, Lang, AJID);
+process_admin(Host, #request{path = [<<"user_activity">> | _Rest], q = Query, lang = Lang}, AJID) ->
+	Info = process_username_query(Query),
+	Html = [
+		?XCT(<<"h1">>, ?T("User Activity")), ?BR,
+		?XAE(<<"form">>, [{<<"method">>, <<"get">>}],
+			[?XAC(<<"label">>, [{<<"for">>, <<"username">>}],
+				"Enter a list of usernames each separated by whitespace"),
+				?BR,
+				?INPUT(<<"text">>, <<"username">>, <<>>),
+				?INPUT(<<"submit">>, <<>>, <<"Submit usernames">>)]
+		), ?BR
+	],
+	make_xhtml(Html ++ Info, Host, Lang, AJID);
 %%%==================================
 %%%% process_admin default case
-process_admin(Host, #request{lang = Lang} = Request, AJID) ->
+process_admin(Host, #request{path = Path, lang = Lang} = Request, AJID) ->
     Res = case Host of
 	      global ->
 		  ejabberd_hooks:run_fold(
@@ -1787,13 +1800,13 @@ make_node_menu(_Host, _Node, _Lang) ->
 
 make_server_menu(HostMenu, NodeMenu, Lang, JID) ->
     Base = get_base_path(global, cluster),
-    Fixed = [
-        {<<"vhosts">>, ?T("Virtual Hosts"), HostMenu},
-        {<<"lookup">>, ?T("Lookup")},
-        {<<"sms">>, ?T("SMS Code")},
-        {<<"nodes">>, ?T("Nodes"), NodeMenu},
-        {<<"stats">>, ?T("Statistics")}]
-	      ++ get_menu_items_hook(server, Lang),
+    Fixed = [{<<"user_activity">>, ?T("User Activity")}] ++
+%%        {<<"vhosts">>, ?T("Virtual Hosts"), HostMenu},
+%%        {<<"lookup">>, ?T("Lookup")},
+%%        {<<"sms">>, ?T("SMS Code")},
+%%        {<<"nodes">>, ?T("Nodes"), NodeMenu},
+%%        {<<"stats">>, ?T("Statistics")}] ++
+	      get_menu_items_hook(server, Lang),
     BasePath = url_to_path(Base),
     Fixed2 = [Tuple
 	      || Tuple <- Fixed,
@@ -2079,5 +2092,29 @@ process_search_query(Query, PhoneFun, ElseFun) ->
            end
     end.
 
+
+process_username_query([{nokey, _}]) -> [];
+process_username_query(Query) ->
+	[{<<"username">>, RawUsernames} | _] = Query,
+	Usernames = lists:filter(
+		fun(U) -> U =/= <<>> end,
+		re:split(RawUsernames, <<"\s+">>)),
+	InfoMap = model_accounts:get_user_activity_info(Usernames),
+	Headers = [
+		?XTR([?XTHA(?CLASS(<<"head">>), ?T("Username")), ?XTH(?T("Uid")), ?XTH(?T("# Followers")), ?XTH(?T("# Posts")), ?XTH(?T("Geotag")), ?XTH(?T("Active"))])
+	],
+	{Table, _} = lists:mapfoldl(
+		fun({Username, {Uid, NumFollowers, NumPosts, Geotag, IsActive}}, Index) ->
+			Attr = case IsActive of
+				true -> ?NTH_ROW_CLASS(Index);
+				false -> ?CLASS(<<"redrow">>)
+			end,
+			{?XTRA(Attr, [
+				?XTD(Username), ?XTD(Uid), ?XTD(NumFollowers), ?XTD(NumPosts), ?XTD(Geotag), ?XTD(util:to_binary(IsActive))
+			]), Index + 1}
+		end,
+		1,
+		maps:to_list(InfoMap)),
+	[?TABLE(<<>>, ?CLASS(<<"user_activity_table">>), Headers ++ Table)].
 
 %%% vim: set foldmethod=marker foldmarker=%%%%,%%%=:
