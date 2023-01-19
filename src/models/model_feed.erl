@@ -81,6 +81,7 @@
     expire_all_user_posts/1,
     is_post_expired/1,
     remove_all_user_posts/1,    %% test.
+    get_num_posts/1,
     is_post_deleted/1,    %% test.
     is_comment_deleted/2,    %% test.
     remove_user/1,
@@ -159,20 +160,20 @@ publish_psa_post(PostId, Uid, Payload, PostTag, PSATag, TimestampMs)
     ok.
 
 
- -spec publish_post(PostId :: binary(), Uid :: uid(), Payload :: binary(), PostTag :: post_tag(),
+-spec publish_post(PostId :: binary(), Uid :: uid(), Payload :: binary(), PostTag :: post_tag(),
         FeedAudienceType :: atom(), FeedAudienceList :: [binary()],
         TimestampMs :: integer()) -> ok | {error, any()}.
 publish_post(PostId, Uid, Payload, PostTag, FeedAudienceType, FeedAudienceList, TimestampMs) ->
     publish_post_internal(PostId, Uid, Payload, PostTag, FeedAudienceType, FeedAudienceList, TimestampMs, undefined).
 
 
- -spec publish_moment(PostId :: binary(), Uid :: uid(), Payload :: binary(), PostTag :: post_tag(),
+-spec publish_moment(PostId :: binary(), Uid :: uid(), Payload :: binary(), PostTag :: post_tag(),
         FeedAudienceType :: atom(), FeedAudienceList :: [binary()],
         TimestampMs :: integer(), MomentInfo :: pb_moment_info()) -> ok | {error, any()}.
 publish_moment(PostId, Uid, Payload, PostTag, FeedAudienceType, FeedAudienceList, TimestampMs, MomentInfo) ->
     publish_post_internal(PostId, Uid, Payload, PostTag, FeedAudienceType, FeedAudienceList, TimestampMs, MomentInfo).
 
- -spec publish_post_internal(PostId :: binary(), Uid :: uid(), Payload :: binary(), PostTag :: post_tag(),
+-spec publish_post_internal(PostId :: binary(), Uid :: uid(), Payload :: binary(), PostTag :: post_tag(),
         FeedAudienceType :: atom(), FeedAudienceList :: [binary()],
         TimestampMs :: integer(), MomentInfo :: maybe(pb_moment_info())) -> ok | {error, any()}.
 publish_post_internal(PostId, Uid, Payload, PostTag, FeedAudienceType, FeedAudienceList, TimestampMs, MomentInfo) ->
@@ -508,6 +509,17 @@ remove_all_user_posts(Uid) ->
     lists:foreach(fun(PostId) -> ok = delete_post(PostId, Uid) end, PostIds),
     {ok, _} = q(["DEL", reverse_post_key(Uid)]),
     ok.
+
+%% Does not count deleted posts
+-spec get_num_posts(Uid :: uid()) -> non_neg_integer().
+get_num_posts(Uid) ->
+    {ok, PostIds} = q(["ZRANGE", reverse_post_key(Uid), "-inf", "+inf", "BYSCORE"]),
+    length(lists:filter(
+        fun(PostId) ->
+            not is_post_deleted(PostId)
+        end,
+        PostIds
+    )).
 
 
 -spec get_post(PostId :: binary()) -> {ok, post()} | {error, any()}.

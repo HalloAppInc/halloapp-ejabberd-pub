@@ -35,6 +35,10 @@
 
 -define(REJECTED_SUGGESTION_EXPIRATION, 90 * ?DAYS).
 
+%% Thresholds for defining an active user for purposes of campus ambassador recruitment
+-define(ACTIVE_USER_MIN_FOLLOWERS, 5).
+-define(ACTIVE_USER_MIN_POSTS, 1).
+
 -ifdef(TEST).
 -export([
     deleted_account_key/1,
@@ -163,6 +167,7 @@
     mark_moment_notification_sent/2,
     get_node_list/0,
     scan/3,
+    get_user_activity_info/1,
     update_zone_offset_tag2/3,  %% for migration
     update_zone_offset_tag/3,
     get_zone_offset_tag_uids/1,
@@ -1670,6 +1675,31 @@ scan(Node, Cursor, Count) ->
         _ -> Res
     end.
 
+
+-spec get_user_activity_info(Usernames :: [binary()]) -> #{Username :: binary() =>
+    {Uid :: uid(), NumFollowers :: non_neg_integer(), NumPosts :: non_neg_integer(), Geotag :: maybe(binary()), Active :: boolean()}}.
+get_user_activity_info(Username) when not is_list(Username) ->
+    get_user_activity_info([Username]);
+get_user_activity_info(Usernames) ->
+    UsernameToUidMap = get_username_uids(Usernames),
+    InfoMap = maps:map(
+        fun(_Username, Uid) ->
+            NumFollowers = model_follow:get_followers_count(Uid),
+            NumPosts = model_feed:get_num_posts(Uid),
+            Geotag = get_latest_geo_tag(Uid),
+            IsActive = NumFollowers >= ?ACTIVE_USER_MIN_FOLLOWERS
+                andalso NumPosts >= ?ACTIVE_USER_MIN_POSTS
+                andalso Geotag =/= undefined,
+            {Uid, NumFollowers, NumPosts, Geotag, IsActive}
+        end,
+        UsernameToUidMap),
+    %% For usernames not associated with an account, inject into map as inactive
+    lists:foldl(
+        fun(BadUsername, AccMap) ->
+            maps:put(BadUsername, {undefined, 0, 0, undefined, false}, AccMap)
+        end,
+        InfoMap,
+        Usernames -- maps:keys(InfoMap)).
 
 %%====================================================================
 %% Internal redis functions.

@@ -757,6 +757,49 @@ user_profile_test(_) ->
         ?_assertMatch(ExpectedResult, LinkListToSet(model_accounts:get_user_profiles(?UID2, ?UID1)))
     ].
 
+get_user_activity_info_testset(_) ->
+    Uid1 = tutil:generate_uid(?KATCHUP),
+    Username = <<"username">>,
+    model_accounts:set_username(Uid1, Username),
+    Uid2 = tutil:generate_uid(?KATCHUP),
+    Uid3 = tutil:generate_uid(?KATCHUP),
+    Uid4 = tutil:generate_uid(?KATCHUP),
+    Uid5 = tutil:generate_uid(?KATCHUP),
+    Uid6 = tutil:generate_uid(?KATCHUP),
+    Uids = [Uid1, Uid2, Uid3, Uid4, Uid5, Uid6],
+    lists:foreach(
+        fun(Uid) ->
+            ok = model_accounts:create_account(Uid, ?PHONE1, ?USER_AGENT1)
+        end,
+        Uids),
+    %% Uid1 starts with 5 followers, 1 post, and no geotag
+    lists:foreach(
+        fun(Uid) ->
+            ok = model_follow:follow(Uid, Uid1)
+        end,
+        lists:sublist(Uids, 2, length(Uids))),
+    ok = model_feed:publish_moment(?POSTID1, Uid1, <<>>, moment, all, [Uid1], util:now_ms(),
+        #pb_moment_info{notification_timestamp = util:now_ms(), notification_id = util:now_ms()}),
+    [
+        %% Uid1 is not active because no geotag
+        ?_assertEqual(#{Username => {Uid1, 5, 1, undefined, false}}, model_accounts:get_user_activity_info(Username)),
+        %% Add geotag for Uid1 and they should now be active
+        ?_assertOk(model_accounts:add_geo_tag(Uid1, cal_ave, util:now())),
+        ?_assertEqual(#{Username => {Uid1, 5, 1, cal_ave, true}}, model_accounts:get_user_activity_info(Username)),
+        %% Remove a follower from Uid1 and they are not active again
+        ?_assertOk(model_follow:unfollow(Uid2, Uid1)),
+        ?_assertEqual(#{Username => {Uid1, 4, 1, cal_ave, false}}, model_accounts:get_user_activity_info(Username)),
+        %% Add a follower so Uid1 is active, then delete their only post to make them not active
+        ?_assertOk(model_follow:follow(Uid2, Uid1)),
+        ?_assertOk(model_feed:retract_post(?POSTID1, Uid1)),
+        ?_assertEqual(#{Username => {Uid1, 5, 0, cal_ave, false}}, model_accounts:get_user_activity_info(Username)),
+        %% A username that does not exist should not be active
+        ?_assertEqual(#{<<"bad_uname">> => {undefined, 0, 0, undefined, false}}, model_accounts:get_user_activity_info(<<"bad_uname">>))
+    ].
+
+
+
+
 api_test_() ->
     [tutil:setup_foreach(fun setup/0, [
         fun create_account/1,
