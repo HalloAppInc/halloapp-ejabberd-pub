@@ -863,7 +863,7 @@ get_public_moments(Uid, Tag, TimestampMs, Cursor, Limit) ->
             model_feed:join_cursor(?CURSOR_VERSION_V0, RequestTimestampMs, PostId, PostTsMs)
     end,
     Time2 = util:now_ms(),
-    ?INFO("Total Time Taken for Uid: ~p, Tag: ~p is : ~p", [Uid, Tag, (Time2 - Time1)]),
+    ?INFO("Total Time Taken for Uid: ~p, Tag: ~p is : ~p, DisplayMomentIds: ~p", [Uid, Tag, (Time2 - Time1), DisplayMomentIds]),
     {CursorReload, NewCursor, DisplayPublicMoments}.
 
 
