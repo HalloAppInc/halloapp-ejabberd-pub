@@ -28,11 +28,12 @@ check_otp_request(Phone, IP, _UserAgent, _Method, _Protocol, _RemoteStaticKey) -
     IPCC = mod_geodb:lookup(IP),
     check_otp_request(Phone, IP, PhoneCC, IPCC).
 
+% Block AZ in all cases.
+check_otp_request(_Phone, _IP, <<"AZ">>, CC) ->
+    {block, phone_cc_block, {<<"AZ">>, CC}};
 %% Allow in case IP of Phone and CC is same.
 check_otp_request(_Phone, _IP, PhoneCC, PhoneCC) ->
     ok;
-check_otp_request(_Phone, _IP, <<"AZ">>, CC) ->
-    {block, phone_cc_block, {<<"AZ">>, CC}};
 check_otp_request(_Phone, _IP, <<"SD">>, CC) ->
     {block, phone_cc_block, {<<"SD">>, CC}};
 check_otp_request(_Phone, _IP, <<"VN">>, CC) ->
