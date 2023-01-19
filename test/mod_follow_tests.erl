@@ -119,9 +119,9 @@ test_block_iq(#{testdata := {Uid1, Uid2}} = _CleanupInfo) ->
     },
     ExpectedResultPayload = #pb_relationship_response{
         result = ok,
-        profile = blocked_user_profile(Uid2)
+        profile = blocked_user_profile(Uid2, true)
     },
-    ServerMsgToUid2 = pb_msg(profile_update(blocked_user_profile(Uid1), delete)),
+    ServerMsgToUid2 = pb_msg(profile_update(blocked_user_profile(Uid1, false), delete)),
     [
         ?_assertMatch(ExpectedResultPayload, tutil:get_result_iq_sub_el(mod_follow:process_local_iq(ClientIQ))),
         ?_assertNot(meck:called(ejabberd_router, route, [ServerMsgToUid2]))
@@ -141,9 +141,9 @@ test_block_notify_iq(#{testdata := {Uid1, Uid2}} = _CleanupInfo) ->
     },
     ExpectedResultPayload = #pb_relationship_response{
         result = ok,
-        profile = blocked_user_profile(Uid2)
+        profile = blocked_user_profile(Uid2, true)
     },
-    ServerMsgToUid2 = pb_msg(profile_update(blocked_user_profile(Uid1), delete)),
+    ServerMsgToUid2 = pb_msg(profile_update(blocked_user_profile(Uid1, false), delete)),
     [
         %% setup state
         ?_assertOk(model_follow:follow(Uid1, Uid2)),
@@ -259,8 +259,8 @@ test_get_followers_iq(#{testdata := {Uid1, _Uid2, _Uid3, Uid4, Uid5, _Uid6, _Uid
 
 test_get_blocked_iq(#{testdata := {Uid1, _Uid2, _Uid3, _Uid4, _Uid5, Uid6, Uid7}} = _CleanupInfo) ->
     %% Uid1 has blocked Uid6 and Uid7
-    Uid6UserInfo = blocked_user_profile(Uid6),
-    Uid7UserInfo = blocked_user_profile(Uid7),
+    Uid6UserInfo = blocked_user_profile(Uid6, true),
+    Uid7UserInfo = blocked_user_profile(Uid7, true),
     Request = #pb_iq{
         type = get,
         from_uid = Uid1,
@@ -344,12 +344,13 @@ get_following_status(UserProfile) ->
     UserProfile#pb_basic_user_profile.following_status.
 
 
-blocked_user_profile(Uid) ->
+blocked_user_profile(Uid, IsTheUserBlocking) ->
     #pb_basic_user_profile{
         uid = Uid,
         username = undefined,
         follower_status = none,
-        following_status = none
+        following_status = none,
+        blocked = IsTheUserBlocking
     }.
 
 %% for debugging – not used in tests
@@ -363,5 +364,6 @@ blocked_user_profile(Uid) ->
 %%        _ -> RelationshipList#pb_relationship_list.users
 %%    end,
 %%    lists:foreach(
-%%        fun(UserInfo) -> ?debugVal(UserInfo#pb_user_profile.uid) end,
+%%        fun(UserInfo) when is_record(UserInfo, pb_basic_user_profile) -> ?debugVal(UserInfo#pb_basic_user_profile.uid);
+%%           (UserInfo) when is_record(UserInfo, pb_user_profile) -> ?debugVal(UserInfo#pb_user_profile.uid) end,
 %%        List).

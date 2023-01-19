@@ -1176,9 +1176,21 @@ get_broadcast_uids(Uid) ->
 -spec get_basic_user_profiles(Uid :: uid(), Ouids :: uid() | list(uid()))
         -> pb_basic_user_profile() | list(pb_basic_user_profile()).
 get_basic_user_profiles(Uid, Ouids) when is_list(Ouids) ->
-    lists:map(fun(Ouid) -> get_basic_user_profiles(Uid, Ouid) end, Ouids);
+    lists:map(
+        fun(Ouid) ->
+            case model_follow:is_blocked_any(Uid, Ouid) of
+                true -> get_blocked_basic_user_profile(Uid, Ouid);
+                false -> get_basic_user_profile(Uid, Ouid)
+            end
+        end,
+        Ouids);
 
 get_basic_user_profiles(Uid, Ouid) ->
+    [BasicUserProfile] = get_basic_user_profiles(Uid, [Ouid]),
+    BasicUserProfile.
+
+
+get_basic_user_profile(Uid, Ouid) ->
     [{ok, Username}, {ok, Name}, {ok, AvatarId}, {ok, IsFollower}, {ok, IsFollowing}, {ok, IsBlocked}] = qmn([
         ["HGET", account_key(Ouid), ?FIELD_USERNAME],
         ["HGET", account_key(Ouid), ?FIELD_NAME],
@@ -1211,11 +1223,34 @@ get_basic_user_profiles(Uid, Ouid) ->
     }.
 
 
+get_blocked_basic_user_profile(Uid, Ouid) ->
+    {ok, Username} = get_username(Ouid),
+    #pb_basic_user_profile{
+        uid = Ouid,
+        username = Username,
+        following_status = none,
+        follower_status = none,
+        blocked = model_follow:is_blocked(Uid, Ouid)
+    }.
+
+
 -spec get_user_profiles(uid(), uid() | list(uid())) -> pb_user_profile() | list(pb_user_profile()).
 get_user_profiles(Uid, Ouids) when is_list(Ouids) ->
-    lists:map(fun(Ouid) -> get_user_profiles(Uid, Ouid) end, Ouids);
+    lists:map(
+        fun(Ouid) ->
+            case model_follow:is_blocked_any(Uid, Ouid) of
+                true -> get_blocked_user_profile(Uid, Ouid);
+                false -> get_user_profile(Uid, Ouid)
+            end
+        end,
+        Ouids);
 
 get_user_profiles(Uid, Ouid) ->
+    [UserProfile] = get_user_profiles(Uid, [Ouid]),
+    UserProfile.
+
+
+get_user_profile(Uid, Ouid) ->
     [{ok, Username}, {ok, Name}, {ok, AvatarId}, {ok, RawBio}, {ok, LinksJson},
             {ok, IsFollower}, {ok, IsFollowing}, {ok, IsBlocked}] = qmn([
         ["HGET", account_key(Ouid), ?FIELD_USERNAME],
@@ -1267,6 +1302,17 @@ get_user_profiles(Uid, Ouid) ->
         bio = Bio,
         links = Links,
         blocked = util_redis:decode_boolean(IsBlocked)
+    }.
+
+
+get_blocked_user_profile(Uid, Ouid) ->
+    {ok, Username} = get_username(Ouid),
+    #pb_user_profile{
+        uid = Ouid,
+        username = Username,
+        following_status = none,
+        follower_status = none,
+        blocked = model_follow:is_blocked(Uid, Ouid)
     }.
 
 %%====================================================================

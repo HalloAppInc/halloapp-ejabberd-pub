@@ -73,9 +73,7 @@ process_local_iq(#pb_iq{from_uid = Uid, type = get,
 process_local_iq(#pb_iq{from_uid = Uid, type = get,
         payload = #pb_relationship_list{type = blocked} = RelationshipList} = IQ) ->
     BlockedUids = model_follow:get_blocked_uids(Uid),
-    UserProfiles = filter_info_in_for_blocked_user_profiles(
-        model_accounts:get_basic_user_profiles(Uid, BlockedUids)
-    ),
+    UserProfiles = model_accounts:get_basic_user_profiles(Uid, BlockedUids),
     pb:make_iq_result(IQ, RelationshipList#pb_relationship_list{cursor = <<>>, users = UserProfiles});
 
 
@@ -159,7 +157,7 @@ process_local_iq(#pb_iq{from_uid = Uid,
         false -> ok
     end,
     ejabberd_hooks:run(block_uids, ?KATCHUP, [Uid, util:get_host(), [Ouid]]),
-    UserProfile = filter_info_in_for_blocked_user_profiles(model_accounts:get_basic_user_profiles(Uid, Ouid)),
+    UserProfile = model_accounts:get_basic_user_profiles(Uid, Ouid),
     Ret = #pb_relationship_response{
         result = ok,
         profile = UserProfile
@@ -205,32 +203,10 @@ remove_user(Uid, _Server) ->
 %% Internal functions
 %%====================================================================
 
-%% UserProfiles of blocked/deleted users should only return
-%% uid, username, follower_status, following_status
-filter_info_in_for_blocked_user_profiles(UserProfiles) when is_list(UserProfiles) ->
-    lists:map(fun filter_info_in_for_blocked_user_profiles/1, UserProfiles);
-
-filter_info_in_for_blocked_user_profiles(UserProfile) when is_record(UserProfile, pb_user_profile) ->
-    #pb_user_profile{
-        uid = UserProfile#pb_user_profile.uid,
-        username = UserProfile#pb_user_profile.username,
-        follower_status = UserProfile#pb_user_profile.follower_status,
-        following_status = UserProfile#pb_user_profile.following_status
-    };
-
-filter_info_in_for_blocked_user_profiles(UserProfile) when is_record(UserProfile, pb_basic_user_profile) ->
-    #pb_basic_user_profile{
-        uid = UserProfile#pb_basic_user_profile.uid,
-        username = UserProfile#pb_basic_user_profile.username,
-        follower_status = UserProfile#pb_basic_user_profile.follower_status,
-        following_status = UserProfile#pb_basic_user_profile.following_status
-    }.
-
-
 notify_account_deleted(Uid, Ouid) ->
     %% Notify Ouid that Uid's account no longer exists
     %% this could also mean Ouid has been blocked by Uid
-    UserProfile = filter_info_in_for_blocked_user_profiles(model_accounts:get_basic_user_profiles(Ouid, Uid)),
+    UserProfile = model_accounts:get_basic_user_profiles(Ouid, Uid),
     ProfileUpdate = #pb_profile_update{type = delete, profile = UserProfile},
     send_msg(Uid, Ouid, ProfileUpdate).
 
