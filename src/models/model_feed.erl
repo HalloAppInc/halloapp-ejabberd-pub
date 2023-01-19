@@ -345,7 +345,7 @@ get_posts_by_geo_tag_time_bucket(GeoTag, StartTimestampHr, CurTimestampHr,
 -spec get_all_posts_by_time_bucket(StartTimestampHr :: integer(), CurTimestampHr :: integer(),
         ResultPostIds :: [binary()]) -> [binary()].
 get_all_posts_by_time_bucket(StartTimestampHr, CurTimestampHr, ResultPostIds)
-        when StartTimestampHr - CurTimestampHr >= 24 ->
+        when StartTimestampHr - CurTimestampHr >= 36 ->
     ResultPostIds;
 get_all_posts_by_time_bucket(StartTimestampHr, CurTimestampHr, ResultPostIds) ->
     {ok, PostIds} = q(["ZREVRANGEBYSCORE", time_bucket_key_hr(CurTimestampHr), "+inf", "-inf"]),
@@ -357,7 +357,7 @@ get_all_posts_by_time_bucket(StartTimestampHr, CurTimestampHr, ResultPostIds) ->
 -spec get_all_posts_by_geo_tag_time_bucket(GeoTag :: binary(), StartTimestampHr :: integer(), CurTimestampHr :: integer(),
         ResultPostIds :: [binary()]) -> [binary()].
 get_all_posts_by_geo_tag_time_bucket(_GeoTag, StartTimestampHr, CurTimestampHr, ResultPostIds)
-        when StartTimestampHr - CurTimestampHr >= 24 ->
+        when StartTimestampHr - CurTimestampHr >= 36 ->
     ResultPostIds;
 get_all_posts_by_geo_tag_time_bucket(GeoTag, StartTimestampHr, CurTimestampHr, ResultPostIds) ->
     {ok, PostIds} = q(["ZREVRANGEBYSCORE", geo_tag_time_bucket_key_hr(GeoTag, CurTimestampHr), "+inf", "-inf"]),

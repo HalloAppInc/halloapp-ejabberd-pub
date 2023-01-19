@@ -870,13 +870,25 @@ get_public_moments(Uid, Tag, TimestampMs, Cursor, Limit) ->
 rank_public_moments(Uid, _Tag, NewPublicMomentIds) ->
     %% Filter out deleted posts and convert PostIds to Posts
     NewPublicMoments = model_feed:get_posts(NewPublicMomentIds),
+    LatestNotificationId = model_feed:get_notification_id(Uid),
     %% Filter out expired posts.
-    NewUnexpiredPublicMoments = lists:filter(fun(Moment) -> Moment#post.expired =:= false end, NewPublicMoments),
+    NewUnexpiredPublicMoments1 = lists:filter(fun(Moment) -> Moment#post.expired =:= false end, NewPublicMoments),
+    %% Filter out old content.
+    NewUnexpiredPublicMoments2 = lists:filter(
+        fun(Moment) ->
+            %% Incase we dont have a notification-id yet, then dont filter.
+            %% this is a temporary fix for now since we started storing this info only recently.
+            case LatestNotificationId of
+                undefined -> true;
+                _ -> Moment#post.moment_info#pb_moment_info.notification_id >= LatestNotificationId
+            end
+        end, NewUnexpiredPublicMoments1),
+
     %% Filter out content from self and following uids.
     RemoveAuthorSet = sets:from_list(model_follow:get_all_following(Uid) ++ [Uid]),
     NewUnexpiredUnrelatedPublicMoments = lists:filter(
             fun(PublicMoment) -> not sets:is_element(PublicMoment#post.uid, RemoveAuthorSet) end,
-            NewUnexpiredPublicMoments),
+            NewUnexpiredPublicMoments2),
     %% No ranking for now.
 
     %% TODO: Rank those based on geo-tag higher for now.
