@@ -569,6 +569,26 @@ get_public_moments_test() ->
     ok.
 
 
+get_moment_info_test() ->
+    setup(),
+    Uid1 = tutil:generate_uid(?KATCHUP),
+    TodaySecs = util:now_ms(),
+    NotifId = TodaySecs,
+    {{_, _,Today}, {_, _, _}} = 
+        calendar:system_time_to_universal_time(TodaySecs, second),
+    {_MinToSendToday, TodayNotificationId, TodayNotificationType, TodayPrompt} =
+        model_feed:get_moment_time_to_send(Today, TodaySecs),
+
+    {_MomentNotifTs, MomentType, MomentPrompt} = model_feed:get_moment_info(TodaySecs),
+
+    ?assertEqual(TodayNotificationId, NotifId),
+    ?assertEqual(MomentType, TodayNotificationType),
+    ?assertEqual(MomentPrompt, TodayPrompt),
+    ?assertEqual(ok, model_feed:set_notification_id(Uid1, NotifId)),
+    ?assertEqual(NotifId, model_feed:get_notification_id(Uid1)),
+    ok.
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%                      Helper functions                                  %%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

@@ -79,6 +79,8 @@
     get_post_tag/1,
     add_uid_to_audience/2,
     expire_all_user_posts/1,
+    set_notification_id/2,
+    get_notification_id/1,
     is_post_expired/1,
     remove_all_user_posts/1,    %% test.
     get_num_posts/1,
@@ -93,7 +95,8 @@
     get_all_posts_by_time_bucket/3,
     get_all_posts_by_geo_tag_time_bucket/4,
     mark_discovered_posts/3,
-    get_past_discovered_posts/2
+    get_past_discovered_posts/2,
+    get_moment_info/1
 ]).
 
 %% TODO(murali@): expose more apis specific to posts and comments only if necessary.
@@ -124,6 +127,7 @@
 -define(FIELD_MOMENT_NOTIFICATION_ID, <<"nfi">>).
 -define(FIELD_MOMENT_NOTIFICATION_TYPE, <<"nft">>).
 -define(FIELD_MOMENT_NOTIFICATION_PROMPT, <<"nfp">>).
+-define(FIELD_MOMENT_NOTIFICATION_TIMESTAMP, <<"nts">>).
 
 
 -spec publish_post(PostId :: binary(), Uid :: uid(), Payload :: binary(), PostTag :: post_tag(),
@@ -503,6 +507,18 @@ expire_all_user_posts(Uid) ->
     ok.
 
 
+-spec set_notification_id(Uid :: uid(), NotificationId :: integer()) -> ok.
+set_notification_id(Uid, NotificationId) ->
+    {ok, _} = q(["SET", notification_id_key(Uid), util:to_binary(NotificationId)]),
+    ok.
+
+
+-spec get_notification_id(Uid :: uid()) -> maybe(integer()).
+get_notification_id(Uid) ->
+    {ok, NotificationId} = q(["GET", notification_id_key(Uid)]),
+    util_redis:decode_int(NotificationId).
+
+
 -spec remove_all_user_posts(Uid :: uid()) -> ok.
 remove_all_user_posts(Uid) ->
     {ok, PostIds} = q(["ZRANGEBYSCORE", reverse_post_key(Uid), "-inf", "+inf"]),
@@ -817,9 +833,23 @@ set_moment_time_to_send(Time, Id, Type, Prompt, Tag) ->
                 ["HSET", moment_time_to_send_key2(Tag), ?FIELD_MOMENT_NOTIFICATION_TYPE, util_moments:moment_type_to_bin(Type)],
                 ["HSET", moment_time_to_send_key2(Tag), ?FIELD_MOMENT_NOTIFICATION_PROMPT, Prompt],
                 ["EXPIRE", moment_time_to_send_key2(Tag), ?MOMENT_TAG_EXPIRATION]]),
+            % Store the type, timestamp and prompt by id.
+            qp([["HSET", moment_info_key(Id), ?FIELD_MOMENT_NOTIFICATION_TYPE, util_moments:moment_type_to_bin(Type)],
+                ["HSET", moment_info_key(Id), ?FIELD_MOMENT_NOTIFICATION_PROMPT, Prompt],
+                ["HSET", moment_info_key(Id), ?FIELD_MOMENT_NOTIFICATION_TIMESTAMP, util:to_binary(Time)],
+                ["EXPIRE", moment_info_key(Id), ?MOMENT_TAG_EXPIRATION]]),
             true;
         false -> false
     end.
+
+
+-spec get_moment_info(NotificationId :: integer()) -> {integer(), atom(), binary()}.
+get_moment_info(NotificationId) ->
+    [{ok, Type}, {ok, Prompt}, {ok, NotifTs}] = qp([
+        ["HGET", moment_info_key(NotificationId), ?FIELD_MOMENT_NOTIFICATION_TYPE],
+        ["HGET", moment_info_key(NotificationId), ?FIELD_MOMENT_NOTIFICATION_PROMPT],
+        ["HGET", moment_info_key(NotificationId), ?FIELD_MOMENT_NOTIFICATION_TIMESTAMP]]),
+    {util_redis:decode_ts(NotifTs), util_moments:to_moment_type(Type), Prompt}.
                 
 
 -spec del_moment_time_to_send(Tag :: integer()) -> ok.
@@ -1144,6 +1174,17 @@ post_comments_key(PostId) ->
 -spec reverse_post_key(Uid :: uid()) -> binary().
 reverse_post_key(Uid) ->
     <<?REVERSE_POST_KEY/binary, "{", Uid/binary, "}">>.
+
+
+-spec moment_info_key(NotificationId :: integer()) -> binary().
+moment_info_key(NotificationId) ->
+    NotificationIdBin = util:to_binary(NotificationId),
+    <<?MOMENT_INFO_KEY/binary, "{", NotificationIdBin/binary, "}">>.
+
+
+-spec notification_id_key(Uid :: uid()) -> binary().
+notification_id_key(Uid) ->
+    <<?NOTIFICATION_ID_KEY/binary, "{", Uid/binary, "}">>.
 
 
 -spec reverse_group_post_key(Gid :: uid()) -> binary().

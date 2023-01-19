@@ -383,6 +383,7 @@ send_moment_notification(Uid) ->
     send_moment_notification(Uid, 0, util_moments:to_moment_type(util:to_binary(rand:uniform(2))), <<"WYD?">>).
 
 send_moment_notification(Uid, NotificationId, NotificationType, Prompt) ->
+    NotificationTime = util:now(),
     AppType = util_uid:get_app_type(Uid),
     Packet = #pb_msg{
         id = util_id:new_msg_id(),
@@ -396,7 +397,7 @@ send_moment_notification(Uid, NotificationId, NotificationType, Prompt) ->
         }
     },
     ejabberd_router:route(Packet),
-    ejabberd_hooks:run(send_moment_notification, AppType, [Uid]),
+    ejabberd_hooks:run(send_moment_notification, AppType, [Uid, NotificationId, NotificationTime, NotificationType, Prompt]),
     ok.
 
 
