@@ -43,7 +43,8 @@
     remove_all_blocked_uids/1,
     remove_all_blocked_by_uids/1,
     follower_key/1,
-    following_key/1
+    following_key/1,
+    blocked_key/1
 ]).
 
 %%====================================================================

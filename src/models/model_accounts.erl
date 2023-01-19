@@ -1179,12 +1179,13 @@ get_basic_user_profiles(Uid, Ouids) when is_list(Ouids) ->
     lists:map(fun(Ouid) -> get_basic_user_profiles(Uid, Ouid) end, Ouids);
 
 get_basic_user_profiles(Uid, Ouid) ->
-    [{ok, Username}, {ok, Name}, {ok, AvatarId}, {ok, IsFollower}, {ok, IsFollowing}] = qmn([
+    [{ok, Username}, {ok, Name}, {ok, AvatarId}, {ok, IsFollower}, {ok, IsFollowing}, {ok, IsBlocked}] = qmn([
         ["HGET", account_key(Ouid), ?FIELD_USERNAME],
         ["HGET", account_key(Ouid), ?FIELD_NAME],
         ["HGET", account_key(Ouid), ?FIELD_AVATAR_ID],
         ["ZSCORE", model_follow:follower_key(Uid), Ouid],
-        ["ZSCORE", model_follow:following_key(Uid), Ouid]
+        ["ZSCORE", model_follow:following_key(Uid), Ouid],
+        ["SISMEMBER", model_follow:blocked_key(Uid), Ouid]
     ]),
     FollowerStatus = case util_redis:decode_int(IsFollower) of
         undefined -> none;
@@ -1205,7 +1206,8 @@ get_basic_user_profiles(Uid, Ouid) ->
         avatar_id = AvatarId,
         follower_status = FollowerStatus,
         following_status = FollowingStatus,
-        num_mutual_following = sets:size(sets:intersection(OFollowing, Following))
+        num_mutual_following = sets:size(sets:intersection(OFollowing, Following)),
+        blocked = util_redis:decode_boolean(IsBlocked)
     }.
 
 
@@ -1215,14 +1217,15 @@ get_user_profiles(Uid, Ouids) when is_list(Ouids) ->
 
 get_user_profiles(Uid, Ouid) ->
     [{ok, Username}, {ok, Name}, {ok, AvatarId}, {ok, RawBio}, {ok, LinksJson},
-            {ok, IsFollower}, {ok, IsFollowing}] = qmn([
+            {ok, IsFollower}, {ok, IsFollowing}, {ok, IsBlocked}] = qmn([
         ["HGET", account_key(Ouid), ?FIELD_USERNAME],
         ["HGET", account_key(Ouid), ?FIELD_NAME],
         ["HGET", account_key(Ouid), ?FIELD_AVATAR_ID],
         ["HGET", account_key(Ouid), ?FIELD_BIO],
         ["HGET", account_key(Ouid), ?FIELD_LINKS],
         ["ZSCORE", model_follow:follower_key(Uid), Ouid],
-        ["ZSCORE", model_follow:following_key(Uid), Ouid]
+        ["ZSCORE", model_follow:following_key(Uid), Ouid],
+        ["SISMEMBER", model_follow:blocked_key(Uid), Ouid]
     ]),
     FollowerStatus = case util_redis:decode_int(IsFollower) of
         undefined -> none;
@@ -1262,7 +1265,8 @@ get_user_profiles(Uid, Ouid) ->
         following_status = FollowingStatus,
         num_mutual_following = sets:size(sets:intersection(OFollowing, Following)),
         bio = Bio,
-        links = Links
+        links = Links,
+        blocked = util_redis:decode_boolean(IsBlocked)
     }.
 
 %%====================================================================

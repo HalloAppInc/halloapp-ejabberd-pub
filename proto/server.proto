@@ -937,6 +937,14 @@ message ReportUserContent {
   Type type = 1;
   int64 uid = 2 [ebin = true];
   string content_id = 3;
+  enum Reason {
+    UNKNOWN_REASON = 0;
+    DONT_LIKE = 1;
+    SPAM = 2;
+    VIOLATES_RULES = 3;
+    OTHER = 4;
+  }
+  Reason reason = 4;
 }
 
 message WebStanza {
@@ -990,6 +998,7 @@ message MomentNotification {
     }
     Type type = 3;
     string prompt = 4;
+    bool hide_banner = 5; // default value will be false.
 }
 
 // IQ
@@ -1755,6 +1764,7 @@ message BasicUserProfile {
     FollowStatus follower_status = 5;  // is uid my follower
     FollowStatus following_status = 6;  // am I following uid
     int32 num_mutual_following = 7;
+    bool blocked = 8;  // true if I blocked this user
 }
 
 message UserProfile {
@@ -1768,6 +1778,7 @@ message UserProfile {
     string bio = 8;
     repeated Link links = 9;
     repeated BasicUserProfile relevant_followers = 10;  // list of users I am following that follow this user
+    bool blocked = 11;  // true if I blocked this user
 }
 
 message ProfileUpdate {
@@ -1838,7 +1849,7 @@ message RelationshipList {
 // Usernames
 
 message UsernameRequest {
-  enum Action {                 
+  enum Action {
     IS_AVAILABLE = 0;
     SET = 1;
   }
@@ -1878,7 +1889,7 @@ message FollowSuggestionsRequest {
   enum Action {
     GET = 0;
     REJECT = 1;
-  } 
+  }
   Action action = 1;
 
   repeated int64 rejected_uids = 2 [ebin = true];

@@ -741,7 +741,8 @@ user_profile_test(_) ->
         following_status = none,
         num_mutual_following = 0,
         bio = Bio,
-        links = sets:from_list(Links)
+        links = sets:from_list(Links),
+        blocked = false
     },
     LinkListToSet = fun
         (#pb_user_profile{links = LinkList} = UserProfile) ->
