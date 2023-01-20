@@ -1785,6 +1785,8 @@ message ProfileUpdate {
     enum Type {
         NORMAL = 0;
         DELETE = 1;
+        FOLLOWER_NOTICE = 2; // When the uid follows me.
+        CONTACT_NOTICE = 3; // When my contact joins katchup.
     }
     Type type = 1;
     BasicUserProfile profile = 2;

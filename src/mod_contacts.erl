@@ -240,23 +240,34 @@ register_user(UserId, _Server, Phone, _CampaignId) ->
 send_new_user_notifications(UserId, Phone) ->
     AppType = util_uid:get_app_type(UserId),
     {ok, ContactUids} = model_contacts:get_contact_uids(Phone, AppType),
-    stat:count("HA/contacts", "add_contact", length(ContactUids)),
-    %% Fetch all inviter phone numbers.
-    {ok, InvitersList} = model_invites:get_inviters_list(Phone),
-    InviterUidSet = sets:from_list([InviterUid || {InviterUid, _} <- InvitersList]),
+    case AppType of
+        halloapp ->
+            stat:count("HA/contacts", "add_contact", length(ContactUids)),
+            %% Fetch all inviter phone numbers.
+            {ok, InvitersList} = model_invites:get_inviters_list(Phone),
+            InviterUidSet = sets:from_list([InviterUid || {InviterUid, _} <- InvitersList]),
 
-    %% Send only one notification per contact - inviter/contact based.
-    lists:foreach(
-            fun(ContactId) ->
-                case sets:is_element(ContactId, InviterUidSet) of
-                    true ->
-                        ?INFO("Notify Inviter: ~p about user: ~p joining", [ContactId, UserId]),
-                        notify_contact_about_user(UserId, Phone, ContactId, none, normal, inviter_notice);
-                    false ->
-                        ?INFO("Notify Contact: ~p about user: ~p joining", [ContactId, UserId]),
-                        notify_contact_about_user(UserId, Phone, ContactId, none, normal, contact_notice)
-                end
-            end, ContactUids),
+            %% Send only one notification per contact - inviter/contact based.
+            lists:foreach(
+                fun(ContactId) ->
+                    case sets:is_element(ContactId, InviterUidSet) of
+                        true ->
+                            ?INFO("Notify Inviter: ~p about user: ~p joining", [ContactId, UserId]),
+                            notify_contact_about_user(UserId, Phone, ContactId, none, normal, inviter_notice);
+                        false ->
+                            ?INFO("Notify Contact: ~p about user: ~p joining", [ContactId, UserId]),
+                            notify_contact_about_user(UserId, Phone, ContactId, none, normal, contact_notice)
+                    end
+                end, ContactUids),
+            ok;
+        katchup ->
+            %% Send only one notification per contact
+            lists:foreach(
+                fun(ContactId) ->
+                    mod_follow:notify_profile_update(UserId, ContactId, contact_notice)
+                end, ContactUids),
+            ok
+    end,
     ok.
 
 

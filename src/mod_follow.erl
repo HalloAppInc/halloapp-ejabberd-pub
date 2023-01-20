@@ -18,7 +18,9 @@
 %% API
 -export([
     process_local_iq/1,
-    remove_user/2
+    remove_user/2,
+    notify_profile_update/2,
+    notify_profile_update/3
 ]).
 
 %% Number of users to return RelationshipList request
@@ -90,7 +92,9 @@ process_local_iq(#pb_iq{from_uid = Uid,
     Ret = case model_follow:is_blocked_any(Uid, Ouid) of
         false ->
             ok = model_follow:follow(Uid, Ouid),
-            ok = notify_relationship_change(Uid, Ouid),
+            %% Send both for now here.
+            ok = notify_profile_update(Uid, Ouid),
+            ok = notify_profile_update(Uid, Ouid, follower_notice),
             ejabberd_hooks:run(new_follow_relationship, ?KATCHUP, [Uid, Ouid]),
             ?INFO("~s follows ~s", [Uid, Ouid]),
             #pb_relationship_response{
@@ -111,7 +115,7 @@ process_local_iq(#pb_iq{from_uid = Uid,
     case model_follow:is_blocked_any(Uid, Ouid) of
         false ->
             ok = model_follow:unfollow(Uid, Ouid),
-            ok = notify_relationship_change(Uid, Ouid),
+            ok = notify_profile_update(Uid, Ouid),
             ejabberd_hooks:run(remove_follow_relationship, ?KATCHUP, [Uid, Ouid]);
         true ->
             ?INFO("~s tries to unfollow ~s as a follower but someone is already blocked", [Uid, Ouid]),
@@ -131,7 +135,7 @@ process_local_iq(#pb_iq{from_uid = Uid,
     case model_follow:is_blocked_any(Uid, Ouid) of
         false ->
             ok = model_follow:unfollow(Ouid, Uid),
-            ok = notify_relationship_change(Uid, Ouid),
+            ok = notify_profile_update(Uid, Ouid),
             ejabberd_hooks:run(remove_follow_relationship, ?KATCHUP, [Ouid, Uid]);
         true ->
             ?INFO("~s tries to remove ~s as a follower but someone is already blocked", [Uid, Ouid]),
@@ -211,9 +215,13 @@ notify_account_deleted(Uid, Ouid) ->
     send_msg(Uid, Ouid, ProfileUpdate).
 
 
-notify_relationship_change(Uid, Ouid)  ->
+notify_profile_update(Uid, Ouid)  ->
+    notify_profile_update(Uid, Ouid, normal).
+
+
+notify_profile_update(Uid, Ouid, UpdateType) ->
     %% Notify Ouid that Uid has changed the status of the relationship
-    ProfileUpdate = #pb_profile_update{type = normal, profile = model_accounts:get_basic_user_profiles(Ouid, Uid)},
+    ProfileUpdate = #pb_profile_update{type = UpdateType, profile = model_accounts:get_basic_user_profiles(Ouid, Uid)},
     send_msg(Uid, Ouid, ProfileUpdate).
 
 
