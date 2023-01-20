@@ -46,7 +46,7 @@
     ts_ms :: integer(),
     gid :: maybe(binary()),
     psa_tag :: maybe(binary()),
-    moment_info :: pb_moment_info(),
+    moment_info :: maybe(pb_moment_info()),
     expired = false :: boolean()
 }).
 
