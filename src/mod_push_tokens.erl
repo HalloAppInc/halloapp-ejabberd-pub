@@ -136,15 +136,45 @@ process_local_iq(#pb_iq{} = IQ) ->
     pb:make_error(IQ, util:err(invalid_iq)).
 
 
+%% We only store them for now and dont do much with it yet.
+%% We could have the clients fetch this info again on re-registration.
+%% But we dont support that yet - so just storing them for now and counting.
 -spec update_push_pref(Uid :: binary(), pb_push_pref()) -> ok.
 update_push_pref(Uid, #pb_push_pref{name = post, value = Value}) ->
-    stat:count("HA/push_prefs", "set_push_post_pref"),
-    ?INFO("set ~s's push post pref to be: ~s", [Uid, Value]),
+    StatNamespace = util:get_stat_namespace(Uid),
+    stat:count(StatNamespace ++ "/push_prefs", "set_push_post_pref"),
+    ?INFO("set_push_post_pref ~s's to be: ~s", [Uid, Value]),
     model_accounts:set_push_post_pref(Uid, Value);
+
 update_push_pref(Uid, #pb_push_pref{name = comment, value = Value}) ->
-    stat:count("HA/push_prefs", "set_push_comment_pref"),
-    ?INFO("set ~s's push comment pref to be: ~s", [Uid, Value]),
-    model_accounts:set_push_comment_pref(Uid, Value).
+    StatNamespace = util:get_stat_namespace(Uid),
+    stat:count(StatNamespace ++ "/push_prefs", "set_push_comment_pref"),
+    ?INFO("set_push_comment_pref ~s's to be: ~s", [Uid, Value]),
+    model_accounts:set_push_comment_pref(Uid, Value);
+
+update_push_pref(Uid, #pb_push_pref{name = mentions, value = Value}) ->
+    StatNamespace = util:get_stat_namespace(Uid),
+    stat:count(StatNamespace ++ "/push_prefs", "set_push_mention_pref"),
+    ?INFO("set_push_mention_pref ~s's to be: ~s", [Uid, Value]),
+    model_accounts:set_push_mention_pref(Uid, Value);
+
+update_push_pref(Uid, #pb_push_pref{name = on_fire, value = Value}) ->
+    StatNamespace = util:get_stat_namespace(Uid),
+    stat:count(StatNamespace ++ "/push_prefs", "set_push_fire_pref"),
+    ?INFO("set_push_fire_pref ~s's to be: ~s", [Uid, Value]),
+    model_accounts:set_push_fire_pref(Uid, Value);
+
+update_push_pref(Uid, #pb_push_pref{name = new_users, value = Value}) ->
+    StatNamespace = util:get_stat_namespace(Uid),
+    stat:count(StatNamespace ++ "/push_prefs", "set_push_new_user_pref"),
+    ?INFO("set_push_new_user_pref ~s's to be: ~s", [Uid, Value]),
+    model_accounts:set_push_new_user_pref(Uid, Value);
+
+update_push_pref(Uid, #pb_push_pref{name = followers, value = Value}) ->
+    StatNamespace = util:get_stat_namespace(Uid),
+    stat:count(StatNamespace ++ "/push_prefs", "set_push_follower_pref"),
+    ?INFO("set_push_follower_pref ~s's to be: ~s", [Uid, Value]),
+    model_accounts:set_push_follower_pref(Uid, Value).
 
 
 %% TODO(murali@): add counters by push languageId.

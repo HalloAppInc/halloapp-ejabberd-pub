@@ -1296,7 +1296,11 @@ message PushRegister {
 message PushPref {
     enum Name {
         POST = 0;
-        COMMENT = 1;
+        COMMENT = 1; // Comments or reactions
+        MENTIONS = 2; // Someone mentioned you in a post/comment.
+        ON_FIRE = 3; // Popular posts.
+        NEW_USERS = 4; // New users/contacts joining katchup.
+        FOLLOWERS = 5; // New followers.
     }
     Name name = 1;
     bool value = 2;

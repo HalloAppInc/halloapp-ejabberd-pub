@@ -120,6 +120,10 @@
     set_push_comment_pref/2,
     get_push_comment_pref/1,
     remove_push_comment_pref/1,
+    set_push_mention_pref/2,
+    set_push_fire_pref/2,
+    set_push_new_user_pref/2,
+    set_push_follower_pref/2,
     get_zone_offset/1,
     presence_subscribe/2,
     presence_unsubscribe/2,
@@ -219,6 +223,10 @@
 -define(FIELD_PUSH_TIMESTAMP, <<"pts">>).
 -define(FIELD_PUSH_POST, <<"pp">>).
 -define(FIELD_PUSH_COMMENT, <<"pc">>).
+-define(FIELD_PUSH_MENTION, <<"pm">>).
+-define(FIELD_PUSH_FIRE, <<"pr">>).
+-define(FIELD_PUSH_NEW_USER, <<"pn">>).
+-define(FIELD_PUSH_FOLLOWER, <<"pf">>).
 -define(FIELD_PUSH_LANGUAGE_ID, <<"pl">>).
 -define(FIELD_ZONE_OFFSET, <<"tz">>).
 -define(FIELD_VOIP_TOKEN, <<"pvt">>).
@@ -983,6 +991,30 @@ get_push_comment_pref(Uid) ->
 -spec remove_push_comment_pref(Uid :: uid()) -> ok | {error, missing}.
 remove_push_comment_pref(Uid) ->
     {ok, _Res} = q(["HDEL", account_key(Uid), ?FIELD_PUSH_COMMENT]),
+    ok.
+
+-spec set_push_mention_pref(Uid :: uid(), PushPref :: boolean()) -> ok.
+set_push_mention_pref(Uid, PushPref) ->
+    PushPrefValue = boolean_encode(PushPref),
+    {ok, _Res} = q(["HSET", account_key(Uid), ?FIELD_PUSH_MENTION, PushPrefValue]),
+    ok.
+
+-spec set_push_fire_pref(Uid :: uid(), PushPref :: boolean()) -> ok.
+set_push_fire_pref(Uid, PushPref) ->
+    PushPrefValue = boolean_encode(PushPref),
+    {ok, _Res} = q(["HSET", account_key(Uid), ?FIELD_PUSH_FIRE, PushPrefValue]),
+    ok.
+
+-spec set_push_new_user_pref(Uid :: uid(), PushPref :: boolean()) -> ok.
+set_push_new_user_pref(Uid, PushPref) ->
+    PushPrefValue = boolean_encode(PushPref),
+    {ok, _Res} = q(["HSET", account_key(Uid), ?FIELD_PUSH_NEW_USER, PushPrefValue]),
+    ok.
+
+-spec set_push_follower_pref(Uid :: uid(), PushPref :: boolean()) -> ok.
+set_push_follower_pref(Uid, PushPref) ->
+    PushPrefValue = boolean_encode(PushPref),
+    {ok, _Res} = q(["HSET", account_key(Uid), ?FIELD_PUSH_FOLLOWER, PushPrefValue]),
     ok.
 
 
