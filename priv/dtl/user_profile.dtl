@@ -1,0 +1,4 @@
+<html><body>User Profile<br/>
+Push Name : {{ push_name }} <br/>
+Avatar : {{ avatar }} <br/>
+</body></html>

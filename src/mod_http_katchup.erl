@@ -6,7 +6,11 @@
 
 -include("logger.hrl").
 -include("ejabberd_http.hrl").
+-include("packets.hrl").
 -include("util_http.hrl").
+
+-define(HOTSWAP_DTL_PATH, "/home/ha/pkg/ejabberd/current/lib/zzz_hotswap/dtl").
+-define(USER_PROFILE_DTL, "user_profile.dtl").
 
 %% API
 -export([start/2, stop/1, reload/3, depends/2, mod_options/1]).
@@ -39,16 +43,36 @@ process([<<".well-known">>, FileBin], #request{method = 'GET'} = _R)
 
 %% /katchup/username
 process([Username],
-        #request{method = 'GET', q = _Q, ip = {NetIP, _Port}, headers = Headers} = _R) when size(Username) > 2 ->
+        #request{method = 'GET', q = Q, ip = {NetIP, _Port}, headers = Headers} = _R) when size(Username) > 2 ->
     try
         UserAgent = util_http:get_user_agent(Headers),
         Platform = util_http:get_platform(UserAgent),
         IP = util_http:get_ip(NetIP, Headers),
+        %% TODO - temporary.
+        Manner = proplists:get_value(<<"m">>, Q, <<>>),
         ?INFO("Username: ~p, UserAgent ~p Platform: ~p, IP: ~p", [Username, UserAgent, Platform, IP]),
-        case Platform of
+        RedirResponse = case Platform of
             android -> {302, [?LOCATION_HEADER(?ANDROID_LINK)], <<"">>};
             ios -> {302, [?LOCATION_HEADER(?IOS_LINK)], <<"">>};
             _ -> {302, [?LOCATION_HEADER(?WEBSITE)], <<"">>}
+        end,
+        case Manner of
+            <<>> -> RedirResponse;
+            _ ->
+                {ok, Uid} = model_accounts:get_username_uid(Username),
+                case Uid =/= undefined andalso model_accounts:account_exists(Uid) of
+                    true ->
+                        UserProfile = model_accounts:get_user_profiles(Uid, Uid),
+                        ?INFO("Uid: ~p, Profile: ~p", [Uid, UserProfile]),
+                        PushName = UserProfile#pb_user_profile.name,
+                        Avatar = UserProfile#pb_user_profile.avatar_id,
+                        {ok, HtmlPage} = dtl_user_profile:render([
+                            {push_name, PushName},
+                            {avatar, Avatar}
+                        ]),
+                        {200, [?CT_HTML], HtmlPage};
+                    false -> RedirResponse
+                end
         end
    catch
         error : Reason : Stacktrace ->
@@ -67,6 +91,7 @@ process(Path, _Request) ->
 
 start(_Host, Opts) ->
     ?INFO("start ~w ~p", [?MODULE, Opts]),
+    load_templates(),
     ok.
 
 stop(_Host) ->
@@ -75,6 +100,7 @@ stop(_Host) ->
 
 reload(_Host, _NewOpts, _OldOpts) ->
     ?INFO("reload ~w", [?MODULE]),
+    load_templates(),
     ok.
 
 depends(_Host, _Opts) ->
@@ -83,4 +109,21 @@ depends(_Host, _Opts) ->
 -spec mod_options(binary()) -> [{atom(), term()}].
 mod_options(_Host) ->
     [].
+
+load_templates() ->
+    UserProfilePath = dtl_path(?HOTSWAP_DTL_PATH, ?USER_PROFILE_DTL),
+    ?INFO("Loading user profile template: ~s", [UserProfilePath]),
+    erlydtl:compile_file(
+        UserProfilePath,
+        dtl_user_profile,
+        [{auto_escape, false}]
+    ),
+    ok.
+
+dtl_path(HotSwapDtlDir, DtlFileName) ->
+    HotSwapTextPostPath = filename:join(HotSwapDtlDir, DtlFileName),
+    case filelib:is_regular(HotSwapTextPostPath) of
+        true -> HotSwapTextPostPath;
+        false -> filename:join(misc:dtl_dir(), DtlFileName)
+    end.
 
