@@ -880,7 +880,13 @@ rank_public_moments(Uid, _Tag, NewPublicMomentIds) ->
             %% this is a temporary fix for now since we started storing this info only recently.
             case LatestNotificationId of
                 undefined -> true;
-                _ -> Moment#post.moment_info#pb_moment_info.notification_id >= LatestNotificationId
+                _ ->
+                    %% Temp fix for now since some posts are missing this.
+                    case Moment#post.moment_info of
+                        undefined -> true;
+                        MomentInfo ->
+                            MomentInfo#pb_moment_info.notification_id >= LatestNotificationId
+                    end
             end
         end, NewUnexpiredPublicMoments1),
 
