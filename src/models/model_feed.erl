@@ -299,7 +299,7 @@ get_public_moments(GeoTag, TimestampMs, Cursor, Limit) ->
         CursorPostId :: maybe(binary()), CurLimit :: integer(), Limit :: integer(), ResultPostIds :: [binary()]) -> [binary()].
 get_posts_by_time_bucket(StartTimestampHr, CurTimestampHr,
         _CursorPostId, _CurLimit, _Limit, ResultPostIds)
-        when StartTimestampHr - CurTimestampHr >= ?KATCHUP_MOMENT_EXPIRATION ->
+        when StartTimestampHr - CurTimestampHr >= ?KATCHUP_MOMENT_EXPIRATION_HRS ->
     ResultPostIds;
 get_posts_by_time_bucket(StartTimestampHr, CurTimestampHr,
         CursorPostId, CurLimit, Limit, ResultPostIds) ->
@@ -323,7 +323,7 @@ get_posts_by_time_bucket(StartTimestampHr, CurTimestampHr,
         CursorPostId :: maybe(binary()), CurLimit :: integer(), Limit :: integer(), ResultPostIds :: [binary()]) -> [binary()].
 get_posts_by_geo_tag_time_bucket(_GeoTag, StartTimestampHr, CurTimestampHr,
         _CursorPostId, _CurLimit, _Limit, ResultPostIds)
-        when StartTimestampHr - CurTimestampHr >= ?KATCHUP_MOMENT_EXPIRATION ->
+        when StartTimestampHr - CurTimestampHr >= ?KATCHUP_MOMENT_EXPIRATION_HRS ->
     ResultPostIds;
 get_posts_by_geo_tag_time_bucket(GeoTag, StartTimestampHr, CurTimestampHr,
         CursorPostId, CurLimit, Limit, ResultPostIds) ->
@@ -346,7 +346,7 @@ get_posts_by_geo_tag_time_bucket(GeoTag, StartTimestampHr, CurTimestampHr,
 -spec get_all_posts_by_time_bucket(StartTimestampHr :: integer(), CurTimestampHr :: integer(),
         ResultPostIds :: [binary()]) -> [binary()].
 get_all_posts_by_time_bucket(StartTimestampHr, CurTimestampHr, ResultPostIds)
-        when StartTimestampHr - CurTimestampHr >= ?KATCHUP_MOMENT_EXPIRATION ->
+        when StartTimestampHr - CurTimestampHr >= ?KATCHUP_MOMENT_EXPIRATION_HRS ->
     ResultPostIds;
 get_all_posts_by_time_bucket(StartTimestampHr, CurTimestampHr, ResultPostIds) ->
     {ok, PostIds} = q(["ZREVRANGEBYSCORE", time_bucket_key_hr(CurTimestampHr), "+inf", "-inf"]),
@@ -358,7 +358,7 @@ get_all_posts_by_time_bucket(StartTimestampHr, CurTimestampHr, ResultPostIds) ->
 -spec get_all_posts_by_geo_tag_time_bucket(GeoTag :: binary(), StartTimestampHr :: integer(), CurTimestampHr :: integer(),
         ResultPostIds :: [binary()]) -> [binary()].
 get_all_posts_by_geo_tag_time_bucket(_GeoTag, StartTimestampHr, CurTimestampHr, ResultPostIds)
-        when StartTimestampHr - CurTimestampHr >= ?KATCHUP_MOMENT_EXPIRATION ->
+        when StartTimestampHr - CurTimestampHr >= ?KATCHUP_MOMENT_EXPIRATION_HRS ->
     ResultPostIds;
 get_all_posts_by_geo_tag_time_bucket(GeoTag, StartTimestampHr, CurTimestampHr, ResultPostIds) ->
     {ok, PostIds} = q(["ZREVRANGEBYSCORE", geo_tag_time_bucket_key_hr(GeoTag, CurTimestampHr), "+inf", "-inf"]),
