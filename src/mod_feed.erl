@@ -394,20 +394,27 @@ publish_post(Uid, PostId, PayloadBase64, public_moment, PSATag, AudienceList, Ho
         katchup -> model_follow:get_all_followers(Uid)
     end,
     FilteredAudienceList2 = sets:to_list(get_feed_audience_set(Action, Uid, FilteredAudienceList1)),
-    {ok, FinalTimestampMs} = case model_feed:get_post(PostId) of
-        {error, missing} ->
-            TimestampMs = util:now_ms(),
-            ?INFO("Uid: ~s PostId ~p published as public_moment: ~p", [Uid, PostId]),
-            ok = model_feed:publish_moment(PostId, Uid, PayloadBase64, public_moment, all, FilteredAudienceList2, TimestampMs, MomentInfo),
-            ejabberd_hooks:run(feed_item_published, AppType,
-                [Uid, Uid, PostId, post, public_moment, all, 0, MediaCounters]),
-            {ok, TimestampMs};
-        {ok, ExistingPost} ->
-            ?INFO("Uid: ~s PostId: ~s already published", [Uid, PostId]),
-            {ok, ExistingPost#post.ts_ms}
-    end,
-    broadcast_post(Uid, FilteredAudienceList2, HomeFeedSt, FinalTimestampMs),
-    {ok, FinalTimestampMs};
+    LatestNotificationId = model_feed:get_notification_id(Uid),
+    case LatestNotificationId =:= undefined orelse MomentInfo#pb_moment_info.notification_id >= LatestNotificationId of
+        false ->
+            ?ERROR("Uid: ~p tried to publish using old notif id", [Uid]),
+            {error, old_notification_id};
+        true ->
+            {ok, FinalTimestampMs} = case model_feed:get_post(PostId) of
+            {error, missing} ->
+                TimestampMs = util:now_ms(),
+                ?INFO("Uid: ~s PostId ~p published as public_moment: ~p", [Uid, PostId]),
+                ok = model_feed:publish_moment(PostId, Uid, PayloadBase64, public_moment, all, FilteredAudienceList2, TimestampMs, MomentInfo),
+                ejabberd_hooks:run(feed_item_published, AppType,
+                    [Uid, Uid, PostId, post, public_moment, all, 0, MediaCounters]),
+                {ok, TimestampMs};
+            {ok, ExistingPost} ->
+                ?INFO("Uid: ~s PostId: ~s already published", [Uid, PostId]),
+                {ok, ExistingPost#post.ts_ms}
+        end,
+        broadcast_post(Uid, FilteredAudienceList2, HomeFeedSt, FinalTimestampMs),
+        {ok, FinalTimestampMs}
+    end;
 
 publish_post(Uid, PostId, PayloadBase64, PostTag, PSATag, AudienceList, HomeFeedSt)
         when PSATag =:= undefined; PSATag =:= <<>> ->
