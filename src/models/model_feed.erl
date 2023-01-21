@@ -511,6 +511,7 @@ expire_all_user_posts(Uid) ->
 -spec set_notification_id(Uid :: uid(), NotificationId :: integer()) -> ok.
 set_notification_id(Uid, NotificationId) ->
     {ok, _} = q(["SET", notification_id_key(Uid), util:to_binary(NotificationId)]),
+    set_moment_info_timestamp(NotificationId, util:now()),
     ok.
 
 
@@ -844,7 +845,6 @@ set_moment_time_to_send(Time, Id, Type, Prompt, Tag) ->
             % Store the type, timestamp and prompt by id.
             qp([["HSET", moment_info_key(Id), ?FIELD_MOMENT_NOTIFICATION_TYPE, util_moments:moment_type_to_bin(Type)],
                 ["HSET", moment_info_key(Id), ?FIELD_MOMENT_NOTIFICATION_PROMPT, Prompt],
-                ["HSET", moment_info_key(Id), ?FIELD_MOMENT_NOTIFICATION_TIMESTAMP, util:to_binary(Time)],
                 ["EXPIRE", moment_info_key(Id), ?MOMENT_TAG_EXPIRATION]]),
             true;
         false -> false
@@ -858,6 +858,12 @@ get_moment_info(NotificationId) ->
         ["HGET", moment_info_key(NotificationId), ?FIELD_MOMENT_NOTIFICATION_PROMPT],
         ["HGET", moment_info_key(NotificationId), ?FIELD_MOMENT_NOTIFICATION_TIMESTAMP]]),
     {util_redis:decode_ts(NotifTs), util_moments:to_moment_type(Type), Prompt}.
+
+
+-spec set_moment_info_timestamp(NotificationId :: integer(), Timestamp :: integer()) -> ok.
+set_moment_info_timestamp(NotificationId, Timestamp) ->
+    {ok, _} = q(["HSET", moment_info_key(NotificationId), ?FIELD_MOMENT_NOTIFICATION_PROMPT, util:to_binary(Timestamp)]),
+    ok.
                 
 
 -spec del_moment_time_to_send(Tag :: integer()) -> ok.
