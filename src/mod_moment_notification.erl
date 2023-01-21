@@ -145,13 +145,15 @@ re_register_user(Uid, _Server, Phone, _CampaignId) ->
 send_latest_notification(Uid, Phone) ->
     %% Fetch time for today, tomorrow, yesterday and day before yesterday.
     TodaySecs = util:now(),
+    TwoDayBeforeYesterdaySecs = (TodaySecs - 3*?DAYS),
     DayBeforeYesterdaySecs = (TodaySecs - 2*?DAYS),
     YesterdaySecs = (TodaySecs - ?DAYS),
     TomorrowSecs = (TodaySecs + ?DAYS),
-    ?INFO("TodaySecs: ~p, DayBeforeYesterdaySecs: ~p, YesterdaySecs: ~p, TomorrowSecs: ~p",
-        [TodaySecs, DayBeforeYesterdaySecs, YesterdaySecs, TomorrowSecs]),
+    ?INFO("TodaySecs: ~p, TwoDayBeforeYesterdaySecs: ~p, DayBeforeYesterdaySecs: ~p, YesterdaySecs: ~p, TomorrowSecs: ~p",
+        [TodaySecs, TwoDayBeforeYesterdaySecs, DayBeforeYesterdaySecs, YesterdaySecs, TomorrowSecs]),
 
     Today = util:get_date(TodaySecs),
+    TwoDayBeforeYesterday = util:get_date(TwoDayBeforeYesterdaySecs),
     DayBeforeYesterday = util:get_date(DayBeforeYesterdaySecs),
     Yesterday = util:get_date(YesterdaySecs),
     Tomorrow = util:get_date(TomorrowSecs),
@@ -163,6 +165,8 @@ send_latest_notification(Uid, Phone) ->
     ?INFO("CurrentHrGMT: ~p, CurrentMinGMT: ~p", [CurrentMinGMT, CurrentMinGMT]),
 
     %% Fetch time to send for different days, corresponding notif ids and types.
+    {_MinToSendPrevPrevPrevDay, TwoDayBeforeYesterdayNotifId, TwoDayBeforeYesterdayNotifType, TwoDayBeforeYesterdayPrompt} =
+        model_feed:get_moment_time_to_send(TwoDayBeforeYesterdaySecs),
     {_MinToSendPrevPrevDay, DayBeforeYesterdayNotifId, DayBeforeYesterdayNotifType, DayBeforeYesterdayPrompt} =
         model_feed:get_moment_time_to_send(DayBeforeYesterdaySecs),
     {MinToSendToday, TodayNotificationId, TodayNotificationType, TodayPrompt} =
@@ -196,9 +200,9 @@ send_latest_notification(Uid, Phone) ->
         false ->
             %% Send yesterdays notification first
             Result = case DayAdjustment of
-                0 -> {Yesterday, YesterdayNotificationId, YesterdayNotificationType, YesterdayPrompt};
-                -1 -> {DayBeforeYesterday, DayBeforeYesterdayNotifId, DayBeforeYesterdayNotifType, DayBeforeYesterdayPrompt};
-                1 -> {Today, TodayNotificationId, TodayNotificationType, TodayPrompt}
+                0 -> {DayBeforeYesterday, DayBeforeYesterdayNotifId, DayBeforeYesterdayNotifType, DayBeforeYesterdayPrompt};
+                -1 -> {TwoDayBeforeYesterday, TwoDayBeforeYesterdayNotifId, TwoDayBeforeYesterdayNotifType, TwoDayBeforeYesterdayPrompt};
+                1 -> {Yesterday, YesterdayNotificationId, YesterdayNotificationType, YesterdayPrompt}
             end,
             %% Schedule todays again separately.
             spawn(?MODULE, process_moment_tag, [[Uid], util:now(), false]),
