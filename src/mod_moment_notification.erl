@@ -148,22 +148,22 @@ send_latest_notification(Uid, Phone) ->
     DayBeforeYesterdaySecs = (TodaySecs - 2*?DAYS),
     YesterdaySecs = (TodaySecs - ?DAYS),
     TomorrowSecs = (TodaySecs + ?DAYS),
-    ?DEBUG("TodaySecs: ~p, DayBeforeYesterdaySecs: ~p, YesterdaySecs: ~p, TomorrowSecs: ~p",
+    ?INFO("TodaySecs: ~p, DayBeforeYesterdaySecs: ~p, YesterdaySecs: ~p, TomorrowSecs: ~p",
         [TodaySecs, DayBeforeYesterdaySecs, YesterdaySecs, TomorrowSecs]),
 
     Today = util:get_date(TodaySecs),
     DayBeforeYesterday = util:get_date(DayBeforeYesterdaySecs),
     Yesterday = util:get_date(YesterdaySecs),
     Tomorrow = util:get_date(TomorrowSecs),
-    ?DEBUG("Today: ~p, DayBeforeYesterday: ~p, Yesterday: ~p, Tomorrow: ~p",
+    ?INFO("Today: ~p, DayBeforeYesterday: ~p, Yesterday: ~p, Tomorrow: ~p",
         [Today, DayBeforeYesterday, Yesterday, Tomorrow]),
 
     %% Fetch current gmt time.
     {{_,_,_}, {CurrentHrGMT, CurrentMinGMT,_}} = calendar:system_time_to_universal_time(TodaySecs, second),
-    ?DEBUG("CurrentHrGMT: ~p, CurrentMinGMT: ~p", [CurrentMinGMT, CurrentMinGMT]),
+    ?INFO("CurrentHrGMT: ~p, CurrentMinGMT: ~p", [CurrentMinGMT, CurrentMinGMT]),
 
     %% Fetch time to send for different days, corresponding notif ids and types.
-    {_MinToSendPrevPrevDay, DayBeforeYesterdayNotifId, DayBeforeYesterdayNotifType, DayBeforeYesterdayPrompt} =
+    {_MinToSendPrevPrevDay, _DayBeforeYesterdayNotifId, _DayBeforeYesterdayNotifType, _DayBeforeYesterdayPrompt} =
         model_feed:get_moment_time_to_send(DayBeforeYesterdaySecs),
     {MinToSendToday, TodayNotificationId, TodayNotificationType, TodayPrompt} =
         model_feed:get_moment_time_to_send(TodaySecs),
@@ -178,7 +178,7 @@ send_latest_notification(Uid, Phone) ->
 
     %% Check if it is okay to send now.
     {TimeOk, MinToWait, DayAdjustment} = is_time_ok(LocalMin, MinToSendToday, MinToSendPrevDay, MinToSendNextDay),
-    ?DEBUG("LocalMin: ~p, TimeOk: ~p, MinToWait: ~p, DayAdjustment: ~p",
+    ?INFO("LocalMin: ~p, TimeOk: ~p, MinToWait: ~p, DayAdjustment: ~p",
         [LocalMin, TimeOk, MinToWait, DayAdjustment]),
 
     %% If we are supposed to send immediately.
@@ -196,15 +196,16 @@ send_latest_notification(Uid, Phone) ->
         false ->
             %% Send yesterdays notification first
             Result = case DayAdjustment of
-                0 -> {Yesterday, YesterdayNotificationId, YesterdayNotificationType, YesterdayPrompt};
-                -1 -> {DayBeforeYesterday, DayBeforeYesterdayNotifId, DayBeforeYesterdayNotifType, DayBeforeYesterdayPrompt};
-                1 -> {Today, TodayNotificationId, TodayNotificationType, TodayPrompt}
+                0 -> {Today, TodayNotificationId, TodayNotificationType, TodayPrompt};
+                -1 -> {Yesterday, YesterdayNotificationId, YesterdayNotificationType, YesterdayPrompt};
+                1 -> {Tomorrow, TomorrowNotificationId, TomorrowNotificationType, TomorrowPrompt}
             end,
             %% Schedule todays again separately.
             spawn(?MODULE, process_moment_tag, [[Uid], util:now(), false]),
             Result
     end,
-    ?INFO("Scheduling: ~p, Local day: ~p, MinToWait: ~p, NotificationId: ~p", [Uid, LocalDay, 0, NotificationId]),
+    ?INFO("Scheduling: ~p, Local day: ~p, MinToWait: ~p, NotificationId: ~p NotificationType: ~p, Prompt: ~p",
+            [Uid, LocalDay, 0, NotificationId, NotificationType, Prompt]),
     {NotificationTimestamp, _, _} = model_feed:get_moment_info(NotificationId),
     wait_and_send_notification(Uid, util:to_binary(LocalDay), NotificationId, NotificationTimestamp, NotificationType, Prompt, 0),
     ok.
