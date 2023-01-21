@@ -72,7 +72,8 @@
 -type set() :: sets:set().
 
 -define(POST_EXPIRATION, (31 * ?DAYS)).
--define(MOMENT_EXPIRATION, (1 * ?DAYS)).
+-define(KATCHUP_MOMENT_EXPIRATION, (2 * ?DAYS)).
+-define(KATCHUP_MOMENT_INDEX_EXPIRATION, (4 * ?DAYS)).
 -define(POST_TTL_MS, (31 * ?DAYS_MS)).
 -define(MOMENT_TAG_EXPIRATION, (7 * ?DAYS)).
 -define(GEO_TAG_EXPIRATION, (4 * ?WEEKS)).
