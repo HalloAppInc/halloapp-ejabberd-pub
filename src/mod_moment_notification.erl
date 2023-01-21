@@ -20,16 +20,22 @@
 
 -export([
     register_user/4,
+    re_register_user/4,
+    send_latest_notification/2,
     schedule/0,
     unschedule/0,
     send_notifications/0,
     send_moment_notification/1,
     send_moment_notification/4,
     maybe_send_moment_notification/5,
+    maybe_send_moment_notification/6,
     get_four_zone_offset_hr/1,
     fix_zone_tag_uids/1,
-    is_time_ok/7,  %% for testing
-    get_offset_region_by_uid/1
+    is_time_ok/4,
+    get_local_time_in_minutes/4,
+    get_local_time_in_minutes/5,
+    get_offset_region_by_uid/1,
+    process_moment_tag/3
 ]).
 
 %% Hooks
@@ -43,7 +49,8 @@ start(_Host, _Opts) ->
     ?INFO("start ~w", [?MODULE]),
     ejabberd_hooks:add(reassign_jobs, ?MODULE, reassign_jobs, 10),
     check_and_schedule(),
-    ejabberd_hooks:add(register_user, katchup, ?MODULE, register_user, 50),
+    ejabberd_hooks:add(register_user, katchup, ?MODULE, register_user, 1),
+    ejabberd_hooks:add(re_register_user, katchup, ?MODULE, re_register_user, 1),
     ok.
 
 
@@ -56,7 +63,8 @@ stop(_Host) ->
         false ->
             ok
     end,
-    ejabberd_hooks:delete(register_user, katchup, ?MODULE, register_user, 50),
+    ejabberd_hooks:delete(register_user, katchup, ?MODULE, register_user, 1),
+    ejabberd_hooks:delete(re_register_user, katchup, ?MODULE, re_register_user, 1),
     ok.
 
 depends(_Host, _Opts) ->
@@ -113,9 +121,92 @@ send_notifications() ->
     ok.
 
 -spec register_user(Uid :: binary(), Server :: binary(), Phone :: binary(), CampaignId :: binary()) -> ok.
-register_user(Uid, _Server, _Phone, _CampaignId) ->
+register_user(Uid, _Server, Phone, _CampaignId) ->
     ?INFO("Uid: ~s", [Uid]),
-    process_moment_tag([Uid], util:now(), false),
+    send_latest_notification(Uid, Phone),
+    ok.
+
+
+-spec re_register_user(Uid :: binary(), Server :: binary(), Phone :: binary(), CampaignId :: binary()) -> ok.
+re_register_user(Uid, _Server, Phone, _CampaignId) ->
+    ?INFO("Uid: ~s", [Uid]),
+    %% Clear out any recent moment notifications sent.
+    %% This will enable us to send another again if necessary.
+    Today = util:get_date(util:now()),
+    model_accounts:delete_moment_notification_sent(Uid, util:to_binary(Today-1)),
+    model_accounts:delete_moment_notification_sent(Uid, util:to_binary(Today-2)),
+    model_accounts:delete_moment_notification_sent(Uid, util:to_binary(Today)),
+    model_accounts:delete_moment_notification_sent(Uid, util:to_binary(Today+1)),
+    model_accounts:delete_moment_notification_sent(Uid, util:to_binary(Today+2)),
+    send_latest_notification(Uid, Phone),
+    ok.
+
+
+send_latest_notification(Uid, Phone) ->
+    %% Fetch time for today, tomorrow, yesterday and day before yesterday.
+    TodaySecs = util:now(),
+    DayBeforeYesterdaySecs = (TodaySecs - 2*?DAYS),
+    YesterdaySecs = (TodaySecs - ?DAYS),
+    TomorrowSecs = (TodaySecs + ?DAYS),
+    ?DEBUG("TodaySecs: ~p, DayBeforeYesterdaySecs: ~p, YesterdaySecs: ~p, TomorrowSecs: ~p",
+        [TodaySecs, DayBeforeYesterdaySecs, YesterdaySecs, TomorrowSecs]),
+
+    Today = util:get_date(TodaySecs),
+    DayBeforeYesterday = util:get_date(DayBeforeYesterdaySecs),
+    Yesterday = util:get_date(YesterdaySecs),
+    Tomorrow = util:get_date(TomorrowSecs),
+    ?DEBUG("Today: ~p, DayBeforeYesterday: ~p, Yesterday: ~p, Tomorrow: ~p",
+        [Today, DayBeforeYesterday, Yesterday, Tomorrow]),
+
+    %% Fetch current gmt time.
+    {{_,_,_}, {CurrentHrGMT, CurrentMinGMT,_}} = calendar:system_time_to_universal_time(TodaySecs, second),
+    ?DEBUG("CurrentHrGMT: ~p, CurrentMinGMT: ~p", [CurrentMinGMT, CurrentMinGMT]),
+
+    %% Fetch time to send for different days, corresponding notif ids and types.
+    {_MinToSendPrevPrevDay, DayBeforeYesterdayNotifId, DayBeforeYesterdayNotifType, DayBeforeYesterdayPrompt} =
+        model_feed:get_moment_time_to_send(DayBeforeYesterdaySecs),
+    {MinToSendToday, TodayNotificationId, TodayNotificationType, TodayPrompt} =
+        model_feed:get_moment_time_to_send(TodaySecs),
+    {MinToSendPrevDay, YesterdayNotificationId, YesterdayNotificationType, YesterdayPrompt} =
+        model_feed:get_moment_time_to_send(YesterdaySecs),
+    {MinToSendNextDay, TomorrowNotificationId, TomorrowNotificationType, TomorrowPrompt} =
+        model_feed:get_moment_time_to_send(TomorrowSecs),
+
+    %% Get local time in minutes
+    {ok, PushInfo} = model_accounts:get_push_info(Uid),
+    LocalMin = get_local_time_in_minutes(Uid, Phone, PushInfo, CurrentHrGMT, CurrentMinGMT),
+
+    %% Check if it is okay to send now.
+    {TimeOk, MinToWait, DayAdjustment} = is_time_ok(LocalMin, MinToSendToday, MinToSendPrevDay, MinToSendNextDay),
+    ?DEBUG("LocalMin: ~p, TimeOk: ~p, MinToWait: ~p, DayAdjustment: ~p",
+        [LocalMin, TimeOk, MinToWait, DayAdjustment]),
+
+    %% If we are supposed to send immediately.
+    %% This means - current local time's notification was already sent.
+    %% So we just send that days notification.
+    %% If not - we first send previous days notification and then schedule the next one.
+    {LocalDay, NotificationId, NotificationType, Prompt} = case TimeOk =:= true andalso MinToWait =:= 0 of
+        true ->
+            %% Send todays notification
+            case DayAdjustment of
+                0 -> {Today, TodayNotificationId, TodayNotificationType, TodayPrompt};
+                -1 -> {Yesterday, YesterdayNotificationId, YesterdayNotificationType, YesterdayPrompt};
+                1 -> {Tomorrow, TomorrowNotificationId, TomorrowNotificationType, TomorrowPrompt}
+            end;
+        false ->
+            %% Send yesterdays notification first
+            Result = case DayAdjustment of
+                0 -> {Yesterday, YesterdayNotificationId, YesterdayNotificationType, YesterdayPrompt};
+                -1 -> {DayBeforeYesterday, DayBeforeYesterdayNotifId, DayBeforeYesterdayNotifType, DayBeforeYesterdayPrompt};
+                1 -> {Today, TodayNotificationId, TodayNotificationType, TodayPrompt}
+            end,
+            %% Schedule todays again separately.
+            spawn(?MODULE, process_moment_tag, [[Uid], util:now(), false]),
+            Result
+    end,
+    ?INFO("Scheduling: ~p, Local day: ~p, MinToWait: ~p, NotificationId: ~p", [Uid, LocalDay, 0, NotificationId]),
+    {NotificationTimestamp, _, _} = model_feed:get_moment_info(NotificationId),
+    wait_and_send_notification(Uid, util:to_binary(LocalDay), NotificationId, NotificationTimestamp, NotificationType, Prompt, 0),
     ok.
 
 %%====================================================================
@@ -201,13 +292,10 @@ process_moment_tag(UidsList, TodaySecs, IsImmediateNotification) ->
             fun({Uid, Phone}, Acc) when Phone =/= undefined ->
                 {ok, PushInfo} = model_accounts:get_push_info(Uid),
                 ClientVersion = PushInfo#push_info.client_version,
-                ZoneOffset = case is_client_version_ok(ClientVersion) of
-                    true -> get_four_zone_offset_hr(Uid, Phone, PushInfo) * ?HOURS;
-                    false -> undefined
-                end,
+                LocalMin = get_local_time_in_minutes(Uid, Phone, PushInfo, CurrentHrGMT, CurrentMinGMT),
+
                 {TimeOk, MinToWait, DayAdjustment} = 
-                    is_time_ok(CurrentHrGMT, CurrentMinGMT, Phone, ZoneOffset,
-                        MinToSendToday, MinToSendPrevDay, MinToSendNextDay),
+                    is_time_ok(LocalMin, MinToSendToday, MinToSendPrevDay, MinToSendNextDay),
                 MinToWait2 = case IsImmediateNotification of
                     false -> MinToWait;
                     true -> 0
@@ -307,13 +395,18 @@ get_region_offset_hr(Region) ->
     end.
 
 
- 
-%% If localtime if within GMT day, use MinToSendToday. If locatime is in the prev day with
-%% respect to GMT day, use MinToSendPrevDay. If localtime is in the next day with respect to
-%% GMT day, use MinToSendNextDay.
-is_time_ok(CurrentHrGMT, CurrentMinGMT, Phone, ZoneOffset,
-        MinToSendToday, MinToSendPrevDay, MinToSendNextDay) ->
+get_local_time_in_minutes(Uid, Phone, PushInfo, CurrentHrGMT, CurrentMinGMT) ->
     ?DEBUG("GMTHr: ~p", [CurrentHrGMT]),
+    %% Why bother checking client version here?
+    ClientVersion = PushInfo#push_info.client_version,
+    ZoneOffset = case is_client_version_ok(ClientVersion) of
+        true -> get_four_zone_offset_hr(Uid, Phone, PushInfo) * ?HOURS;
+        false -> undefined
+    end,
+    get_local_time_in_minutes(Phone, ZoneOffset, CurrentHrGMT, CurrentMinGMT).
+
+
+get_local_time_in_minutes(Phone, ZoneOffset, CurrentHrGMT, CurrentMinGMT) ->
     LocalMin = case ZoneOffset of
         undefined ->
             CC = mod_libphonenumber:get_cc(Phone),
@@ -332,6 +425,14 @@ is_time_ok(CurrentHrGMT, CurrentMinGMT, Phone, ZoneOffset,
             (CurrentHrGMT * 60) + CurrentMinGMT + ZoneOffsetMin
     end,
     ?DEBUG("LocalMin: ~p", [LocalMin]),
+    LocalMin.
+
+
+%% If localtime if within GMT day, use MinToSendToday. If locatime is in the prev day with
+%% respect to GMT day, use MinToSendPrevDay. If localtime is in the next day with respect to
+%% GMT day, use MinToSendNextDay.
+is_time_ok(LocalMin, MinToSendToday, MinToSendPrevDay, MinToSendNextDay) ->
+    ?DEBUG("LocalMin: ~p", [LocalMin]),
     {DayAdjustment, MinToSend, LocalCurrentHr, LocalCurrentMin} = case LocalMin >= 24 * 60 of
         true ->
             AdjustedMin = LocalMin - 24 * 60,
@@ -346,8 +447,8 @@ is_time_ok(CurrentHrGMT, CurrentMinGMT, Phone, ZoneOffset,
     end,
     WhichHrToSend = MinToSend div 60,
     WhichMinToSend = MinToSend rem 60,
-    ?INFO("Phone: ~p, WhichTimeToSend: ~p:~p, LocalTime: ~p:~p",
-        [Phone, WhichHrToSend, WhichMinToSend, LocalCurrentHr, LocalCurrentMin]),
+    ?INFO("LocalMin: ~p, WhichTimeToSend: ~p:~p, LocalTime: ~p:~p",
+        [LocalMin, WhichHrToSend, WhichMinToSend, LocalCurrentHr, LocalCurrentMin]),
     IsTimeOk = (LocalCurrentHr >= WhichHrToSend),
     MinToWait = case LocalCurrentHr == WhichHrToSend of
         true ->
@@ -371,6 +472,29 @@ wait_and_send_notification(Uid, Tag, NotificationId, NotificationType, Prompt, M
     end,
     ok.
 
+
+-spec wait_and_send_notification(Uid :: uid(), Tag :: binary(), NotificationId :: integer(),
+        NotificationTimestamp :: integer(), NotificationType :: moment_type(), Prompt :: binary(), MinToWait :: integer()) -> ok.
+wait_and_send_notification(Uid, Tag, NotificationId, NotificationTimestamp, NotificationType, Prompt, MinToWait) ->
+    case dev_users:is_dev_uid(Uid) orelse util_uid:get_app_type(Uid) =:= katchup of
+        true ->
+            timer:apply_after(MinToWait * ?MINUTES_MS, ?MODULE,
+                maybe_send_moment_notification, [Uid, Tag, NotificationId, NotificationTimestamp, NotificationType, Prompt]);
+        false ->
+            ?INFO("Not a developer: ~p", [Uid])
+    end,
+    ok.
+
+
+-spec maybe_send_moment_notification(Uid :: uid(), Tag :: binary(), NotificationId :: integer(),
+        NotificationTimestamp :: integer(), NotificationType :: moment_type(), Prompt :: binary()) -> ok.
+maybe_send_moment_notification(Uid, Tag, NotificationId, NotificationTimestamp, NotificationType, Prompt) ->
+    case model_accounts:mark_moment_notification_sent(Uid, Tag) of
+        true -> send_moment_notification(Uid, NotificationId, NotificationTimestamp, NotificationType, Prompt);
+        false -> ?INFO("Moment notification already sent to Uid: ~p", [Uid])
+    end.
+
+
 -spec maybe_send_moment_notification(Uid :: uid(), Tag :: binary(), NotificationId :: integer(), NotificationType :: moment_type(), Prompt :: binary()) -> ok.
 maybe_send_moment_notification(Uid, Tag, NotificationId, NotificationType, Prompt) ->
     case model_accounts:mark_moment_notification_sent(Uid, Tag) of
@@ -383,6 +507,9 @@ send_moment_notification(Uid) ->
     send_moment_notification(Uid, 0, util_moments:to_moment_type(util:to_binary(rand:uniform(2))), <<"WYD?">>).
 
 send_moment_notification(Uid, NotificationId, NotificationType, Prompt) ->
+    send_moment_notification(Uid, NotificationId, util:now(), NotificationType, Prompt).
+
+send_moment_notification(Uid, NotificationId, NotificationTimestamp, NotificationType, Prompt) ->
     NotificationTime = util:now(),
     AppType = util_uid:get_app_type(Uid),
     Packet = #pb_msg{
@@ -390,7 +517,7 @@ send_moment_notification(Uid, NotificationId, NotificationType, Prompt) ->
         to_uid = Uid,
         type = headline,
         payload = #pb_moment_notification{
-            timestamp = util:now(),
+            timestamp = NotificationTimestamp,
             notification_id = NotificationId,
             type = NotificationType,
             prompt = Prompt

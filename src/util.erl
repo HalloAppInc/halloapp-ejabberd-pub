@@ -33,6 +33,7 @@
     get_upload_server/0,
     get_noise_key_material/0,
     get_noise_static_pubkey/0,
+    get_date/1,
     now_ms/0,
     now/0,
     now_binary/0,
@@ -174,6 +175,11 @@ get_noise_static_pubkey() ->
     [{_, ServerStaticPubKey, _}, {_, _, _}] = public_key:pem_decode(NoiseStaticKey),
     ServerStaticPubKey.
 
+
+-spec get_date(TimeInSec :: integer()) -> integer().
+get_date(TimeInSec) ->
+    {{_,_,Day}, {_,_,_}} = calendar:system_time_to_universal_time(TimeInSec, second),
+    Day.
 
 -spec now_ms() -> integer().
 now_ms() ->

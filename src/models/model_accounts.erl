@@ -169,6 +169,7 @@
     cleanup_psa_tagged_uids/1,
     mark_psa_post_sent/2,
     mark_moment_notification_sent/2,
+    delete_moment_notification_sent/2,
     get_node_list/0,
     scan/3,
     get_user_activity_info/1,
@@ -1546,6 +1547,11 @@ mark_moment_notification_sent(Uid, Tag) ->
         ["EXPIRE", moment_sent_notification_key(Uid, Tag), ?MOMENT_TAG_EXPIRATION]
     ]),
     NotExists =:= <<"1">>.
+
+
+delete_moment_notification_sent(Uid, Tag) ->
+    {ok, _} = q(["DEL", moment_sent_notification_key(Uid, Tag)]),
+    ok.
 
 %%====================================================================
 %% Inactive Uid deletion API.

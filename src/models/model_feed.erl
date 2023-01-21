@@ -69,6 +69,7 @@
     is_psa_tag_done/1,
     mark_psa_tag_done/1,
     del_psa_tag_done/1,
+    get_moment_time_to_send/1,
     get_moment_time_to_send/2,
     set_moment_time_to_send/5,
     del_moment_time_to_send/1,
@@ -770,6 +771,13 @@ mark_psa_tag_done(PSATag) ->
 del_psa_tag_done(PSATag) ->
     {ok, Value} = q(["HDEL", psa_tag_key(PSATag), ?FIELD_PSA_TAG_DONE]),
     Value =:= <<"1">>.
+
+
+-spec get_moment_time_to_send(DateTimeSecs :: integer()) -> {integer(), integer(), moment_type(), binary()}.
+get_moment_time_to_send(DateTimeSecs) ->
+    Day = util:get_date(DateTimeSecs),
+    get_moment_time_to_send(Day, DateTimeSecs).
+
 
 -spec get_moment_time_to_send(Tag :: integer(), DateTimeSecs :: integer()) -> {integer(), integer(), moment_type(), binary()}.
 get_moment_time_to_send(Tag, DateTimeSecs) ->
