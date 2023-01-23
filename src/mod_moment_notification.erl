@@ -28,7 +28,7 @@
     send_moment_notification/1,
     send_moment_notification/4,
     maybe_send_moment_notification/5,
-    maybe_send_moment_notification/6,
+    maybe_send_moment_notification/7,
     get_four_zone_offset_hr/1,
     fix_zone_tag_uids/1,
     is_time_ok/4,
@@ -142,6 +142,7 @@ re_register_user(Uid, _Server, Phone, _CampaignId) ->
     ok.
 
 
+%% Sends latest notification, intentionally hides banner on the client.
 send_latest_notification(Uid, Phone) ->
     %% Fetch time for today, tomorrow, yesterday and day before yesterday.
     TodaySecs = util:now(),
@@ -211,7 +212,7 @@ send_latest_notification(Uid, Phone) ->
     ?INFO("Scheduling: ~p, Local day: ~p, MinToWait: ~p, NotificationId: ~p NotificationType: ~p, Prompt: ~p",
             [Uid, LocalDay, 0, NotificationId, NotificationType, Prompt]),
     {NotificationTimestamp, _, _} = model_feed:get_moment_info(NotificationId),
-    wait_and_send_notification(Uid, util:to_binary(LocalDay), NotificationId, NotificationTimestamp, NotificationType, Prompt, 0),
+    wait_and_send_notification(Uid, util:to_binary(LocalDay), NotificationId, NotificationTimestamp, NotificationType, Prompt, true, 0),
     ok.
 
 %%====================================================================
@@ -466,6 +467,7 @@ is_time_ok(LocalMin, MinToSendToday, MinToSendPrevDay, MinToSendNextDay) ->
     {IsTimeOk, MinToWait, DayAdjustment}.
 
 
+%% TODO: remove this function.
 -spec wait_and_send_notification(Uid :: uid(), Tag :: binary(), NotificationId :: integer(), NotificationType :: moment_type(), Prompt :: binary(), MinToWait :: integer()) -> ok.
 wait_and_send_notification(Uid, Tag, NotificationId, NotificationType, Prompt, MinToWait) ->
     case dev_users:is_dev_uid(Uid) orelse util_uid:get_app_type(Uid) =:= katchup of
@@ -479,12 +481,12 @@ wait_and_send_notification(Uid, Tag, NotificationId, NotificationType, Prompt, M
 
 
 -spec wait_and_send_notification(Uid :: uid(), Tag :: binary(), NotificationId :: integer(),
-        NotificationTimestamp :: integer(), NotificationType :: moment_type(), Prompt :: binary(), MinToWait :: integer()) -> ok.
-wait_and_send_notification(Uid, Tag, NotificationId, NotificationTimestamp, NotificationType, Prompt, MinToWait) ->
+        NotificationTimestamp :: integer(), NotificationType :: moment_type(), Prompt :: binary(), HideBanner :: boolean(), MinToWait :: integer()) -> ok.
+wait_and_send_notification(Uid, Tag, NotificationId, NotificationTimestamp, NotificationType, Prompt, HideBanner, MinToWait) ->
     case dev_users:is_dev_uid(Uid) orelse util_uid:get_app_type(Uid) =:= katchup of
         true ->
             timer:apply_after(MinToWait * ?MINUTES_MS, ?MODULE,
-                maybe_send_moment_notification, [Uid, Tag, NotificationId, NotificationTimestamp, NotificationType, Prompt]);
+                maybe_send_moment_notification, [Uid, Tag, NotificationId, NotificationTimestamp, NotificationType, Prompt, HideBanner]);
         false ->
             ?INFO("Not a developer: ~p", [Uid])
     end,
@@ -492,29 +494,30 @@ wait_and_send_notification(Uid, Tag, NotificationId, NotificationTimestamp, Noti
 
 
 -spec maybe_send_moment_notification(Uid :: uid(), Tag :: binary(), NotificationId :: integer(),
-        NotificationTimestamp :: integer(), NotificationType :: moment_type(), Prompt :: binary()) -> ok.
-maybe_send_moment_notification(Uid, Tag, NotificationId, NotificationTimestamp, NotificationType, Prompt) ->
+        NotificationTimestamp :: integer(), NotificationType :: moment_type(), Prompt :: binary(), HideBanner :: boolean()) -> ok.
+maybe_send_moment_notification(Uid, Tag, NotificationId, NotificationTimestamp, NotificationType, Prompt, HideBanner) ->
     case model_accounts:mark_moment_notification_sent(Uid, Tag) of
-        true -> send_moment_notification(Uid, NotificationId, NotificationTimestamp, NotificationType, Prompt);
+        true -> send_moment_notification(Uid, NotificationId, NotificationTimestamp, NotificationType, Prompt, HideBanner);
         false -> ?INFO("Moment notification already sent to Uid: ~p", [Uid])
     end.
 
 
--spec maybe_send_moment_notification(Uid :: uid(), Tag :: binary(), NotificationId :: integer(), NotificationType :: moment_type(), Prompt :: binary()) -> ok.
+-spec maybe_send_moment_notification(Uid :: uid(), Tag :: binary(), NotificationId :: integer(),
+        NotificationType :: moment_type(), Prompt :: binary()) -> ok.
 maybe_send_moment_notification(Uid, Tag, NotificationId, NotificationType, Prompt) ->
     case model_accounts:mark_moment_notification_sent(Uid, Tag) of
-        true -> send_moment_notification(Uid, NotificationId, NotificationType, Prompt);
+        true -> send_moment_notification(Uid, NotificationId, util:now(), NotificationType, Prompt, false);
         false -> ?INFO("Moment notification already sent to Uid: ~p", [Uid])
     end.
 
 
 send_moment_notification(Uid) ->
-    send_moment_notification(Uid, 0, util_moments:to_moment_type(util:to_binary(rand:uniform(2))), <<"WYD?">>).
+    send_moment_notification(Uid, 0, util:now(), util_moments:to_moment_type(util:to_binary(rand:uniform(2))), <<"WYD?">>, false).
 
 send_moment_notification(Uid, NotificationId, NotificationType, Prompt) ->
-    send_moment_notification(Uid, NotificationId, util:now(), NotificationType, Prompt).
+    send_moment_notification(Uid, NotificationId, util:now(), NotificationType, Prompt, false).
 
-send_moment_notification(Uid, NotificationId, NotificationTimestamp, NotificationType, Prompt) ->
+send_moment_notification(Uid, NotificationId, NotificationTimestamp, NotificationType, Prompt, HideBanner) ->
     NotificationTime = util:now(),
     AppType = util_uid:get_app_type(Uid),
     Packet = #pb_msg{
@@ -525,11 +528,12 @@ send_moment_notification(Uid, NotificationId, NotificationTimestamp, Notificatio
             timestamp = NotificationTimestamp,
             notification_id = NotificationId,
             type = NotificationType,
-            prompt = Prompt
+            prompt = Prompt,
+            hide_banner = HideBanner
         }
     },
     ejabberd_router:route(Packet),
-    ejabberd_hooks:run(send_moment_notification, AppType, [Uid, NotificationId, NotificationTime, NotificationType, Prompt]),
+    ejabberd_hooks:run(send_moment_notification, AppType, [Uid, NotificationId, NotificationTime, NotificationType, Prompt, HideBanner]),
     ok.
 
 
