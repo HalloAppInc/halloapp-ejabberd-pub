@@ -789,6 +789,7 @@ get_moment_time_to_send(Tag, DateTimeSecs) ->
             ["HGET", moment_time_to_send_key2(Tag), ?FIELD_MOMENT_NOTIFICATION_PROMPT]]),
     case Payload1 of
         undefined ->
+            ?INFO("Generating moment time to send now, Tag: ~p, DateTimeSecs: ~p", [Tag, DateTimeSecs]),
             Time = generate_notification_time(DateTimeSecs),
             %% NotificationType, 5 out of 7 week days for live camera
             %% rest for text post
