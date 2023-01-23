@@ -845,7 +845,7 @@ get_stat_namespace(Bin) when is_binary(Bin) ->
                     case binary:match(Bin, <<"HalloApp">>) of
                         nomatch ->
                             case binary:match(Bin, <<"Android0.">>) of
-                                {_d1, _d2} -> "HA";
+                                {_D1, _D2} -> "HA";
                                 nomatch ->
                                     ?ERROR("Unexpected binary for stat namespace resolution: ~p", [Bin]),
                                     "HA"
