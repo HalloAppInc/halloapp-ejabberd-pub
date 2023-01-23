@@ -862,7 +862,12 @@ get_moment_info(NotificationId) ->
 
 -spec set_moment_info_timestamp(NotificationId :: integer(), Timestamp :: integer()) -> ok.
 set_moment_info_timestamp(NotificationId, Timestamp) ->
-    {ok, _} = q(["HSET", moment_info_key(NotificationId), ?FIELD_MOMENT_NOTIFICATION_PROMPT, util:to_binary(Timestamp)]),
+    case get_moment_info(NotificationId) of
+        {undefined, _, _} ->
+            {ok, _} = q(["HSET", moment_info_key(NotificationId), ?FIELD_MOMENT_NOTIFICATION_PROMPT, util:to_binary(Timestamp)]);
+        _ ->
+            ok
+    end,
     ok.
                 
 
