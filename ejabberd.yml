@@ -232,6 +232,7 @@ modules:
   mod_user_profile: {}
   mod_prompts: {}
   mod_http_katchup: {}
+  mod_ka_vanity: {}
 
 ### Local Variables:
 ### mode: yaml

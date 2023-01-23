@@ -194,7 +194,10 @@
     get_links/1,
     delete_old_username/1,
     get_geotag_uids/1,
-    update_geo_tag_index/2
+    update_geo_tag_index/2,
+    inc_num_posts/1,
+    inc_num_comments/1,
+    inc_num_seen/1
 ]).
 
 %%====================================================================
@@ -1316,7 +1319,9 @@ get_user_profiles(Uid, Ouid) ->
 
 get_user_profile(Uid, Ouid) ->
     [{ok, Username}, {ok, Name}, {ok, AvatarId}, {ok, RawBio}, {ok, LinksJson},
-            {ok, IsFollower}, {ok, IsFollowing}, {ok, IsBlocked}] = qmn([
+            {ok, IsFollower}, {ok, IsFollowing}, {ok, IsBlocked},
+            {ok, TotalPostImpressions}, {ok, TotalPostReactions},
+            {ok, TotalNumPosts}] = qmn([
         ["HGET", account_key(Ouid), ?FIELD_USERNAME],
         ["HGET", account_key(Ouid), ?FIELD_NAME],
         ["HGET", account_key(Ouid), ?FIELD_AVATAR_ID],
@@ -1324,7 +1329,10 @@ get_user_profile(Uid, Ouid) ->
         ["HGET", account_key(Ouid), ?FIELD_LINKS],
         ["ZSCORE", model_follow:follower_key(Uid), Ouid],
         ["ZSCORE", model_follow:following_key(Uid), Ouid],
-        ["SISMEMBER", model_follow:blocked_key(Uid), Ouid]
+        ["SISMEMBER", model_follow:blocked_key(Uid), Ouid],
+        ["GET", num_seen_key(Uid)],
+        ["GET", num_comments_key(Uid)],
+        ["GET", num_posts_key(Uid)]
     ]),
     FollowerStatus = case util_redis:decode_int(IsFollower) of
         undefined -> none;
@@ -1370,7 +1378,10 @@ get_user_profile(Uid, Ouid) ->
         bio = Bio,
         links = Links,
         relevant_followers = RelevantFollowerBasicProfiles,
-        blocked = util_redis:decode_boolean(IsBlocked)
+        blocked = util_redis:decode_boolean(IsBlocked),
+        total_post_impressions = util:to_integer_zero(TotalPostImpressions),
+        total_post_reactions = util:to_integer_zero(TotalPostReactions),
+        total_num_posts = util:to_integer_zero(TotalNumPosts)
     }.
 
 
@@ -1825,6 +1836,15 @@ get_user_activity_info(Usernames) ->
         InfoMap,
         Usernames -- maps:keys(InfoMap)).
 
+inc_num_posts(Uid) ->
+    q(["INCR", num_posts_key(Uid)]).
+
+inc_num_comments(Uid) ->
+    q(["INCR", num_comments_key(Uid)]).
+
+inc_num_seen(Uid) ->
+    q(["INCR", num_seen_key(Uid)]).
+
 %%====================================================================
 %% Internal redis functions.
 %%====================================================================
@@ -1957,4 +1977,13 @@ username_index_key(UsernamePrefix) ->
 
 username_uid_key(Username) ->
     <<?USERNAME_KEY/binary, "{", Username/binary, "}">>.
+
+num_posts_key(Uid) ->
+    <<?UID_NUM_POSTS_KEY/binary, "{", Uid/binary, "}">>.
+
+num_comments_key(Uid) ->
+    <<?UID_NUM_COMMENTS_KEY/binary, "{", Uid/binary, "}">>.
+
+num_seen_key(Uid) ->
+    <<?UID_NUM_POST_SEEN_KEY/binary, "{", Uid/binary, "}">>.
 

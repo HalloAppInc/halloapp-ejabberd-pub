@@ -1071,6 +1071,8 @@ message Iq {
         SetBioResult set_bio_result = 61;
         UserProfileRequest user_profile_request = 62;
         UserProfileResult user_profile_result = 63;
+        PostMetricsRequest post_metrics_request = 64;
+        PostMetricsResult post_metrics_result = 65;
     }
     int64 to_uid = 29 [ebin = true];    // only for server use
     int64 from_uid = 30 [ebin = true];    // only for server use
@@ -1783,6 +1785,13 @@ message UserProfile {
     repeated Link links = 9;
     repeated BasicUserProfile relevant_followers = 10;  // list of users I am following that follow this user
     bool blocked = 11;  // true if I blocked this user
+    int32 total_post_impressions = 12;
+    int32 total_post_reactions = 13;
+    int32 total_num_posts = 14;
+}
+
+message PostMetrics {
+    int32 num_impressions = 1;
 }
 
 message ProfileUpdate {
@@ -1814,6 +1823,24 @@ message UserProfileResult {
     Reason reason = 2;
     UserProfile profile = 3;
     repeated Post recent_posts = 4;
+}
+
+message PostMetricsRequest {
+    string post_id = 1;
+}
+
+message PostMetricsResult {
+    enum Result {
+        OK = 0;
+        FAIL = 1;
+    }
+    Result result = 1;
+    enum Reason {
+        UNKNOWN_REASON = 0;
+        NO_POST = 1;
+    }
+    Reason reason = 2;
+    PostMetrics post_metrics = 3;
 }
 
 message RelationshipRequest {

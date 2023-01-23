@@ -45,6 +45,7 @@
     type/1,
     to_integer/1,
     to_integer_maybe/1,
+    to_integer_zero/1,
     to_float/1,
     to_float_maybe/1,
     to_atom/1,
@@ -295,6 +296,12 @@ to_integer_maybe(Data) ->
         error : badarg : _ ->
             ?ERROR("Failed converting data to integer: ~p", [Data]),
             undefined
+    end.
+
+to_integer_zero(Bin) ->
+    case util:to_integer_maybe(Bin) of
+      undefined -> 0;
+      Int -> Int
     end.
 
 

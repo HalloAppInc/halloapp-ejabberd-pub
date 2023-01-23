@@ -97,7 +97,9 @@
     get_all_posts_by_geo_tag_time_bucket/4,
     mark_discovered_posts/3,
     get_past_discovered_posts/2,
-    get_moment_info/1
+    get_moment_info/1,
+    get_post_num_seen/1,
+    inc_post_num_seen/1
 ]).
 
 %% TODO(murali@): expose more apis specific to posts and comments only if necessary.
@@ -804,16 +806,10 @@ get_moment_time_to_send(Tag, DateTimeSecs) ->
         _ ->
             case {Payload2, Payload3, Payload4} of
                 {_, _, undefined} ->
-                    {to_integer_zero(Payload1), to_integer_zero(Payload2), util_moments:to_moment_type(Payload3), <<"WYD?">>};
+                    {util:to_integer_zero(Payload1), util:to_integer_zero(Payload2), util_moments:to_moment_type(Payload3), <<"WYD?">>};
                 {_, _, _} ->
-                    {to_integer_zero(Payload1), to_integer_zero(Payload2), util_moments:to_moment_type(Payload3), Payload4}
+                    {util:to_integer_zero(Payload1), util:to_integer_zero(Payload2), util_moments:to_moment_type(Payload3), Payload4}
             end
-    end.
-
-to_integer_zero(Bin) ->
-    case util:to_integer_maybe(Bin) of
-      undefined -> 0;
-      Int -> Int
     end.
 
 generate_notification_time(DateTimeSecs) ->
@@ -850,6 +846,17 @@ set_moment_time_to_send(Time, Id, Type, Prompt, Tag) ->
         false -> false
     end.
 
+-spec get_post_num_seen(PostId :: binary()) -> {ok, integer()} | {error, any()}.
+get_post_num_seen(PostId) ->
+    {ok, Res} = q(["GET", num_seen_key(PostId)]),
+    {ok, util:to_integer_zero(Res)}.
+
+-spec inc_post_num_seen(PostId :: binary()) -> ok | {error, any()}.
+inc_post_num_seen(PostId) ->
+    qp([
+        ["INCR", num_seen_key(PostId)],
+        ["EXPIRE", num_seen_key(PostId), ?POST_EXPIRATION]
+    ]).
 
 -spec get_moment_info(NotificationId :: integer()) -> {maybe(integer()), atom(), binary()}.
 get_moment_info(NotificationId) ->
@@ -1265,4 +1272,8 @@ geo_tag_time_bucket_key_hr(GeoTag, TimestampHr) ->
 discovered_posts_key(Uid, RequestTimestampMs) ->
     TimestampBin = util:to_binary(RequestTimestampMs),
     <<?DISCOVERED_POSTS_KEY/binary, "{", Uid/binary, "}:", TimestampBin/binary>>.
+
+num_seen_key(PostId) ->
+    <<?POST_NUM_SEEN_KEY/binary, "{", PostId/binary, "}">>.
+
 

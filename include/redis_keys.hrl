@@ -82,6 +82,11 @@
 -define(USERNAME_KEY, <<"usu:">>).
 -define(USERNAME_INDEX_KEY, <<"usi:">>).
 
+-define(UID_NUM_POSTS_KEY, <<"unp:">>).
+-define(UID_NUM_COMMENTS_KEY, <<"unc:">>).
+-define(UID_NUM_POST_SEEN_KEY, <<"uns:">>).
+-define(POST_NUM_SEEN_KEY, <<"pns:">>).
+
 -define(STATIC_KEY_KEY, <<"skk:">>).
 
 -define(REVERSE_STATIC_KEY_KEY, <<"rskk:">>).

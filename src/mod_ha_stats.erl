@@ -233,6 +233,7 @@ feed_item_published(Uid, PostOwnerUid, ItemId, ItemType, ItemTag, FeedAudienceTy
     case ItemType of
         post ->
             ?INFO("post ~s from Uid: ~s CC: ~s IsDev: ~p",[ItemId, Uid, CC, IsDev]),
+            mod_va_vanity:report_metrics(Uid, post),
             ha_events:log_user_event(Uid, post_published),
             report_media_counters(post, MediaCounters),
             case ItemTag of
@@ -262,6 +263,7 @@ feed_item_published(Uid, PostOwnerUid, ItemId, ItemType, ItemTag, FeedAudienceTy
             ok;
         comment ->
             ?INFO("comment ~s from Uid: ~s CC: ~s IsDev: ~p",[ItemId, Uid, CC, IsDev]),
+            mod_va_vanity:report_metrics(Uid, comment),
             ha_events:log_user_event(Uid, comment_published),
             ha_events:log_friend_event(PostOwnerUid, Uid, ItemId, comment_published),
             report_media_counters(comment, MediaCounters),
@@ -520,6 +522,7 @@ count_packet(Namespace, Action, #pb_msg{from_uid = FromUid, to_uid = ToUid, payl
                             stat:count(StatNamespace ++ "/feed_receipts", "post_viewed_by_tag", 1, [{tag, PostTag}]),
                             stat:count(StatNamespace ++ "/feed_receipts", "post_viewed_by_tag_cc", 1, [{cc, FromCC}, {tag, PostTag}]),
                             ha_events:log_user_event(FromUid, post_send_seen),
+                            mod_va_vanity:report_metrics(ToUid, ContentId, seen),
                             case PostTag =:= moment of
                                 true -> ha_events:log_user_event(FromUid, secret_post_send_seen);
                                 false -> ok
