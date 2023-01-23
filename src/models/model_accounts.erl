@@ -1324,6 +1324,10 @@ get_user_profile(Uid, Ouid) ->
                 end,
                 LinksListRaw)
     end,
+     %% Fetch Relevant followers.
+    OuidFollowers = model_follow:get_all_followers(Ouid),
+    RelevantFollowerUids = sets:to_list(sets:intersection(sets:from_list(Following), sets:from_list(OuidFollowers))),
+    RelevantFollowerBasicProfiles = get_basic_user_profiles(Uid, RelevantFollowerUids),
     #pb_user_profile{
         uid = Ouid,
         username = Username,
@@ -1334,6 +1338,7 @@ get_user_profile(Uid, Ouid) ->
         num_mutual_following = sets:size(sets:intersection(OFollowing, Following)),
         bio = Bio,
         links = Links,
+        relevant_followers = RelevantFollowerBasicProfiles,
         blocked = util_redis:decode_boolean(IsBlocked)
     }.
 
