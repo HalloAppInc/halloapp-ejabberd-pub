@@ -160,16 +160,20 @@ create_accounts(Num) ->
     UidKA = tutil:generate_uid(?KATCHUP),
     PhoneHA = integer_to_binary(?PHONE + Num),
     PhoneKA = integer_to_binary(?PHONE - Num),
+    UsernamePrefix = ?NAME,
+    NumBin = integer_to_binary(Num),
     case Num rem 2 of
         0 ->
             ok = model_accounts:create_account(UidHA, PhoneHA, ?UA_IOS),
             ok = model_accounts:set_name(UidHA, ?NAME),
             ok = model_accounts:create_account(UidKA, PhoneKA, ?UA_IOS),
+            true = model_accounts:set_username(UidKA, <<UsernamePrefix/binary, NumBin/binary>>),
             ok = model_accounts:set_name(UidKA, ?NAME);
         1 ->
             ok = model_accounts:create_account(UidHA, PhoneHA, ?UA_ANDROID),
             ok = model_accounts:set_name(UidHA, ?NAME),
             ok = model_accounts:create_account(UidKA, PhoneKA, ?UA_ANDROID),
+            true = model_accounts:set_username(UidKA, <<UsernamePrefix/binary, NumBin/binary>>),
             ok = model_accounts:set_name(UidKA, ?NAME)
     end,
     [{UidHA, UidKA}] ++ create_accounts(Num - 1).

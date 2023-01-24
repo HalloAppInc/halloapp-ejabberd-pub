@@ -67,6 +67,7 @@ setup_accounts(Accounts) ->
         fun([Uid, Phone, Name, UserAgent]) ->
             AppType = util_uid:get_app_type(Uid),
             ok = model_accounts:create_account(Uid, Phone, UserAgent),
+            true = model_accounts:set_username(Uid, Name),
             ok = model_accounts:set_name(Uid, Name),
             ok = model_phone:add_phone(Phone, AppType, Uid)
         end, Accounts),

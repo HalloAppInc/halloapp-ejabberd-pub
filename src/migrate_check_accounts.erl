@@ -26,7 +26,8 @@
     set_login_run/2,
     cleanup_offline_queue_run/2,
     check_huawei_token_run/2,
-    update_zone_offset/2
+    update_zone_offset/2,
+    update_name_index/2
 ]).
 
 
@@ -483,13 +484,45 @@ update_zone_offset(Key, State) ->
             case ZoneOffset =/= undefined of
                 true ->
                     case DryRun of
-                        true ->
+                        false ->
                             model_accounts:update_zone_offset_tag2(Uid, ZoneOffset, ZoneOffset),
                             ?INFO("Uid: ~p, updated zone offset : ~p", [Uid, ZoneOffset]);
-                        false ->
+                        true ->
                             ?INFO("Uid: ~p, will update zone offset : ~p", [Uid, ZoneOffset])
                     end;
                 false -> ok
+            end;
+        _ -> ok
+    end,
+    State.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                         Update account Name index                       %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+update_name_index(Key, State) ->
+    DryRun = maps:get(dry_run, State, false),
+    Result = re:run(Key, "^acc:{(1001[0-9]+)}$", [global, {capture, all, binary}]),
+    case Result of
+        {match, [[_FullKey, Uid]]} ->
+            case util_uid:get_app_type(Uid) of
+                katchup ->
+                    Name = model_accounts:get_name_binary(Uid),
+                    case Name =/= undefined andalso Name =/= <<>> of
+                        true ->
+                            case DryRun of
+                                false ->
+                                    model_accounts:set_name(Uid, Name),
+                                    ?INFO("Uid: ~p, updated index for name: ~p", [Uid, Name]);
+                                true ->
+                                    ?INFO("Uid: ~p, will update index for name: ~p", [Uid, Name])
+                            end;
+                        false ->
+                            ?INFO("Uid: ~p Name is empty", [Uid])
+                    end;
+                halloapp ->
+                    ok
             end;
         _ -> ok
     end,

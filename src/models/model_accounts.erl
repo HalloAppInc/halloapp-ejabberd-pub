@@ -364,8 +364,22 @@ decrement_version_and_lang_counters(Uid, ClientVersion, LangId) ->
 
 -spec set_name(Uid :: uid(), Name :: binary()) -> ok  | {error, any()}.
 set_name(Uid, Name) ->
-    {ok, _Res} = q(["HSET", account_key(Uid), ?FIELD_NAME, Name]),
-    ok.
+    case util_uid:get_app_type(Uid) of
+        katchup ->
+            OldName = get_name_binary(Uid),
+            case get_username(Uid) of
+                {ok, Username} when Username =/= undefined andalso Username =/= <<>> ->
+                    {ok, _Res} = q(["HSET", account_key(Uid), ?FIELD_NAME, Name]),
+                    delete_name_prefix(OldName, Username, byte_size(OldName)),
+                    add_name_prefix(Name, Username, byte_size(Name));
+                _ ->
+                    ?ERROR("Invalid username for Uid: ~p, cant set name now: ~p", [Uid, Name]),
+                    {error, failed}
+            end;
+        halloapp ->
+            {ok, _Res} = q(["HSET", account_key(Uid), ?FIELD_NAME, Name]),
+            ok
+    end.
 
 
 -spec get_name(Uid :: uid()) -> binary() | {ok, maybe(binary())} | {error, any()}.
@@ -511,6 +525,23 @@ delete_username_index(Username) ->
     delete_username_prefix(Username, byte_size(Username)),
     ok.
 
+
+add_name_prefix(_Name, _Username, PrefixLen) when PrefixLen =< 2 -> ok;
+add_name_prefix(Name, Username, PrefixLen) ->
+    <<NamePrefix:PrefixLen/binary, _T/binary>> = Name,
+    {ok, _Res} = q(["ZADD", username_index_key(NamePrefix), 1, Username]),
+    add_name_prefix(Name, Username, PrefixLen - 1).
+
+
+delete_name_prefix(_Name, _Username, PrefixLen) when PrefixLen =< 2 -> ok;
+delete_name_prefix(Name, Username, PrefixLen) ->
+    <<NamePrefix:PrefixLen/binary, _T/binary>> = Name,
+    {ok, _Res} = q(["ZREM", username_index_key(NamePrefix), Username]),
+    delete_name_prefix(Name, Username, PrefixLen - 1).
+
+
+%% TODO: we should switch to uids here - would make things a lot simpler to add new indexing strings.
+%% like bio/links etc.
 add_username_prefix(_Username, PrefixLen) when PrefixLen =< 2 ->
     ok;
 add_username_prefix(Username, PrefixLen) ->
