@@ -78,13 +78,15 @@
     request_phone_logs/1,
     request_uid_logs/1,
     reload_modules/1,
-    friend_recos/1
+    friend_recos/1,
+    get_moment_notif_time/1
 ]).
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
 -include("logger.hrl").
 -include("account.hrl").
+-include("feed.hrl").
 -include("groups.hrl").
 -include("time.hrl").
 -include("translate.hrl").
@@ -304,6 +306,12 @@ get_commands_spec() ->
         args_desc = ["Phone number", "AppType"],
         args_example = [<<"12065555586">>, halloapp],
         args=[{phone, binary}, {app_type, string}], result = {res, rescode}},
+    #ejabberd_commands{name = get_moment_notif_time, tags = [server],
+        desc = "Get the moment notification time for a particular date",
+        module = ?MODULE, function = get_moment_notif_time,
+        args_desc = ["Date", "20"],
+        args_example = [20],
+        args=[{date, integer}], result = {res, rescode}},
     #ejabberd_commands{name = send_invite, tags = [server],
         desc = "Send an invite",
         module = ?MODULE, function = send_invite,
@@ -1224,6 +1232,26 @@ friend_recos(Uid) ->
             io:format("(~p recommendations):~n", [length(RecommendationList)]),
             [io:format("  ~s ~w ~s ~p ~s ~n", [CorF, CPhone, FUid, FNumFriends, FName]) ||
                 {CorF, CPhone, FUid, FName, FNumFriends} <- RecommendationList]
+    end,
+    ok.
+
+
+get_moment_notif_time(Date) ->
+    %% Date must be an integer representing the day of the (current or nearest) month.
+    %% Date cannot be more than 1 day in the future or ?MOMENT_TAG_EXPIRATION days in the past
+    Today = util:get_date(util:now()),
+    case Date > (Today + 1) orelse Date < (Today - ?MOMENT_TAG_EXPIRATION) of
+        true -> io:format("Date out of range. Today is ~p", [Today]);
+        false ->
+            {MinsElapsedOnDateBeforeSend, NotifId, NotifType, NotifPrompt} = model_feed:get_moment_time_to_send(Date, 0),
+            Hrs = MinsElapsedOnDateBeforeSend div 60,
+            MinsRemaining = MinsElapsedOnDateBeforeSend rem 60,
+            MinsRemainingStr = case MinsRemaining < 10 of
+                true -> "0" ++ util:to_list(MinsRemaining);
+                false -> util:to_list(MinsRemaining)
+            end,
+            io:format("Date: ~p~nTime to send: ~p:~p~nType: ~p~nId: ~p~nPrompt: ~p~n",
+                [Date, Hrs, MinsRemainingStr, NotifType, NotifId, NotifPrompt])
     end,
     ok.
 
