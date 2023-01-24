@@ -370,8 +370,8 @@ set_name(Uid, Name) ->
             case get_username(Uid) of
                 {ok, Username} when Username =/= undefined andalso Username =/= <<>> ->
                     {ok, _Res} = q(["HSET", account_key(Uid), ?FIELD_NAME, Name]),
-                    delete_name_prefix(OldName, Username, byte_size(OldName)),
-                    add_name_prefix(Name, Username, byte_size(Name));
+                    delete_name_prefix(string:lowercase(OldName), Username, byte_size(OldName)),
+                    add_name_prefix(string:lowercase(Name), Username, byte_size(Name));
                 _ ->
                     ?ERROR("Invalid username for Uid: ~p, cant set name now: ~p", [Uid, Name]),
                     {error, failed}
