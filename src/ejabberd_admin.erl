@@ -1250,7 +1250,7 @@ get_moment_notif_time(Date) ->
                 true -> "0" ++ util:to_list(MinsRemaining);
                 false -> util:to_list(MinsRemaining)
             end,
-            io:format("Date: ~p~nTime to send: ~p:~p~nType: ~p~nId: ~p~nPrompt: ~p~n",
+            io:format("Date: ~p~nTime to send: ~p:~s~nType: ~p~nId: ~p~nPrompt: ~s~n",
                 [Date, Hrs, MinsRemainingStr, NotifType, NotifId, NotifPrompt])
     end,
     ok.
