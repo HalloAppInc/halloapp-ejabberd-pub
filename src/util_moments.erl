@@ -39,7 +39,7 @@ moment_type_to_bin(MomentType) ->
 
 -spec calculate_notif_timestamp(DayAdjustment :: integer(), MinToSend :: integer(), ZoneOffsetHr :: integer()) -> integer().
 calculate_notif_timestamp(DayAdjustment, MinToSend, ZoneOffsetHr) ->
-    {Date, {_,_,_}} = calendar:system_time_to_universal_time(util:now() - DayAdjustment * ?DAYS, second),
+    {Date, {_,_,_}} = calendar:system_time_to_universal_time(util:now() + DayAdjustment * ?DAYS, second),
     %% MinToSend is local time in minutes to send on that day.
     %% We subtract ZoneOffsetHr to get the GMT time at that time.
     %% We already adjusted for the day above.
