@@ -138,7 +138,8 @@ delete_uids() ->
     case model_accounts:mark_inactive_uids_deletion_start() of
         true ->
             ?INFO("On Wednesday, Start deletion of inactive Uids using above list", []),
-            check_and_delete_accounts(true);
+            spawn(?MODULE, check_and_delete_accounts, [true]);
+            %% check_and_delete_accounts(true);
         false ->
             ?INFO("On Wednesday, deletion of inactive Uids already started", [])
     end,
@@ -174,7 +175,7 @@ check_and_delete_accounts(ShouldDelete) ->
     %% Ok to delete, if to delete is within acceptable fraction and no dev account is slated for
     %% deletion.
     %% IsAcceptable = (Fraction < ?ACCEPTABLE_FRACTION) and IsNoDevAccount,
-    IsAcceptable = (NumInactiveAccounts < ?MAX_TO_DELETE_ACCOUNTS) and IsNoDevAccount,
+    IsAcceptable = (NumInactiveAccounts =< ?MAX_TO_DELETE_ACCOUNTS) and IsNoDevAccount,
     case IsAcceptable of
         false ->
             ?ERROR("Not deleting inactive accounts. NumInactive: ~p, Total: ~p, No dev account?: ~p",

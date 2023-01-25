@@ -155,6 +155,9 @@
     mark_inactive_uids_gen_start/0,
     mark_inactive_uids_deletion_start/0,
     mark_inactive_uids_check_start/0,
+    delete_inactive_uids_gen_key/0,
+    delete_inactive_uids_deletion_key/0,
+    delete_inactive_uids_check_key/0,
     get_export/1,
     start_export/2,
     test_set_export_time/2, % For tests only
@@ -1660,6 +1663,20 @@ mark_inactive_uids_deletion_start() ->
 mark_inactive_uids_check_start() ->
     mark_inactive_uids(?INACTIVE_UIDS_CHECK_KEY).
 
+-spec delete_inactive_uids_gen_key() -> ok.
+delete_inactive_uids_gen_key() ->
+    delete_inactive_uids_key(?INACTIVE_UIDS_GEN_KEY).
+
+
+-spec delete_inactive_uids_deletion_key() -> ok.
+delete_inactive_uids_deletion_key() ->
+    delete_inactive_uids_key(?INACTIVE_UIDS_DELETION_KEY).
+
+
+-spec delete_inactive_uids_check_key() -> ok.
+delete_inactive_uids_check_key() ->
+    delete_inactive_uids_key(?INACTIVE_UIDS_CHECK_KEY).
+
 
 mark_inactive_uids(Key) ->
     [{ok, Exists}, {ok, _}] = qp([
@@ -1667,6 +1684,10 @@ mark_inactive_uids(Key) ->
         ["EXPIRE", inactive_uids_mark_key(Key), ?INACTIVE_UIDS_VALIDITY]
     ]),
     Exists =:= <<"1">>.
+
+delete_inactive_uids_key(Key) ->
+    q(["HDEL", inactive_uids_mark_key(Key), ?FIELD_INACTIVE_UIDS_STATUS]),
+    ok.
 
 -spec get_export(Uid :: uid()) ->
     {ok, StartTs :: integer(), ExportId :: binary(), TTL :: integer()} | {error, missing}.

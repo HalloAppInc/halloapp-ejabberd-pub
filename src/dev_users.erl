@@ -85,7 +85,6 @@ get_dev_uids() ->
         <<"1000000000961054658">>,  %% Vasil test ios
         <<"1000000000186868017">>,  %% Stefan
         <<"1001000000278104441">>,
-        <<"1000000000121562547">>,  %% Stefan test phone
         <<"1000000000794464373">>,  %% Sandra Kremmeicke - german translator
         <<"1000000000995388494">>   %% Yelena - translator
     ].
