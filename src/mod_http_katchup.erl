@@ -43,36 +43,30 @@ process([<<".well-known">>, FileBin], #request{method = 'GET'} = _R)
 
 %% /katchup/username
 process([Username],
-        #request{method = 'GET', q = Q, ip = {NetIP, _Port}, headers = Headers} = _R) when size(Username) > 2 ->
+        #request{method = 'GET', q = _Q, ip = {NetIP, _Port}, headers = Headers} = _R) when size(Username) > 2 ->
     try
         UserAgent = util_http:get_user_agent(Headers),
         Platform = util_http:get_platform(UserAgent),
         IP = util_http:get_ip(NetIP, Headers),
-        %% TODO - temporary.
-        Manner = proplists:get_value(<<"m">>, Q, <<>>),
         ?INFO("Username: ~p, UserAgent ~p Platform: ~p, IP: ~p", [Username, UserAgent, Platform, IP]),
         RedirResponse = case Platform of
             android -> {302, [?LOCATION_HEADER(?ANDROID_LINK)], <<"">>};
             ios -> {302, [?LOCATION_HEADER(?IOS_LINK)], <<"">>};
             _ -> {302, [?LOCATION_HEADER(?WEBSITE)], <<"">>}
         end,
-        case Manner of
-            <<>> -> RedirResponse;
-            _ ->
-                {ok, Uid} = model_accounts:get_username_uid(Username),
-                case Uid =/= undefined andalso model_accounts:account_exists(Uid) of
-                    true ->
-                        UserProfile = model_accounts:get_user_profiles(Uid, Uid),
-                        ?INFO("Uid: ~p, Profile: ~p", [Uid, UserProfile]),
-                        PushName = UserProfile#pb_user_profile.name,
-                        Avatar = UserProfile#pb_user_profile.avatar_id,
-                        {ok, HtmlPage} = dtl_user_profile:render([
-                            {push_name, PushName},
-                            {avatar, Avatar}
-                        ]),
-                        {200, [?CT_HTML], HtmlPage};
-                    false -> RedirResponse
-                end
+        {ok, Uid} = model_accounts:get_username_uid(Username),
+        case Uid =/= undefined andalso model_accounts:account_exists(Uid) of
+            true ->
+                UserProfile = model_accounts:get_user_profiles(Uid, Uid),
+                ?INFO("Uid: ~p, Profile: ~p", [Uid, UserProfile]),
+                PushName = UserProfile#pb_user_profile.name,
+                Avatar = UserProfile#pb_user_profile.avatar_id,
+                {ok, HtmlPage} = dtl_user_profile:render([
+                    {push_name, PushName},
+                    {avatar, Avatar}
+                ]),
+                {200, [?CT_HTML], HtmlPage};
+            false -> RedirResponse
         end
    catch
         error : Reason : Stacktrace ->
