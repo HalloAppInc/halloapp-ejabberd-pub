@@ -551,9 +551,10 @@ publish_comment(PublisherUid, CommentId, PostId, ParentCommentId, PayloadBase64,
             IsPublisherInFinalAudienceSet = sets:is_element(PublisherUid, FeedAudienceSet),
             IsPublisherInPostAudienceSet = sets:is_element(PublisherUid, PostAudienceSet),
             IsPublicPost = Post#post.tag =:= public_moment orelse Post#post.tag =:= public_post,
+            IsPostValid = Post#post.expired =:= false
 
             if
-                IsPublicPost orelse IsPublisherInFinalAudienceSet ->
+                (IsPublicPost orelse IsPublisherInFinalAudienceSet) andalso IsPostValid ->
                     %% PublisherUid is allowed to comment since it is part of the final audience set.
                     %% It should be stored and broadcasted.
                     NewPushList = [PostOwnerUid, PublisherUid | ParentPushList],
@@ -566,7 +567,7 @@ publish_comment(PublisherUid, CommentId, PostId, ParentCommentId, PayloadBase64,
                         TimestampMs, FeedAudienceSet, NewPushList),
                     {ok, TimestampMs};
 
-                IsPublisherInPostAudienceSet ->
+                IsPublisherInPostAudienceSet andalso IsPostValid ->
                     %% PublisherUid is not allowed to comment.
                     %% Post was shared with them, but not in the final audience set
                     %% They could be blocked, so silently ignore it.
@@ -576,6 +577,7 @@ publish_comment(PublisherUid, CommentId, PostId, ParentCommentId, PayloadBase64,
                     ?ERROR("Failed to post, PublisherUid: ~p, PostId: ~p, CommentId: ~p", [PublisherUid, PostId, CommentId]),
                     %% PublisherUid is not allowed to comment.
                     %% Post was not shared to them, so reject with an error.
+                    %% Post has already expired.
                     {error, invalid_post_id}
             end
     end.
