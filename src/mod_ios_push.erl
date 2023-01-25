@@ -36,7 +36,8 @@
     send_dev_push/4,
     crash/0,    %% test
     retry_message_item/1,
-    pushed_message/2
+    pushed_message/2,
+    start_worker_pool/1
 ]).
 
 
@@ -47,9 +48,7 @@
 start(Host, Opts) ->
     ?INFO("start ~w", [?MODULE]),
     gen_mod:start_child(?MODULE, Host, Opts, ?PROC()),
-    PoolConfigs = [{workers, ?NUM_IOS_POOL_WORKERS}, {worker, {mod_ios_push_msg, [Host]}}],
-    Pid = wpool:start_sup_pool(?IOS_POOL, PoolConfigs),
-    ?INFO("IOS Push pool is created with pid ~p", [Pid]),
+    spawn(?MODULE, start_worker_pool, [Host]),
     ok.
 
 stop(_Host) ->
@@ -70,6 +69,13 @@ mod_options(_Host) ->
 %%====================================================================
 %% API
 %%====================================================================
+
+start_worker_pool(Host) ->
+    PoolConfigs = [{workers, ?NUM_IOS_POOL_WORKERS}, {worker, {mod_ios_push_msg, [Host]}}],
+    Pid = wpool:start_sup_pool(?IOS_POOL, PoolConfigs),
+    ?INFO("IOS Push pool is created with pid ~p", [Pid]),
+    ok.
+
 
 -spec push(Message :: message(), PushInfo :: push_info()) -> ok.
 push(Message, #push_info{os = Os, voip_token = VoipToken} = PushInfo)
