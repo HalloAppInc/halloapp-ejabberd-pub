@@ -376,8 +376,9 @@ set_name(Uid, Name) ->
                     delete_name_prefix(string:lowercase(OldName), Username, byte_size(OldName)),
                     add_name_prefix(string:lowercase(Name), Username, byte_size(Name));
                 _ ->
-                    ?ERROR("Invalid username for Uid: ~p, cant set name now: ~p", [Uid, Name]),
-                    {error, failed}
+                    %% We add this index later when setting usernames.
+                    {ok, _Res} = q(["HSET", account_key(Uid), ?FIELD_NAME, Name]),
+                    ok
             end;
         halloapp ->
             {ok, _Res} = q(["HSET", account_key(Uid), ?FIELD_NAME, Name]),
@@ -467,12 +468,17 @@ is_username_available(Username) ->
     Res =:= undefined.
 
 
+%% This adds an index on usernames and names of user as well.
+%% This is necessary right now since index uses Username, but onboarding involves user setting name before username.
+%% This temporarily fixes the issue by refreshing the indexing on names here.
 -spec set_username(Uid :: uid(), Username :: binary()) -> true | {false, any()} | {error, any()}.
 set_username(Uid, Username) ->
     case get_username(Uid) of
         {ok, Username} ->
             {ok, _} = q(["HSETNX", username_uid_key(Username), ?FIELD_USERNAME_UID, Uid]),
+            NameBin = get_name_binary(Uid),
             add_username_prefix(Username, byte_size(Username)),
+            add_name_prefix(NameBin, Username, byte_size(NameBin)),
             true;
         _ ->
             {ok, NotExists} = q(["HSETNX", username_uid_key(Username), ?FIELD_USERNAME_UID, Uid]),
@@ -480,7 +486,9 @@ set_username(Uid, Username) ->
                 true ->
                     delete_old_username(Uid),
                     {ok, _} = q(["HSET", account_key(Uid), ?FIELD_USERNAME, Username]),
+                    NameBin = get_name_binary(Uid),
                     add_username_prefix(Username, byte_size(Username)),
+                    add_name_prefix(NameBin, Username, byte_size(NameBin)),
                     true;
                 false ->
                     {false, notuniq}
