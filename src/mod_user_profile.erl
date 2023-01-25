@@ -65,6 +65,10 @@ mod_options(_Host) ->
 %%====================================================================
 
 %% SetBioRequest
+process_local_iq(#pb_iq{type = set, from_uid = Uid, payload = #pb_set_bio_request{text = undefined}} = Iq) ->
+    ok = model_accounts:set_bio(Uid, <<>>),
+    pb:make_iq_result(Iq, #pb_set_bio_result{result = ok});
+
 process_local_iq(#pb_iq{type = set, from_uid = Uid, payload = #pb_set_bio_request{text = Text}} = Iq) ->
     Ret = case byte_size(Text) >= ?MAX_BIO_LENGTH of
         true ->
@@ -86,7 +90,12 @@ process_local_iq(#pb_iq{type = set, from_uid = Uid,
     Ret = case lists:member(Type, ?VALID_LINK_TYPES) of
         true ->
             LinkMap = model_accounts:get_links(Uid),
-            ok = model_accounts:set_links(Uid, LinkMap#{Type => Text}),
+            case Text of
+                undefined ->
+                    ok = model_accounts:set_links(Uid, LinkMap#{Type => <<>>});
+                _ ->
+                    ok = model_accounts:set_links(Uid, LinkMap#{Type => Text})
+            end,
             #pb_set_link_result{result = ok};
         false ->
             #pb_set_link_result{result = fail, reason = bad_type}
@@ -123,6 +132,7 @@ account_name_updated(Uid, _Name) ->
     broadcast_profile_update(Uid),
     ok.
 
+
 -spec user_avatar_published(Uid :: binary(), Server :: binary(), AvatarId :: binary()) -> ok.
 user_avatar_published(Uid, _Server, _AvatarId) ->
     broadcast_profile_update(Uid),
@@ -133,7 +143,6 @@ user_avatar_published(Uid, _Server, _AvatarId) ->
 username_updated(Uid, _Username) ->
     broadcast_profile_update(Uid),
     ok.
-
 
 %%====================================================================
 %% Internal functions
