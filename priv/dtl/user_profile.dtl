@@ -1,4 +1,42 @@
-<html><body>User Profile<br/>
-Push Name : {{ push_name }} <br/>
-Avatar : {{ avatar }} <br/>
-</body></html>
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <title>Katchup</title>
+  <meta name="description" content="catch up with friends, once a day without opening an app again"/>
+
+  <meta property="og:title" content="Katchup"/>
+  <meta property="og:description" content="catch up with friends, once a day without opening an app again"/>
+  <meta property="og:type" content="website" />
+  <meta property="og:image" content="https://katchup.com/w/images/katchup-feature.jpg"/>
+  <meta property="og:url" content="https://katchup.com/w/" />
+  <meta property="og:site_name" content="Katchup">
+
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:image" content="https://katchup.com/w/images/katchup-feature.jpg"/>
+  <meta name="twitter:image:alt" content="Katchup">
+
+  <meta name="twitter:title" content="Katchup"/>
+  <meta name="twitter:description" content="catch up with friends, once a day without opening an app again"/>
+
+  <link rel='shortcut icon' type='image/x-icon' href='https://katchup.com/w/images/favicon.ico'/>
+  <link href='https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.min.css' rel='stylesheet'>
+  <link href='https://fonts.googleapis.com/css?family=Rubik Bubbles' rel='stylesheet'>
+
+  <script type="module" crossorigin src="https://d1efjkqerxchlh.cloudfront.net/ku/4/assets/index.8ad0bd2c.js"></script>
+  <link rel="stylesheet" href="https://d1efjkqerxchlh.cloudfront.net/ku/4/assets/index.d26ebed9.css">
+</head>
+<body>
+
+<div id="app"></div>
+<script>
+window.kun = "{{ push_name }}"
+window.kua = "{{ avatar }}"
+</script>
+
+</body>
+</html>
