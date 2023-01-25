@@ -551,7 +551,7 @@ publish_comment(PublisherUid, CommentId, PostId, ParentCommentId, PayloadBase64,
             IsPublisherInFinalAudienceSet = sets:is_element(PublisherUid, FeedAudienceSet),
             IsPublisherInPostAudienceSet = sets:is_element(PublisherUid, PostAudienceSet),
             IsPublicPost = Post#post.tag =:= public_moment orelse Post#post.tag =:= public_post,
-            IsPostValid = Post#post.expired =:= false
+            IsPostValid = Post#post.expired =:= false,
 
             if
                 (IsPublicPost orelse IsPublisherInFinalAudienceSet) andalso IsPostValid ->
