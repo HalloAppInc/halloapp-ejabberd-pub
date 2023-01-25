@@ -128,14 +128,15 @@ start_export(Uid) ->
     ExportId = util:random_str(32),
     % TODO: handle the error case
     {ok, Ts} = model_accounts:start_export(Uid, ExportId),
-    DataMap = export_data(Uid),
+    AppType = util_uid:get_app_type(Uid),
+    DataMap = export_data(Uid, AppType),
     Data = encode_data(DataMap),
     ok = upload_data(ExportId, Data),
     {ok, Ts}.
 
 
--spec export_data(Uid :: uid()) -> map().
-export_data(Uid) ->
+-spec export_data(Uid :: uid(), AppType :: app_type()) -> map().
+export_data(Uid, halloapp) ->
     {ok, Acc} = model_accounts:get_account(Uid),
 
     Account = #{
@@ -162,7 +163,7 @@ export_data(Uid) ->
     Gids = model_groups:get_groups(Uid),
     Groups = lists:map(fun get_group/1, Gids),
 
-    PrivacyLists = get_privacy_lists(Uid),
+    PrivacyLists = get_privacy_lists(Uid, halloapp),
     WhisperKeys = get_whisper_keys(Uid),
     ?INFO("WP: ~p", [WhisperKeys]),
 
@@ -171,6 +172,42 @@ export_data(Uid) ->
         contacts => Contacts,
         groups => Groups,
         invites => Invites,
+        push_info => PushInfo,
+        privacy_lists => PrivacyLists,
+        whisper_keys => WhisperKeys
+    },
+    AllData;
+
+export_data(Uid, katchup) ->
+    {ok, Acc} = model_accounts:get_account(Uid),
+
+    Account = #{
+        user_id => Acc#account.uid,
+        phone => Acc#account.phone,
+        name  => Acc#account.name,
+        username => Acc#account.username,
+        created_at_ms => Acc#account.creation_ts_ms,
+        signup_device => Acc#account.signup_user_agent,
+        client_version => Acc#account.client_version,
+        last_activity_ts_ms => Acc#account.last_activity_ts_ms,
+        device => Acc#account.device,
+        os_version => Acc#account.os_version
+    },
+    Account2 = case model_accounts:get_avatar_id_binary(Uid) of
+        <<>> -> Account;
+        AvatarId -> Account#{avatar => ?AVATAR_CDN ++ binary_to_list(AvatarId)}
+    end,
+
+    PushInfo = get_push_info(Uid),
+    {ok, Contacts} = model_contacts:get_contacts(Uid),
+
+    PrivacyLists = get_privacy_lists(Uid, katchup),
+    WhisperKeys = get_whisper_keys(Uid),
+    ?INFO("WP: ~p", [WhisperKeys]),
+
+    AllData = #{
+        account => Account2,
+        contacts => Contacts,
         push_info => PushInfo,
         privacy_lists => PrivacyLists,
         whisper_keys => WhisperKeys
@@ -277,8 +314,8 @@ get_whisper_keys(Uid) ->
         one_time_keys => OTKs
     }.
 
--spec get_privacy_lists(Uid :: uid()) -> map().
-get_privacy_lists(Uid) ->
+-spec get_privacy_lists(Uid :: uid(), AppType :: app_type()) -> map().
+get_privacy_lists(Uid, halloapp) ->
     {ok, OnlyList} = model_privacy:get_only_uids(Uid),
     {ok, ExceptList} = model_privacy:get_except_uids(Uid),
     {ok, BlockedList} = model_privacy:get_blocked_uids(Uid),
@@ -301,7 +338,18 @@ get_privacy_lists(Uid) ->
         except_phones_list => format_privacy_list2(ExceptPhonesList),
         blocked_phones_list => format_privacy_list2(BlockedPhonesList),
         mute_phones_list => format_privacy_list2(MutePhonesList)
+    };
+
+get_privacy_lists(Uid, katchup) ->
+    FollowingList = model_follow:get_all_following(Uid),
+    FollowersList = model_follow:get_all_followers(Uid),
+    BlockedList = model_follow:get_blocked_uids(Uid),
+    #{
+        following_list => format_uid_list(FollowingList),
+        follower_list => format_uid_list(FollowersList),
+        blocked_list => format_uid_list(BlockedList)
     }.
+
 
 format_privacy_list(Uids) ->
     Phones = model_accounts:get_phones(Uids),
@@ -319,4 +367,10 @@ format_privacy_list2(Phones) ->
         fun (Phone) ->
                 #{phone => mod_libphonenumber:prepend_plus(Phone)}
         end, Phones).
+
+format_uid_list(Uids) ->
+    lists:map(
+        fun (Uid) ->
+            #{uid => Uid}
+        end, Uids).
 
