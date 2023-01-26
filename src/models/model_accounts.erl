@@ -937,7 +937,7 @@ delete_zone_offset_tag(Uid, ZoneOffsetSec) when is_integer(ZoneOffsetSec) ->
  
 -spec get_zone_offset_tag_uids(ZoneOffsetSec :: integer()) -> {ok, [binary()]}.
 get_zone_offset_tag_uids(ZoneOffsetSec) ->
-    ZoneOffsetTag = util:to_binary(ZoneOffsetSec div ?MOMENT_TAG_INTERVAL_SEC),
+    ZoneOffsetTag = util:to_binary(mod_moment_notification:get_four_zone_offset_hr(ZoneOffsetSec)),
     ListUids = lists:foldl(
         fun (Slot, Acc) ->
             {ok, Res} = q(["SMEMBERS", zone_offset_tag_key(Slot, ZoneOffsetTag)]),
@@ -949,7 +949,7 @@ get_zone_offset_tag_uids(ZoneOffsetSec) ->
 
 -spec del_zone_offset(ZoneOffsetSec :: integer()) -> ok.
 del_zone_offset(ZoneOffsetSec) ->
-    ZoneOffsetTag = util:to_binary(ZoneOffsetSec div ?MOMENT_TAG_INTERVAL_SEC),
+    ZoneOffsetTag = util:to_binary(mod_moment_notification:get_four_zone_offset_hr(ZoneOffsetSec)),
     lists:foreach(
         fun(Slot) ->
             {ok, _} = q(["DEL", zone_offset_tag_key(Slot, ZoneOffsetTag)])

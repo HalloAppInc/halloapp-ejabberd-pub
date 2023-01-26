@@ -396,7 +396,7 @@ get_region_offset_hr(Region) ->
     case Region of
         europe -> 0;  %% UK
         west_asia -> 3;  %% Saudi Arabia
-        east_asia -> 8;  %% China
+        east_asia -> 6;  %% India
         america ->
             {{_, Month, _}, {_, _, _}} = calendar:local_time(),
             case Month >= 4 andalso Month =< 10 of %% April to Oct
@@ -550,8 +550,8 @@ get_offset_region(ZoneOffsetSec) when is_integer(ZoneOffsetSec) ->
     if
         ZoneOffsetHr >= -10 andalso ZoneOffsetHr =< -3 -> america;
         ZoneOffsetHr > -3 andalso ZoneOffsetHr < 3 -> europe;
-        ZoneOffsetHr >= 3 andalso ZoneOffsetHr < 8 -> west_asia;
-        ZoneOffsetHr >= 8 orelse ZoneOffsetHr < -10 -> east_asia;
+        ZoneOffsetHr >= 3 andalso ZoneOffsetHr < 5 -> west_asia;
+        ZoneOffsetHr >= 5 orelse ZoneOffsetHr < -10 -> east_asia;
         true ->
             ?ERROR("Invalid zone_offset: ~p", [ZoneOffsetSec]),
             undefined
