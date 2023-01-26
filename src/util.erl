@@ -290,6 +290,7 @@ to_integer(Data) ->
     end.
 
 -spec to_integer_maybe(any()) -> maybe(integer()).
+to_integer_maybe(undefined) -> undefined;
 to_integer_maybe(Data) ->
     try to_integer(Data)
     catch
