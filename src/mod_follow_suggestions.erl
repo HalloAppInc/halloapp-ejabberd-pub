@@ -123,21 +123,31 @@ generate_follow_suggestions(Uid, Phone) ->
         fetch_suggested_profiles(Uid, ContactSuggestions, direct_contact, 1),
     FoFSuggestedProfiles =
         fetch_suggested_profiles(Uid, FoFSuggestions, fof, length(ContactSuggestions) + 1),
-    %% 3. TODO: Find uids that share same campus
     ContactSuggestedProfiles ++ FoFSuggestedProfiles.
 
 get_sorted_uids(Uid, SuggestionsSet) ->
+    OUidList = sets:to_list(SuggestionsSet),
+    OProfilesList = model_accounts:get_basic_user_profiles(Uid, OUidList),
+    OList = lists:zip(OUidList, OProfilesList),
     %% fetch followers count.
-    Tuples = lists:foldl(fun(Ouid, Acc) ->
+    Tuples = lists:foldl(fun({Ouid, OProfile}, Acc) ->
         case model_follow:is_blocked_any(Uid, Ouid) orelse Uid =:= Ouid of
             true -> Acc;
-            false -> Acc ++ [{Ouid, model_follow:get_followers_count(Ouid)}]
+            false ->
+                NumMutualFollowing = OProfile#pb_basic_user_profile.num_mutual_following,
+                Acc ++ [{Ouid, NumMutualFollowing, model_follow:get_followers_count(Ouid)}]
         end
-    end, [], sets:to_list(SuggestionsSet)),
+    end, [], OList),
     
     %% Sort and extract uids.
-    SortedTuples = lists:sort(fun({_, Cnt1}, {_, Cnt2}) -> Cnt1 =< Cnt2 end, Tuples),
-    [Elem || {Elem, _} <- SortedTuples].
+    SortedTuples = lists:sort(
+        fun({_, NumMFollow1, NumFollowers1}, {_, NumMFollow2, NumFollowers2}) ->
+            case NumMFollow1 =:= NumMFollow2 of
+                true -> NumFollowers1 >= NumFollowers2;
+                false -> NumMFollow1 >= NumMFollow2
+            end
+        end, Tuples),
+    [Elem || {Elem, _, _} <- SortedTuples].
 
 fetch_suggested_profiles(Uid, Suggestions, Reason, StartingRank) ->
     Profiles = model_accounts:get_basic_user_profiles(Uid, Suggestions),
