@@ -36,6 +36,7 @@
 <script>
 window.kun = "{{ push_name }}"
 window.kua = "{{ avatar }}"
+window.kub = "{{ base64_enc_blob }}"
 </script>
 
 </body>

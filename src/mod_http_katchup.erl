@@ -58,12 +58,14 @@ process([Username],
         case Uid =/= undefined andalso model_accounts:account_exists(Uid) of
             true ->
                 UserProfile = model_accounts:get_user_profiles(Uid, Uid),
+                UserProfileBlob = enif_protobuf:encode(mod_user_profile:compose_user_profile_result(<<"-1">>, Uid)),
                 ?INFO("Uid: ~p, Profile: ~p", [Uid, UserProfile]),
                 PushName = UserProfile#pb_user_profile.name,
                 Avatar = UserProfile#pb_user_profile.avatar_id,
                 {ok, HtmlPage} = dtl_user_profile:render([
                     {push_name, PushName},
-                    {avatar, Avatar}
+                    {avatar, Avatar},
+                    {base64_enc_blob, base64url:encode(UserProfileBlob)}
                 ]),
                 {200, [?CT_HTML], HtmlPage};
             false -> RedirResponse

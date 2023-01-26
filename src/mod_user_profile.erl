@@ -23,7 +23,8 @@
     account_name_updated/2,
     user_avatar_published/3,
     username_updated/2,
-    broadcast_profile_update/1
+    broadcast_profile_update/1,
+    compose_user_profile_result/2
 ]).
 
 -define(MAX_BIO_LENGTH, 150).
@@ -150,27 +151,7 @@ username_updated(Uid, _Username) ->
 
 process_user_profile_request(Uid, Ouid, Iq) ->
     Ret = case model_accounts:account_exists(Ouid) andalso not model_follow:is_blocked_any(Uid, Ouid) of
-        true ->
-            UserProfile = model_accounts:get_user_profiles(Uid, Ouid),
-            RawRecentPosts = model_feed:get_recent_user_posts(Ouid),
-            AccountName = model_accounts:get_name_binary(Ouid),
-            RecentPosts = lists:map(
-                fun(#post{id = PostId, payload = PayloadBase64, ts_ms = TimestampMs, tag = PostTag, moment_info = MomentInfo}) ->
-                    #pb_post{
-                        id = PostId,
-                        publisher_uid = Ouid,
-                        publisher_name = AccountName,
-                        payload = base64:decode(PayloadBase64),
-                        timestamp = util:ms_to_sec(TimestampMs),
-                        moment_info = MomentInfo,
-                        tag = PostTag
-                    }
-                end, RawRecentPosts),
-            #pb_user_profile_result{
-                result = ok,
-                profile = UserProfile,
-                recent_posts = RecentPosts
-            };
+        true -> compose_user_profile_result(Uid, Ouid);
         false ->
             #pb_user_profile_result{
                 result = fail,
@@ -180,7 +161,30 @@ process_user_profile_request(Uid, Ouid, Iq) ->
     pb:make_iq_result(Iq, Ret).
 
 
-%% Broadcasts profile update to followers.
+compose_user_profile_result(Uid, Ouid) ->
+    UserProfile = model_accounts:get_user_profiles(Uid, Ouid),
+    RawRecentPosts = model_feed:get_recent_user_posts(Ouid),
+    AccountName = model_accounts:get_name_binary(Ouid),
+    RecentPosts = lists:map(
+        fun(#post{id = PostId, payload = PayloadBase64, ts_ms = TimestampMs, tag = PostTag, moment_info = MomentInfo}) ->
+            #pb_post{
+                id = PostId,
+                publisher_uid = Ouid,
+                publisher_name = AccountName,
+                payload = base64:decode(PayloadBase64),
+                timestamp = util:ms_to_sec(TimestampMs),
+                moment_info = MomentInfo,
+                tag = PostTag
+            }
+        end, RawRecentPosts),
+    #pb_user_profile_result{
+        result = ok,
+        profile = UserProfile,
+        recent_posts = RecentPosts
+    }.
+
+
+ %% Broadcasts profile update to followers.
 %% TODO: Send this to contactUids who have this number.
 -spec broadcast_profile_update(Uid :: binary()) -> ok.
 broadcast_profile_update(Uid) ->
