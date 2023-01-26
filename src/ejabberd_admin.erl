@@ -57,6 +57,8 @@
     phone_info/2,
     phone_info_short/2,
     phone_info_with_all_contacts/2,
+    username_info/1,
+    username_info_short/1,
     group_info/1,
     session_info/1,
     spub_info/1,
@@ -270,6 +272,18 @@ get_commands_spec() ->
             args_desc = ["Phone to be traced"],
             args_example = ["12066585586"],
             args = [{phone, string}], result = {res, rescode}},
+    #ejabberd_commands{name = username_info, tags = [server],
+        desc = "Get information associated with a username",
+        module = ?MODULE, function = username_info,
+        args_desc = ["Username"],
+        args_example = [<<"my_username">>],
+        args=[{username, binary}], result = {res, rescode}},
+    #ejabberd_commands{name = username_info_short, tags = [server],
+        desc = "Get information associated with a username",
+        module = ?MODULE, function = username_info_short,
+        args_desc = ["Username"],
+        args_example = [<<"my_username">>],
+        args=[{username, binary}], result = {res, rescode}},
     #ejabberd_commands{name = uid_info, tags = [server],
         desc = "Get information associated with a user account",
         module = ?MODULE, function = uid_info,
@@ -933,6 +947,22 @@ uid_info_katchup(Uid, Options) ->
     end,
     ok.
 
+
+username_info(Username) ->
+    username_info(Username, []).
+
+username_info_short(Username) ->
+    username_info(Username, [short]).
+
+username_info(Username, Options) ->
+    case model_accounts:get_username_uid(Username) of
+        {ok, undefined} ->
+            io:format("No account associated with username: ~s", [Username]);
+        {ok, Uid} ->
+            uid_info_katchup(Uid, Options)
+    end.
+
+
 print_push_token_info(Uid) ->
     {ok, PushInfo} = model_accounts:get_push_info(Uid),
     #push_info{os = Os,
@@ -1112,7 +1142,7 @@ get_sms_codes(PhoneRaw, AppType) ->
         NormalizedPhone ->
             {ok, RawList} = model_phone:get_all_verification_info(NormalizedPhone, AppType),
             case RawList of
-                [] -> io:format("No SMS codes associated with phone: ~s, AppType: ~p", [NormalizedPhone, AppType]);
+                [] -> io:format("No SMS codes associated with phone: ~s, AppType: ~p~n", [NormalizedPhone, AppType]);
                 _ ->
                     Codes = [Code || #verification_info{code = Code} <- RawList],
                     io:format("SMS codes for phone: ~s~n", [NormalizedPhone]),
