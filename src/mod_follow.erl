@@ -86,6 +86,12 @@ process_local_iq(#pb_iq{from_uid = Uid, type = get,
     pb:make_error(IQ, util:err(invalid_type));
 
 
+%% RelationshipRequest where user tries to do something with themself should fail
+process_local_iq(#pb_iq{from_uid = Uid,
+    payload = #pb_relationship_request{action = Action, uid = Ouid}} = IQ) when Uid =:= Ouid ->
+    ?WARNING("User tried to ~p themselves: ~p", [Action, Uid]),
+    pb:make_iq_result(IQ, #pb_relationship_response{result = fail});
+
 %% RelationshipRequest (action = follow)
 process_local_iq(#pb_iq{from_uid = Uid,
         payload = #pb_relationship_request{action = follow, uid = Ouid}} = IQ) ->

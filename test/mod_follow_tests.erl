@@ -23,6 +23,23 @@ setup() ->
     CleanupInfo#{testdata => {Uid1, Uid2}}.
 
 %%====================================================================
+%% Standalone tests
+%%====================================================================
+
+test_follow_self_testset(#{testdata := {Uid1, _Uid2}}) ->
+    ClientIQ = #pb_iq{
+        from_uid = Uid1,
+        payload = #pb_relationship_request{
+            action = follow,
+            uid = Uid1
+            }
+        },
+    ExpectedResultPayload = #pb_relationship_response{result = fail},
+    [
+        ?_assertMatch(ExpectedResultPayload, tutil:get_result_iq_sub_el(mod_follow:process_local_iq(ClientIQ)))
+    ].
+
+%%====================================================================
 %% IQ tests – follow, unfollow, remove follower, block, unblock
 %%====================================================================
 

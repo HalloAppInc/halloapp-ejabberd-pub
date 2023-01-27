@@ -654,6 +654,7 @@ username_test(_) ->
     ?_assert(model_accounts:set_username(?UID1, ?USERNAME1)),
     ?_assertOk(model_accounts:set_avatar_id(?UID1, ?AVATAR_ID1)),
     ?_assertOk(model_accounts:set_avatar_id(?UID2, ?AVATAR_ID2)),
+    ?_assert(model_accounts:set_username(?UID3, ?USERNAMEPFIX2)),
     ?_assertEqual(ExpectedRes1, mod_search:search_username_prefix(?USERNAMEPFIX1, ?UID3)),
     ?_assertOk(model_follow:block(?UID2, ?UID3)),
     ?_assertEqual(ExpectedRes2, mod_search:search_username_prefix(?USERNAMEPFIX1, ?UID3))
