@@ -276,8 +276,10 @@ test_get_followers_iq(#{testdata := {Uid1, _Uid2, _Uid3, Uid4, Uid5, _Uid6, _Uid
 
 test_get_blocked_iq(#{testdata := {Uid1, _Uid2, _Uid3, _Uid4, _Uid5, Uid6, Uid7}} = _CleanupInfo) ->
     %% Uid1 has blocked Uid6 and Uid7
-    Uid6UserInfo = blocked_user_profile(Uid6, true),
-    Uid7UserInfo = blocked_user_profile(Uid7, true),
+    Uid6Name = <<"uid6name">>,
+    ok = model_accounts:set_name(Uid6, Uid6Name),
+    Uid6UserInfo = (blocked_user_profile(Uid6, true))#pb_basic_user_profile{name = Uid6Name},
+    Uid7UserInfo = (blocked_user_profile(Uid7, true))#pb_basic_user_profile{name = undefined},
     Request = #pb_iq{
         type = get,
         from_uid = Uid1,

@@ -76,7 +76,14 @@ process_local_iq(#pb_iq{from_uid = Uid, type = get,
         payload = #pb_relationship_list{type = blocked} = RelationshipList} = IQ) ->
     BlockedUids = model_follow:get_blocked_uids(Uid),
     UserProfiles = model_accounts:get_basic_user_profiles(Uid, BlockedUids),
-    pb:make_iq_result(IQ, RelationshipList#pb_relationship_list{cursor = <<>>, users = UserProfiles});
+    %% Need to insert names as per the designs for the blocked list in-app
+    UserProfiles2 = lists:map(
+        fun(#pb_basic_user_profile{uid = Ouid} = UserProfile) ->
+            {ok, Name} = model_accounts:get_name(Ouid),
+            UserProfile#pb_basic_user_profile{name = Name}
+        end,
+        UserProfiles),
+    pb:make_iq_result(IQ, RelationshipList#pb_relationship_list{cursor = <<>>, users = UserProfiles2});
 
 
 %% get RelationshipList error: unknown type
