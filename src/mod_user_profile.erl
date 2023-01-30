@@ -71,7 +71,7 @@ process_local_iq(#pb_iq{type = set, from_uid = Uid, payload = #pb_set_bio_reques
     pb:make_iq_result(Iq, #pb_set_bio_result{result = ok});
 
 process_local_iq(#pb_iq{type = set, from_uid = Uid, payload = #pb_set_bio_request{text = Text}} = Iq) ->
-    Ret = case byte_size(Text) >= ?MAX_BIO_LENGTH of
+    Ret = case string:length(Text) > ?MAX_BIO_LENGTH of
         true ->
             #pb_set_bio_result{
                 result = fail,
