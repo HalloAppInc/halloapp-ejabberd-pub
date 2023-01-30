@@ -899,8 +899,11 @@ rank_public_moments(Uid, _Tag, NewPublicMomentIds) ->
             end
         end, NewUnexpiredPublicMoments1),
 
-    %% Filter out content from self and following uids.
-    RemoveAuthorSet = sets:from_list(model_follow:get_all_following(Uid) ++ [Uid]),
+    %% Filter out content from self, following, and blocked uids.
+    RemoveAuthorSet = sets:from_list(model_follow:get_all_following(Uid)
+        ++ [Uid]
+        ++ model_follow:get_blocked_uids(Uid)
+        ++ model_follow:get_blocked_by_uids(Uid)),
     NewUnexpiredUnrelatedPublicMoments = lists:filter(
             fun(PublicMoment) -> not sets:is_element(PublicMoment#post.uid, RemoveAuthorSet) end,
             NewUnexpiredPublicMoments2),
