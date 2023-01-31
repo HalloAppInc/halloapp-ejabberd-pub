@@ -376,6 +376,7 @@ get_four_zone_offset_hr(_Uid, Phone, PushInfo) ->
         true ->
             case mod_libphonenumber:get_cc(Phone) of
                 <<"US">> -> get_region_offset_hr(america);
+                <<"IN">> -> get_region_offset_hr(east_asia);
                 _ ->
                     %% Ignoring everything other than the US for now and we default to the US.
                     get_region_offset_hr(america)

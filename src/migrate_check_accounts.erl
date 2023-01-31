@@ -9,6 +9,7 @@
 
 -include("logger.hrl").
 -include("account.hrl").
+-include("time.hrl").
 -include("client_version.hrl").
 
 -export([
@@ -480,17 +481,16 @@ update_zone_offset(Key, State) ->
     case Result of
         {match, [[_FullKey, Uid]]} ->
             {ok, PushInfo} = model_accounts:get_push_info(Uid),
-            ZoneOffset = PushInfo#push_info.zone_offset,
-            case ZoneOffset =/= undefined of
+            {ok, Phone} = model_accounts:get_phone(Uid),
+            ZoneOffset = ?HOURS * mod_moment_notification:get_four_zone_offset_hr(Uid, Phone, PushInfo),
+            %% zone offset shouldn't be undefined.
+            true = ZoneOffset =/= undefined,
+            case DryRun of
+                false ->
+                    model_accounts:update_zone_offset_tag2(Uid, ZoneOffset, ZoneOffset),
+                    ?INFO("Uid: ~p, updated zone offset : ~p", [Uid, ZoneOffset]);
                 true ->
-                    case DryRun of
-                        false ->
-                            model_accounts:update_zone_offset_tag2(Uid, ZoneOffset, ZoneOffset),
-                            ?INFO("Uid: ~p, updated zone offset : ~p", [Uid, ZoneOffset]);
-                        true ->
-                            ?INFO("Uid: ~p, will update zone offset : ~p", [Uid, ZoneOffset])
-                    end;
-                false -> ok
+                    ?INFO("Uid: ~p, will update zone offset : ~p", [Uid, ZoneOffset])
             end;
         _ -> ok
     end,
