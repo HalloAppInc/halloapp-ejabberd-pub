@@ -165,7 +165,7 @@ send_latest_notification(Uid, Phone) ->
 
     %% Fetch current gmt time.
     {{_,_,_}, {CurrentHrGMT, CurrentMinGMT,_}} = calendar:system_time_to_universal_time(TodaySecs, second),
-    ?INFO("CurrentHrGMT: ~p, CurrentMinGMT: ~p", [CurrentMinGMT, CurrentMinGMT]),
+    ?INFO("CurrentHrGMT: ~p, CurrentMinGMT: ~p", [CurrentHrGMT, CurrentMinGMT]),
 
     %% Fetch time to send for different days, corresponding notif ids and types.
     {_MinToSendPrevPrevPrevDay, _TwoDayBeforeYesterdayNotifId, _TwoDayBeforeYesterdayNotifType, _TwoDayBeforeYesterdayPrompt} =

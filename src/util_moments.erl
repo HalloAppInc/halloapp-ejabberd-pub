@@ -39,19 +39,22 @@ moment_type_to_bin(MomentType) ->
 
 -spec calculate_notif_timestamp(DayAdjustment :: integer(), MinToSend :: integer(), ZoneOffsetHr :: integer()) -> integer().
 calculate_notif_timestamp(DayAdjustment, MinToSend, ZoneOffsetHr) ->
-    {Date, {_,_,_}} = calendar:system_time_to_universal_time(util:now() + DayAdjustment * ?DAYS, second),
     %% MinToSend is local time in minutes to send on that day.
-    %% We subtract ZoneOffsetHr to get the GMT time at that time.
-    %% We already adjusted for the day above.
+    %% We subtract ZoneOffsetHr to get the GMT time at that time - since that is the notification timestamp.
+    %% we obtain the appropriate day adjustment from it if necessary.
     %% So if Hrs > 24, then subtract 24.
     %% If Hrs < 0, then add 24.
     %% Otherwise - just use the result.
-    TimeHr = case (MinToSend div 60)-ZoneOffsetHr of
-        Hrs when Hrs > 0 andalso Hrs < 24 -> Hrs;
-        Hrs when Hrs >= 24 -> Hrs - 24;
-        Hrs -> Hrs + 24
+    {TimezoneDayAdjustment, TimeHr} = case (MinToSend div 60)-ZoneOffsetHr of
+        Hrs when Hrs > 0 andalso Hrs < 24 -> {0, Hrs};
+        Hrs when Hrs >= 24 -> {1, Hrs - 24};
+        Hrs -> {-1, Hrs + 24}
     end,
+    TotalDayAdjustment = DayAdjustment + TimezoneDayAdjustment,
+    %% Get date.
+    {Date, {_,_,_}} = calendar:system_time_to_universal_time(util:now() + TotalDayAdjustment * ?DAYS, second),
     TimeMin = MinToSend rem 60,
+    %% Calculate timestamp now.
     NotificationDateTime = {Date, {TimeHr, TimeMin, 0}},
     %% 62167219200 == calendar:datetime_to_gregorian_seconds({{1970, 1, 1}, {0, 0, 0}})
     Timestamp = calendar:datetime_to_gregorian_seconds(NotificationDateTime) - 62167219200,
