@@ -480,17 +480,21 @@ update_zone_offset(Key, State) ->
     Result = re:run(Key, "^acc:{([0-9]+)}$", [global, {capture, all, binary}]),
     case Result of
         {match, [[_FullKey, Uid]]} ->
-            {ok, PushInfo} = model_accounts:get_push_info(Uid),
-            {ok, Phone} = model_accounts:get_phone(Uid),
-            ZoneOffset = ?HOURS * mod_moment_notification:get_four_zone_offset_hr(Uid, Phone, PushInfo),
-            %% zone offset shouldn't be undefined.
-            true = ZoneOffset =/= undefined,
-            case DryRun of
-                false ->
-                    model_accounts:update_zone_offset_tag2(Uid, ZoneOffset, ZoneOffset),
-                    ?INFO("Uid: ~p, updated zone offset : ~p", [Uid, ZoneOffset]);
-                true ->
-                    ?INFO("Uid: ~p, will update zone offset : ~p", [Uid, ZoneOffset])
+            case model_accounts:get_phone(Uid) of
+                {ok, Phone} ->
+                    {ok, PushInfo} = model_accounts:get_push_info(Uid),
+                    ZoneOffset = ?HOURS * mod_moment_notification:get_four_zone_offset_hr(Uid, Phone, PushInfo),
+                    %% zone offset shouldn't be undefined.
+                    true = ZoneOffset =/= undefined,
+                    case DryRun of
+                        false ->
+                            model_accounts:update_zone_offset_tag2(Uid, ZoneOffset, ZoneOffset),
+                            ?INFO("Uid: ~p, updated zone offset : ~p", [Uid, ZoneOffset]);
+                        true ->
+                            ?INFO("Uid: ~p, will update zone offset : ~p", [Uid, ZoneOffset])
+                    end;
+                {error, missing} ->
+                    ?INFO("Skipping user: ~p", [Uid])
             end;
         _ -> ok
     end,

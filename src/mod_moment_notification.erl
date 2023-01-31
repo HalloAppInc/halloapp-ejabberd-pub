@@ -371,7 +371,7 @@ get_zone_tag_uids(ZoneOffsetDiff) ->
 
 
 get_four_zone_offset_hr(_Uid, Phone, PushInfo) ->
-    case PushInfo#push_info.token =:= undefined of
+    case PushInfo#push_info.zone_offset =:= undefined of
         false -> get_region_offset_hr(get_offset_region(PushInfo#push_info.zone_offset));
         true ->
             case mod_libphonenumber:get_cc(Phone) of
