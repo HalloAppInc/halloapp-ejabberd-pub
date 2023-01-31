@@ -375,10 +375,13 @@ voip_and_push_tokens(_) ->
     ?_assertOk(model_accounts:remove_push_info(?UID1)),
     ?_assertEqual({ok, #push_info{uid = ?UID1, post_pref = true, comment_pref = true}}, model_accounts:get_push_info(?UID1)),
     ?_assertEqual({ok, #push_info{uid = ?UID2, post_pref = true, comment_pref = true}}, model_accounts:get_push_info(?UID2)),
+    ?_assertOk(model_accounts:create_account(?UID2, ?PHONE2, ?USER_AGENT2, ?CAMPAIGN_ID, ?TS2)),
+    ?_assertOk(model_accounts:set_name(?UID2, ?NAME2)),
     ?_assertOk(model_accounts:set_push_token(?UID2, ?PUSH_TOKEN_OS2,
             ?PUSH_TOKEN2, ?PUSH_TOKEN_TIMESTAMP2, ?PUSH_LANG_ID2, ?ZONE_OFFSET2)),
     ?_assertEqual({ok, ?PUSH_INFO2}, model_accounts:get_push_info(?UID2)),
     ?_assertEqual(?ZONE_OFFSET2, model_accounts:get_zone_offset(?UID2)),
+    ?_assertOk(model_accounts:delete_account(?UID2)),
     %% voip token
     ?_assertOk(model_accounts:remove_push_info(?UID1)),
     ?_assertEqual({ok, #push_info{uid = ?UID1, post_pref = true, comment_pref = true}}, model_accounts:get_push_info(?UID1)),

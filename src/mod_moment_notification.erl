@@ -30,6 +30,7 @@
     maybe_send_moment_notification/5,
     maybe_send_moment_notification/7,
     get_four_zone_offset_hr/3,
+    get_four_zone_offset_hr/2,
     get_four_zone_offset_hr/1,
     fix_zone_tag_uids/1,
     is_time_ok/4,
@@ -344,17 +345,19 @@ is_client_version_ok(_UserAgent) ->
 fix_zone_tag_uids(ZoneTag) ->
     UidsList = get_zone_tag_uids(ZoneTag),
     TagOk = lists:foldl(fun(Uid, Acc) ->
-        {ok, PushInfo} = model_accounts:get_push_info(Uid),
-        ZoneOffset = PushInfo#push_info.zone_offset,
-        case ZoneOffset of
-            undefined -> Acc;
-            _ ->
-                Hr = get_four_zone_offset_hr(ZoneOffset),
+        case model_accounts:get_phone(Uid) of
+            {ok, Phone} ->
+                {ok, PushInfo} = model_accounts:get_push_info(Uid),
+                ZoneOffset = PushInfo#push_info.zone_offset,
+                Hr = get_four_zone_offset_hr(ZoneOffset, Phone),
                 CorrectList = get_zone_tag_uids(Hr),
                 Present = lists:member(Uid, CorrectList),
                 ?INFO("Uid: ~p, new zone tag: ~p, old tag: ~p, present: ~p",  
                     [Uid, Hr, ZoneTag, Present]),
-                Acc andalso Present
+                Acc andalso Present;
+            {error, missing} ->
+                ?INFO("Need to delete uid: ~p from zone tag: ~p", [Uid, ZoneTag]),
+                Acc
         end
     end, true, UidsList),
     ?INFO("Tag OK: ~p", [TagOk]). 
@@ -371,22 +374,28 @@ get_zone_tag_uids(ZoneOffsetDiff) ->
 
 
 get_four_zone_offset_hr(_Uid, Phone, PushInfo) ->
-    case PushInfo#push_info.zone_offset =:= undefined of
-        false -> get_region_offset_hr(get_offset_region(PushInfo#push_info.zone_offset));
-        true ->
-            case mod_libphonenumber:get_cc(Phone) of
-                <<"US">> -> get_region_offset_hr(america);
-                <<"IN">> -> get_region_offset_hr(east_asia);
-                _ ->
-                    %% Ignoring everything other than the US for now and we default to the US.
-                    get_region_offset_hr(america)
-            end
+    get_four_zone_offset_hr(PushInfo#push_info.zone_offset, Phone).
+
+
+get_four_zone_offset_hr(ZoneOffsetSec, Phone) ->
+    case ZoneOffsetSec =:= undefined of
+        false -> get_four_zone_offset_hr(ZoneOffsetSec);
+        true -> get_four_zone_offset_hr_phone(Phone)
     end.
 
-
 get_four_zone_offset_hr(ZoneOffsetSec) ->
+    true = (ZoneOffsetSec =/= undefined),
     get_region_offset_hr(get_offset_region(ZoneOffsetSec)).
 
+
+get_four_zone_offset_hr_phone(Phone) ->
+    case mod_libphonenumber:get_cc(Phone) of
+        <<"US">> -> get_region_offset_hr(america);
+        <<"IN">> -> get_region_offset_hr(east_asia);
+        _ ->
+            %% Ignoring everything other than the US for now and we default to the US.
+            get_region_offset_hr(america)
+    end.
 
 %% California time for America
 %% UK time for Europe

@@ -913,15 +913,16 @@ update_zone_offset_tag2(Uid, ZoneOffsetSec, OldZoneOffsetSec) when is_integer(Zo
     ok.
 
 -spec update_zone_offset_tag(Uid :: binary(), ZoneOffsetSec :: maybe(integer()), OldZoneOffsetSec :: maybe(integer())) -> ok.
-update_zone_offset_tag(Uid, ZoneOffsetSec, OldZoneOffsetSec) when is_integer(ZoneOffsetSec) andalso ZoneOffsetSec =/= OldZoneOffsetSec ->
+update_zone_offset_tag(Uid, ZoneOffsetSec, OldZoneOffsetSec) when ZoneOffsetSec =/= OldZoneOffsetSec ->
     HashSlot = util_redis:eredis_hash(binary_to_list(Uid)),
     Slot = HashSlot rem ?NUM_SLOTS,
-    ZoneOffsetTag = util:to_binary(mod_moment_notification:get_four_zone_offset_hr(ZoneOffsetSec)),
+    {ok, Phone} = get_phone(Uid),
+    ZoneOffsetTag = util:to_binary(mod_moment_notification:get_four_zone_offset_hr(ZoneOffsetSec, Phone)),
     Commands = case OldZoneOffsetSec of
         undefined ->
             [["SADD", zone_offset_tag_key(Slot, ZoneOffsetTag), Uid]];
         _ ->
-            OldOffsetTag = util:to_binary(mod_moment_notification:get_four_zone_offset_hr(OldZoneOffsetSec)),
+            OldOffsetTag = util:to_binary(mod_moment_notification:get_four_zone_offset_hr(OldZoneOffsetSec, Phone)),
             [["SREM", zone_offset_tag_key(Slot, OldOffsetTag), Uid],
             ["SADD", zone_offset_tag_key(Slot, ZoneOffsetTag), Uid]]
     end,
@@ -930,11 +931,12 @@ update_zone_offset_tag(Uid, ZoneOffsetSec, OldZoneOffsetSec) when is_integer(Zon
 update_zone_offset_tag(_Uid, _ZoneOffsetSec, _OldZoneOffsetSec) ->
     ok.
 
--spec delete_zone_offset_tag(Uid :: binary(), ZoneOffsetSec :: integer()) -> ok.
-delete_zone_offset_tag(Uid, ZoneOffsetSec) when is_integer(ZoneOffsetSec) ->
+-spec delete_zone_offset_tag(Uid :: binary(), ZoneOffsetSec :: maybe(integer())) -> ok.
+delete_zone_offset_tag(Uid, ZoneOffsetSec) ->
     HashSlot = util_redis:eredis_hash(binary_to_list(Uid)),
     Slot = HashSlot rem ?NUM_SLOTS,
-    ZoneOffsetTag = util:to_binary(mod_moment_notification:get_four_zone_offset_hr(ZoneOffsetSec)),
+    {ok, Phone} = get_phone(Uid),
+    ZoneOffsetTag = util:to_binary(mod_moment_notification:get_four_zone_offset_hr(ZoneOffsetSec, Phone)),
     q(["SREM", zone_offset_tag_key(Slot, ZoneOffsetTag), Uid]),
     ok.
  
