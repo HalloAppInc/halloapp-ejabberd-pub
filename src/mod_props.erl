@@ -109,7 +109,8 @@ get_props(Uid, ClientVersion, katchup) ->
         nse_runtime_sec => 17, %% ios-nse needs 3 secs to cleanup, we want our nse to run =< 20 secs.
         enable_sentry_perf_tracking => false, %% Enable Sentry perf tracking on iOS clients
         background_upload => true,   %% Enables background upload on ios clients.
-        relationship_sync_frequency => 1 * ?DAYS %% how often should clients sync all relationships.
+        relationship_sync_frequency => 1 * ?DAYS, %% how often should clients sync all relationships.
+        refresh_public_feed_interval_secs => 10 * ?MINUTES
     },
     ClientType = util_ua:get_client_type(ClientVersion),
     AppType = util_ua:get_app_type(ClientVersion),
