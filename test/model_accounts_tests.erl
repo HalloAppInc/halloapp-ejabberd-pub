@@ -789,19 +789,27 @@ get_user_activity_info_testset(_) ->
         #pb_moment_info{notification_timestamp = util:now_ms(), notification_id = util:now_ms()}),
     [
         %% Uid1 is not active because no geotag
-        ?_assertEqual(#{Username => {Uid1, 5, 1, undefined, false}}, model_accounts:get_user_activity_info(Username)),
+        ?_assertEqual(
+            #{Username => #{uid => Uid1, num_followers => {ok, 5}, num_posts => {ok, 1}, geotag => {fail, undefined}, active => false}},
+            model_accounts:get_user_activity_info(Username)),
         %% Add geotag for Uid1 and they should now be active
         ?_assertOk(model_accounts:add_geo_tag(Uid1, cal_ave, util:now())),
-        ?_assertEqual(#{Username => {Uid1, 5, 1, cal_ave, true}}, model_accounts:get_user_activity_info(Username)),
+        ?_assertEqual(
+            #{Username => #{uid => Uid1, num_followers => {ok, 5}, num_posts => {ok, 1}, geotag => {ok, cal_ave}, active => true}},
+            model_accounts:get_user_activity_info(Username)),
         %% Remove a follower from Uid1 and they are not active again
         ?_assertOk(model_follow:unfollow(Uid2, Uid1)),
-        ?_assertEqual(#{Username => {Uid1, 4, 1, cal_ave, false}}, model_accounts:get_user_activity_info(Username)),
+        ?_assertEqual(
+            #{Username => #{uid => Uid1, num_followers => {fail, 4}, num_posts => {ok, 1}, geotag => {ok, cal_ave}, active => false}},
+            model_accounts:get_user_activity_info(Username)),
         %% Add a follower so Uid1 is active, then delete their only post to make them not active
         ?_assertOk(model_follow:follow(Uid2, Uid1)),
         ?_assertOk(model_feed:retract_post(?POSTID1, Uid1)),
-        ?_assertEqual(#{Username => {Uid1, 5, 0, cal_ave, false}}, model_accounts:get_user_activity_info(Username)),
+        ?_assertEqual(
+            #{Username => #{uid => Uid1, num_followers => {ok, 5}, num_posts => {fail, 0}, geotag => {ok, cal_ave}, active => false}},
+            model_accounts:get_user_activity_info(Username)),
         %% A username that does not exist should not be active
-        ?_assertEqual(#{<<"bad_uname">> => {undefined, 0, 0, undefined, false}}, model_accounts:get_user_activity_info(<<"bad_uname">>))
+        ?_assertEqual(#{<<"bad_uname">> => #{active => false}}, model_accounts:get_user_activity_info(<<"bad_uname">>))
     ].
 
 

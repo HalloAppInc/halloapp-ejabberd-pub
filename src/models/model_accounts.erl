@@ -1868,27 +1868,38 @@ scan(Node, Cursor, Count) ->
     end.
 
 
--spec get_user_activity_info(Usernames :: [binary()]) -> #{Username :: binary() =>
-    {Uid :: uid(), NumFollowers :: non_neg_integer(), NumPosts :: non_neg_integer(), Geotag :: maybe(binary()), Active :: boolean()}}.
+-spec get_user_activity_info(Usernames :: [binary()]) -> #{Username :: binary() => map()}.
 get_user_activity_info(Username) when not is_list(Username) ->
     get_user_activity_info([Username]);
 get_user_activity_info(Usernames) ->
     UsernameToUidMap = get_username_uids(Usernames),
+    %% {username => #{uid => uid(), num_followers => {ok, non_negative_integer()} | {fail, non_negative_integer()}, ..., active => boolean()}}
     InfoMap = maps:map(
         fun(_Username, Uid) ->
-            NumFollowers = model_follow:get_followers_count(Uid),
-            NumPosts = model_feed:get_num_posts(Uid),
-            Geotag = get_latest_geo_tag(Uid),
-            IsActive = NumFollowers >= ?ACTIVE_USER_MIN_FOLLOWERS
-                andalso NumPosts >= ?ACTIVE_USER_MIN_POSTS
-                andalso Geotag =/= undefined,
-            {Uid, NumFollowers, NumPosts, Geotag, IsActive}
+            {DataMap, IsActive} = maps:fold(
+                fun(Key, {FetchDataFun, IsActiveFun}, {ResultMap, IsActive}) ->
+                    Data = FetchDataFun(Uid),
+                    IsActiveOnThisStep = IsActiveFun(Data),
+                    NewResultMap = case IsActiveOnThisStep of
+                        true -> ResultMap#{Key => {ok, Data}};
+                        false -> ResultMap#{Key => {fail, Data}}
+                    end,
+                    NewIsActive = IsActive andalso IsActiveOnThisStep,
+                    {NewResultMap, NewIsActive}
+                end,
+                {#{}, true},
+                #{
+                    num_followers => {fun model_follow:get_followers_count/1, fun(N) -> N >= ?ACTIVE_USER_MIN_FOLLOWERS end},
+                    num_posts => {fun model_feed:get_num_posts/1, fun(N) -> N >= ?ACTIVE_USER_MIN_POSTS end},
+                    geotag => {fun get_latest_geo_tag/1, fun(T) -> T =/= undefined end}
+                }),
+            DataMap#{uid => Uid, active => IsActive}
         end,
         UsernameToUidMap),
     %% For usernames not associated with an account, inject into map as inactive
     lists:foldl(
         fun(BadUsername, AccMap) ->
-            maps:put(BadUsername, {undefined, 0, 0, undefined, false}, AccMap)
+            maps:put(BadUsername, #{active => false}, AccMap)
         end,
         InfoMap,
         Usernames -- maps:keys(InfoMap)).

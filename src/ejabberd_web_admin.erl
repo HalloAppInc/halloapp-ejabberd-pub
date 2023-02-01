@@ -421,12 +421,15 @@ process_admin(_Host, #request{path = [<<"additions.js">>]}, _) ->
      [{<<"Content-Type">>, <<"text/javascript">>},
       last_modified(), cache_control_public()],
      additions_js()};
-process_admin(global, #request{path = [<<"vhosts">>], lang = Lang}, AJID) ->
-    Res = list_vhosts(Lang, AJID),
-    make_xhtml((?H1GL((?T("Virtual Hosts")),
-		      <<"virtual-hosting">>, ?T("Virtual Hosting")))
-		 ++ Res,
-	       global, Lang, AJID);
+process_admin(global, #request{path = [<<"vhosts">>], lang = _Lang}, _AJID) ->
+    {403,
+        [{<<"WWW-Authenticate">>, <<"basic realm=\"ejabberd\"">>}],
+        ejabberd_web:make_xhtml([?XCT(<<"h1">>, ?T("403 Forbidden"))])};
+%%    Res = list_vhosts(Lang, AJID),
+%%    make_xhtml((?H1GL((?T("Virtual Hosts")),
+%%		      <<"virtual-hosting">>, ?T("Virtual Hosting")))
+%%		 ++ Res,
+%%	       global, Lang, AJID);
 process_admin(Host,  #request{path = [<<"users">>], q = Query,
 			      lang = Lang}, AJID)
     when is_binary(Host) ->
@@ -502,9 +505,12 @@ process_admin(Host, #request{path = [<<"user">>, U],
 	  make_xhtml([?XCT(<<"h1">>, ?T("Not Found"))], Host,
 		     Lang, AJID)
     end;
-process_admin(Host, #request{path = [<<"nodes">>], lang = Lang}, AJID) ->
-    Res = get_nodes(Lang),
-    make_xhtml(Res, Host, Lang, AJID);
+process_admin(_Host, #request{path = [<<"nodes">>], lang = _Lang}, _AJID) ->
+    {403,
+        [{<<"WWW-Authenticate">>, <<"basic realm=\"ejabberd\"">>}],
+        ejabberd_web:make_xhtml([?XCT(<<"h1">>, ?T("403 Forbidden"))])};
+%%    Res = get_nodes(Lang),
+%%    make_xhtml(Res, Host, Lang, AJID);
 process_admin(Host, #request{path = [<<"node">>, SNode | NPath],
 			     q = Query, lang = Lang}, AJID) ->
     case search_running_node(SNode) of
@@ -515,32 +521,38 @@ process_admin(Host, #request{path = [<<"node">>, SNode | NPath],
 	  Res = get_node(Host, Node, NPath, Query, Lang),
 	  make_xhtml(Res, Host, Node, Lang, AJID)
     end;
-process_admin(Host, #request{path = [<<"lookup">> | _Rest], q = Query, lang = Lang}, AJID) ->
-    Info = process_search_query(Query, fun lookup_phone/1, fun lookup_uid/1),
-    Html = [
-        ?XCT(<<"h1">>, ?T("Lookup")), ?BR,
-        ?XAE(<<"form">>, [{<<"method">>, <<"get">>}],
-            [?XAC(<<"label">>, [{<<"for">>, <<"search">>}],
-                    "Enter a phone number or uid (eg. +16505550000 or 1000000000000000001):"),
-                ?BR,
-                ?INPUT(<<"text">>, <<"search">>, <<>>),
-                ?INPUT(<<"submit">>, <<>>, <<"Submit">>)]
-        ), ?BR
-    ],
-    make_xhtml(Html ++ Info, Host, Lang, AJID);
-process_admin(Host, #request{path = [<<"sms">> | _Rest], q = Query, lang = Lang}, AJID) ->
-    Info = process_search_query(Query, fun generate_sms_info/1, fun generate_sms_info/1),
-    Html = [
-        ?XCT(<<"h1">>, ?T("SMS Code Search")), ?BR,
-        ?XAE(<<"form">>, [{<<"method">>, <<"get">>}],
-            [?XAC(<<"label">>, [{<<"for">>, <<"search">>}],
-                "Enter a phone number (eg. +16505550000):"),
-                ?BR,
-                ?INPUT(<<"text">>, <<"search">>, <<>>),
-                ?INPUT(<<"submit">>, <<>>, <<"Get SMS Code">>)]
-        ), ?BR
-    ],
-    make_xhtml(Html ++ Info, Host, Lang, AJID);
+process_admin(_Host, #request{path = [<<"lookup">> | _Rest], q = _Query, lang = _Lang}, _AJID) ->
+    {403,
+        [{<<"WWW-Authenticate">>, <<"basic realm=\"ejabberd\"">>}],
+        ejabberd_web:make_xhtml([?XCT(<<"h1">>, ?T("403 Forbidden"))])};
+%%    Info = process_search_query(Query, fun lookup_phone/1, fun lookup_uid/1),
+%%    Html = [
+%%        ?XCT(<<"h1">>, ?T("Lookup")), ?BR,
+%%        ?XAE(<<"form">>, [{<<"method">>, <<"get">>}],
+%%            [?XAC(<<"label">>, [{<<"for">>, <<"search">>}],
+%%                    "Enter a phone number or uid (eg. +16505550000 or 1000000000000000001):"),
+%%                ?BR,
+%%                ?INPUT(<<"text">>, <<"search">>, <<>>),
+%%                ?INPUT(<<"submit">>, <<>>, <<"Submit">>)]
+%%        ), ?BR
+%%    ],
+%%    make_xhtml(Html ++ Info, Host, Lang, AJID);
+process_admin(_Host, #request{path = [<<"sms">> | _Rest], q = _Query, lang = _Lang}, _AJID) ->
+    {403,
+        [{<<"WWW-Authenticate">>, <<"basic realm=\"ejabberd\"">>}],
+        ejabberd_web:make_xhtml([?XCT(<<"h1">>, ?T("403 Forbidden"))])};
+%%    Info = process_search_query(Query, fun generate_sms_info/1, fun generate_sms_info/1),
+%%    Html = [
+%%        ?XCT(<<"h1">>, ?T("SMS Code Search")), ?BR,
+%%        ?XAE(<<"form">>, [{<<"method">>, <<"get">>}],
+%%            [?XAC(<<"label">>, [{<<"for">>, <<"search">>}],
+%%                "Enter a phone number (eg. +16505550000):"),
+%%                ?BR,
+%%                ?INPUT(<<"text">>, <<"search">>, <<>>),
+%%                ?INPUT(<<"submit">>, <<>>, <<"Get SMS Code">>)]
+%%        ), ?BR
+%%    ],
+%%    make_xhtml(Html ++ Info, Host, Lang, AJID);
 process_admin(Host, #request{path = [<<"user_activity">> | _Rest], q = Query, lang = Lang}, AJID) ->
 	Info = process_username_query(Query),
 	Html = [
@@ -579,41 +591,41 @@ term_to_id(T) -> base64:encode((term_to_binary(T))).
 %%%==================================
 %%%% list_vhosts
 
-list_vhosts(Lang, JID) ->
-    Hosts = ejabberd_option:hosts(),
-    HostsAllowed = lists:filter(fun (Host) ->
-					any_rules_allowed(Host,
-						     [configure, webadmin_view],
-						     JID)
-				end,
-				Hosts),
-    list_vhosts2(Lang, HostsAllowed).
-
-list_vhosts2(_Lang, Hosts) ->
-    SHosts = lists:sort(Hosts),
-    [?XE(<<"table">>,
-	 [?XE(<<"thead">>,
-	      [?XE(<<"tr">>,
-		   [?XCT(<<"td">>, ?T("Host")),
-		    ?XCT(<<"td">>, ?T("Registered Users")),
-		    ?XCT(<<"td">>, ?T("Online Users"))])]),
-	  ?XE(<<"tbody">>,
-	      (lists:map(fun (Host) ->
-				 OnlineUsers =
-				     ejabberd_sm:ets_count_sessions(),
-				 RegisteredUsers =
-				     ejabberd_auth:count_users(),
-				 ?XE(<<"tr">>,
-				     [?XE(<<"td">>,
-					  [?AC(<<"../server/", Host/binary,
-						 "/">>,
-					       Host)]),
-				      ?XC(<<"td">>,
-					  (pretty_string_int(RegisteredUsers))),
-				      ?XC(<<"td">>,
-					  (pretty_string_int(OnlineUsers)))])
-			 end,
-			 SHosts)))])].
+%%list_vhosts(Lang, JID) ->
+%%    Hosts = ejabberd_option:hosts(),
+%%    HostsAllowed = lists:filter(fun (Host) ->
+%%					any_rules_allowed(Host,
+%%						     [configure, webadmin_view],
+%%						     JID)
+%%				end,
+%%				Hosts),
+%%    list_vhosts2(Lang, HostsAllowed).
+%%
+%%list_vhosts2(_Lang, Hosts) ->
+%%    SHosts = lists:sort(Hosts),
+%%    [?XE(<<"table">>,
+%%	 [?XE(<<"thead">>,
+%%	      [?XE(<<"tr">>,
+%%		   [?XCT(<<"td">>, ?T("Host")),
+%%		    ?XCT(<<"td">>, ?T("Registered Users")),
+%%		    ?XCT(<<"td">>, ?T("Online Users"))])]),
+%%	  ?XE(<<"tbody">>,
+%%	      (lists:map(fun (Host) ->
+%%				 OnlineUsers =
+%%				     ejabberd_sm:ets_count_sessions(),
+%%				 RegisteredUsers =
+%%				     ejabberd_auth:count_users(),
+%%				 ?XE(<<"tr">>,
+%%				     [?XE(<<"td">>,
+%%					  [?AC(<<"../server/", Host/binary,
+%%						 "/">>,
+%%					       Host)]),
+%%				      ?XC(<<"td">>,
+%%					  (pretty_string_int(RegisteredUsers))),
+%%				      ?XC(<<"td">>,
+%%					  (pretty_string_int(OnlineUsers)))])
+%%			 end,
+%%			 SHosts)))])].
 
 %%%==================================
 %%%% list_users
@@ -1032,29 +1044,29 @@ histogram([], _Integral, _Current, Count, Hist) ->
 %%%==================================
 %%%% get_nodes
 
-get_nodes(_Lang) ->
-    RunningNodes = ejabberd_cluster:get_nodes(),
-    StoppedNodes = ejabberd_cluster:get_known_nodes()
-		     -- RunningNodes,
-    FRN = ?XE(<<"ul">>,
-		     (lists:map(fun (N) ->
-					S = iolist_to_binary(atom_to_list(N)),
-					?LI([?AC(<<"../node/", S/binary, "/">>,
-						 S)])
-				end,
-				lists:sort(RunningNodes)))),
-    FSN = if StoppedNodes == [] -> ?CT(?T("None"));
-	     true ->
-		 ?XE(<<"ul">>,
-		     (lists:map(fun (N) ->
-					S = iolist_to_binary(atom_to_list(N)),
-					?LI([?C(S)])
-				end,
-				lists:sort(StoppedNodes))))
-	  end,
-    [?XCT(<<"h1">>, ?T("Nodes")),
-     ?XCT(<<"h3">>, ?T("Running Nodes")), FRN,
-     ?XCT(<<"h3">>, ?T("Stopped Nodes")), FSN].
+%%get_nodes(_Lang) ->
+%%    RunningNodes = ejabberd_cluster:get_nodes(),
+%%    StoppedNodes = ejabberd_cluster:get_known_nodes()
+%%		     -- RunningNodes,
+%%    FRN = ?XE(<<"ul">>,
+%%		     (lists:map(fun (N) ->
+%%					S = iolist_to_binary(atom_to_list(N)),
+%%					?LI([?AC(<<"../node/", S/binary, "/">>,
+%%						 S)])
+%%				end,
+%%				lists:sort(RunningNodes)))),
+%%    FSN = if StoppedNodes == [] -> ?CT(?T("None"));
+%%	     true ->
+%%		 ?XE(<<"ul">>,
+%%		     (lists:map(fun (N) ->
+%%					S = iolist_to_binary(atom_to_list(N)),
+%%					?LI([?C(S)])
+%%				end,
+%%				lists:sort(StoppedNodes))))
+%%	  end,
+%%    [?XCT(<<"h1">>, ?T("Nodes")),
+%%     ?XCT(<<"h3">>, ?T("Running Nodes")), FRN,
+%%     ?XCT(<<"h3">>, ?T("Stopped Nodes")), FSN].
 
 search_running_node(SNode) ->
     RunningNodes = ejabberd_cluster:get_nodes(),
@@ -1887,161 +1899,161 @@ any_rules_allowed(Host, Access, #jid{luser = User} = Entity) ->
     end.
 
 
-lookup_uid(Uid) ->
-    ?INFO("Getting account info for uid: ~s", [Uid]),
-    case model_accounts:account_exists(Uid) of
-        false -> [?XC(<<"p">>, io_lib:format("No account found for uid: ~s", [Uid]))];
-        true ->
-            {ok, Account} = model_accounts:get_account(Uid),
-            {CreateDate, CreateTime} = util:ms_to_datetime_string(Account#account.creation_ts_ms),
-            {LADate, LATime} = util:ms_to_datetime_string(Account#account.last_activity_ts_ms),
-            InvitesLeft = mod_invites:get_invites_remaining(Uid),
-            AccInfo = [
-                ?XC(<<"h3">>, io_lib:format("~s (~s)", [Account#account.name, Uid])),
-                ?P,
-                ?C(io_lib:format("Phone: ~s", [Account#account.phone])), ?BR,
-                ?C(io_lib:format("User agent: ~s", [Account#account.signup_user_agent])), ?BR,
-                ?C(io_lib:format("Account created on ~s at ~s", [CreateDate, CreateTime])), ?BR,
-                ?C(io_lib:format("Last activity on ~s at ~s and current status is ~s",
-                    [LADate, LATime, Account#account.activity_status])), ?BR,
-                ?C(io_lib:format("Invites remaining: ~B", [InvitesLeft])), ?BR,
-                ?ENDP
-            ],
-            FriendTable = generate_friend_table(Uid),
-            GroupTable = generate_groups_table(Uid),
-            InviteTable = generate_invites_table(Uid),
-            AccInfo ++ FriendTable ++ GroupTable ++ InviteTable
-    end.
-
-
-%% TODO: clean this up separately.
-lookup_phone(Phone) ->
-    ?INFO("Getting account info for phone: ~s", [Phone]),
-    case model_phone:get_uid(Phone, halloapp) of
-        {ok, undefined} ->
-            Info = [?XC(<<"p">>, io_lib:format("No halloapp account found for phone: ~s", [Phone]))],
-            {ok, VerificationInfo} = model_phone:get_all_verification_info(Phone, halloapp),
-            _Info2 = lists:foldl(
-                fun(VerifyAttempt, Acc) ->
-                    Acc ++ [
-                        ?XE(<<"p">>, [
-                            ?C(io_lib:format("Attempt: ~p", [VerifyAttempt]))
-                        ])
-                    ]
-                end,
-                Info,
-                VerificationInfo
-            );
-        {ok, Uid} -> lookup_uid(Uid)
-    end,
-    case model_phone:get_uid(Phone, katchup) of
-        {ok, undefined} ->
-            Info3 = [?XC(<<"p">>, io_lib:format("No katchup account found for phone: ~s", [Phone]))],
-            {ok, VerificationInfo2} = model_phone:get_all_verification_info(Phone, katchup),
-            _Info4 = lists:foldl(
-                fun(VerifyAttempt, Acc) ->
-                    Acc ++ [
-                        ?XE(<<"p">>, [
-                            ?C(io_lib:format("Attempt: ~p", [VerifyAttempt]))
-                        ])
-                    ]
-                end,
-                Info3,
-                VerificationInfo2
-            );
-        {ok, Uid2} -> lookup_uid(Uid2)
-    end.
-
-
-generate_friend_table(Uid) ->
-    {ok, Friends} = model_friends:get_friends(Uid),
-    FNameMap = model_accounts:get_names(Friends),
-    {DynamicFriendData, _FriendAcc} = lists:foldl(
-        fun({FUid, FName}, {AccList, Index}) ->
-            {AccList ++ [?XTRA(?NTH_ROW_CLASS(Index),
-                [?XTDL(<<"?search=", FUid/binary>>, io_lib:format("~s", [FUid])),
-                    ?XTD(io_lib:format("~s", [FName]))])], Index + 1}
-        end,
-        {[], 1},
-        maps:to_list(FNameMap)
-    ),
-    [?TABLE(io_lib:format("Friends (~B)", [length(Friends)]),
-        ?CLASS(<<"lookuptable">>),
-        [?XTRA(?CLASS(<<"head">>), [?XTH(?T("Uid")),
-            ?XTH(?T("Name"))])] ++ DynamicFriendData
-    ), ?BR].
-
-
-generate_groups_table(Uid) ->
-    Gids = model_groups:get_groups(Uid),
-    {DynamicGroupData, _GroupAcc} = lists:foldl(
-        fun(Gid, {AccList, Index}) ->
-            {AccList ++ [?XTRA(?NTH_ROW_CLASS(Index), [?XTD(io_lib:format("~s", [Gid])),
-                ?XTD(io_lib:format("~s",
-                    [(model_groups:get_group_info(Gid))#group_info.name]))
-            ])], Index + 1}
-        end,
-        {[], 1},
-        Gids
-    ),
-    [?TABLE(io_lib:format("Groups (~B)", [length(Gids)]),
-        ?CLASS(<<"lookuptable">>),
-        [?XTRA(?CLASS(<<"head">>), [?XTHA([{<<"width">>, <<"50%">>}], ?T("Gid")),
-            ?XTHA([{<<"width">>, <<"50%">>}], ?T("Name"))])] ++ DynamicGroupData
-    ), ?BR].
-
-
-generate_invites_table(Uid) ->
-    AppType = util_uid:get_app_type(Uid),
-    {ok, SentInvites} = model_invites:get_sent_invites(Uid),
-    Fun = fun(I) ->
-        case model_phone:get_uid(I, AppType) of
-            {ok, undefined} -> <<>>;
-            {ok, IUid} -> <<IUid/binary>>
-        end
-          end,
-    {DynamicInviteData, _InviteAcc} = lists:foldl(
-        fun(SentInvite, {AccList, Index}) ->
-            {AccList ++ [?XTRA(?NTH_ROW_CLASS(Index),
-                [?XTD(io_lib:format("~s", [SentInvite])),
-                    ?XTDL(iolist_to_binary([<<"?search=">>,
-                        Fun(SentInvite)]), Fun(SentInvite))])],
-                Index + 1}
-        end,
-        {[], 1},
-        SentInvites
-    ),
-    [?TABLE(io_lib:format("Invites Sent (~B)", [length(SentInvites)]),
-        ?CLASS(<<"lookuptable">>),
-        [?XTRA(?CLASS(<<"head">>), [?XTHA([{<<"width">>, <<"50%">>}], ?T("Phone #")),
-            ?XTHA([{<<"width">>, <<"50%">>}], ?T("Uid"))])] ++ DynamicInviteData
-    ), ?BR].
-
-
-%% TODO: currently, this will not work properly.
-generate_sms_info(Phone) ->
-    ?INFO("Getting SMS info for phone: ~s", [Phone]),
-    {ok, VerificationInfo} = model_phone:get_all_verification_info(Phone, halloapp),
-    SmsInfo = lists:foldl(
-                fun(VerifyAttempt, Acc) ->
-                    Acc ++ [
-                        ?XE(<<"p">>, [
-                            ?C(io_lib:format("Verify Attempt: ~p", [VerifyAttempt]))
-                        ])
-                    ]
-                end,
-                [],
-                VerificationInfo
-            ),
-    {ok, Uid} = model_phone:get_uid(Phone, halloapp),
-    AccInfo = case Uid of
-        undefined -> [?XC(<<"p">>, <<"No account associated with this phone number.">>)];
-        _ -> [?XE(<<"p">>, [
-                ?C(<<"Existing account: ">>),
-                ?A(<<"/admin/lookup/?search=", Uid/binary>>, [?C(<<Uid/binary>>)])
-            ])]
-    end,
-    SmsInfo ++ AccInfo.
+%%lookup_uid(Uid) ->
+%%    ?INFO("Getting account info for uid: ~s", [Uid]),
+%%    case model_accounts:account_exists(Uid) of
+%%        false -> [?XC(<<"p">>, io_lib:format("No account found for uid: ~s", [Uid]))];
+%%        true ->
+%%            {ok, Account} = model_accounts:get_account(Uid),
+%%            {CreateDate, CreateTime} = util:ms_to_datetime_string(Account#account.creation_ts_ms),
+%%            {LADate, LATime} = util:ms_to_datetime_string(Account#account.last_activity_ts_ms),
+%%            InvitesLeft = mod_invites:get_invites_remaining(Uid),
+%%            AccInfo = [
+%%                ?XC(<<"h3">>, io_lib:format("~s (~s)", [Account#account.name, Uid])),
+%%                ?P,
+%%                ?C(io_lib:format("Phone: ~s", [Account#account.phone])), ?BR,
+%%                ?C(io_lib:format("User agent: ~s", [Account#account.signup_user_agent])), ?BR,
+%%                ?C(io_lib:format("Account created on ~s at ~s", [CreateDate, CreateTime])), ?BR,
+%%                ?C(io_lib:format("Last activity on ~s at ~s and current status is ~s",
+%%                    [LADate, LATime, Account#account.activity_status])), ?BR,
+%%                ?C(io_lib:format("Invites remaining: ~B", [InvitesLeft])), ?BR,
+%%                ?ENDP
+%%            ],
+%%            FriendTable = generate_friend_table(Uid),
+%%            GroupTable = generate_groups_table(Uid),
+%%            InviteTable = generate_invites_table(Uid),
+%%            AccInfo ++ FriendTable ++ GroupTable ++ InviteTable
+%%    end.
+%%
+%%
+%%%% TODO: clean this up separately.
+%%lookup_phone(Phone) ->
+%%    ?INFO("Getting account info for phone: ~s", [Phone]),
+%%    case model_phone:get_uid(Phone, halloapp) of
+%%        {ok, undefined} ->
+%%            Info = [?XC(<<"p">>, io_lib:format("No halloapp account found for phone: ~s", [Phone]))],
+%%            {ok, VerificationInfo} = model_phone:get_all_verification_info(Phone, halloapp),
+%%            _Info2 = lists:foldl(
+%%                fun(VerifyAttempt, Acc) ->
+%%                    Acc ++ [
+%%                        ?XE(<<"p">>, [
+%%                            ?C(io_lib:format("Attempt: ~p", [VerifyAttempt]))
+%%                        ])
+%%                    ]
+%%                end,
+%%                Info,
+%%                VerificationInfo
+%%            );
+%%        {ok, Uid} -> lookup_uid(Uid)
+%%    end,
+%%    case model_phone:get_uid(Phone, katchup) of
+%%        {ok, undefined} ->
+%%            Info3 = [?XC(<<"p">>, io_lib:format("No katchup account found for phone: ~s", [Phone]))],
+%%            {ok, VerificationInfo2} = model_phone:get_all_verification_info(Phone, katchup),
+%%            _Info4 = lists:foldl(
+%%                fun(VerifyAttempt, Acc) ->
+%%                    Acc ++ [
+%%                        ?XE(<<"p">>, [
+%%                            ?C(io_lib:format("Attempt: ~p", [VerifyAttempt]))
+%%                        ])
+%%                    ]
+%%                end,
+%%                Info3,
+%%                VerificationInfo2
+%%            );
+%%        {ok, Uid2} -> lookup_uid(Uid2)
+%%    end.
+%%
+%%
+%%generate_friend_table(Uid) ->
+%%    {ok, Friends} = model_friends:get_friends(Uid),
+%%    FNameMap = model_accounts:get_names(Friends),
+%%    {DynamicFriendData, _FriendAcc} = lists:foldl(
+%%        fun({FUid, FName}, {AccList, Index}) ->
+%%            {AccList ++ [?XTRA(?NTH_ROW_CLASS(Index),
+%%                [?XTDL(<<"?search=", FUid/binary>>, io_lib:format("~s", [FUid])),
+%%                    ?XTD(io_lib:format("~s", [FName]))])], Index + 1}
+%%        end,
+%%        {[], 1},
+%%        maps:to_list(FNameMap)
+%%    ),
+%%    [?TABLE(io_lib:format("Friends (~B)", [length(Friends)]),
+%%        ?CLASS(<<"lookuptable">>),
+%%        [?XTRA(?CLASS(<<"head">>), [?XTH(?T("Uid")),
+%%            ?XTH(?T("Name"))])] ++ DynamicFriendData
+%%    ), ?BR].
+%%
+%%
+%%generate_groups_table(Uid) ->
+%%    Gids = model_groups:get_groups(Uid),
+%%    {DynamicGroupData, _GroupAcc} = lists:foldl(
+%%        fun(Gid, {AccList, Index}) ->
+%%            {AccList ++ [?XTRA(?NTH_ROW_CLASS(Index), [?XTD(io_lib:format("~s", [Gid])),
+%%                ?XTD(io_lib:format("~s",
+%%                    [(model_groups:get_group_info(Gid))#group_info.name]))
+%%            ])], Index + 1}
+%%        end,
+%%        {[], 1},
+%%        Gids
+%%    ),
+%%    [?TABLE(io_lib:format("Groups (~B)", [length(Gids)]),
+%%        ?CLASS(<<"lookuptable">>),
+%%        [?XTRA(?CLASS(<<"head">>), [?XTHA([{<<"width">>, <<"50%">>}], ?T("Gid")),
+%%            ?XTHA([{<<"width">>, <<"50%">>}], ?T("Name"))])] ++ DynamicGroupData
+%%    ), ?BR].
+%%
+%%
+%%generate_invites_table(Uid) ->
+%%    AppType = util_uid:get_app_type(Uid),
+%%    {ok, SentInvites} = model_invites:get_sent_invites(Uid),
+%%    Fun = fun(I) ->
+%%        case model_phone:get_uid(I, AppType) of
+%%            {ok, undefined} -> <<>>;
+%%            {ok, IUid} -> <<IUid/binary>>
+%%        end
+%%          end,
+%%    {DynamicInviteData, _InviteAcc} = lists:foldl(
+%%        fun(SentInvite, {AccList, Index}) ->
+%%            {AccList ++ [?XTRA(?NTH_ROW_CLASS(Index),
+%%                [?XTD(io_lib:format("~s", [SentInvite])),
+%%                    ?XTDL(iolist_to_binary([<<"?search=">>,
+%%                        Fun(SentInvite)]), Fun(SentInvite))])],
+%%                Index + 1}
+%%        end,
+%%        {[], 1},
+%%        SentInvites
+%%    ),
+%%    [?TABLE(io_lib:format("Invites Sent (~B)", [length(SentInvites)]),
+%%        ?CLASS(<<"lookuptable">>),
+%%        [?XTRA(?CLASS(<<"head">>), [?XTHA([{<<"width">>, <<"50%">>}], ?T("Phone #")),
+%%            ?XTHA([{<<"width">>, <<"50%">>}], ?T("Uid"))])] ++ DynamicInviteData
+%%    ), ?BR].
+%%
+%%
+%%%% TODO: currently, this will not work properly.
+%%generate_sms_info(Phone) ->
+%%    ?INFO("Getting SMS info for phone: ~s", [Phone]),
+%%    {ok, VerificationInfo} = model_phone:get_all_verification_info(Phone, halloapp),
+%%    SmsInfo = lists:foldl(
+%%                fun(VerifyAttempt, Acc) ->
+%%                    Acc ++ [
+%%                        ?XE(<<"p">>, [
+%%                            ?C(io_lib:format("Verify Attempt: ~p", [VerifyAttempt]))
+%%                        ])
+%%                    ]
+%%                end,
+%%                [],
+%%                VerificationInfo
+%%            ),
+%%    {ok, Uid} = model_phone:get_uid(Phone, halloapp),
+%%    AccInfo = case Uid of
+%%        undefined -> [?XC(<<"p">>, <<"No account associated with this phone number.">>)];
+%%        _ -> [?XE(<<"p">>, [
+%%                ?C(<<"Existing account: ">>),
+%%                ?A(<<"/admin/lookup/?search=", Uid/binary>>, [?C(<<Uid/binary>>)])
+%%            ])]
+%%    end,
+%%    SmsInfo ++ AccInfo.
 
 
 % -spec seconds_to_string(non_neg_integer()) -> string().
@@ -2082,15 +2094,15 @@ generate_sms_info(Phone) ->
 %     Else.
 
 
-process_search_query(Query, PhoneFun, ElseFun) ->
-    case Query of
-        [{nokey, _}] -> [];
-        [{<<"search">>, PhoneOrUid}, _] ->
-           case PhoneOrUid of
-               <<"+", Number/binary>> -> PhoneFun(Number);
-               _ -> ElseFun(PhoneOrUid)
-           end
-    end.
+%%process_search_query(Query, PhoneFun, ElseFun) ->
+%%    case Query of
+%%        [{nokey, _}] -> [];
+%%        [{<<"search">>, PhoneOrUid}, _] ->
+%%           case PhoneOrUid of
+%%               <<"+", Number/binary>> -> PhoneFun(Number);
+%%               _ -> ElseFun(PhoneOrUid)
+%%           end
+%%    end.
 
 
 process_username_query([{nokey, _}]) -> [];
@@ -2104,17 +2116,35 @@ process_username_query(Query) ->
 		?XTR([?XTHA(?CLASS(<<"head">>), ?T("Username")), ?XTH(?T("Uid")), ?XTH(?T("# Followers")), ?XTH(?T("# Posts")), ?XTH(?T("Geotag")), ?XTH(?T("Active"))])
 	],
 	{Table, _} = lists:mapfoldl(
-		fun({Username, {Uid, NumFollowers, NumPosts, Geotag, IsActive}}, Index) ->
-			Attr = case IsActive of
+		fun({Username, #{active := IsActive} = Map}, Index) ->
+			RowAttr = case IsActive of
 				true -> ?NTH_ROW_CLASS(Index);
 				false -> ?CLASS(<<"redrow">>)
 			end,
-			{?XTRA(Attr, [
-				?XTD(Username), ?XTD(Uid), ?XTD(NumFollowers), ?XTD(NumPosts), ?XTD(Geotag), ?XTD(util:to_binary(IsActive))
+			{?XTRA(RowAttr, [
+				?XTD(Username),
+				format_column(uid, Map, <<"none">>),
+				format_column(num_followers, Map),
+				format_column(num_posts, Map),
+				format_column(geotag, Map),
+				?XTD(util:to_binary(IsActive))
 			]), Index + 1}
 		end,
 		1,
 		maps:to_list(InfoMap)),
 	[?TABLE(<<>>, ?CLASS(<<"user_activity_table">>), Headers ++ Table)].
+
+
+format_column(Key, Map) ->
+	format_column(Key, Map, <<>>).
+
+format_column(Key, Map, NoneRes) ->
+	BoldYellowAttr = ?ATTR(<<"style">>, <<"font-weight:bold;color:#ffff00">>),
+	case maps:get(Key, Map, undefined) of
+		{ok, Res} -> ?XTD(Res);
+		{fail, Res} -> ?XTDA(BoldYellowAttr, Res);
+		undefined -> ?XTDA(BoldYellowAttr, NoneRes)
+	end.
+
 
 %%% vim: set foldmethod=marker foldmarker=%%%%,%%%=:
