@@ -19,7 +19,8 @@
 %% hooks and api.
 -export([
     process_local_iq/1,
-    generate_follow_suggestions/1
+    generate_follow_suggestions/1,
+    remove_deleted/1
 ]).
 
 
@@ -110,9 +111,9 @@ generate_follow_suggestions(Uid, Phone) ->
  
     %% Keep only the new ones.
     AllSubtractSet = sets:union(sets:from_list(AllFollowing), sets:from_list(RejectedUids)),
-    ContactSuggestionsSet = sets:subtract(ContactUidsSet, AllSubtractSet),
+    ContactSuggestionsSet = remove_deleted(sets:subtract(ContactUidsSet, AllSubtractSet)),
     FoFSuggestions1 = sets:subtract(FoFSet, AllSubtractSet),
-    FoFSuggestionsSet = sets:subtract(FoFSuggestions1, ContactSuggestionsSet),
+    FoFSuggestionsSet = remove_deleted(sets:subtract(FoFSuggestions1, ContactSuggestionsSet)),
  
     %% Reverse sort ContactSuggestionsSet, FoFSuggestionsSet on number of followers
     ContactSuggestions = get_sorted_uids(Uid, ContactSuggestionsSet),
@@ -124,6 +125,17 @@ generate_follow_suggestions(Uid, Phone) ->
     FoFSuggestedProfiles =
         fetch_suggested_profiles(Uid, FoFSuggestions, fof, length(ContactSuggestions) + 1),
     ContactSuggestedProfiles ++ FoFSuggestedProfiles.
+
+remove_deleted(UidsSet) ->
+    %% Get rid of deleted users.
+    Uids = sets:to_list(UidsSet),
+    Phones = model_accounts:get_phones(Uids),
+    lists:foldl(fun({Uid, Phone}, Acc) ->
+        case Phone of
+            undefined -> Acc;
+            _ -> sets:add_element(Uid, Acc)
+        end
+    end, sets:new(), lists:zip(Uids, Phones)).
 
 get_sorted_uids(Uid, SuggestionsSet) ->
     OUidList = sets:to_list(SuggestionsSet),
