@@ -1016,7 +1016,7 @@ rank_public_moments(Uid, Tag, NewPublicMomentIds) ->
                 Score1 =< Score2
             end, NewUnexpiredPublicMoments3),
 
-    RankedPublicMoments.
+    lists:reverse(RankedPublicMoments).
 
 %%====================================================================
 %% feed: helper internal functions
