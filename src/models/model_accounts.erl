@@ -1378,7 +1378,9 @@ get_user_profile(Uid, Ouid) ->
     end,
      %% Fetch Relevant followers.
     OuidFollowers = model_follow:get_all_followers(Ouid),
-    RelevantFollowerUids = sets:to_list(sets:intersection(Following, sets:from_list(OuidFollowers))),
+    %% We probably have some users following their own self - causing some issues.
+    RelevantFollowerSet = sets:del_element(Uid, sets:del_element(Ouid, sets:intersection(Following, sets:from_list(OuidFollowers)))),
+    RelevantFollowerUids = sets:to_list(RelevantFollowerSet),
     RelevantFollowerBasicProfiles = get_basic_user_profiles(Uid, RelevantFollowerUids),
     #pb_user_profile{
         uid = Ouid,
