@@ -21,18 +21,21 @@
 
 %% Hooks and API.
 -export([
-    user_send_packet/1
+    user_send_packet/1,
+    user_receive_packet/1
 ]).
 
 
 start(_Host, _Opts) ->
     ejabberd_hooks:add(user_send_packet, halloapp, ?MODULE, user_send_packet, 25),
     ejabberd_hooks:add(user_send_packet, katchup, ?MODULE, user_send_packet, 25),
+    ejabberd_hooks:add(user_receive_packet, katchup, ?MODULE, user_receive_packet, 25),
     ok.
 
 stop(_Host) ->
     ejabberd_hooks:delete(user_send_packet, halloapp, ?MODULE, user_send_packet, 25),
     ejabberd_hooks:delete(user_send_packet, katchup, ?MODULE, user_send_packet, 25),
+    ejabberd_hooks:delete(user_receive_packet, katchup, ?MODULE, user_receive_packet, 25),
     ok.
 
 reload(_Host, _NewOpts, _OldOpts) ->
@@ -49,12 +52,23 @@ mod_options(_Host) ->
 %% hooks.
 %%====================================================================
 
-user_send_packet({#pb_msg{id = MsgId} = Packet, State}) ->
+user_send_packet({#pb_msg{id = MsgId, from_uid = FromUid, to_uid = ToUid} = Packet, State}) ->
+    PayloadType = util:get_payload_type(Packet),
     Timestamp = util:now(),
     Packet1 = util:set_timestamp(Packet, Timestamp),
-    ?INFO("setting timestamp MsgId: ~p Ts: ~p", [MsgId, Timestamp]),
+    ?INFO("setting timestamp MsgId: ~p Ts: ~p", [MsgId, PayloadType, Timestamp]),
+    ?INFO("FromUid: ~p PayloadType: ~p ToUid: ~p, MsgId: ~p", [FromUid, PayloadType, ToUid, MsgId]),
     {Packet1, State};
 
 user_send_packet({_Packet, _State} = Acc) ->
+    Acc.
+
+
+user_receive_packet({#pb_msg{id = MsgId, from_uid = FromUid, to_uid = ToUid} = Packet, State}) ->
+    PayloadType = util:get_payload_type(Packet),
+    ?INFO("FromUid: ~p PayloadType: ~p ToUid: ~p, MsgId: ~p", [FromUid, PayloadType, ToUid, MsgId]),
+    {Packet, State};
+
+user_receive_packet({_Packet, _State} = Acc) ->
     Acc.
 
