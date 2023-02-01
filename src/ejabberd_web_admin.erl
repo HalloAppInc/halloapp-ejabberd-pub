@@ -556,7 +556,7 @@ process_admin(Host, #request{path = [<<"user_activity">> | _Rest], q = Query, la
 	make_xhtml(Html ++ Info, Host, Lang, AJID);
 %%%==================================
 %%%% process_admin default case
-process_admin(Host, #request{path = Path, lang = Lang} = Request, AJID) ->
+process_admin(Host, #request{path = _Path, lang = Lang} = Request, AJID) ->
     Res = case Host of
 	      global ->
 		  ejabberd_hooks:run_fold(
@@ -1798,7 +1798,7 @@ make_node_menu(global, Node, Lang) ->
 make_node_menu(_Host, _Node, _Lang) ->
     {<<"">>, <<"">>, []}.
 
-make_server_menu(HostMenu, NodeMenu, Lang, JID) ->
+make_server_menu(_HostMenu, _NodeMenu, Lang, JID) ->
     Base = get_base_path(global, cluster),
     Fixed = [{<<"user_activity">>, ?T("User Activity")}] ++
 %%        {<<"vhosts">>, ?T("Virtual Hosts"), HostMenu},
