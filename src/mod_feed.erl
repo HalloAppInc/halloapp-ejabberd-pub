@@ -1042,8 +1042,8 @@ rank_public_moments(Uid, Tag, NewPublicMomentIds) ->
                 FollowingInterestScore * ?FOLLOWING_INTEREST_IMPORTANCE +
                 RecencyScore * ?RECENCY_SCORE_IMPORTANCE +
                 UnseenScore * ?UNSEEN_SCORE_IMPORTANCE,
-            ?INFO("PostId: ~p, CampusTagScore: ~p, FollowingInterestScore: ~p, RecencyScore: ~p, UnseenScore: ~p, TotalScore: ~p",
-                    [MomentId, CampusTagScore, FollowingInterestScore, RecencyScore, UnseenScore, TotalScore]),
+            ?INFO("Uid: ~p, PostId: ~p, CampusTagScore: ~p, FollowingInterestScore: ~p, RecencyScore: ~p, UnseenScore: ~p, TotalScore: ~p",
+                    [Uid, MomentId, CampusTagScore, FollowingInterestScore, RecencyScore, UnseenScore, TotalScore]),
             AccMomentScoresMap#{MomentId => TotalScore}
 
         end, #{}, NewUnexpiredPublicMoments3),
@@ -1063,7 +1063,11 @@ rank_public_moments(Uid, Tag, NewPublicMomentIds) ->
                 TsMs2 = PublicMoment2#post.ts_ms,
 
                 %% We use timestamp here to break ties.
-                Score1 =< Score2 andalso TsMs1 > TsMs2
+                case Score1 =:= Score2 of
+                    true -> TsMs1 > TsMs2;
+                    false ->
+                        Score1 =< Score2
+                end
             end, NewUnexpiredPublicMoments3),
 
     lists:reverse(RankedPublicMoments).
