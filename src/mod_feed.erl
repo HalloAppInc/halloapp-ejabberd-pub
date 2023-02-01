@@ -20,6 +20,20 @@
 -define(CURSOR_VERSION_V0, <<"V0">>).
 -define(NS_FEED, <<"halloapp:feed">>).
 
+%% Chose these weights with the following theory in mind.
+%% Just for experimenting for now.
+%% FollowingInterest score is very important.
+%% A post from an author whom 10% of my followers follow is ranked on the same level as a post from my campus.
+%% Recent post is something that was posted in the last 1hour.
+%% Campus post is something that was posted from an author in the same geotag as me.
+%% FollowingInterest post is something that was posted from an author whom more than 10% of people I follow - follow
+%% Selected the following scores such that:
+%% Any FollowingInterest post is always ranked higher than any campus post or recent post.
+%% Any campus post is always ranked higher than a recent post.
+-define(CAMPUS_SCORE_IMPORTANCE, 10).
+-define(FOLLOWING_INTEREST_IMPORTANCE, 110).
+-define(RECENCY_SCORE_IMPORTANCE, 1).
+
 
 %% gen_mod API.
 -export([start/2, stop/1, reload/3, mod_options/1, depends/2]).
@@ -829,16 +843,17 @@ get_message_type(#pb_feed_item{action = retract}, _, _) -> normal.
 -spec determine_cursor_action(Cursor :: binary()) -> {ReloadFeed :: boolean(), CursorVersion :: binary(),
         RequestTimestampMs :: integer(), CursorToUse :: binary()}.
 determine_cursor_action(Cursor) ->
+    CurrentTimestampMs = util:now_ms(),
     case Cursor =:= <<>> orelse Cursor =:= undefined of
         true ->
-            {false, ?CURSOR_VERSION_V0, util:now_ms(), <<>>};
+            {false, ?CURSOR_VERSION_V0, CurrentTimestampMs, <<>>};
         false ->
             case model_feed:split_cursor(Cursor) of
                 {undefined, undefined, undefined, undefined} ->
-                    {true, ?CURSOR_VERSION_V0, util:now_ms(), <<>>};
+                    {true, ?CURSOR_VERSION_V0, CurrentTimestampMs, <<>>};
                 {CursorVersion, RequestTimestampMs, _, _} ->
-                    case util:now_ms() - RequestTimestampMs >= 5 * ?MINUTES_MS of
-                        true -> {true, CursorVersion, util:now_ms(), <<>>};
+                    case CurrentTimestampMs - RequestTimestampMs >= 5 * ?MINUTES_MS of
+                        true -> {true, CursorVersion, CurrentTimestampMs, <<>>};
                         false -> {false, CursorVersion, RequestTimestampMs, Cursor}
                     end
             end
@@ -876,7 +891,7 @@ get_public_moments(Uid, Tag, TimestampMs, Cursor, Limit) ->
     {CursorReload, NewCursor, DisplayPublicMoments}.
 
 
-rank_public_moments(Uid, _Tag, NewPublicMomentIds) ->
+rank_public_moments(Uid, Tag, NewPublicMomentIds) ->
     %% Filter out deleted posts and convert PostIds to Posts
     NewPublicMoments = model_feed:get_posts(NewPublicMomentIds),
     LatestNotificationId = model_feed:get_notification_id(Uid),
@@ -904,13 +919,67 @@ rank_public_moments(Uid, _Tag, NewPublicMomentIds) ->
         ++ [Uid]
         ++ model_follow:get_blocked_uids(Uid)
         ++ model_follow:get_blocked_by_uids(Uid)),
-    NewUnexpiredUnrelatedPublicMoments = lists:filter(
+    NewUnexpiredPublicMoments3 = lists:filter(
             fun(PublicMoment) -> not sets:is_element(PublicMoment#post.uid, RemoveAuthorSet) end,
             NewUnexpiredPublicMoments2),
-    %% No ranking for now.
 
-    %% TODO: Rank those based on geo-tag higher for now.
-    NewUnexpiredUnrelatedPublicMoments.
+    %% Get campus author set
+    AuthorUids = lists:map(fun(PublicMoment) -> PublicMoment#post.uid end, NewUnexpiredPublicMoments3),
+    AuthorUidsToGeoTagMap = model_accounts:get_latest_geo_tag(AuthorUids),
+
+    %% Get num_mutual_following
+    AuthorProfileMap = maps:from_list(lists:zip(AuthorUids, model_accounts:get_user_profiles(Uid, AuthorUids))),
+
+    %% NumFollowing:
+    NumFollowing = length(model_follow:get_all_following(Uid)),
+
+    ?INFO("Uid: ~p, Tag: ~p, NumFollowing: ~p", [Uid, Tag, NumFollowing]),
+
+    %% Score moments
+    %% CampusTagScore * CampusScoreImportance + FollowingInterestScore * FollowingInterestImportance + RecencyScore * RecencyScoreImportance
+    CurrentTimestampMs = util:now_ms(),
+    MomentScoresMap = lists:foldl(
+        fun(PublicMoment, MomentScoresMap) ->
+            MomentId = PublicMoment#post.id,
+            AuthorUid = PublicMoment#post.uid,
+            CampusTagScore = case Tag =:= maps:get(AuthorUid, AuthorUidsToGeoTagMap, undefined) andalso Tag =/= undefined of
+                true -> 1;
+                false -> 0
+            end,
+            UserProfile = maps:get(AuthorUid, AuthorProfileMap, undefined),
+            FollowingInterestScore = case UserProfile of
+                undefined -> 0;
+                #pb_user_profile{relevant_followers = RelevantFollowers} ->
+                    case NumFollowing =:= 0 of
+                        true -> 0;
+                        false -> length(RelevantFollowers) / NumFollowing
+                    end
+            end,
+            RecencyScore = case CurrentTimestampMs - PublicMoment#post.ts_ms > ?HOURS_MS of
+                true -> 0;
+                false -> 1
+            end,
+            TotalScore = CampusTagScore * ?CAMPUS_SCORE_IMPORTANCE + FollowingInterestScore * ?FOLLOWING_INTEREST_IMPORTANCE + RecencyScore * ?RECENCY_SCORE_IMPORTANCE,
+            ?INFO("PostId: ~p, CampusTagScore: ~p, FollowingInterestScore: ~p, RecencyScore: ~p, TotalScore: ~p",
+                    [MomentId, CampusTagScore, FollowingInterestScore, RecencyScore, TotalScore]),
+            MomentScoresMap#{MomentId => TotalScore}
+
+        end, #{}, NewUnexpiredPublicMoments3),
+    %% These are now ranked based on campus tags, fof scores and receny scores.
+    %% Will experiment these for a few days and then decide.
+
+
+    RankedPublicMoments = lists:sort(
+            fun(PublicMoment1, PublicMoment2) ->
+                MomentId1 = PublicMoment1#post.id,
+                MomentId2 = PublicMoment2#post.id,
+                Score1 = maps:get(MomentId1, MomentScoresMap, 0),
+                Score2 = maps:get(MomentId2, MomentScoresMap, 0),
+                %% TODO: Sort them by time here for tie break
+                Score1 =< Score2
+            end, NewUnexpiredPublicMoments3),
+
+    RankedPublicMoments.
 
 %%====================================================================
 %% feed: helper internal functions

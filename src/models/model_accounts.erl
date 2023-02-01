@@ -1769,21 +1769,25 @@ add_geo_tag(Uid, Tag, Timestamp) ->
     update_geo_tag_index(Uid, Tag),
     ok.
 
--spec get_latest_geo_tag(Uid :: uid()) -> maybe(atom()).
+-spec get_latest_geo_tag(Uid :: uid() | [uid()]) -> maybe(atom()) | #{}.
+get_latest_geo_tag([]) -> #{};
+get_latest_geo_tag(Uids) when is_list(Uids) ->
+    Commands = lists:map(fun(Uid) -> ["ZRANGE", geo_tag_key(Uid), "0", "0", "WITHSCORES", "REV"] end, Uids),
+    Res = qmn(Commands),
+    Result = lists:foldl(
+        fun ({_Uid, {ok, []}}, Acc) -> Acc;
+            ({Uid, {ok, [NewestGeoTag, Timestamp]}}, Acc) ->
+                ExpiredTs = util:now() - ?GEO_TAG_EXPIRATION,
+                case Timestamp > ExpiredTs of
+                    true -> Acc#{Uid => util:to_atom(NewestGeoTag)};
+                    false -> Acc
+                end;
+            (_, Acc) -> Acc
+        end, #{}, lists:zip(Uids, Res)),
+    Result;
 get_latest_geo_tag(Uid) ->
-    Key = geo_tag_key(Uid),
-    case q(["ZREVRANGE", Key, "0", "0", "WITHSCORES"]) of
-        {ok, []} -> undefined;
-        {ok, [NewestGeoTag, Timestamp]} ->
-            ExpiredTs = util:now() - ?GEO_TAG_EXPIRATION,
-            case Timestamp > ExpiredTs of
-                true -> util:to_atom(NewestGeoTag);
-                false -> undefined
-            end;
-        Err ->
-            ?ERROR("Failed to get geo tag for ~s: ~p", [Uid, Err]),
-            undefined
-    end.
+    maps:get(Uid, get_latest_geo_tag([Uid]), undefined).
+
 
 -spec get_all_geo_tags(Uid :: uid()) -> list({binary(), binary()}).
 get_all_geo_tags(Uid) ->
