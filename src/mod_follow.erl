@@ -148,6 +148,8 @@ process_local_iq(#pb_iq{from_uid = Uid,
     case model_follow:is_blocked_any(Uid, Ouid) of
         false ->
             ok = model_follow:unfollow(Ouid, Uid),
+            %% if I remove someone as a follower, I should not show up in their follow suggestions for a while
+            ok = model_accounts:add_rejected_suggestions(Ouid, [Uid]),
             ok = notify_profile_update(Uid, Ouid),
             ejabberd_hooks:run(remove_follow_relationship, ?KATCHUP, [Ouid, Uid]);
         true ->
