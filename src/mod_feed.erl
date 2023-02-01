@@ -212,6 +212,17 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
 process_local_iq(#pb_iq{from_uid = Uid, payload = #pb_public_feed_request{cursor = Cursor,
     public_feed_content_type = moments, gps_location = GpsLocation}} = IQ) ->
     ?INFO("Public feed request: Uid ~s, GpsLocation ~p, Cursor ~p", [Uid, GpsLocation, Cursor]),
+    case GpsLocation =/= undefined of
+        true ->
+            ha_events:log_event(<<"server.public_feed_requests">>,
+                #{
+                    uid => Uid,
+                    latitude => GpsLocation#pb_gps_location.latitude,
+                    longitude => GpsLocation#pb_gps_location.longitude
+                });
+        false ->
+            ok
+    end,
     try
         %% Get geotag from GeoLocation, add it to user account if it exists
         NewTag = mod_location:get_geo_tag(Uid, GpsLocation),
