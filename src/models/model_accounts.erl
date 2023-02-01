@@ -200,7 +200,8 @@
     update_geo_tag_index/2,
     inc_num_posts/1,
     inc_num_comments/1,
-    inc_num_seen/1
+    inc_num_seen/1,
+    remove_geo_tags/1
 ]).
 
 %%====================================================================
@@ -342,6 +343,7 @@ delete_account(Uid) ->
                     ?ERROR("Uid: ~s account delete failed ~p", [Uid, Error])
             end,
             decrement_version_and_lang_counters(Uid, ClientVersion, LangId),
+            remove_geo_tags(Uid),
             {ok, _} = DecrResult;
         {error, _} ->
             ?ERROR("Error, fetching details: ~p", [Uid]),
@@ -1759,6 +1761,24 @@ update_geo_tag_index(Uid, GeoTag) ->
     UidSlot = HashSlot rem ?NUM_SLOTS,
     Timestamp = util:now(),
     [{ok, _}] = qp([["ZADD", geotag_index_key(UidSlot, GeoTag), Timestamp, Uid]]),
+    ok.
+
+
+-spec remove_geo_tags(Uid :: binary()) -> ok.
+remove_geo_tags(Uid) ->
+    case get_all_geo_tags(Uid) of
+        [] -> ok;
+        GeoTags ->
+            HashSlot = util_redis:eredis_hash(binary_to_list(Uid)),
+            UidSlot = HashSlot rem ?NUM_SLOTS,
+            Commands = lists:foldl(
+                        fun({GeoTag, _Score}, Acc) ->
+                            Acc ++ ["ZREM", geotag_index_key(UidSlot, GeoTag), Uid]
+                        end, [], GeoTags),
+            qp(Commands)
+    end,
+    Key = geo_tag_key(Uid),
+    q(["DEL", Key]),
     ok.
 
 
