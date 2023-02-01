@@ -136,11 +136,15 @@ re_register_user(Uid, _Server, Phone, _CampaignId) ->
     %% Clear out any recent moment notifications sent.
     %% This will enable us to send another again if necessary.
     Today = util:get_date(util:now()),
-    model_accounts:delete_moment_notification_sent(Uid, util:to_binary(Today-1)),
-    model_accounts:delete_moment_notification_sent(Uid, util:to_binary(Today-2)),
+    Yesterday = util:get_date(util:now() - ?DAYS),
+    DayBeforeYesterday = util:get_date(util:now() - 2*?DAYS),
+    Tomorrow = util:get_date(util:now() + ?DAYS),
+    DayAfterTomorrow = util:get_date(util:now() + 2*?DAYS),
+    model_accounts:delete_moment_notification_sent(Uid, util:to_binary(DayBeforeYesterday)),
+    model_accounts:delete_moment_notification_sent(Uid, util:to_binary(Yesterday)),
     model_accounts:delete_moment_notification_sent(Uid, util:to_binary(Today)),
-    model_accounts:delete_moment_notification_sent(Uid, util:to_binary(Today+1)),
-    model_accounts:delete_moment_notification_sent(Uid, util:to_binary(Today+2)),
+    model_accounts:delete_moment_notification_sent(Uid, util:to_binary(Tomorrow)),
+    model_accounts:delete_moment_notification_sent(Uid, util:to_binary(DayAfterTomorrow)),
     send_latest_notification(Uid, Phone),
     ok.
 
