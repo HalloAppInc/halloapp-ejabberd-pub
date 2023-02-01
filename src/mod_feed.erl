@@ -27,12 +27,22 @@
 %% Recent post is something that was posted in the last 1hour.
 %% Campus post is something that was posted from an author in the same geotag as me.
 %% FollowingInterest post is something that was posted from an author whom more than 10% of people I follow - follow
+%% Unseen post is a post that was not seen by the user yet.
+
+%% Unseen posts are always ranked higher than seen posts.
 %% Selected the following scores such that:
+%% Unseen campus posts are always ranked higher than all other posts.
+%% Unseen non-campus posts are ranked higher than seen-following-campus posts with less than 40% of my followers.
+%% Unseen non-campus posts are ranked higher than seen-following-non-campus posts with less than 55% of my followers.
 %% Any FollowingInterest post is always ranked higher than any campus post or recent post.
 %% Any campus post is always ranked higher than a recent post.
+%% TODO: Use celeb score of author?
+%% TODO: num of followers to be taken into account for following interest score instead of raw percent?
+%% TODO: Show score for post?
 -define(CAMPUS_SCORE_IMPORTANCE, 10).
 -define(FOLLOWING_INTEREST_IMPORTANCE, 110).
 -define(RECENCY_SCORE_IMPORTANCE, 1).
+-define(UNSEEN_SCORE_IMPORTANCE, 55).
 
 
 %% gen_mod API.
@@ -133,6 +143,17 @@ user_send_packet({#pb_msg{id = MsgId, to_uid = ToUid, from_uid = FromUid,
     PayloadType = util:get_payload_type(Packet),
     ContentId = pb:get_content_id(Packet),
     ?INFO("Uid: ~s sending ~p message to ~s MsgId: ~s ContentId: ~p", [FromUid, PayloadType, ToUid, MsgId, ContentId]),
+    Acc;
+
+
+user_send_packet({#pb_msg{id = MsgId, to_uid = ToUid, from_uid = FromUid,
+        payload = #pb_seen_receipt{id = PostId, thread_id = _ThreadId, timestamp = Timestamp}} = Packet, _State} = Acc) ->
+    PayloadType = util:get_payload_type(Packet),
+    case util_uid:get_app_type(FromUid) of
+        katchup -> model_feed:mark_seen_posts(FromUid, PostId);
+        _ -> ok
+    end,
+    ?INFO("Uid: ~s sending ~p message to ~s MsgId: ~s PostId: ~p Timestamp: ~p", [FromUid, PayloadType, ToUid, MsgId, PostId, Timestamp]),
     Acc;
 
 user_send_packet({_Packet, _State} = Acc) ->
@@ -940,6 +961,12 @@ get_public_moments(Uid, Tag, TimestampMs, Cursor, Limit) ->
 
 
 rank_public_moments(Uid, Tag, NewPublicMomentIds) ->
+
+    %% Get past posts that have been seen recently.
+    PostIds = model_feed:get_past_seen_posts(Uid),
+    SeenPostIdSet = sets:from_list(PostIds),
+    %% We will rank them lower than others.
+
     %% Filter out deleted posts and convert PostIds to Posts
     NewPublicMoments = model_feed:get_posts(NewPublicMomentIds),
     LatestNotificationId = model_feed:get_notification_id(Uid),
@@ -987,7 +1014,7 @@ rank_public_moments(Uid, Tag, NewPublicMomentIds) ->
     %% CampusTagScore * CampusScoreImportance + FollowingInterestScore * FollowingInterestImportance + RecencyScore * RecencyScoreImportance
     CurrentTimestampMs = util:now_ms(),
     MomentScoresMap = lists:foldl(
-        fun(PublicMoment, MomentScoresMap) ->
+        fun(PublicMoment, AccMomentScoresMap) ->
             MomentId = PublicMoment#post.id,
             AuthorUid = PublicMoment#post.uid,
             CampusTagScore = case Tag =:= maps:get(AuthorUid, AuthorUidsToGeoTagMap, undefined) andalso Tag =/= undefined of
@@ -1007,24 +1034,36 @@ rank_public_moments(Uid, Tag, NewPublicMomentIds) ->
                 true -> 0;
                 false -> 1
             end,
-            TotalScore = CampusTagScore * ?CAMPUS_SCORE_IMPORTANCE + FollowingInterestScore * ?FOLLOWING_INTEREST_IMPORTANCE + RecencyScore * ?RECENCY_SCORE_IMPORTANCE,
-            ?INFO("PostId: ~p, CampusTagScore: ~p, FollowingInterestScore: ~p, RecencyScore: ~p, TotalScore: ~p",
-                    [MomentId, CampusTagScore, FollowingInterestScore, RecencyScore, TotalScore]),
-            MomentScoresMap#{MomentId => TotalScore}
+            UnseenScore = case sets:is_element(MomentId, SeenPostIdSet) of
+                true -> 0;
+                false -> 1
+            end,
+            TotalScore = CampusTagScore * ?CAMPUS_SCORE_IMPORTANCE +
+                FollowingInterestScore * ?FOLLOWING_INTEREST_IMPORTANCE +
+                RecencyScore * ?RECENCY_SCORE_IMPORTANCE +
+                UnseenScore * ?UNSEEN_SCORE_IMPORTANCE,
+            ?INFO("PostId: ~p, CampusTagScore: ~p, FollowingInterestScore: ~p, RecencyScore: ~p, UnseenScore: ~p, TotalScore: ~p",
+                    [MomentId, CampusTagScore, FollowingInterestScore, RecencyScore, UnseenScore, TotalScore]),
+            AccMomentScoresMap#{MomentId => TotalScore}
 
         end, #{}, NewUnexpiredPublicMoments3),
     %% These are now ranked based on campus tags, fof scores and receny scores.
     %% Will experiment these for a few days and then decide.
 
-
     RankedPublicMoments = lists:sort(
             fun(PublicMoment1, PublicMoment2) ->
+                %% This function returns if PublicMoment1 =< PublicMoment2
+                %% Meaning if PublicMoment2 is more important than PublicMoment1
+
                 MomentId1 = PublicMoment1#post.id,
                 MomentId2 = PublicMoment2#post.id,
                 Score1 = maps:get(MomentId1, MomentScoresMap, 0),
                 Score2 = maps:get(MomentId2, MomentScoresMap, 0),
-                %% TODO: Sort them by time here for tie break
-                Score1 =< Score2
+                TsMs1 = PublicMoment1#post.ts_ms,
+                TsMs2 = PublicMoment2#post.ts_ms,
+
+                %% We use timestamp here to break ties.
+                Score1 =< Score2 andalso TsMs1 > TsMs2
             end, NewUnexpiredPublicMoments3),
 
     lists:reverse(RankedPublicMoments).

@@ -97,6 +97,10 @@
     get_all_posts_by_geo_tag_time_bucket/4,
     mark_discovered_posts/3,
     get_past_discovered_posts/2,
+    mark_seen_posts/2,
+    mark_seen_posts/3,
+    get_past_seen_posts/1,
+    get_past_seen_posts/2,
     get_moment_info/1,
     get_post_num_seen/1,
     inc_post_num_seen/1
@@ -230,6 +234,46 @@ mark_discovered_posts(Uid, RequestTimestampMs, PostIds) ->
 
 get_past_discovered_posts(Uid, RequestTimestampMs) ->
     {ok, PostIds} = q(["SMEMBERS", discovered_posts_key(Uid, RequestTimestampMs)]),
+    PostIds.
+
+
+mark_seen_posts(_Uid, []) -> ok;
+mark_seen_posts(Uid, PostIds) when is_list(PostIds) ->
+    case get_notification_id(Uid) of
+        undefined ->
+            %% this should never happen.
+            ?ERROR("Uid: ~p undefined notification_id", [Uid]),
+            ok;
+        LatestNotifId ->
+            mark_seen_posts(Uid, LatestNotifId, PostIds),
+            ok
+    end,
+    ok;
+mark_seen_posts(Uid, PostId) ->
+    mark_seen_posts(Uid, [PostId]).
+
+
+mark_seen_posts(_Uid, _LatestNotifId, []) -> ok;
+mark_seen_posts(Uid, LatestNotifId, PostIds) ->
+    [{ok, _}, {ok, _}] = qp([
+                    ["SADD", seen_posts_key(Uid, LatestNotifId)] ++ PostIds,
+                    ["EXPIRE", seen_posts_key(Uid, LatestNotifId), ?MOMENT_TAG_EXPIRATION]]),
+    ok.
+
+
+get_past_seen_posts(Uid) ->
+    case get_notification_id(Uid) of
+        undefined ->
+            %% this should never happen.
+            ?ERROR("Uid: ~p undefined notification_id", [Uid]),
+            [];
+        LatestNotifId ->
+            get_past_seen_posts(Uid, LatestNotifId)
+    end.
+
+
+get_past_seen_posts(Uid, LatestNotifId) ->
+    {ok, PostIds} = q(["SMEMBERS", seen_posts_key(Uid, LatestNotifId)]),
     PostIds.
 
 
@@ -1273,6 +1317,13 @@ geo_tag_time_bucket_key_hr(GeoTag, TimestampHr) ->
 discovered_posts_key(Uid, RequestTimestampMs) ->
     TimestampBin = util:to_binary(RequestTimestampMs),
     <<?DISCOVERED_POSTS_KEY/binary, "{", Uid/binary, "}:", TimestampBin/binary>>.
+
+
+-spec seen_posts_key(Uid :: binary(), LatestNotifId :: integer()) -> binary().
+seen_posts_key(Uid, LatestNotifId) ->
+    LatestNotifIdBin = util:to_binary(LatestNotifId),
+    <<?SEEN_POSTS_KEY/binary, "{", Uid/binary, "}:", LatestNotifIdBin/binary>>.
+
 
 num_seen_key(PostId) ->
     <<?POST_NUM_SEEN_KEY/binary, "{", PostId/binary, "}">>.
