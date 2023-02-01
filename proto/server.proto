@@ -222,6 +222,7 @@ message FeedItem {
         PUBLISH = 0;
         RETRACT = 1;
         SHARE = 2;
+        PUBLIC_UPDATE = 3;
     }
     Action action = 1;
     oneof item {
@@ -293,6 +294,32 @@ message PublicFeedItem {
 message GpsLocation {
     double latitude = 1;
     double longitude = 2;
+}
+
+
+message PostSubscriptionRequest {
+    enum Action {
+        UNKNOWN_ACTION = 0;
+        SUBSCRIBE = 1;
+        UNSUBSCRIBE = 2;
+    }
+    Action action = 1;
+    string post_id = 2;
+}
+
+message PostSubscriptionResponse {
+    enum Result {
+        UNKNOWN_RESULT = 0;
+        SUCCESS = 1;
+        FAILURE = 2;
+    }
+    Result result = 1;
+    enum Reason {
+        UNKNOWN_REASON = 0;
+        INVALID_POST_ID = 1;
+    }
+    Reason reason = 2;
+    repeated FeedItem items = 3;
 }
 
 
