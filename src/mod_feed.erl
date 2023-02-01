@@ -900,7 +900,7 @@ determine_cursor_action(Cursor) ->
                 {undefined, undefined, undefined, undefined} ->
                     {true, ?CURSOR_VERSION_V0, CurrentTimestampMs, <<>>};
                 {CursorVersion, RequestTimestampMs, _, _} ->
-                    case CurrentTimestampMs - RequestTimestampMs >= 5 * ?MINUTES_MS of
+                    case CurrentTimestampMs - RequestTimestampMs >= ?KATCHUP_PUBLIC_FEED_REFRESH_MSECS of
                         true -> {true, CursorVersion, CurrentTimestampMs, <<>>};
                         false -> {false, CursorVersion, RequestTimestampMs, Cursor}
                     end

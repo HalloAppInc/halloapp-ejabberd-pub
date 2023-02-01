@@ -12,6 +12,7 @@
 -include("ha_types.hrl").
 -include("logger.hrl").
 -include("props.hrl").
+-include("feed.hrl").
 -include("packets.hrl").
 -include("groups.hrl").
 -include("time.hrl").
@@ -110,7 +111,7 @@ get_props(Uid, ClientVersion, katchup) ->
         enable_sentry_perf_tracking => false, %% Enable Sentry perf tracking on iOS clients
         background_upload => true,   %% Enables background upload on ios clients.
         relationship_sync_frequency => 1 * ?DAYS, %% how often should clients sync all relationships.
-        refresh_public_feed_interval_secs => 10 * ?MINUTES
+        refresh_public_feed_interval_secs => ?KATCHUP_PUBLIC_FEED_REFRESH_SECS
     },
     ClientType = util_ua:get_client_type(ClientVersion),
     AppType = util_ua:get_app_type(ClientVersion),
