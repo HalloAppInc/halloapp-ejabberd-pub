@@ -65,6 +65,7 @@ start(_Host, _Opts) ->
     %% Katchup
     gen_iq_handler:add_iq_handler(ejabberd_local, katchup, pb_feed_item, ?MODULE, process_local_iq),
     gen_iq_handler:add_iq_handler(ejabberd_local, katchup, pb_public_feed_request, ?MODULE, process_local_iq),
+    gen_iq_handler:add_iq_handler(ejabberd_local, katchup, pb_post_subscription_request, ?MODULE, process_local_iq),
     ejabberd_hooks:add(add_friend, katchup, ?MODULE, add_friend, 50),
     ejabberd_hooks:add(remove_user, katchup, ?MODULE, remove_user, 50),
     ejabberd_hooks:add(user_send_packet, katchup, ?MODULE, user_send_packet, 50),
@@ -253,6 +254,42 @@ process_local_iq(#pb_iq{payload = #pb_public_feed_request{public_feed_content_ty
         public_feed_content_type = ContentType,
         items = []
     },
+    pb:make_iq_result(IQ, Ret);
+
+process_local_iq(#pb_iq{from_uid = Uid, payload = #pb_post_subscription_request{action = subscribe, post_id = PostId}} = IQ) ->
+    Ret = case model_feed:get_post(PostId) of
+        {error, missing} ->
+            #pb_post_subscription_response{
+                result = failure,
+                reason = invalid_post_id,
+                items = []
+            };
+        {ok, Post} ->
+            %% Filter if the interaction is in between blocked users.
+            case model_follow:is_blocked_any(Uid, Post#post.uid) of
+                true ->
+                    #pb_post_subscription_response{
+                        result = failure,
+                        reason = invalid_post_id,
+                        items = []
+                    };
+                false ->
+                    %% Filter out comments from blocked users.
+                    {ok, Comments} = model_feed:get_post_comments(PostId),
+                    FilteredComments = lists:filter(
+                        fun(Comment) ->
+                            model_follow:is_blocked_any(Uid, Comment#comment.publisher_uid)
+                        end, Comments),
+                    CommentStanzas = lists:map(
+                        fun(Comment) -> convert_comments_to_feed_items(Comment, public_update) end,
+                        FilteredComments),
+                    model_feed:add_uid_to_audience(Uid, [PostId]),
+                    #pb_post_subscription_response{
+                        result = success,
+                        items = CommentStanzas
+                    }
+            end
+    end,
     pb:make_iq_result(IQ, Ret).
 
 
@@ -1235,8 +1272,12 @@ convert_posts_to_feed_items(#post{id = PostId, uid = Uid, payload = PayloadBase6
     }.
 
 -spec convert_comments_to_feed_items(comment()) -> pb_feed_item().
+convert_comments_to_feed_items(#comment{} = Comment) ->
+    convert_comments_to_feed_items(Comment, share).
+
+
 convert_comments_to_feed_items(#comment{id = CommentId, post_id = PostId, publisher_uid = PublisherUid,
-        parent_id = ParentId, payload = PayloadBase64, ts_ms = TimestampMs, comment_type = CommentType}) ->
+        parent_id = ParentId, payload = PayloadBase64, ts_ms = TimestampMs, comment_type = CommentType}, ActionType) ->
     Comment = #pb_comment{
         id = CommentId,
         post_id = PostId,
@@ -1248,7 +1289,7 @@ convert_comments_to_feed_items(#comment{id = CommentId, post_id = PostId, publis
         comment_type = CommentType
     },
     #pb_feed_item{
-        action = share,
+        action = ActionType,
         item = Comment
     }.
 
