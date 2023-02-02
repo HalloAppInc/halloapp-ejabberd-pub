@@ -330,7 +330,6 @@ process_moment_tag(UidsList, TodaySecs, IsImmediateNotification) ->
                           wait_and_send_notification(Uid, util:to_binary(LocalDay), NotificationId, NotificationType, Prompt, MinToWait2),
                           true;
                     false ->
-                          ?INFO("Skipping: ~p", [Uid]),
                           false
                 end,
                 Acc andalso ProcessingDone;
@@ -475,8 +474,6 @@ is_time_ok(LocalMin, MinToSendToday, MinToSendPrevDay, MinToSendNextDay) ->
     end,
     WhichHrToSend = MinToSend div 60,
     WhichMinToSend = MinToSend rem 60,
-    ?INFO("LocalMin: ~p, WhichTimeToSend: ~p:~p, LocalTime: ~p:~p",
-        [LocalMin, WhichHrToSend, WhichMinToSend, LocalCurrentHr, LocalCurrentMin]),
     IsTimeOk = (LocalCurrentHr >= WhichHrToSend),
     MinToWait = case LocalCurrentHr == WhichHrToSend of
         true ->
