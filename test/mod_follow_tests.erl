@@ -328,7 +328,7 @@ convert_user_info_to_set(Iq) when is_record(Iq, pb_iq) ->
 
 convert_user_info_to_set(RelationshipList) when is_record(RelationshipList, pb_relationship_list) ->
     #pb_relationship_list{users = Users} = RelationshipList,
-    RelationshipList#pb_relationship_list{users = sets:from_list(Users)}.
+    RelationshipList#pb_relationship_list{users = lists:sort(Users)}.
 
 
 get_follower_status(Iq) when is_record(Iq, pb_iq) ->
