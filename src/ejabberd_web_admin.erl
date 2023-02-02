@@ -2143,7 +2143,8 @@ format_column(Key, Map, NoneRes) ->
 	case maps:get(Key, Map, undefined) of
 		{ok, Res} -> ?XTD(Res);
 		{fail, Res} -> ?XTDA(BoldYellowAttr, Res);
-		undefined -> ?XTDA(BoldYellowAttr, NoneRes)
+		undefined -> ?XTDA(BoldYellowAttr, NoneRes);
+		Uid -> ?XTD(Uid)
 	end.
 
 
