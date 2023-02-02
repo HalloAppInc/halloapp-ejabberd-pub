@@ -1050,7 +1050,7 @@ rank_public_moments(Uid, Tag, NewPublicMomentIds) ->
                 ++ "Recency: " ++ util:to_list(RecencyScore) ++ "; "
                 ++ "Unseen: " ++ util:to_list(UnseenScore) ++ "; "
                 ++ "Total: " ++ util:to_list(TotalScore),
-            AccMomentScoresMap#{MomentId => {TotalScore, Explanation}}
+            AccMomentScoresMap#{MomentId => {TotalScore, util:to_binary(Explanation)}}
 
         end, #{}, NewUnexpiredPublicMoments3),
     %% These are now ranked based on campus tags, fof scores and receny scores.
@@ -1316,7 +1316,7 @@ convert_moments_to_public_feed_items(Uid, #post{id = PostId, uid = OUid, payload
     },
     case dev_users:is_dev_uid(Uid) of
         true -> PublicFeedItem#pb_public_feed_item{
-            score = #pb_server_score{score = Score, explanation = Explanation}};
+            score = #pb_server_score{score = round(Score), explanation = Explanation}};
         false -> PublicFeedItem
     end.
 
