@@ -359,7 +359,7 @@ send_moment_notification(Uid, NotificationId, _NotificationTime, _NotificationTy
     AppType = util_uid:get_app_type(Uid),
     case AppType of
         katchup ->
-            model_feed:expire_all_user_posts(Uid),
+            model_feed:expire_all_user_posts(Uid, NotificationId),
             model_feed:set_notification_id(Uid, NotificationId),
             ok;
         _ -> ok

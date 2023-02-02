@@ -547,7 +547,7 @@ get_recent_user_posts_test() ->
         #pb_moment_info{notification_timestamp = (NowMs - (4 * ?DAYS_MS)), notification_id = (NowMs - (4 * ?DAYS_MS))}),
     ok = model_feed:publish_moment(PostId5, Uid, ?PAYLOAD2, moment, all, [Uid], NowMs - (4 * ?DAYS_MS) + ?HOURS_MS,
         #pb_moment_info{notification_timestamp = (NowMs - (4 * ?DAYS_MS)), notification_id = (NowMs - (4 * ?DAYS_MS))}),
-    ok = model_feed:expire_all_user_posts(Uid),
+    ok = model_feed:expire_all_user_posts(Uid, NowMs),
     ?assertEqual([?POST_ID2, ?POST_ID3, PostId5], lists:map(fun(#post{id = Id}) -> Id end,
         model_feed:get_recent_user_posts(Uid))),
     ok = model_feed:publish_moment(?POST_ID1, Uid, ?PAYLOAD1, moment, all, [Uid], NowMs,

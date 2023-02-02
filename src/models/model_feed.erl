@@ -79,7 +79,7 @@
     is_post_owner/2,
     get_post_tag/1,
     add_uid_to_audience/2,
-    expire_all_user_posts/1,
+    expire_all_user_posts/2,
     set_notification_id/2,
     get_notification_id/1,
     is_post_expired/1,
@@ -547,10 +547,21 @@ retract_comment(CommentId, PostId) ->
     ok.
 
 
--spec expire_all_user_posts(Uid :: uid()) -> ok.
-expire_all_user_posts(Uid) ->
+-spec expire_all_user_posts(Uid :: uid(), NotificationId :: integer()) -> ok.
+expire_all_user_posts(Uid, NotificationId) ->
     {ok, PostIds} = q(["ZRANGE", reverse_post_key(Uid), "-inf", "+inf", "BYSCORE"]),
-    lists:foreach(fun(PostId) -> ok = expire_post(PostId, Uid) end, PostIds),
+    case get_posts(PostIds) of
+        [] -> ok;
+        Posts ->
+            ExpirePostIds = lists:filtermap(
+                fun(Post) ->
+                    case Post#post.moment_info#pb_moment_info.notification_id < NotificationId of
+                        true -> {true, Post#post.id};
+                        false -> false
+                    end
+                end, Posts),
+            lists:foreach(fun(PostId) -> ok = expire_post(PostId, Uid) end, ExpirePostIds)
+    end,
     ok.
 
 
