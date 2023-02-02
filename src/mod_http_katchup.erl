@@ -63,6 +63,7 @@ process([Username],
                 PushName = UserProfile#pb_user_profile.name,
                 Avatar = UserProfile#pb_user_profile.avatar_id,
                 {ok, HtmlPage} = dtl_user_profile:render([
+                    {user_name, Username},
                     {push_name, PushName},
                     {avatar, Avatar},
                     {base64_enc_blob, base64url:encode(UserProfileBlob)}

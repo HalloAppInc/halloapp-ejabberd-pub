@@ -34,6 +34,7 @@
 
 <div id="app"></div>
 <script>
+window.kus = "{{ user_name }}"
 window.kun = "{{ push_name }}"
 window.kua = "{{ avatar }}"
 window.kub = "{{ base64_enc_blob }}"
