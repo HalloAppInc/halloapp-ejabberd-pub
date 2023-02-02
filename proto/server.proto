@@ -288,6 +288,13 @@ message PublicFeedItem {
         FOF = 2;
       }
     Reason reason = 4;
+    ServerScore score = 5;  // will not be returned for non-devs
+}
+
+
+message ServerScore {
+    int64 score = 1;
+    string explanation = 2;
 }
 
 

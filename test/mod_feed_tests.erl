@@ -445,11 +445,11 @@ setup_public_feed_tests() ->
 
 
 test_get_public_feed_items(_) ->
-    GetPostIdsFromPost = fun({_, _, L}) -> lists:map(fun(#post{id = PostId}) -> PostId end, L) end,
-    [?_assertEqual([?POST_ID3, ?POST_ID2, ?POST_ID1], GetPostIdsFromPost(
+    GetPostIdsFromPost = fun({_, _, L, _}) -> lists:map(fun(#post{id = PostId}) -> PostId end, L) end,
+    [?_assertMatch([?POST_ID3, ?POST_ID2, ?POST_ID1], GetPostIdsFromPost(
         mod_feed:get_public_moments(?UID2, undefined, ?PUBLIC_FEED_TIMESTAMP_MS, undefined, 5))),
     ?_assertOk(model_feed:retract_post(?POST_ID2, ?UID1)),
-    ?_assertEqual([?POST_ID3, ?POST_ID1], GetPostIdsFromPost(
+    ?_assertMatch([?POST_ID3, ?POST_ID1], GetPostIdsFromPost(
         mod_feed:get_public_moments(?UID2, undefined, ?PUBLIC_FEED_TIMESTAMP_MS, undefined, 5)))].
 
 

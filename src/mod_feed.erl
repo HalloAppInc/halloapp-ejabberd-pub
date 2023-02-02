@@ -62,7 +62,7 @@
     new_follow_relationship/2,
     get_public_moments/5,
     re_register_user/4,
-    convert_moments_to_public_feed_items/2
+    convert_moments_to_public_feed_items/3
 ]).
 
 
@@ -255,8 +255,8 @@ process_local_iq(#pb_iq{from_uid = Uid, payload = #pb_public_feed_request{cursor
         end,
         %% Fetch latest geotag, public moments (convert them to pb feed items) and calculate cursor
         Tag = model_accounts:get_latest_geo_tag(Uid),
-        {ReloadFeed, NewCursor, PublicMoments} = get_public_moments(Uid, Tag, util:now_ms(), Cursor, ?NUM_PUBLIC_FEED_ITEMS_PER_REQUEST),
-        PublicFeedItems = lists:map(fun(PublicMoment) -> convert_moments_to_public_feed_items(Uid, PublicMoment) end, PublicMoments),
+        {ReloadFeed, NewCursor, PublicMoments, MomentScoresMap} = get_public_moments(Uid, Tag, util:now_ms(), Cursor, ?NUM_PUBLIC_FEED_ITEMS_PER_REQUEST),
+        PublicFeedItems = lists:map(fun(PublicMoment) -> convert_moments_to_public_feed_items(Uid, PublicMoment, MomentScoresMap) end, PublicMoments),
         Ret = #pb_public_feed_response{
             result = success,
             reason = ok,
@@ -942,7 +942,7 @@ get_public_moments(Uid, Tag, TimestampMs, Cursor, Limit) ->
     %% Filter out past seen posts
     PublicMomentIdsToRank = sets:to_list(sets:subtract(sets:from_list(PublicMomentIds),  OldPostIdSet)),
     %% Rank posts in order of priority.
-    RankedPublicMoments = rank_public_moments(Uid, Tag, PublicMomentIdsToRank),
+    {RankedPublicMoments, MomentScoresMap} = rank_public_moments(Uid, Tag, PublicMomentIdsToRank),
     %% TODO: we should cache this for each user and then update as users post.
     %% Send only some of them to the user.
     DisplayPublicMoments = lists:sublist(RankedPublicMoments, Limit),
@@ -957,7 +957,7 @@ get_public_moments(Uid, Tag, TimestampMs, Cursor, Limit) ->
     end,
     Time2 = util:now_ms(),
     ?INFO("Total Time Taken for Uid: ~p, Tag: ~p is : ~p, DisplayMomentIds: ~p", [Uid, Tag, (Time2 - Time1), DisplayMomentIds]),
-    {CursorReload, NewCursor, DisplayPublicMoments}.
+    {CursorReload, NewCursor, DisplayPublicMoments, MomentScoresMap}.
 
 
 rank_public_moments(Uid, Tag, NewPublicMomentIds) ->
@@ -1044,7 +1044,13 @@ rank_public_moments(Uid, Tag, NewPublicMomentIds) ->
                 UnseenScore * ?UNSEEN_SCORE_IMPORTANCE,
             ?INFO("Uid: ~p, PostId: ~p, CampusTagScore: ~p, FollowingInterestScore: ~p, RecencyScore: ~p, UnseenScore: ~p, TotalScore: ~p",
                     [Uid, MomentId, CampusTagScore, FollowingInterestScore, RecencyScore, UnseenScore, TotalScore]),
-            AccMomentScoresMap#{MomentId => TotalScore}
+            Explanation = "PostId: " ++ util:to_list(MomentId) ++ "; "
+                ++ "Campus: " ++ util:to_list(CampusTagScore) ++ "; "
+                ++ "FollowingInterest: " ++ util:to_list(FollowingInterestScore) ++ "; "
+                ++ "Recency: " ++ util:to_list(RecencyScore) ++ "; "
+                ++ "Unseen: " ++ util:to_list(UnseenScore) ++ "; "
+                ++ "Total: " ++ util:to_list(TotalScore),
+            AccMomentScoresMap#{MomentId => {TotalScore, Explanation}}
 
         end, #{}, NewUnexpiredPublicMoments3),
     %% These are now ranked based on campus tags, fof scores and receny scores.
@@ -1070,7 +1076,7 @@ rank_public_moments(Uid, Tag, NewPublicMomentIds) ->
                 end
             end, NewUnexpiredPublicMoments3),
 
-    lists:reverse(RankedPublicMoments).
+    {lists:reverse(RankedPublicMoments), MomentScoresMap}.
 
 %%====================================================================
 %% feed: helper internal functions
@@ -1287,8 +1293,8 @@ get_feed_audience_set(Action, Uid, AudienceList) ->
     end.
 
 
--spec convert_moments_to_public_feed_items(uid(), post()) -> pb_public_feed_item().
-convert_moments_to_public_feed_items(Uid, #post{id = PostId, uid = OUid, payload = PayloadBase64, ts_ms = TimestampMs, tag = PostTag, moment_info = MomentInfo}) ->
+-spec convert_moments_to_public_feed_items(uid(), post(), map()) -> pb_public_feed_item().
+convert_moments_to_public_feed_items(Uid, #post{id = PostId, uid = OUid, payload = PayloadBase64, ts_ms = TimestampMs, tag = PostTag, moment_info = MomentInfo}, MomentScoresMap) ->
     UserProfile = model_accounts:get_basic_user_profiles(Uid, OUid),
     PbPost = #pb_post{
         id = PostId,
@@ -1301,12 +1307,18 @@ convert_moments_to_public_feed_items(Uid, #post{id = PostId, uid = OUid, payload
     },
     {ok, Comments} = model_feed:get_post_comments(PostId),
     PbComments = lists:map(fun convert_comments_to_pb_comments/1, Comments),
-    #pb_public_feed_item{
+    {Score, Explanation} = maps:get(PostId, MomentScoresMap, {-1, <<"error getting score">>}),
+    PublicFeedItem = #pb_public_feed_item{
         user_profile = UserProfile,
         post = PbPost,
         comments = PbComments,
         reason = unknown_reason %% Setting unknown for all content right now -- but need to update.
-    }.
+    },
+    case dev_users:is_dev_uid(Uid) of
+        true -> PublicFeedItem#pb_public_feed_item{
+            score = #pb_server_score{score = Score, explanation = Explanation}};
+        false -> PublicFeedItem
+    end.
 
 
 -spec convert_posts_to_feed_items(post()) -> pb_feed_item().
