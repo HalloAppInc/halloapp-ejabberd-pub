@@ -304,7 +304,7 @@ process_moment_tag(TodaySecs, IsImmediateNotification) ->
     TomorrowList = get_zone_tag_uids(TomorrowOffsetHr),
     lists:foreach(
         fun({List, ZoneOffsetHr}) ->
-            ZoneOffsetMin = ZoneOffsetHr div 60,
+            ZoneOffsetMin = ZoneOffsetHr * 60,
             LocalMin = (CurrentHrGMT * 60) + CurrentMinGMT + ZoneOffsetMin,
             {TimeOk, MinToWait, DayAdjustment} = is_time_ok(LocalMin, MinToSendToday, MinToSendPrevDay, MinToSendNextDay),
             MinToWait2 = case IsImmediateNotification of
@@ -320,8 +320,8 @@ process_moment_tag(TodaySecs, IsImmediateNotification) ->
                     end,
                     ?INFO("Scheduling offset: ~p, Local day: ~p, MinToWait: ~p", [ZoneOffsetHr, LocalDay, MinToWait2]),
                     wait_and_send_notification(List, util:to_binary(LocalDay), NotificationId, NotificationType, Prompt, MinToWait2),
-                    ?INFO("Processed – ZoneOffsetHr: ~p, LocalDay: ~p, NotifId: ~p, NotifType: ~p, MinToWait2: ~p",
-                        [ZoneOffsetHr, LocalDay, NotificationId, NotificationType, MinToWait2]);
+                    ?INFO("Processed ~p users, ZoneOffsetHr: ~p, LocalDay: ~p, NotifId: ~p, NotifType: ~p, MinToWait2: ~p",
+                        [length(List), ZoneOffsetHr, LocalDay, NotificationId, NotificationType, MinToWait2]);
                 false ->
                     ?ERROR("Time not ok! LocalMin: ~p, MinToSendToday: ~p, MinToSendPrevDay: ~p, MinToSendNextDay: ~p, MinToWait2: ~p, DayAdjustment: ~p",
                         [LocalMin, MinToSendToday, MinToSendPrevDay, MinToSendNextDay, MinToWait2, DayAdjustment])
