@@ -27,7 +27,8 @@
     send_notifications/0,
     send_moment_notification/1,
     send_moment_notification/4,
-    maybe_send_moment_notification/5,
+    check_and_send_moment_notification/5,
+    send_moment_notification_async/4,
     maybe_send_moment_notification/7,
     get_four_zone_offset_hr/3,
     get_four_zone_offset_hr/2,
@@ -37,12 +38,14 @@
     get_local_time_in_minutes/4,
     get_local_time_in_minutes/5,
     get_offset_region_by_uid/1,
-    process_moment_tag/3,
+    process_moment_tag/2,
     check_and_schedule/0
 ]).
 
 %% Hooks
 -export([reassign_jobs/0]).
+
+-define(NUM_MOMENT_NOTIF_SENDER_PROCS, 10).
 
 %%====================================================================
 %% gen_mod callbacks
@@ -91,8 +94,8 @@ check_and_schedule() ->
         true ->
             %% Process last two hours again in case notifications were lost
             %% because of server restart.
-            process_moment_tag([], util:now(), false),
-            process_moment_tag([], util:now() - ?MOMENT_TAG_INTERVAL_SEC, true),
+            process_moment_tag(util:now(), false),
+            process_moment_tag(util:now() - ?MOMENT_TAG_INTERVAL_SEC, true),
             schedule();
         false -> ok
     end,
@@ -120,7 +123,7 @@ unschedule() ->
 
 -spec send_notifications() -> ok.
 send_notifications() ->
-    process_moment_tag([], util:now(), false),
+    process_moment_tag(util:now(), false),
     ok.
 
 -spec register_user(Uid :: binary(), Server :: binary(), Phone :: binary(), CampaignId :: binary()) -> ok.
@@ -236,7 +239,7 @@ send_latest_notification(Uid, Phone) ->
 %
 % If the local time's hr is greater than the hr of notification, we schedule the notification
 % to be sent after some time. We need to make sure no double notifications are sent.
-process_moment_tag(UidsList, TodaySecs, IsImmediateNotification) ->
+process_moment_tag(TodaySecs, IsImmediateNotification) ->
     YesterdaySecs = (TodaySecs - ?DAYS),
     TomorrowSecs = (TodaySecs + ?DAYS),
     {{_,_,Today}, {CurrentHrGMT, CurrentMinGMT,_}} = 
@@ -296,48 +299,35 @@ process_moment_tag(UidsList, TodaySecs, IsImmediateNotification) ->
     TomorrowOffsetHr = TomorrowHr - CurrentHrGMT + 24,
     ?INFO("Today's offset: ~p, Yesterday's offset: ~p, Tomorrow's offset: ~p",
         [TodayOffsetHr, YesterdayOffsetHr, TomorrowOffsetHr]),
-    List = case UidsList of
-        [] ->
-            TodaysList = get_zone_tag_uids(TodayOffsetHr),
-            YesterdayList = get_zone_tag_uids(YesterdayOffsetHr),
-            TomorrowList = get_zone_tag_uids(TomorrowOffsetHr),
-            lists:flatten([TodaysList, YesterdayList, TomorrowList]);
-        _ -> UidsList
-    end,
-    Phones = model_accounts:get_phones(List),
-    UidPhones = lists:zip(List, Phones),
-    Processed =
-        lists:foldl(
-            fun({Uid, Phone}, Acc) when Phone =/= undefined ->
-                {ok, PushInfo} = model_accounts:get_push_info(Uid),
-                ClientVersion = PushInfo#push_info.client_version,
-                LocalMin = get_local_time_in_minutes(Uid, Phone, PushInfo, CurrentHrGMT, CurrentMinGMT),
-
-                {TimeOk, MinToWait, DayAdjustment} = 
-                    is_time_ok(LocalMin, MinToSendToday, MinToSendPrevDay, MinToSendNextDay),
-                MinToWait2 = case IsImmediateNotification of
-                    false -> MinToWait;
-                    true -> 0
-                end,
-                ProcessingDone = case TimeOk andalso is_client_version_ok(ClientVersion) of
-                    true ->
-                          {LocalDay, NotificationId, NotificationType, Prompt} = case DayAdjustment of
-                              0 -> {Today, TodayNotificationId, TodayNotificationType, TodayPrompt};
-                              -1 -> {Yesterday, YesterdayNotificationId, YesterdayNotificationType, YesterdayPrompt};
-                              1 -> {Tomorrow, TomorrowNotificationId, TomorrowNotificationType, TomorrowPrompt}
-                          end,
-                          ?INFO("Scheduling: ~p, Local day: ~p, MinToWait: ~p", [Uid, LocalDay, MinToWait2]),
-                          wait_and_send_notification(Uid, util:to_binary(LocalDay), NotificationId, NotificationType, Prompt, MinToWait2),
-                          true;
-                    false ->
-                          false
-                end,
-                Acc andalso ProcessingDone;
-            ({Uid, _}, Acc) ->
-                ?INFO("Skipping: ~p, invalid Phone", [Uid]),
-                Acc
-        end, true, UidPhones),
-    ?INFO("Processed fully: ~p", [Processed]).
+    TodayList = get_zone_tag_uids(TodayOffsetHr),
+    YesterdayList = get_zone_tag_uids(YesterdayOffsetHr),
+    TomorrowList = get_zone_tag_uids(TomorrowOffsetHr),
+    lists:foreach(
+        fun({List, ZoneOffsetHr}) ->
+            ZoneOffsetMin = ZoneOffsetHr div 60,
+            LocalMin = (CurrentHrGMT * 60) + CurrentMinGMT + ZoneOffsetMin,
+            {TimeOk, MinToWait, DayAdjustment} = is_time_ok(LocalMin, MinToSendToday, MinToSendPrevDay, MinToSendNextDay),
+            MinToWait2 = case IsImmediateNotification of
+                false -> MinToWait;
+                true -> 0
+            end,
+            case TimeOk of
+                true ->
+                    {LocalDay, NotificationId, NotificationType, Prompt} = case DayAdjustment of
+                        0 -> {Today, TodayNotificationId, TodayNotificationType, TodayPrompt};
+                        -1 -> {Yesterday, YesterdayNotificationId, YesterdayNotificationType, YesterdayPrompt};
+                        1 -> {Tomorrow, TomorrowNotificationId, TomorrowNotificationType, TomorrowPrompt}
+                    end,
+                    ?INFO("Scheduling offset: ~p, Local day: ~p, MinToWait: ~p", [ZoneOffsetHr, LocalDay, MinToWait2]),
+                    wait_and_send_notification(List, util:to_binary(LocalDay), NotificationId, NotificationType, Prompt, MinToWait2),
+                    ?INFO("Processed – ZoneOffsetHr: ~p, LocalDay: ~p, NotifId: ~p, NotifType: ~p, MinToWait2: ~p",
+                        [ZoneOffsetHr, LocalDay, NotificationId, NotificationType, MinToWait2]);
+                false ->
+                    ?ERROR("Time not ok! LocalMin: ~p, MinToSendToday: ~p, MinToSendPrevDay: ~p, MinToSendNextDay: ~p, MinToWait2: ~p, DayAdjustment: ~p",
+                        [LocalMin, MinToSendToday, MinToSendPrevDay, MinToSendNextDay, MinToWait2, DayAdjustment])
+            end
+        end,
+        [{YesterdayList, YesterdayOffsetHr}, {TodayList, TodayOffsetHr}, {TomorrowList, TomorrowOffsetHr}]).
 
 %% TODO(vipin): Update this method. false clause is to satisfy Dialyzer
 is_client_version_ok(UserAgent) when is_binary(UserAgent) ->
@@ -487,16 +477,11 @@ is_time_ok(LocalMin, MinToSendToday, MinToSendPrevDay, MinToSendNextDay) ->
 
 
 %% TODO: remove this function.
--spec wait_and_send_notification(Uid :: uid(), Tag :: binary(), NotificationId :: integer(), NotificationType :: moment_type(), Prompt :: binary(), MinToWait :: integer()) -> ok.
-wait_and_send_notification(Uid, Tag, NotificationId, NotificationType, Prompt, MinToWait) ->
-    case dev_users:is_dev_uid(Uid) orelse util_uid:get_app_type(Uid) =:= katchup of
-        true ->
-            timer:apply_after(MinToWait * ?MINUTES_MS, ?MODULE,
-                maybe_send_moment_notification, [Uid, Tag, NotificationId, NotificationType, Prompt]);
-        false ->
-            ?INFO("Not a developer: ~p", [Uid])
-    end,
-    ok.
+-spec wait_and_send_notification(List :: list(uid()), Tag :: binary(), NotificationId :: integer(), NotificationType :: moment_type(), Prompt :: binary(), MinToWait :: integer()) -> {error, term()} | {ok, timer:tref()}.
+wait_and_send_notification(List, Tag, NotificationId, NotificationType, Prompt, MinToWait) ->
+    NonHalloAppList = lists:filter(fun(Uid) -> util_uid:get_app_type(Uid) =/= halloapp end, List),
+    timer:apply_after(MinToWait * ?MINUTES_MS, ?MODULE, check_and_send_moment_notification,
+        [NonHalloAppList, Tag, NotificationId, NotificationType, Prompt]).
 
 
 -spec wait_and_send_notification(Uid :: uid(), Tag :: binary(), NotificationId :: integer(),
@@ -521,12 +506,40 @@ maybe_send_moment_notification(Uid, Tag, NotificationId, NotificationTimestamp, 
     end.
 
 
--spec maybe_send_moment_notification(Uid :: uid(), Tag :: binary(), NotificationId :: integer(),
+-spec check_and_send_moment_notification(List :: list(uid()), Tag :: binary(), NotificationId :: integer(),
         NotificationType :: moment_type(), Prompt :: binary()) -> ok.
-maybe_send_moment_notification(Uid, Tag, NotificationId, NotificationType, Prompt) ->
-    case model_accounts:mark_moment_notification_sent(Uid, Tag) of
-        true -> send_moment_notification(Uid, NotificationId, util:now(), NotificationType, Prompt, false);
-        false -> ?INFO("Moment notification already sent to Uid: ~p", [Uid])
+check_and_send_moment_notification(List, Tag, NotificationId, NotificationType, Prompt) ->
+    ?INFO("Start send moment notifications", []),
+    StartTime = util:now_ms(),
+    ListToSend = lists:filter(
+        fun(Uid) -> model_accounts:mark_moment_notification_sent(Uid, Tag) end,
+        List),
+    NumWorkers = ?NUM_MOMENT_NOTIF_SENDER_PROCS,
+    WorkerPids = lists:map(
+        fun(N) ->
+            spawn(?MODULE, send_moment_notification_async, [NotificationId, NotificationType, Prompt, N])
+        end,
+        lists:seq(1, NumWorkers)),
+    lists:foldl(
+        fun(Uid, N) ->
+            lists:nth((N rem NumWorkers) + 1, WorkerPids) ! Uid,
+            N + 1
+        end,
+        0,
+        ListToSend),
+    lists:foreach(fun(Pid) -> Pid ! done end, WorkerPids),
+    TotalTime = (StartTime - util:now_ms()) / 1000,
+    ?INFO("Finish send moment notifications, took ~p seconds", [TotalTime]).
+
+
+send_moment_notification_async(NotificationId, NotificationType, Prompt, Name) ->
+    receive
+        done ->
+            ?INFO("send_moment_notification_async done ~p", [Name]),
+            ok;
+        Uid ->
+            send_moment_notification(Uid, NotificationId, util:now(), NotificationType, Prompt, false),
+            send_moment_notification_async(NotificationId, NotificationType, Prompt, Name)
     end.
 
 
@@ -551,6 +564,8 @@ send_moment_notification(Uid, NotificationId, NotificationTimestamp, Notificatio
             hide_banner = HideBanner
         }
     },
+    stat:count(util:get_stat_namespace(AppType) ++ "/moment_notif", "send"),
+    ?INFO("Sending moment notification to ~p", [Uid]),
     ejabberd_router:route(Packet),
     ejabberd_hooks:run(send_moment_notification, AppType, [Uid, NotificationId, NotificationTime, NotificationType, Prompt, HideBanner]),
     ok.
