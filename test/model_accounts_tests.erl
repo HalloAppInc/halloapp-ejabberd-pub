@@ -106,6 +106,7 @@
 
 -define(ZONE_OFFSET1, -28800).
 -define(ZONE_OFFSET3, 28800).
+-define(ZONE_OFFSET4, 21600).
 
 -define(USERNAME1, <<"username1">>).
 -define(USERNAME2, <<"usernaem1">>).
@@ -708,6 +709,8 @@ zone_offset_tag_test(_) ->
     ?_assertEqual({ok, []},
                   model_accounts:get_zone_offset_tag_uids(?ZONE_OFFSET1)),
     ?_assertEqual({ok, [?UID1]},
+                   model_accounts:get_zone_offset_tag_uids(?ZONE_OFFSET4)),
+    ?_assertEqual({ok, []},
                    model_accounts:get_zone_offset_tag_uids(?ZONE_OFFSET3)),
     ?_assertOk(model_accounts:del_zone_offset(?ZONE_OFFSET3)),
     ?_assertEqual({ok, []},
