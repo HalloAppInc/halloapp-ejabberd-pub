@@ -4,8 +4,10 @@
             {
                 "appID": "5M78D698HF.com.halloapp.katchup",
                 "components": [
-                    { "/": "/$(alpha)*" },
-                    { "/": "/w/*", "exclude": true }
+                    { "/": "/w/*", "exclude": true },
+                    { "/": "/w/", "exclude": true },
+                    { "/": "/w", "exclude": true },
+                    { "/": "/$(alpha)*" }
                 ]
             }
         ]
