@@ -19,7 +19,7 @@
 -define(APPLE_APP_SITE_ASSOCIATION, <<"apple-app-site-association">>).
 -define(ASSET_LINKS, <<"assetlinks.json">>).
 -define(WEBSITE, <<"https://katchup.com/w/">>).
--define(IOS_LINK, <<"https://testflight.apple.com/join/aBZO6VoG">>).
+-define(IOS_LINK, <<"https://apps.apple.com/us/app/katchup/id6444901429">>).
 -define(ANDROID_LINK, <<"https://play.google.com/store/apps/details?id=com.halloapp.katchup">>).
 
 %%%----------------------------------------------------------------------
