@@ -223,7 +223,16 @@ send_latest_notification(Uid, Phone) ->
                     util_moments:calculate_notif_timestamp(0, MinToSendToday, ZoneOffsetHr)}
             end,
             %% Schedule todays again separately.
-            spawn(?MODULE, process_moment_tag, [[Uid], util:now(), false]),
+            {TodayLocalDay, TodayNotificationId, TodayNotificationType, TodayPrompt, TodayNotificationTimestamp} = case DayAdjustment of
+                0 -> {Today, TodayNotificationId, TodayNotificationType, TodayPrompt,
+                    util_moments:calculate_notif_timestamp(0, MinToSendToday, ZoneOffsetHr)};
+                -1 -> {Yesterday, YesterdayNotificationId, YesterdayNotificationType, YesterdayPrompt,
+                    util_moments:calculate_notif_timestamp(-1, MinToSendPrevDay, ZoneOffsetHr)};
+                1 -> {Tomorrow, TomorrowNotificationId, TomorrowNotificationType, TomorrowPrompt,
+                    util_moments:calculate_notif_timestamp(1, MinToSendNextDay, ZoneOffsetHr)}
+            end,
+            %% TODO: move this logic to an ets table: set of uids will be there.
+            wait_and_send_notification(Uid, util:to_binary(TodayLocalDay), TodayNotificationId, TodayNotificationTimestamp, TodayNotificationType, TodayPrompt, false, MinToWait),
             Result
     end,
     ?INFO("Scheduling: ~p, Local day: ~p, MinToWait: ~p, NotificationId: ~p NotificationType: ~p, Prompt: ~p, NotificationTimestamp: ~p",
