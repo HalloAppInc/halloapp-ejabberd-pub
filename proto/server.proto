@@ -223,6 +223,7 @@ message FeedItem {
         RETRACT = 1;
         SHARE = 2;
         PUBLIC_UPDATE = 3;
+        EXPIRE = 4;
     }
     Action action = 1;
     oneof item {
@@ -293,8 +294,9 @@ message PublicFeedItem {
 
 
 message ServerScore {
-    int64 score = 1;
+    int64 score = 1;  // for backwards compatability; the double version of score should be used instead
     string explanation = 2;
+    double dscore = 3;
 }
 
 

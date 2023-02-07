@@ -1316,7 +1316,7 @@ convert_moments_to_public_feed_items(Uid, #post{id = PostId, uid = OUid, payload
     },
     case dev_users:is_dev_uid(Uid) of
         true -> PublicFeedItem#pb_public_feed_item{
-            score = #pb_server_score{score = round(Score), explanation = Explanation}};
+            score = #pb_server_score{score = round(Score * 1000), explanation = Explanation, dscore = Score}};
         false -> PublicFeedItem
     end.
 
