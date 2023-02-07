@@ -897,7 +897,7 @@ uid_info_katchup(Uid, Options) ->
     {CreationDate, CreationTime} = util:ms_to_datetime_string(CreationTs),
     {LastActiveDate, LastActiveTime} = util:ms_to_datetime_string(LastActivityTs),
     {LastConnDate, LastConnTime} = util:ms_to_datetime_string(LastConnectionTime),
-    ?INFO("Uid: ~s, Name: ~s, Phone: ~s~n", [Uid, Name, Phone]),
+    ?INFO("Uid: ~s, Name: ~s, Phone: ~s, Username: ~s~n", [Uid, Name, Phone, Username]),
     io:format("Uid: ~s~nUsername: ~s~nName: ~s~nPhone: ~s~n", [Uid, Username, Name, Phone]),
     io:format("Account created on ~s at ~s ua: ~s~n",
         [CreationDate, CreationTime, UserAgent]),
@@ -910,6 +910,17 @@ uid_info_katchup(Uid, Options) ->
 
     Tags = model_accounts:get_all_geo_tags(Uid),
     io:format("ZoneOffset = ~p GeoTags: ~p~n", [ZoneOffset, Tags]),
+
+    Bio = model_accounts:get_bio(Uid),
+    LinksMap = model_accounts:get_links(Uid),
+    io:format("Bio: ~p~n", [Bio]),
+    LinksStr = maps:fold(
+        fun(LinkType, Link, AccStr) ->
+            AccStr ++ "{" ++ util:to_list(LinkType) ++ ", " ++ util:to_list(Link) ++ "}"
+        end,
+        "Links:",
+        LinksMap) ++ "~n",
+    io:format("~p", LinksStr),
 
     case lists:member(short, Options) of
         true -> ok;
