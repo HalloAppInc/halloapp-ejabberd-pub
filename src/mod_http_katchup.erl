@@ -48,13 +48,14 @@ process([Username],
         UserAgent = util_http:get_user_agent(Headers),
         Platform = util_http:get_platform(UserAgent),
         IP = util_http:get_ip(NetIP, Headers),
-        ?INFO("Username: ~p, UserAgent ~p Platform: ~p, IP: ~p", [Username, UserAgent, Platform, IP]),
+        Username2 = string:lowercase(Username),
+        ?INFO("Username: ~p, UserAgent ~p Platform: ~p, IP: ~p", [Username2, UserAgent, Platform, IP]),
         RedirResponse = case Platform of
             android -> {302, [?LOCATION_HEADER(?ANDROID_LINK)], <<"">>};
             ios -> {302, [?LOCATION_HEADER(?IOS_LINK)], <<"">>};
             _ -> {302, [?LOCATION_HEADER(?WEBSITE)], <<"">>}
         end,
-        {ok, Uid} = model_accounts:get_username_uid(Username),
+        {ok, Uid} = model_accounts:get_username_uid(Username2),
         case Uid =/= undefined andalso model_accounts:account_exists(Uid) of
             true ->
                 UserProfile = model_accounts:get_user_profiles(Uid, Uid),
@@ -63,7 +64,7 @@ process([Username],
                 PushName = UserProfile#pb_user_profile.name,
                 Avatar = UserProfile#pb_user_profile.avatar_id,
                 {ok, HtmlPage} = dtl_user_profile:render([
-                    {user_name, Username},
+                    {user_name, Username2},
                     {push_name, PushName},
                     {avatar, Avatar},
                     {base64_enc_blob, base64url:encode(UserProfileBlob)}
