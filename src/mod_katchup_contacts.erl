@@ -29,7 +29,9 @@
 %% IQ handlers and hooks.
 -export([
     process_local_iq/1, 
-    remove_user/2,  
+    remove_user/2,
+    register_user/4,
+    send_new_user_notifications/2,
     re_register_user/4,
     trigger_full_contact_sync/1,
     set_full_sync_retry_time/0,
@@ -53,6 +55,7 @@ start(_Host, _Opts) ->
     gen_iq_handler:add_iq_handler(ejabberd_local, katchup, pb_contact_list, ?MODULE, process_local_iq),
     ejabberd_hooks:add(remove_user, katchup, ?MODULE, remove_user, 40),
     ejabberd_hooks:add(re_register_user, katchup, ?MODULE, re_register_user, 100),
+    ejabberd_hooks:add(register_user, katchup, ?MODULE, register_user, 100),
     ok.
 
 stop(_Host) ->
@@ -60,6 +63,7 @@ stop(_Host) ->
     gen_iq_handler:remove_iq_handler(ejabberd_local, katchup, pb_contact_list),
     ejabberd_hooks:delete(remove_user, katchup, ?MODULE, remove_user, 40),
     ejabberd_hooks:delete(re_register_user, katchup, ?MODULE, re_register_user, 100),
+    ejabberd_hooks:delete(register_user, katchup, ?MODULE, register_user, 100),
     delete_contact_options_table(),
     ok.
 
@@ -202,6 +206,29 @@ re_register_user(UserId, _Server, Phone, _CampaignId) ->
     %% Clear first sync status upon re-registration.
     model_accounts:delete_first_sync_status(UserId),
     model_accounts:delete_first_non_empty_sync_status(UserId),
+    ok.
+
+
+%% This hook runs only for katchup users.
+-spec register_user(UserId :: binary(), Server :: binary(), Phone :: binary(), CampaignId :: binary()) -> ok.
+register_user(UserId, _Server, Phone, _CampaignId) ->
+    ?INFO("Uid: ~p, Phone: ~p", [UserId, Phone]),
+    %% Send notifications to relevant users.
+    send_new_user_notifications(UserId, Phone),
+    ok.
+
+
+%% runs only for katchup users.
+-spec send_new_user_notifications(UserId :: binary(), UserPhone :: binary()) -> ok.
+send_new_user_notifications(UserId, Phone) ->
+    AppType = util_uid:get_app_type(UserId),
+    {ok, ContactUids} = model_contacts:get_contact_uids(Phone, AppType),
+    %% Send only one notification per contact
+    lists:foreach(
+        fun(ContactId) ->
+            ?INFO("Notify Contact: ~p about user: ~p joining", [ContactId, UserId]),
+            mod_follow:notify_profile_update(UserId, ContactId, contact_notice)
+        end, ContactUids),
     ok.
 
 
