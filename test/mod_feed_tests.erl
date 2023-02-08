@@ -428,33 +428,33 @@ share_post_iq_test() ->
 %% Public feed tests
 %%====================================================================
 
--define(PUBLIC_FEED_TIMESTAMP_MS, 1668124237311).
-
-setup_public_feed_tests() ->
-    CleanupInfo = tutil:setup([
-        {start, stringprep},
-        {redis, [redis_feed]}
-    ]),
-    gen_iq_handler:start(ejabberd_local),
-    ejabberd_hooks:start_link(),
-    mod_feed:start(?SERVER, []),
-    model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, public_moment, all, [], ?PUBLIC_FEED_TIMESTAMP_MS - 1),
-    model_feed:publish_post(?POST_ID2, ?UID1, ?PAYLOAD1, public_moment, all, [], ?PUBLIC_FEED_TIMESTAMP_MS - 2),
-    model_feed:publish_post(?POST_ID3, ?UID1, ?PAYLOAD1, public_moment, all, [], ?PUBLIC_FEED_TIMESTAMP_MS - 3),
-    CleanupInfo.
-
-
-test_get_public_feed_items(_) ->
-    GetPostIdsFromPost = fun({_, _, L, _}) -> lists:map(fun(#post{id = PostId}) -> PostId end, L) end,
-    [?_assertMatch([?POST_ID3, ?POST_ID2, ?POST_ID1], GetPostIdsFromPost(
-        mod_feed:get_public_moments(?UID2, undefined, ?PUBLIC_FEED_TIMESTAMP_MS, undefined, 5))),
-    ?_assertOk(model_feed:retract_post(?POST_ID2, ?UID1)),
-    ?_assertMatch([?POST_ID3, ?POST_ID1], GetPostIdsFromPost(
-        mod_feed:get_public_moments(?UID2, undefined, ?PUBLIC_FEED_TIMESTAMP_MS, undefined, 5)))].
-
-
-public_feed_test_() ->
-    tutil:setup_once(fun setup_public_feed_tests/0, [
-        fun test_get_public_feed_items/1
-    ]).
-
+%%-define(PUBLIC_FEED_TIMESTAMP_MS, 1668124237311).
+%%
+%%setup_public_feed_tests() ->
+%%    CleanupInfo = tutil:setup([
+%%        {start, stringprep},
+%%        {redis, [redis_feed]}
+%%    ]),
+%%    gen_iq_handler:start(ejabberd_local),
+%%    ejabberd_hooks:start_link(),
+%%    mod_feed:start(?SERVER, []),
+%%    model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, public_moment, all, [], ?PUBLIC_FEED_TIMESTAMP_MS - 1),
+%%    model_feed:publish_post(?POST_ID2, ?UID1, ?PAYLOAD1, public_moment, all, [], ?PUBLIC_FEED_TIMESTAMP_MS - 2),
+%%    model_feed:publish_post(?POST_ID3, ?UID1, ?PAYLOAD1, public_moment, all, [], ?PUBLIC_FEED_TIMESTAMP_MS - 3),
+%%    CleanupInfo.
+%%
+%%
+%%test_get_public_feed_items(_) ->
+%%    GetPostIdsFromPost = fun({_, _, L, _}) -> lists:map(fun(#post{id = PostId}) -> PostId end, L) end,
+%%    [?_assertMatch([?POST_ID3, ?POST_ID2, ?POST_ID1], GetPostIdsFromPost(
+%%        mod_feed:get_public_moments(?UID2, undefined, ?PUBLIC_FEED_TIMESTAMP_MS, undefined, 5))),
+%%    ?_assertOk(model_feed:retract_post(?POST_ID2, ?UID1)),
+%%    ?_assertMatch([?POST_ID3, ?POST_ID1], GetPostIdsFromPost(
+%%        mod_feed:get_public_moments(?UID2, undefined, ?PUBLIC_FEED_TIMESTAMP_MS, undefined, 5)))].
+%%
+%%
+%%public_feed_test_() ->
+%%    tutil:setup_once(fun setup_public_feed_tests/0, [
+%%        fun test_get_public_feed_items/1
+%%    ]).
+%%

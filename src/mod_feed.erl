@@ -968,38 +968,32 @@ rank_public_moments(Uid, Tag, NewPublicMomentIds) ->
     %% We will rank them lower than others.
 
     %% Filter out deleted posts and convert PostIds to Posts
-    NewPublicMoments = model_feed:get_posts(NewPublicMomentIds),
+    FilteredPublicMoments = model_feed:get_posts(NewPublicMomentIds),
     LatestNotificationId = model_feed:get_notification_id(Uid),
-    %% Filter out expired posts.
-    NewUnexpiredPublicMoments1 = lists:filter(fun(Moment) -> Moment#post.expired =:= false end, NewPublicMoments),
-    %% Filter out old content.
-    NewUnexpiredPublicMoments2 = lists:filter(
-        fun(Moment) ->
-            %% Incase we dont have a notification-id yet, then dont filter.
-            %% this is a temporary fix for now since we started storing this info only recently.
-            case LatestNotificationId of
-                undefined -> true;
-                _ ->
-                    %% Temp fix for now since some posts are missing this.
-                    case Moment#post.moment_info of
-                        undefined -> true;
-                        MomentInfo ->
-                            MomentInfo#pb_moment_info.notification_id >= LatestNotificationId
-                    end
-            end
-        end, NewUnexpiredPublicMoments1),
-
-    %% Filter out content from self, following, and blocked uids.
+    %% Filter out expired posts, old content, and posts from self, following, dev users, and blocked users
     RemoveAuthorSet = sets:from_list(model_follow:get_all_following(Uid)
         ++ [Uid]
         ++ model_follow:get_blocked_uids(Uid)
         ++ model_follow:get_blocked_by_uids(Uid)),
-    NewUnexpiredPublicMoments3 = lists:filter(
-            fun(PublicMoment) -> not sets:is_element(PublicMoment#post.uid, RemoveAuthorSet) end,
-            NewUnexpiredPublicMoments2),
+    FilteredPublicMoments1 = lists:filter(
+        fun
+            (#post{expired = true} = _Moment) ->
+                %% Filter out expired posts
+                false;
+            (#post{expired = false, uid = Ouid, moment_info = #pb_moment_info{notification_id = NotifId}}) ->
+                %% Ouid is ok if: not in RemoveAuthorSet OR not a dev user (except allowed dev users)
+                IsOuidOk = not (sets:is_element(Ouid, RemoveAuthorSet) orelse
+                    (dev_users:is_dev_uid(Ouid) andalso
+                        not lists:member(Ouid, dev_users:get_katchup_public_feed_allowed_uids()))),
+                IsNotifIdOk = NotifId >= LatestNotificationId,
+                IsOuidOk andalso IsNotifIdOk;
+            (_Else) ->
+                false
+        end,
+        FilteredPublicMoments),
 
     %% Get campus author set
-    AuthorUids = lists:map(fun(PublicMoment) -> PublicMoment#post.uid end, NewUnexpiredPublicMoments3),
+    AuthorUids = lists:map(fun(PublicMoment) -> PublicMoment#post.uid end, FilteredPublicMoments1),
     AuthorUidsToGeoTagMap = model_accounts:get_latest_geo_tag(AuthorUids),
 
     %% Get num_mutual_following
@@ -1052,7 +1046,7 @@ rank_public_moments(Uid, Tag, NewPublicMomentIds) ->
                 ++ "Total: " ++ util:to_list(TotalScore),
             AccMomentScoresMap#{MomentId => {TotalScore, util:to_binary(Explanation)}}
 
-        end, #{}, NewUnexpiredPublicMoments3),
+        end, #{}, FilteredPublicMoments1),
     %% These are now ranked based on campus tags, fof scores and receny scores.
     %% Will experiment these for a few days and then decide.
 
@@ -1074,7 +1068,7 @@ rank_public_moments(Uid, Tag, NewPublicMomentIds) ->
                     false ->
                         Score1 =< Score2
                 end
-            end, NewUnexpiredPublicMoments3),
+            end, FilteredPublicMoments1),
 
     {lists:reverse(RankedPublicMoments), MomentScoresMap}.
 
