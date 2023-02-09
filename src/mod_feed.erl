@@ -359,6 +359,19 @@ send_moment_notification(Uid, NotificationId, _NotificationTime, _NotificationTy
     AppType = util_uid:get_app_type(Uid),
     case AppType of
         katchup ->
+            case model_feed:get_notification_id(Uid) of
+                undefined -> ok;
+                OldNotificationId ->
+                    case model_feed:get_user_latest_post(Uid) of
+                        undefined -> ok;
+                        Post ->
+                            %% Send notification only if the latest post was the previous days post.
+                            case Post#post.moment_info#pb_moment_info.notification_id =:= OldNotificationId of
+                                true -> send_expiry_notice(Post);
+                                false -> ok
+                            end
+                    end
+            end,
             model_feed:expire_all_user_posts(Uid, NotificationId),
             model_feed:set_notification_id(Uid, NotificationId),
             ok;
@@ -412,6 +425,35 @@ is_psa_tag_allowed(PSATag) ->
 %%====================================================================
 %% Internal functions
 %%====================================================================
+
+-spec send_expiry_notice(Post :: post()) -> ok.
+send_expiry_notice(#post{id = PostId, uid = PostOwnerUid} = Post) ->
+    %% get all audience, set action=retract to include everyone.
+    FeedAudienceList = sets:to_list(get_feed_audience_set(retract, PostOwnerUid, Post#post.audience_list)),
+    [PostOwnerZoneOffset | AudienceListZoneOffset] = model_accounts:get_zone_offsets([PostOwnerUid] ++ FeedAudienceList),
+    lists:foreach(
+        fun({ToUid, ToUidZoneOffset}) ->
+            case ToUidZoneOffset =:= PostOwnerZoneOffset andalso PostOwnerZoneOffset =/= undefined of
+                true -> ok;
+                false ->
+                    ?INFO("send_expiry_notice about PostId: ~p, ToUid: ~p", [PostId, ToUid]),
+                    Packet = #pb_msg{
+                        id = util_id:new_msg_id(),
+                        to_uid = ToUid,
+                        from_uid = PostOwnerUid,
+                        payload = #pb_feed_item{
+                            action = expire,
+                            item = #pb_post{
+                                id = PostId
+                                % is_expired = true
+                            }
+                        }
+                    },
+                    ejabberd_router:route(Packet)
+            end
+        end, lists:zip(FeedAudienceList, AudienceListZoneOffset)),
+    ok.
+
 
 -spec set_sender_info(Message :: message()) -> message().
 set_sender_info(#pb_msg{id = MsgId, payload = #pb_feed_items{items = Items} = FeedItems} = Message) ->

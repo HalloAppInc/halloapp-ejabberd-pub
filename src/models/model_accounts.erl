@@ -125,6 +125,7 @@
     set_push_new_user_pref/2,
     set_push_follower_pref/2,
     get_zone_offset/1,
+    get_zone_offsets/1,
     presence_subscribe/2,
     presence_unsubscribe/2,
     presence_unsubscribe_all/1,
@@ -1072,6 +1073,16 @@ set_push_follower_pref(Uid, PushPref) ->
 get_zone_offset(Uid) ->
     {ok, Res} = q(["HGET", account_key(Uid), ?FIELD_ZONE_OFFSET]),
     util_redis:decode_int(Res).
+
+
+-spec get_zone_offsets(Uids :: list(uid())) -> list(maybe(integer())).
+get_zone_offsets(Uids) ->
+    Commands = lists:map(
+        fun(Uid) ->
+            ["HGET", account_key(Uid), ?FIELD_ZONE_OFFSET]
+        end, Uids),
+    Results = qmn(Commands),
+    lists:map(fun({ok, ZoneOffsetSec}) -> util_redis:decode_int(ZoneOffsetSec) end, Results).
 
 
 -spec account_exists(Uid :: uid()) -> boolean().

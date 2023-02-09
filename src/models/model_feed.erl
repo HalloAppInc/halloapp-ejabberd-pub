@@ -65,6 +65,7 @@
     get_7day_group_feed/1,
     get_entire_group_feed/1,
     get_recent_user_posts/1,
+    get_user_latest_post/1,
     get_psa_tag_posts/1,
     is_psa_tag_done/1,
     mark_psa_tag_done/1,
@@ -989,6 +990,20 @@ get_recent_user_posts(Uid) ->
             ?ERROR("Unexpected recent post history for ~s: ~p | partitioned: ~p", [Uid, FinalPosts, Res]),
             lists:sublist(FinalPosts, 4)
     end.
+
+
+-spec get_user_latest_post(Uid :: uid()) -> maybe(post()).
+get_user_latest_post(Uid) ->
+    {ok, LatestPostId} = q(["ZRANGE", reverse_post_key(Uid), "0", "0", "REV"]),
+    LatestPost = case LatestPostId of
+        undefined -> undefined;
+        _ ->
+            case get_post(LatestPostId) of
+                {ok, Post} -> Post;
+                {error, missing} -> undefined
+            end
+    end,
+    LatestPost.
 
 
 -spec get_group_feed(Uid :: uid(), DeadlineMs :: integer()) -> {ok, [feed_item()]} | {error, any()}.
