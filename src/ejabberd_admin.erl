@@ -920,7 +920,7 @@ uid_info_katchup(Uid, Options) ->
         end,
         "Links:",
         LinksMap) ++ "~n",
-    io:format("~p", LinksStr),
+    io:format("~p", [LinksStr]),
 
     case lists:member(short, Options) of
         true -> ok;
