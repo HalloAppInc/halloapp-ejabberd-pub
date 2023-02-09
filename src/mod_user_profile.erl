@@ -166,7 +166,7 @@ compose_user_profile_result(Uid, Ouid) ->
     RawRecentPosts = model_feed:get_recent_user_posts(Ouid),
     AccountName = model_accounts:get_name_binary(Ouid),
     RecentPosts = lists:map(
-        fun(#post{id = PostId, payload = PayloadBase64, ts_ms = TimestampMs, tag = PostTag, moment_info = MomentInfo}) ->
+        fun(#post{id = PostId, payload = PayloadBase64, ts_ms = TimestampMs, tag = PostTag, moment_info = MomentInfo} = Post) ->
             #pb_post{
                 id = PostId,
                 publisher_uid = Ouid,
@@ -174,7 +174,8 @@ compose_user_profile_result(Uid, Ouid) ->
                 payload = base64:decode(PayloadBase64),
                 timestamp = util:ms_to_sec(TimestampMs),
                 moment_info = MomentInfo,
-                tag = PostTag
+                tag = PostTag,
+                is_expired = Post#post.expired
             }
         end, RawRecentPosts),
     #pb_user_profile_result{

@@ -444,8 +444,8 @@ send_expiry_notice(#post{id = PostId, uid = PostOwnerUid} = Post) ->
                         payload = #pb_feed_item{
                             action = expire,
                             item = #pb_post{
-                                id = PostId
-                                % is_expired = true
+                                id = PostId,
+                                is_expired = true
                             }
                         }
                     },
@@ -1330,7 +1330,7 @@ get_feed_audience_set(Action, Uid, AudienceList) ->
 
 
 -spec convert_moments_to_public_feed_items(uid(), post(), map()) -> pb_public_feed_item().
-convert_moments_to_public_feed_items(Uid, #post{id = PostId, uid = OUid, payload = PayloadBase64, ts_ms = TimestampMs, tag = PostTag, moment_info = MomentInfo}, MomentScoresMap) ->
+convert_moments_to_public_feed_items(Uid, #post{id = PostId, uid = OUid, payload = PayloadBase64, ts_ms = TimestampMs, tag = PostTag, moment_info = MomentInfo} = Post, MomentScoresMap) ->
     UserProfile = model_accounts:get_basic_user_profiles(Uid, OUid),
     PbPost = #pb_post{
         id = PostId,
@@ -1339,7 +1339,8 @@ convert_moments_to_public_feed_items(Uid, #post{id = PostId, uid = OUid, payload
         payload = base64:decode(PayloadBase64),
         timestamp = util:ms_to_sec(TimestampMs),
         moment_info = MomentInfo,
-        tag = PostTag
+        tag = PostTag,
+        is_expired = Post#post.expired
     },
     {ok, Comments} = model_feed:get_post_comments(PostId),
     PbComments = lists:map(fun convert_comments_to_pb_comments/1, Comments),
@@ -1358,7 +1359,7 @@ convert_moments_to_public_feed_items(Uid, #post{id = PostId, uid = OUid, payload
 
 
 -spec convert_posts_to_feed_items(post()) -> pb_feed_item().
-convert_posts_to_feed_items(#post{id = PostId, uid = Uid, payload = PayloadBase64, ts_ms = TimestampMs, tag = PostTag, moment_info = MomentInfo}) ->
+convert_posts_to_feed_items(#post{id = PostId, uid = Uid, payload = PayloadBase64, ts_ms = TimestampMs, tag = PostTag, moment_info = MomentInfo} = Post) ->
     Post = #pb_post{
         id = PostId,
         publisher_uid = Uid,
@@ -1366,7 +1367,8 @@ convert_posts_to_feed_items(#post{id = PostId, uid = Uid, payload = PayloadBase6
         payload = base64:decode(PayloadBase64),
         timestamp = util:ms_to_sec(TimestampMs),
         moment_info = MomentInfo,
-        tag = PostTag
+        tag = PostTag,
+        is_expired = Post#post.expired
     },
     #pb_feed_item{
         action = share,
