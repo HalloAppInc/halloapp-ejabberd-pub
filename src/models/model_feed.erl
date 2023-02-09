@@ -849,8 +849,7 @@ get_moment_time_to_send(Tag, DateTimeSecs) ->
             Time = generate_notification_time(DateTimeSecs),
             %% NotificationType, 5 out of 7 week days for live camera
             %% rest for text post
-            %% TODO: need to change to =< 5
-            Type = case rand:uniform(7) =< 7 of
+            Type = case rand:uniform(7) =< 5 of
                 true -> live_camera;
                 false -> text_post
             end,

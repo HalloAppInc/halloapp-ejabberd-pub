@@ -79,15 +79,15 @@ get_media_prompt() ->
 
 get_text_prompts() ->
     [
-    <<"Vibe Check1">>,
-    <<"Vibe Check2">>,
-    <<"Vibe Check3">>,
-    <<"Vibe Check4">>,
-    <<"Vibe Check4">>,
-    <<"Vibe Check6">>,
-    <<"Vibe Check7">>,
-    <<"Vibe Check8">>,
-    <<"Vibe Check9">>
+    <<"Vibe Check">>,
+    <<"Vibe Check">>,
+    <<"Vibe Check">>,
+    <<"Vibe Check">>,
+    <<"Vibe Check">>,
+    <<"Vibe Check">>,
+    <<"Vibe Check">>,
+    <<"Vibe Check">>,
+    <<"Vibe Check">>
     ].
 
 get_media_prompts() ->
