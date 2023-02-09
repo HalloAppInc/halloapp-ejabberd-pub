@@ -187,6 +187,9 @@ message Post {
 
     // Must be set only for moments.
     MomentInfo moment_info = 13;
+
+    // Set by the server.
+    bool is_expired = 14;
 }
 
 message Comment {
@@ -297,6 +300,13 @@ message ServerScore {
     int64 score = 1;  // for backwards compatability; the double version of score should be used instead
     string explanation = 2;
     double dscore = 3;
+}
+
+
+message PublicFeedUpdate {
+    string cursor = 1;
+    PublicFeedContentType public_feed_content_type = 2;
+    repeated PublicFeedItem items = 3;
 }
 
 
@@ -1180,6 +1190,7 @@ message Msg {
         GroupChatStanza group_chat_stanza = 52;
         MomentNotification moment_notification = 53;
         ProfileUpdate profile_update = 54;
+        PublicFeedUpdate public_feed_update = 55;
     }
     int32 retry_count = 21;
     int32 rerequest_count = 25;
