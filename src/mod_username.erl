@@ -70,6 +70,7 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
         payload = #pb_username_request{action = set, username = Username}} = IQ) ->
     ?INFO("Uid: ~p, set username ~p", [Uid, Username]),
     stat:count("KA/username", "set"),
+    IsFirstTime = model_accounts:get_username(Uid) =:= {ok, undefined},
     Result = case is_valid_username(Username) of
         {false, Err} -> {fail, Err};
         true ->
@@ -81,7 +82,7 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
     case Result of
         ok ->
             AppType = util_uid:get_app_type(Uid),
-            ejabberd_hooks:run(username_updated, AppType, [Uid, Username]),
+            ejabberd_hooks:run(username_updated, AppType, [Uid, Username, IsFirstTime]),
             pb:make_iq_result(IQ, #pb_username_response{result = ok});
         {fail, Err2} ->
             pb:make_iq_result(IQ, #pb_username_response{result = fail, reason = Err2})

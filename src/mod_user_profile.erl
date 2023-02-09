@@ -22,7 +22,7 @@
     process_local_iq/1,
     account_name_updated/2,
     user_avatar_published/3,
-    username_updated/2,
+    username_updated/3,
     broadcast_profile_update/1,
     compose_user_profile_result/2
 ]).
@@ -140,8 +140,8 @@ user_avatar_published(Uid, _Server, _AvatarId) ->
     ok.
 
 
--spec username_updated(Uid :: binary(), Username :: binary()) -> ok.
-username_updated(Uid, _Username) ->
+-spec username_updated(Uid :: binary(), Username :: binary(), IsFirstTime :: boolean()) -> ok.
+username_updated(Uid, _Username, _IsFirstTime) ->
     broadcast_profile_update(Uid),
     ok.
 

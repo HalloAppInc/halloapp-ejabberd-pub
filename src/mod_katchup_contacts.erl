@@ -30,7 +30,7 @@
 -export([
     process_local_iq/1, 
     remove_user/2,
-    register_user/4,
+    username_updated/3,
     send_new_user_notifications/2,
     re_register_user/4,
     trigger_full_contact_sync/1,
@@ -55,7 +55,7 @@ start(_Host, _Opts) ->
     gen_iq_handler:add_iq_handler(ejabberd_local, katchup, pb_contact_list, ?MODULE, process_local_iq),
     ejabberd_hooks:add(remove_user, katchup, ?MODULE, remove_user, 40),
     ejabberd_hooks:add(re_register_user, katchup, ?MODULE, re_register_user, 100),
-    ejabberd_hooks:add(register_user, katchup, ?MODULE, register_user, 100),
+    ejabberd_hooks:add(username_updated, katchup, ?MODULE, username_updated, 50),
     ok.
 
 stop(_Host) ->
@@ -63,7 +63,7 @@ stop(_Host) ->
     gen_iq_handler:remove_iq_handler(ejabberd_local, katchup, pb_contact_list),
     ejabberd_hooks:delete(remove_user, katchup, ?MODULE, remove_user, 40),
     ejabberd_hooks:delete(re_register_user, katchup, ?MODULE, re_register_user, 100),
-    ejabberd_hooks:delete(register_user, katchup, ?MODULE, register_user, 100),
+    ejabberd_hooks:delete(username_updated, katchup, ?MODULE, username_updated, 50),
     delete_contact_options_table(),
     ok.
 
@@ -210,17 +210,23 @@ re_register_user(UserId, _Server, Phone, _CampaignId) ->
 
 
 %% This hook runs only for katchup users.
--spec register_user(UserId :: binary(), Server :: binary(), Phone :: binary(), CampaignId :: binary()) -> ok.
-register_user(UserId, _Server, Phone, _CampaignId) ->
-    ?INFO("Uid: ~p, Phone: ~p", [UserId, Phone]),
+%% Username is the last step after first login.
+%% So we wait to get this info and then send new user notifications.
+-spec username_updated(UserId :: binary(), Username :: binary(), IsFirstTime :: boolean()) -> ok.
+username_updated(UserId, _Username, true) ->
+    ?INFO("Uid: ~p", [UserId]),
+    {ok, Phone} = model_accounts:get_phone(UserId),
     %% Send notifications to relevant users.
     send_new_user_notifications(UserId, Phone),
+    ok;
+username_updated(_UserId, _Username, false) ->
     ok.
 
 
 %% runs only for katchup users.
 -spec send_new_user_notifications(UserId :: binary(), UserPhone :: binary()) -> ok.
 send_new_user_notifications(UserId, Phone) ->
+    ?INFO("UserId: ~p Phone: ~p", [UserId, Phone]),
     AppType = util_uid:get_app_type(UserId),
     {ok, ContactUids} = model_contacts:get_contact_uids(Phone, AppType),
     %% Send only one notification per contact
