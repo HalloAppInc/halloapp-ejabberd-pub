@@ -1364,7 +1364,7 @@ convert_moments_to_public_feed_items(Uid, #post{id = PostId, uid = OUid, payload
 
 -spec convert_posts_to_feed_items(post()) -> pb_feed_item().
 convert_posts_to_feed_items(#post{id = PostId, uid = Uid, payload = PayloadBase64, ts_ms = TimestampMs, tag = PostTag, moment_info = MomentInfo} = Post) ->
-    Post = #pb_post{
+    PbPost = #pb_post{
         id = PostId,
         publisher_uid = Uid,
         publisher_name = model_accounts:get_name_binary(Uid),
@@ -1376,7 +1376,7 @@ convert_posts_to_feed_items(#post{id = PostId, uid = Uid, payload = PayloadBase6
     },
     #pb_feed_item{
         action = share,
-        item = Post
+        item = PbPost
     }.
 
 -spec convert_comments_to_feed_items(comment()) -> pb_feed_item().
