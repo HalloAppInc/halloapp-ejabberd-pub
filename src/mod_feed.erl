@@ -60,7 +60,7 @@
     send_old_moment/2,
     send_moment_notification/6,
     new_follow_relationship/2,
-    get_public_moments/5,
+    get_public_moments/6,
     re_register_user/4,
     convert_moments_to_public_feed_items/3
 ]).
@@ -231,7 +231,7 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
 
 % Get public feed items
 process_local_iq(#pb_iq{from_uid = Uid, payload = #pb_public_feed_request{cursor = Cursor,
-    public_feed_content_type = moments, gps_location = GpsLocation}} = IQ) ->
+    public_feed_content_type = moments, gps_location = GpsLocation, show_dev_content = ShowDevContent}} = IQ) ->
     ?INFO("Public feed request: Uid ~s, GpsLocation ~p, Cursor ~p", [Uid, GpsLocation, Cursor]),
     case GpsLocation =/= undefined of
         true ->
@@ -255,7 +255,7 @@ process_local_iq(#pb_iq{from_uid = Uid, payload = #pb_public_feed_request{cursor
         end,
         %% Fetch latest geotag, public moments (convert them to pb feed items) and calculate cursor
         Tag = model_accounts:get_latest_geo_tag(Uid),
-        {ReloadFeed, NewCursor, PublicMoments, MomentScoresMap} = get_public_moments(Uid, Tag, util:now_ms(), Cursor, ?NUM_PUBLIC_FEED_ITEMS_PER_REQUEST),
+        {ReloadFeed, NewCursor, PublicMoments, MomentScoresMap} = get_public_moments(Uid, Tag, util:now_ms(), Cursor, ?NUM_PUBLIC_FEED_ITEMS_PER_REQUEST, ShowDevContent),
         PublicFeedItems = lists:map(fun(PublicMoment) -> convert_moments_to_public_feed_items(Uid, PublicMoment, MomentScoresMap) end, PublicMoments),
         Ret = #pb_public_feed_response{
             result = success,
@@ -971,7 +971,7 @@ determine_cursor_action(Cursor) ->
     end.
 
 
-get_public_moments(Uid, Tag, TimestampMs, Cursor, Limit) ->
+get_public_moments(Uid, Tag, TimestampMs, Cursor, Limit, ShowDevContent) ->
     Time1 = util:now_ms(),
     ?INFO("Uid: ~p, Tag: ~p, TimestampMs: ~p, Cursor: ~p, Limit: ~p", [Uid, Tag, TimestampMs, Cursor, Limit]),
     %% Check on cursor if it is too old or invalid.
@@ -984,7 +984,7 @@ get_public_moments(Uid, Tag, TimestampMs, Cursor, Limit) ->
     %% Filter out past seen posts
     PublicMomentIdsToRank = sets:to_list(sets:subtract(sets:from_list(PublicMomentIds),  OldPostIdSet)),
     %% Rank posts in order of priority.
-    {RankedPublicMoments, MomentScoresMap} = rank_public_moments(Uid, Tag, PublicMomentIdsToRank),
+    {RankedPublicMoments, MomentScoresMap} = rank_public_moments(Uid, Tag, PublicMomentIdsToRank, ShowDevContent),
     %% TODO: we should cache this for each user and then update as users post.
     %% Send only some of them to the user.
     DisplayPublicMoments = lists:sublist(RankedPublicMoments, Limit),
@@ -1002,7 +1002,7 @@ get_public_moments(Uid, Tag, TimestampMs, Cursor, Limit) ->
     {CursorReload, NewCursor, DisplayPublicMoments, MomentScoresMap}.
 
 
-rank_public_moments(Uid, Tag, NewPublicMomentIds) ->
+rank_public_moments(Uid, Tag, NewPublicMomentIds, ShowDevContent) ->
 
     %% Get past posts that have been seen recently.
     PostIds = model_feed:get_past_seen_posts(Uid),
@@ -1024,9 +1024,13 @@ rank_public_moments(Uid, Tag, NewPublicMomentIds) ->
                 false;
             (#post{expired = false, uid = Ouid, moment_info = #pb_moment_info{notification_id = NotifId}}) ->
                 %% Ouid is ok if: not in RemoveAuthorSet OR not a dev user (except allowed dev users)
-                IsOuidOk = not (sets:is_element(Ouid, RemoveAuthorSet) orelse
-                    (dev_users:is_dev_uid(Ouid) andalso
-                        not lists:member(Ouid, dev_users:get_katchup_public_feed_allowed_uids()))),
+                IsOuidOk = case ShowDevContent andalso dev_users:is_dev_uid(Uid) of
+                    true -> not sets:is_element(Ouid, RemoveAuthorSet);
+                    false ->
+                        not (sets:is_element(Ouid, RemoveAuthorSet) orelse
+                            (dev_users:is_dev_uid(Ouid) andalso
+                                not lists:member(Ouid, dev_users:get_katchup_public_feed_allowed_uids())))
+                end,
                 IsNotifIdOk = NotifId >= LatestNotificationId,
                 IsOuidOk andalso IsNotifIdOk;
             (_Else) ->

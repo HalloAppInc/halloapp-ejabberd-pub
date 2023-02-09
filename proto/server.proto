@@ -260,6 +260,7 @@ message PublicFeedRequest {
     string cursor = 1;
     PublicFeedContentType public_feed_content_type = 2;
     GpsLocation gps_location = 3;
+    bool show_dev_content = 4;
 }
 
 
