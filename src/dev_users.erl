@@ -16,7 +16,8 @@
 %% API
 -export([
     get_dev_uids/0,
-    get_katchup_public_feed_allowed_uids/0,
+    get_dev_phones/0,
+    show_on_public_feed/1,
     is_dev_uid/1,
     is_murali/1,
     is_psa_admin/1
@@ -88,10 +89,11 @@ get_dev_uids() ->
     ].
 
 
-get_katchup_public_feed_allowed_uids() ->
+-spec get_dev_phones() -> [phone()].
+get_dev_phones() ->
     [
-        <<"1001000000929171042">>,  %% Alisa
-        <<"1001000000468141330">>   %% Duygu
+        <<"359884199917">>,  %% Vasil
+        <<"359888257524">>   %% Stefan
     ].
 
 
@@ -104,8 +106,29 @@ is_dev_uid(Uid) ->
         {ok, ?NOISE_CHECKER_PHONE} ->
             false;
         {ok, Phone} ->
-            util:is_test_number(Phone) orelse IsUIDDev
+            util:is_test_number(Phone) orelse IsUIDDev orelse lists:member(Phone, get_dev_phones())
     end.
+
+
+-spec show_on_public_feed(Uid :: uid()) -> boolean().
+show_on_public_feed(Uid) ->
+    IsDevUid = lists:member(Uid, get_dev_uids()),
+    case model_accounts:get_phone(Uid) of
+        {error, missing} ->
+            not IsDevUid;
+        {ok, Phone} ->
+            %% is user specifically allowed OR are they not a dev uid/phone
+            lists:member(Uid, get_katchup_public_feed_allowed_uids())
+                orelse (not IsDevUid andalso not lists:member(Phone, get_dev_phones()))
+    end .
+
+
+get_katchup_public_feed_allowed_uids() ->
+    [
+        <<"1001000000929171042">>,  %% Alisa
+        <<"1001000000468141330">>   %% Duygu
+    ].
+
 
 is_murali(<<"1000000000739856658">>) -> true;  %% Murali
 is_murali(<<"1000000000773653288">>) -> true;  %% Murali android

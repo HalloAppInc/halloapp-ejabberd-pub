@@ -483,8 +483,6 @@ timestamp_to_datetime(TsMs) ->
 
 
 -spec is_test_number(Phone :: binary()) -> boolean().
-is_test_number(<<"359884199917">>) -> true;  %% Vasil
-is_test_number(<<"359888257524">>) -> true;  %% Stefan
 is_test_number(Phone) ->
     case re:run(Phone, "^1...555....$") of
         {match, _} -> true;

@@ -1023,14 +1023,9 @@ rank_public_moments(Uid, Tag, NewPublicMomentIds, ShowDevContent) ->
                 %% Filter out expired posts
                 false;
             (#post{expired = false, uid = Ouid, moment_info = #pb_moment_info{notification_id = NotifId}}) ->
-                %% Ouid is ok if: not in RemoveAuthorSet OR not a dev user (except allowed dev users)
-                IsOuidOk = case ShowDevContent andalso dev_users:is_dev_uid(Uid) of
-                    true -> not sets:is_element(Ouid, RemoveAuthorSet);
-                    false ->
-                        not (sets:is_element(Ouid, RemoveAuthorSet) orelse
-                            (dev_users:is_dev_uid(Ouid) andalso
-                                not lists:member(Ouid, dev_users:get_katchup_public_feed_allowed_uids())))
-                end,
+                %% Ouid is ok if: not in RemoveAuthorSet AND allowed on public feed
+                IsOuidOk = not sets:is_element(Ouid, RemoveAuthorSet)
+                    andalso (ShowDevContent orelse dev_users:show_on_public_feed(Ouid)),
                 IsNotifIdOk = NotifId >= LatestNotificationId,
                 IsOuidOk andalso IsNotifIdOk;
             (_Else) ->
