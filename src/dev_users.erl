@@ -120,7 +120,7 @@ show_on_public_feed(Uid) ->
         {ok, Phone} ->
             %% is user specifically allowed OR are they not a dev uid/phone
             lists:member(Uid, get_katchup_public_feed_allowed_uids())
-                orelse (not IsDevUid andalso not lists:member(Phone, get_dev_phones()))
+                orelse (not IsDevUid andalso not lists:member(Phone, get_dev_phones()) andalso not util:is_test_number(Phone))
     end .
 
 
