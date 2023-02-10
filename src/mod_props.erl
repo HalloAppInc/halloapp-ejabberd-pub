@@ -127,7 +127,7 @@ get_props(Uid, ClientVersion, halloapp) ->
         max_group_size => ?MAX_GROUP_SIZE, %% max limit on the group size.
         max_post_media_items => 10, %% max number of media_items client can post.
         max_chat_media_items => 30, %% max number of media_items client can share in a chat message.
-        group_chat => false, %% whether the client can access group_chat or not.
+        group_chat => true, %% whether the client can access group_chat or not.
         max_feed_video_duration => 600, %% duration in seconds for videos on feed.
         max_chat_video_duration => 600, %% duration in seconds for videos in chats.
         private_reactions => false, %% whether client can send private reactions.
@@ -227,9 +227,8 @@ get_uid_based_props(PropMap, halloapp, Uid) ->
             PropMap20 = maps:update(contact_sharing, true, PropMap19),
             PropMap21 = maps:update(close_friends_recos, true, PropMap20),
             PropMap22 = maps:update(location_sharing, true, PropMap21),
-            PropMap23 = maps:update(group_chat, true, PropMap22),
-            PropMap24 = maps:update(moment_external_share, true, PropMap23),
-            PropMap24
+            PropMap23 = maps:update(moment_external_share, true, PropMap22),
+            PropMap23
     end,
     apply_uid_prop_overrides(Uid, ResPropMap);
 
