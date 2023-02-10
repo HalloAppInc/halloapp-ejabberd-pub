@@ -22,7 +22,8 @@
     get_header/2,
     get_user_agent/1,
     get_platform/1,
-    get_ip/2
+    get_ip/2,
+    fetch_object/1
 ]).
 
 -spec return_400(term()) -> http_response().
@@ -89,5 +90,20 @@ get_ip(IP, Headers) ->
         ForwardedFor ->
             [ClientIP | _Rest] = binary:split(ForwardedFor, <<",">>, [global]),
             binary_to_list(ClientIP)
+    end.
+
+fetch_object(URL) ->
+    ?DEBUG("URL: ~s", [URL]),
+    Response = httpc:request(get, {URL, []}, [], []),
+    ?DEBUG("Response: ~p", [base64url:encode(Response)]),
+    case Response of
+        {ok, {{_, 200, _}, _ResHeaders, ResBody}} ->
+            {ok, ResBody};
+        {ok, {{_, 403, _}, _, _}} ->
+            ?ERROR("URL: ~s not found, Response: ~p", [URL, Response]),
+            {error, not_found};
+        _ ->
+            ?ERROR("URL ~s, Response: ~p", [URL, Response]),
+            {error, url_fail}
     end.
 

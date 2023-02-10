@@ -24,6 +24,9 @@
 -define(CT_BIN,
     {<<"Content-Type">>, <<"application/octet-stream">>}).
 
+-define(CT_JPG,
+    {<<"Content-Type">>, <<"image/jpeg">>}).
+
 -define(AC_ALLOW_ORIGIN,
     {<<"Access-Control-Allow-Origin">>, <<"*">>}).
 

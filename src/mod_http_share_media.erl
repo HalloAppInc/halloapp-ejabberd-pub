@@ -49,7 +49,7 @@ process_media(URL, #request{q = Q, ip = {NetIP, _Port}, headers = Headers} = _R)
         IP = util_http:get_ip(NetIP, Headers),
         ?INFO("Media URL: ~p, Type: ~p, UserAgent ~p Platform: ~p, IP: ~p",
             [URL, Type, UserAgent, Platform, IP]),
-        case fetch_object(URL) of
+        case util_http:fetch_object(URL) of
             {ok, EncBlobWithMac} ->
                 ComputedHash = crypto:hash(sha256, EncBlobWithMac),
                 case ComputedHash =:= Hash of
@@ -99,18 +99,4 @@ show_expired_error(URL) ->
     HtmlPage = <<?HTML_PRE/binary, <<"Media Expired">>/binary, ?HTML_POST/binary>>,
     {200, ?HEADER(?CT_HTML), HtmlPage}.
 
-fetch_object(URL) ->
-    ?DEBUG("URL: ~s", [URL]),
-    Response = httpc:request(get, {URL, []}, [], []),
-    ?DEBUG("Response: ~p", [base64url:encode(Response)]),
-    case Response of
-        {ok, {{_, 200, _}, _ResHeaders, ResBody}} ->
-            {ok, ResBody};
-        {ok, {{_, 403, _}, _, _}} ->
-            ?ERROR("URL: ~s not found, Response: ~p", [URL, Response]),
-            {error, not_found};
-        _ ->
-            ?ERROR("URL ~s, Response: ~p", [URL, Response]),
-            {error, url_fail}
-    end.
 
