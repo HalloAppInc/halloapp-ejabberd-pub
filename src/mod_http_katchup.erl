@@ -60,12 +60,16 @@ process([<<"v">>, Username],
         case Uid =/= undefined andalso model_accounts:account_exists(Uid) of
             true ->
                 UserProfile = model_accounts:get_user_profiles(Uid, Uid),
-                Avatar = UserProfile#pb_user_profile.avatar_id,
-                case convert_avatar(binary_to_list(Avatar), binary_to_list(Username2)) of
-                    {error, Reason2} ->
-                        ?ERROR("Convert Avatar: ~p failed: ~p", [Avatar, Reason2]),
-                        {302, [?LOCATION_HEADER(?CDN_URL ++ Avatar)], <<"">>};
-                    Data -> {200, [?CT_JPG], Data}
+                case UserProfile#pb_user_profile.avatar_id of
+                    undefined ->
+                        {302, [?LOCATION_HEADER("https://katchup.com/w/images/tomato.png")], <<"">>};
+                    Avatar ->
+                        case convert_avatar(binary_to_list(Avatar), binary_to_list(Username2)) of
+                            {error, Reason2} ->
+                                ?ERROR("Convert Avatar: ~p failed: ~p", [Avatar, Reason2]),
+                                {302, [?LOCATION_HEADER(?CDN_URL ++ Avatar)], <<"">>};
+                            Data -> {200, [?CT_JPG], Data}
+                        end
                 end;
             false -> RedirResponse
         end
@@ -137,13 +141,13 @@ convert_avatar(Id, Username) ->
             os:cmd(Command1),
             %% Add username sligtly rotated.
             %% TODO(vipin): Find the desired font.
-            Command2 = "convert -font Roboto-Bold -fill \"#C2D69B\" -pointsize 30 -draw 'rotate -5 text -10,185 \"@" ++ Username ++ "\"' " ++ TmpFileName1 ++ " " ++ TmpFileName2,
+            Username2 = string:uppercase(Username),
+            Command2 = "convert -font Roboto-Bold -fill \"#C2D69B\" -pointsize 30 -draw 'rotate -5 text -10,185 \"@" ++ Username2 ++ "\"' " ++ TmpFileName1 ++ " " ++ TmpFileName2,
             os:cmd(Command2),
             file:delete(TmpFileName),
             file:delete(TmpFileName1),
             {ok, Data} = file:read_file(TmpFileName2),
-            %% TODO: uncomment
-            %% file:delete(TmpFileName2),
+            file:delete(TmpFileName2),
             Data
     end.
 
