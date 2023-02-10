@@ -341,7 +341,7 @@ process_register_request(#{raw_phone := RawPhone, ua := UserAgent, code := Code,
         SPub = base64:encode(enacl:crypto_sign_ed25519_public_to_curve25519(SEdPubBin)),
         {ok, Phone, Uid} = finish_registration_spub(Phone, UserAgent, SPub, CampaignId),
         process_whisper_keys(Uid, IdentityKeyB64, SignedKeyB64, OneTimeKeysB64),
-        process_push_token(Uid, PushPayload),
+        process_push_token(Uid, Phone, PushPayload),
         CC = mod_libphonenumber:get_region_id(Phone),
         Name = case model_accounts:get_name(Uid) of
             {ok, undefined} -> <<>>;
@@ -646,17 +646,19 @@ get_and_check_whisper_keys(IdentityKeyB64, SignedKeyB64, OneTimeKeysB64) ->
     end.
 
 
--spec process_push_token(Uid :: uid(), PushPayload :: map()) -> ok.
-process_push_token(Uid, PushPayload) ->
+-spec process_push_token(Uid :: uid(), Phone :: phone(), PushPayload :: map()) -> ok.
+process_push_token(Uid, Phone, PushPayload) ->
     LangId = maps:get(<<"lang_id">>, PushPayload, <<"en-US">>),
-    ZoneOffset = maps:get(<<"zoneOffset">>, PushPayload, undefined),
+    ZoneOffsetSec = maps:get(<<"zoneOffset">>, PushPayload, undefined),
+    ZoneOffsetTag = ?HOURS * mod_moment_notification:get_four_zone_offset_hr(ZoneOffsetSec, Phone),
+    model_accounts:update_zone_offset_tag(Uid, ZoneOffsetTag, undefined),
     PushToken = maps:get(<<"push_token">>, PushPayload, undefined),
     %% TODO: rename this field to token_type.
     PushTokenType = maps:get(<<"push_os">>, PushPayload, undefined),
     case PushToken =/= undefined andalso mod_push_tokens:is_appclip_token_type(PushTokenType) of
         true ->
-            ok = mod_push_tokens:register_push_info(Uid, PushTokenType, PushToken, LangId, ZoneOffset),
-            ?INFO("Uid: ~p, registered push_info, token_type: ~p, lang_id: ~p, ZoneOffset: ~p", [Uid, PushTokenType, LangId, ZoneOffset]),
+            ok = mod_push_tokens:register_push_info(Uid, PushTokenType, PushToken, LangId, ZoneOffsetSec),
+            ?INFO("Uid: ~p, registered push_info, token_type: ~p, lang_id: ~p, ZoneOffset: ~p", [Uid, PushTokenType, LangId, ZoneOffsetSec]),
             ok;
         false ->
             ok

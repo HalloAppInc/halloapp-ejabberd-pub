@@ -478,23 +478,30 @@ check_huawei_token_run(Key, State) ->
 update_zone_offset(Key, State) ->
     DryRun = maps:get(dry_run, State, false),
     Result = re:run(Key, "^acc:{([0-9]+)}$", [global, {capture, all, binary}]),
+    {ok, AmericaUids} = model_accounts:get_zone_offset_tag_uids(-8 * ?HOURS),
+    {ok, EuropeUids} = model_accounts:get_zone_offset_tag_uids(0 * ?HOURS),
+    {ok, WestAsiaUids} = model_accounts:get_zone_offset_tag_uids(3 * ?HOURS),
+    {ok, EastAsiaUids} = model_accounts:get_zone_offset_tag_uids(6 * ?HOURS),
+    MappedToRegionSet = sets:from_list(AmericaUids ++ EuropeUids ++ WestAsiaUids ++ EastAsiaUids),
     case Result of
         {match, [[_FullKey, Uid]]} ->
-            case model_accounts:get_phone(Uid) of
-                {ok, Phone} ->
-                    {ok, PushInfo} = model_accounts:get_push_info(Uid),
-                    ZoneOffset = ?HOURS * mod_moment_notification:get_four_zone_offset_hr(Uid, Phone, PushInfo),
-                    %% zone offset shouldn't be undefined.
-                    true = ZoneOffset =/= undefined,
-                    case DryRun of
-                        false ->
-                            model_accounts:update_zone_offset_tag2(Uid, ZoneOffset, ZoneOffset),
-                            ?INFO("Uid: ~p, updated zone offset : ~p", [Uid, ZoneOffset]);
-                        true ->
-                            ?INFO("Uid: ~p, will update zone offset : ~p", [Uid, ZoneOffset])
-                    end;
-                {error, missing} ->
-                    ?INFO("Skipping user: ~p", [Uid])
+            case sets:is_element(Uid, MappedToRegionSet) of
+                true -> ok;
+                false ->
+                    case model_accounts:get_phone(Uid) of
+                        {error, missing} ->
+                            ?WARNING("Uid ~s has no phone, skipping", [Uid]);
+                        {ok, Phone} ->
+                            ZoneOffsetSec = model_accounts:get_zone_offset(Uid),
+                            ZoneOffsetTag = ?HOURS * mod_moment_notification:get_four_zone_offset_hr(ZoneOffsetSec, Phone),
+                            case DryRun of
+                                false ->
+                                    model_accounts:update_zone_offset_tag2(Uid, ZoneOffsetTag, undefined),
+                                    ?INFO("Uid: ~s, zone offset: ~p", [Uid, ZoneOffsetTag]);
+                                true ->
+                                    ?INFO("[DRY RUN] Uid: ~s, zone offset: ~p", [Uid, ZoneOffsetTag])
+                            end
+                    end
             end;
         _ -> ok
     end,
