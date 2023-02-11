@@ -92,6 +92,7 @@ get_dev_uids() ->
 -spec get_dev_phones() -> [phone()].
 get_dev_phones() ->
     [
+        <<"16503874384">>,   %% Jack test phone
         <<"16504508196">>,   %% Neeraj test phone
         <<"359884199917">>,  %% Vasil
         <<"359888257524">>   %% Stefan
