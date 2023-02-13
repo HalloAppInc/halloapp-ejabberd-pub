@@ -365,7 +365,7 @@ send_moment_notification(Uid, NotificationId, _NotificationTime, _NotificationTy
                     case model_feed:get_user_latest_post(Uid) of
                         undefined -> ok;
                         Post ->
-                            %% Send notification only if the latest post was the previous days post.
+                            %% Send expiry notice only if the latest post was the previous days post.
                             case Post#post.moment_info#pb_moment_info.notification_id =:= OldNotificationId of
                                 true -> send_expiry_notice(Post);
                                 false -> ok

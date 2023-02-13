@@ -994,10 +994,10 @@ get_recent_user_posts(Uid) ->
 
 -spec get_user_latest_post(Uid :: uid()) -> maybe(post()).
 get_user_latest_post(Uid) ->
-    {ok, LatestPostId} = q(["ZRANGE", reverse_post_key(Uid), "0", "0", "REV"]),
-    LatestPost = case LatestPostId of
-        undefined -> undefined;
-        _ ->
+    {ok, LatestPostIds} = q(["ZRANGE", reverse_post_key(Uid), "0", "0", "REV"]),
+    LatestPost = case LatestPostIds of
+        [] -> undefined;
+        [LatestPostId] ->
             case get_post(LatestPostId) of
                 {ok, Post} -> Post;
                 {error, missing} -> undefined
