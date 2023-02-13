@@ -39,7 +39,8 @@
     get_local_time_in_minutes/5,
     get_offset_region_by_uid/1,
     process_moment_tag/2,
-    check_and_schedule/0
+    check_and_schedule/0,
+    sync_latest_notification/3
 ]).
 
 %% Hooks
@@ -229,6 +230,90 @@ send_latest_notification(Uid, Phone) ->
     ?INFO("Scheduling: ~p, Local day: ~p, MinToWait: ~p, NotificationId: ~p NotificationType: ~p, Prompt: ~p, NotificationTimestamp: ~p",
             [Uid, LocalDay, 0, NotificationId, NotificationType, Prompt, NotificationTimestamp]),
     wait_and_send_notification(Uid, util:to_binary(LocalDay), NotificationId, NotificationTimestamp, NotificationType, Prompt, true, 0),
+    ok.
+
+
+%% Runs hook to sync up clients
+sync_latest_notification(Uid, Phone, DryRun) ->
+    %% Fetch time for today, tomorrow, yesterday and day before yesterday.
+    TodaySecs = util:now(),
+    TwoDayBeforeYesterdaySecs = (TodaySecs - 3*?DAYS),
+    DayBeforeYesterdaySecs = (TodaySecs - 2*?DAYS),
+    YesterdaySecs = (TodaySecs - ?DAYS),
+    TomorrowSecs = (TodaySecs + ?DAYS),
+    ?INFO("TodaySecs: ~p, TwoDayBeforeYesterdaySecs: ~p, DayBeforeYesterdaySecs: ~p, YesterdaySecs: ~p, TomorrowSecs: ~p",
+        [TodaySecs, TwoDayBeforeYesterdaySecs, DayBeforeYesterdaySecs, YesterdaySecs, TomorrowSecs]),
+
+    Today = util:get_date(TodaySecs),
+    _TwoDayBeforeYesterday = util:get_date(TwoDayBeforeYesterdaySecs),
+    DayBeforeYesterday = util:get_date(DayBeforeYesterdaySecs),
+    Yesterday = util:get_date(YesterdaySecs),
+    Tomorrow = util:get_date(TomorrowSecs),
+    ?INFO("Today: ~p, DayBeforeYesterday: ~p, Yesterday: ~p, Tomorrow: ~p",
+        [Today, DayBeforeYesterday, Yesterday, Tomorrow]),
+
+    %% Fetch current gmt time.
+    {{_,_,_}, {CurrentHrGMT, CurrentMinGMT,_}} = calendar:system_time_to_universal_time(TodaySecs, second),
+    ?INFO("CurrentHrGMT: ~p, CurrentMinGMT: ~p", [CurrentHrGMT, CurrentMinGMT]),
+
+    %% Fetch time to send for different days, corresponding notif ids and types.
+    {_MinToSendPrevPrevPrevDay, _TwoDayBeforeYesterdayNotifId, _TwoDayBeforeYesterdayNotifType, _TwoDayBeforeYesterdayPrompt} =
+        model_feed:get_moment_time_to_send(TwoDayBeforeYesterdaySecs),
+    {MinToSendPrevPrevDay, DayBeforeYesterdayNotifId, DayBeforeYesterdayNotifType, DayBeforeYesterdayPrompt} =
+        model_feed:get_moment_time_to_send(DayBeforeYesterdaySecs),
+    {MinToSendToday, TodayNotificationId, TodayNotificationType, TodayPrompt} =
+        model_feed:get_moment_time_to_send(TodaySecs),
+    {MinToSendPrevDay, YesterdayNotificationId, YesterdayNotificationType, YesterdayPrompt} =
+        model_feed:get_moment_time_to_send(YesterdaySecs),
+    {MinToSendNextDay, TomorrowNotificationId, TomorrowNotificationType, TomorrowPrompt} =
+        model_feed:get_moment_time_to_send(TomorrowSecs),
+
+    %% Get local time in minutes
+    {ok, PushInfo} = model_accounts:get_push_info(Uid),
+    ZoneOffsetHr = get_four_zone_offset_hr(Uid, Phone, PushInfo),
+    LocalMin = get_local_time_in_minutes(Uid, Phone, PushInfo, CurrentHrGMT, CurrentMinGMT),
+
+    %% Check if it is okay to send now.
+    {TimeOk, MinToWait, DayAdjustment} = is_time_ok(LocalMin, MinToSendToday, MinToSendPrevDay, MinToSendNextDay),
+    ?INFO("LocalMin: ~p, TimeOk: ~p, MinToWait: ~p, DayAdjustment: ~p",
+        [LocalMin, TimeOk, MinToWait, DayAdjustment]),
+
+    %% If we are supposed to send immediately.
+    %% This means - current local time's notification was already sent.
+    %% So we just send that days notification.
+    %% If not - we first send previous days notification and then schedule the next one.
+    {LocalDay, NotificationId, NotificationType, Prompt, NotificationTimestamp} = case TimeOk =:= true andalso MinToWait =:= 0 of
+        true ->
+            %% Send todays notification
+            case DayAdjustment of
+                0 -> {Today, TodayNotificationId, TodayNotificationType, TodayPrompt,
+                    util_moments:calculate_notif_timestamp(0, MinToSendToday, ZoneOffsetHr)};
+                -1 -> {Yesterday, YesterdayNotificationId, YesterdayNotificationType, YesterdayPrompt,
+                    util_moments:calculate_notif_timestamp(-1, MinToSendPrevDay, ZoneOffsetHr)};
+                1 -> {Tomorrow, TomorrowNotificationId, TomorrowNotificationType, TomorrowPrompt,
+                    util_moments:calculate_notif_timestamp(1, MinToSendNextDay, ZoneOffsetHr)}
+            end;
+        false ->
+            %% Send yesterdays notification first
+            Result = case DayAdjustment of
+                0 -> {Yesterday, YesterdayNotificationId, YesterdayNotificationType, YesterdayPrompt,
+                    util_moments:calculate_notif_timestamp(-1, MinToSendPrevDay, ZoneOffsetHr)};
+                -1 -> {DayBeforeYesterday, DayBeforeYesterdayNotifId, DayBeforeYesterdayNotifType, DayBeforeYesterdayPrompt,
+                    util_moments:calculate_notif_timestamp(-2, MinToSendPrevPrevDay, ZoneOffsetHr)};
+                1 -> {Today, TodayNotificationId, TodayNotificationType, TodayPrompt,
+                    util_moments:calculate_notif_timestamp(0, MinToSendToday, ZoneOffsetHr)}
+            end,
+            %% Schedule todays again separately.
+            %% TODO: fix this asap.
+            Result
+    end,
+    ?INFO("Scheduling: ~p, Local day: ~p, MinToWait: ~p, NotificationId: ~p NotificationType: ~p, Prompt: ~p, NotificationTimestamp: ~p",
+            [Uid, LocalDay, 0, NotificationId, NotificationType, Prompt, NotificationTimestamp]),
+    AppType = util_uid:get_app_type(Uid),
+    case DryRun of
+        false -> ejabberd_hooks:run(send_moment_notification, AppType, [Uid, NotificationId, NotificationTimestamp, NotificationType, Prompt, false]);
+        true -> ok
+    end,
     ok.
 
 %%====================================================================

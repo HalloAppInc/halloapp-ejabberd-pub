@@ -28,7 +28,8 @@
     cleanup_offline_queue_run/2,
     check_huawei_token_run/2,
     update_zone_offset/2,
-    update_name_index/2
+    update_name_index/2,
+    sync_latest_notification/2
 ]).
 
 
@@ -532,6 +533,28 @@ update_name_index(Key, State) ->
                         false ->
                             ?INFO("Uid: ~p Name is empty", [Uid])
                     end;
+                halloapp ->
+                    ok
+            end;
+        _ -> ok
+    end,
+    State.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                             update feed index                            %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+sync_latest_notification(Key, State) ->
+    DryRun = maps:get(dry_run, State, false),
+    Result = re:run(Key, "^acc:{(1001[0-9]+)}$", [global, {capture, all, binary}]),
+    case Result of
+        {match, [[_FullKey, Uid]]} ->
+            case util_uid:get_app_type(Uid) of
+                katchup ->
+                    {ok, Phone} = model_accounts:get_phone(Uid),
+                    mod_moment_notification:sync_latest_notification(Uid, Phone, DryRun),
+                    ok;
                 halloapp ->
                     ok
             end;
