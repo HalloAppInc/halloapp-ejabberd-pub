@@ -500,6 +500,17 @@ set_ts_and_publisher_name(MsgId, #pb_feed_item{item = Item} = FeedItem) ->
     end.
 
 
+-spec has_valid_post(Uid :: uid(), LatestNotificationId :: integer()) -> boolean().
+has_valid_post(Uid, LatestNotificationId) ->
+    case model_feed:get_user_latest_post(Uid) of
+        %% retracted posts show up as undefined.
+        undefined -> false;
+        OldPost ->
+            %% Latest post should match notif id and also be unexpired.
+            OldPost#post.moment_info#pb_moment_info.notification_id =:= LatestNotificationId andalso not OldPost#post.expired
+    end.
+
+
 %% TODO(murali@): update payload to be protobuf binary without base64 encoded.
 
 -spec publish_post(Uid :: uid(), PostId :: binary(), PayloadBase64 :: binary(), PostTag :: post_tag(),
@@ -520,25 +531,30 @@ publish_post(Uid, PostId, PayloadBase64, public_moment, PSATag, AudienceList, Ho
     end,
     FilteredAudienceList2 = sets:to_list(get_feed_audience_set(Action, Uid, FilteredAudienceList1)),
     LatestNotificationId = model_feed:get_notification_id(Uid),
+
     case LatestNotificationId =:= undefined orelse MomentInfo#pb_moment_info.notification_id >= LatestNotificationId of
         false ->
             ?ERROR("Uid: ~p tried to publish using old notif id", [Uid]),
             {error, old_notification_id};
         true ->
-            {ok, FinalTimestampMs} = case model_feed:get_post(PostId) of
-            {error, missing} ->
-                TimestampMs = util:now_ms(),
-                ?INFO("Uid: ~s PostId ~p published as public_moment: ~p", [Uid, PostId]),
-                ok = model_feed:publish_moment(PostId, Uid, PayloadBase64, public_moment, all, FilteredAudienceList2, TimestampMs, MomentInfo),
-                ejabberd_hooks:run(feed_item_published, AppType,
-                    [Uid, Uid, PostId, post, public_moment, all, 0, MediaCounters]),
-                {ok, TimestampMs};
-            {ok, ExistingPost} ->
-                ?INFO("Uid: ~s PostId: ~s already published", [Uid, PostId]),
-                {ok, ExistingPost#post.ts_ms}
-        end,
-        broadcast_post(Uid, FilteredAudienceList2, HomeFeedSt, FinalTimestampMs),
-        {ok, FinalTimestampMs}
+            case has_valid_post(Uid, LatestNotificationId) of
+                true -> {error, other_post_exists};
+                false ->
+                    {ok, FinalTimestampMs} = case model_feed:get_post(PostId) of
+                        {error, missing} ->
+                            TimestampMs = util:now_ms(),
+                            ?INFO("Uid: ~s PostId ~p published as public_moment: ~p", [Uid, PostId]),
+                            ok = model_feed:publish_moment(PostId, Uid, PayloadBase64, public_moment, all, FilteredAudienceList2, TimestampMs, MomentInfo),
+                            ejabberd_hooks:run(feed_item_published, AppType,
+                                [Uid, Uid, PostId, post, public_moment, all, 0, MediaCounters]),
+                            {ok, TimestampMs};
+                        {ok, ExistingPost} ->
+                            ?INFO("Uid: ~s PostId: ~s already published", [Uid, PostId]),
+                            {ok, ExistingPost#post.ts_ms}
+                    end,
+                    broadcast_post(Uid, FilteredAudienceList2, HomeFeedSt, FinalTimestampMs),
+                    {ok, FinalTimestampMs}
+            end
     end;
 
 publish_post(Uid, PostId, PayloadBase64, PostTag, PSATag, AudienceList, HomeFeedSt)
