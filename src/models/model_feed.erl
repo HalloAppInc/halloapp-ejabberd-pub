@@ -556,9 +556,15 @@ expire_all_user_posts(Uid, NotificationId) ->
         Posts ->
             ExpirePostIds = lists:filtermap(
                 fun(Post) ->
-                    case Post#post.moment_info#pb_moment_info.notification_id < NotificationId of
-                        true -> {true, Post#post.id};
-                        false -> false
+                    case Post#post.moment_info of
+                        undefined ->
+                            ?ERROR("PostId: ~p moment_info is undefined", [Post#post.id]),
+                            {true, Post#post.id};
+                        MomentInfo ->
+                            case MomentInfo#pb_moment_info.notification_id < NotificationId of
+                                true -> {true, Post#post.id};
+                                false -> false
+                            end
                     end
                 end, Posts),
             lists:foreach(fun(PostId) -> ok = expire_post(PostId, Uid) end, ExpirePostIds)
