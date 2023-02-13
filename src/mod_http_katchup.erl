@@ -142,7 +142,8 @@ convert_avatar(Id, Username) ->
             %% Add username sligtly rotated.
             %% TODO(vipin): Find the desired font.
             Username2 = string:uppercase(Username),
-            Command2 = "convert -font /home/ha/RubikBubbles-Regular.ttf -fill \"#C2D69B\" -pointsize 35 -strokewidth 1 -stroke black -draw 'rotate -5 text -10,185 \"@" ++ Username2 ++ "\"' " ++ TmpFileName1 ++ " " ++ TmpFileName2,
+            FontSize = util:to_list(erlang:min(35, (35 * 10) / (length(Username2) + 1))),
+            Command2 = "convert -font /home/ha/RubikBubbles-Regular.ttf -fill \"#C2D69B\" -pointsize " ++ FontSize ++ " -strokewidth 1 -stroke black -draw 'rotate -5 text -10,185 \"@" ++ Username2 ++ "\"' " ++ TmpFileName1 ++ " " ++ TmpFileName2,
             ?INFO("cmd2: ~p", [Command2]),
             os:cmd(Command2),
             file:delete(TmpFileName),
