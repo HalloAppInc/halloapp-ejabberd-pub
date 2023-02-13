@@ -478,16 +478,12 @@ check_huawei_token_run(Key, State) ->
 
 update_zone_offset(Key, State) ->
     DryRun = maps:get(dry_run, State, false),
-    Result = re:run(Key, "^acc:{([0-9]+)}$", [global, {capture, all, binary}]),
-    {ok, AmericaUids} = model_accounts:get_zone_offset_tag_uids(-8 * ?HOURS),
-    {ok, EuropeUids} = model_accounts:get_zone_offset_tag_uids(0 * ?HOURS),
-    {ok, WestAsiaUids} = model_accounts:get_zone_offset_tag_uids(3 * ?HOURS),
-    {ok, EastAsiaUids} = model_accounts:get_zone_offset_tag_uids(6 * ?HOURS),
-    MappedToRegionSet = sets:from_list(AmericaUids ++ EuropeUids ++ WestAsiaUids ++ EastAsiaUids),
+    MappedToRegionSet = maps:get(params, State),
+    Result = re:run(Key, "^acc:{1001000000[0-9]{9}}$", [global, {capture, all, binary}]),
     case Result of
         {match, [[_FullKey, Uid]]} ->
             case sets:is_element(Uid, MappedToRegionSet) of
-                true -> ok;
+                true -> ?INFO("Skipping ~s (already mapped to region)");
                 false ->
                     case model_accounts:get_phone(Uid) of
                         {error, missing} ->
@@ -498,9 +494,9 @@ update_zone_offset(Key, State) ->
                             case DryRun of
                                 false ->
                                     model_accounts:update_zone_offset_tag2(Uid, ZoneOffsetTag, undefined),
-                                    ?INFO("Uid: ~s, zone offset: ~p", [Uid, ZoneOffsetTag]);
+                                    ?INFO("Uid: ~s, new zone offset: ~p", [Uid, ZoneOffsetTag]);
                                 true ->
-                                    ?INFO("[DRY RUN] Uid: ~s, zone offset: ~p", [Uid, ZoneOffsetTag])
+                                    ?INFO("[DRY RUN] Uid: ~s, new zone offset: ~p", [Uid, ZoneOffsetTag])
                             end
                     end
             end;
