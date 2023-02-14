@@ -14,7 +14,7 @@
 
 %% API
 -export([start/2, stop/1, reload/3, depends/2, mod_options/1]).
--export([process/2, convert_avatar/2]).
+-export([process/2, convert_avatar/3]).
 
 -define(APPLE_APP_SITE_ASSOCIATION, <<"apple-app-site-association">>).
 -define(ASSET_LINKS, <<"assetlinks.json">>).
@@ -51,6 +51,7 @@ process([<<"v">>, Username],
         IP = util_http:get_ip(NetIP, Headers),
         Username2 = string:lowercase(Username),
         ?INFO("Username: ~p, UserAgent ~p Platform: ~p, IP: ~p", [Username2, UserAgent, Platform, IP]),
+        IsFullAvatar = string:str(string:lowercase(binary_to_list(UserAgent)), "whatsapp") =:= 0,
         RedirResponse = case Platform of
             android -> {302, [?LOCATION_HEADER(?ANDROID_LINK)], <<"">>};
             ios -> {302, [?LOCATION_HEADER(?IOS_LINK)], <<"">>};
@@ -64,7 +65,7 @@ process([<<"v">>, Username],
                     undefined ->
                         {302, [?LOCATION_HEADER("https://katchup.com/w/images/tomato.png")], <<"">>};
                     Avatar ->
-                        case convert_avatar(binary_to_list(Avatar), binary_to_list(Username2)) of
+                        case convert_avatar(binary_to_list(Avatar), binary_to_list(Username2), IsFullAvatar) of
                             {error, Reason2} ->
                                 ?ERROR("Convert Avatar: ~p failed: ~p", [Avatar, Reason2]),
                                 {302, [?LOCATION_HEADER(?CDN_URL ++ Avatar)], <<"">>};
@@ -126,9 +127,12 @@ process(Path, _Request) ->
     ?INFO("Path: ~p", [Path]),
     {302, [?LOCATION_HEADER(?WEBSITE)], <<"">>}.
 
-convert_avatar(Id, Username) ->
+convert_avatar(Id, Username, IsFullAvatar) ->
     ?INFO("Converting Id: ~p, Username: ~p", [Id, Username]),
-    URL = ?CDN_URL ++ Id,
+    URL = case IsFullAvatar of
+        false -> ?CDN_URL ++ Id;
+        true -> ?CDN_URL ++ Id ++ "-full"
+    end,
     case util_http:fetch_object(URL) of
         {error, Reason} -> {error, Reason};
         {ok, Body} ->
@@ -136,14 +140,35 @@ convert_avatar(Id, Username) ->
             TmpFileName1 = "/tmp/" ++ Id ++ ".jpg",
             TmpFileName2 = "/tmp/" ++ Id ++ "2.jpg",
             file:write_file(TmpFileName, Body),
+            {Width, Height} = case IsFullAvatar of
+                true -> {852, 639};
+                false -> {256, 192}
+            end,
+            TranslateWidth = Width div 2,
+            TranslateHeight = Height div 2,
+            {EllipsisWidth, EllipsisHeight} = case IsFullAvatar of
+                true -> {402, 302};
+                false -> {121, 91}
+            end,
+            ImageSize = util:to_list(Width) ++ "x" ++ util:to_list(Height),
+            TranslateCoOrd = util:to_list(TranslateWidth) ++ "," ++ util:to_list(TranslateHeight),
+            EllipsisSize = util:to_list(EllipsisWidth) ++ "," ++ util:to_list(EllipsisHeight),
             %% Crop using a rotated ellipse
-            Command1 = "convert " ++ TmpFileName ++ " -gravity Center \\( -size 256x192 xc:Black -draw \"push graphic-context translate 128,96 rotate -15 fill white stroke black ellipse 0,0 121,91 0,360 pop graphic-context\" -alpha copy \\) -compose copy-opacity -composite -background black -alpha remove " ++ TmpFileName1,
+            Command1 = "convert " ++ TmpFileName ++ " -gravity Center \\( -size " ++ ImageSize ++ " xc:Black -draw \"push graphic-context translate " ++ TranslateCoOrd ++ " rotate -15 fill white stroke black ellipse 0,0 " ++ EllipsisSize ++ " 0,360 pop graphic-context\" -alpha copy \\) -compose copy-opacity -composite -background black -alpha remove " ++ TmpFileName1,
+            ?INFO("cmd2: ~p", [Command1]),
             os:cmd(Command1),
             %% Add username sligtly rotated.
-            %% TODO(vipin): Find the desired font.
+            DefFontSize = case IsFullAvatar of
+                true -> 116;
+                false -> 35
+            end,
             Username2 = string:uppercase(Username),
-            FontSize = util:to_list(erlang:min(35, (35 * 10) / (length(Username2) + 1))),
-            Command2 = "convert -font /home/ha/RubikBubbles-Regular.ttf -fill \"#C2D69B\" -pointsize " ++ FontSize ++ " -strokewidth 1 -stroke black -draw 'rotate -5 text -10,185 \"@" ++ Username2 ++ "\"' " ++ TmpFileName1 ++ " " ++ TmpFileName2,
+            FontSize = util:to_list(erlang:min(DefFontSize, (DefFontSize * 10) / (length(Username2) + 1))),
+            FontCoOrd = case IsFullAvatar of
+                true -> "-10,630";
+                false -> "-10,185"
+            end,
+            Command2 = "convert -font /home/ha/RubikBubbles-Regular.ttf -fill \"#C2D69B\" -pointsize " ++ FontSize ++ " -strokewidth 1 -stroke black -draw 'rotate -5 text " ++ FontCoOrd ++ " \"@" ++ Username2 ++ "\"' " ++ TmpFileName1 ++ " " ++ TmpFileName2,
             ?INFO("cmd2: ~p", [Command2]),
             os:cmd(Command2),
             file:delete(TmpFileName),
