@@ -17,6 +17,7 @@
 -define(ANDROID_DEBUG_HASH, <<"/TwOjtaTNFA">>).
 -define(ANDROID_RELEASE_HASH, <<"05IyxZs5b3I">>).
 -define(KATCHUP_ANDROID_RELEASE_HASH, <<"dsBIR3o/cGT">>).
+-define(KATCHUP_ANDROID_DEBUG_HASH, <<"pYKP1cEfSmq">>).
 
 -define(TWILIO, <<"twilio">>).
 
