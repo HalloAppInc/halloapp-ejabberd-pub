@@ -102,6 +102,7 @@ get_props(Uid, ClientVersion, katchup) ->
         dev => false, %% whether the client is dev or not.
         contact_sync_frequency => 1 * ?DAYS, %% how often should clients sync all contacts.
         max_video_bit_rate => 4000000, %% max_video_bit_rate set to 4Mbps.
+        %% Lower bitrate on selfie is because selfies are shown only in a small view on screen.
         max_selfie_video_bit_rate => 1000000, %% max_selfie_video_bit_rate set to 1Mbps.
         audio_note_bit_rate => 96000, %% audio_note_bit_rate set to 96Kbps.
         streaming_upload_chunk_size =>  65536, %% size of media streaming upload chunk size, 64KB.
