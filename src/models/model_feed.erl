@@ -569,6 +569,7 @@ expire_all_user_posts(Uid, NotificationId) ->
                 end, Posts),
             lists:foreach(fun(PostId) -> ok = expire_post(PostId, Uid) end, ExpirePostIds)
     end,
+    cleanup_reverse_index(Uid),
     ok.
 
 
