@@ -19,6 +19,8 @@
 
 -define(CURSOR_VERSION_V0, <<"V0">>).
 -define(NS_FEED, <<"halloapp:feed">>).
+-define(NUM_PUBLIC_FEED_ITEMS_PER_REQUEST, 30).
+-define(PUBLIC_FEED_LIMIT_FACTOR, 3).
 
 %% Chose these weights with the following theory in mind.
 %% Just for experimenting for now.
@@ -39,10 +41,9 @@
 %% TODO: Use celeb score of author?
 %% TODO: num of followers to be taken into account for following interest score instead of raw percent?
 %% TODO: Show score for post?
--define(CAMPUS_SCORE_IMPORTANCE, 10).
--define(FOLLOWING_INTEREST_IMPORTANCE, 110).
--define(RECENCY_SCORE_IMPORTANCE, 1).
--define(UNSEEN_SCORE_IMPORTANCE, 55).
+-define(CAMPUS_SCORE_IMPORTANCE, 10.0).
+-define(FOLLOWING_INTEREST_IMPORTANCE, 110.0).
+-define(RECENCY_SCORE_IMPORTANCE, 1.0).
 
 
 %% gen_mod API.
@@ -60,7 +61,7 @@
     send_old_moment/2,
     send_moment_notification/6,
     new_follow_relationship/2,
-    get_public_moments/6,
+    get_ranked_public_moments/7,
     re_register_user/4,
     convert_moments_to_public_feed_items/3
 ]).
@@ -244,38 +245,29 @@ process_local_iq(#pb_iq{from_uid = Uid, payload = #pb_public_feed_request{cursor
         false ->
             ok
     end,
-    try
-        %% Get geotag from GeoLocation, add it to user account if it exists
-        NewTag = mod_location:get_geo_tag(Uid, GpsLocation),
-        case NewTag of
-            undefined -> ok;
-            _ ->
-                ?INFO("Adding new tag ~p for Uid ~s", [NewTag, Uid]),
-                model_accounts:add_geo_tag(Uid, NewTag, util:now())
-        end,
-        %% Fetch latest geotag, public moments (convert them to pb feed items) and calculate cursor
-        Tag = model_accounts:get_latest_geo_tag(Uid),
-        {ReloadFeed, NewCursor, PublicMoments, MomentScoresMap} = get_public_moments(Uid, Tag, util:now_ms(), Cursor, ?NUM_PUBLIC_FEED_ITEMS_PER_REQUEST, ShowDevContent),
-        PublicFeedItems = lists:map(fun(PublicMoment) -> convert_moments_to_public_feed_items(Uid, PublicMoment, MomentScoresMap) end, PublicMoments),
-        Ret = #pb_public_feed_response{
-            result = success,
-            reason = ok,
-            cursor = NewCursor,
-            public_feed_content_type = moments,
-            cursor_restarted = ReloadFeed,
-            items = PublicFeedItems
-        },
-        ?INFO("Successful public feed response: Uid ~s, NewCursor ~p, Tag ~p NumItems ~p",
-            [Uid, NewCursor, Tag, length(PublicFeedItems)]),
-        pb:make_iq_result(IQ, Ret)
-    catch
-        Error:Reason ->
-            ?ERROR("Error processing public feed request: ~p: ~p", [Error, Reason]),
-            ErrRet = #pb_public_feed_response{
-                result = failure,
-                reason = unknown_reason},
-            pb:make_iq_result(IQ, ErrRet)
-    end;
+    %% Get geotag from GeoLocation, add it to user account if it exists
+    NewTag = mod_location:get_geo_tag(Uid, GpsLocation),
+    case NewTag of
+        undefined -> ok;
+        _ ->
+            ?INFO("Adding new tag ~p for Uid ~s", [NewTag, Uid]),
+            model_accounts:add_geo_tag(Uid, NewTag, util:now())
+    end,
+    %% Fetch latest geotag, public moments (convert them to pb feed items) and calculate cursor
+    GeoTag = model_accounts:get_latest_geo_tag(Uid),
+    {ReloadFeed, NewCursor, PublicMoments, MomentScoresMap} = get_ranked_public_moments(Uid, GeoTag, util:now_ms(), Cursor, ?NUM_PUBLIC_FEED_ITEMS_PER_REQUEST, ShowDevContent, false),
+    PublicFeedItems = lists:map(fun(PublicMoment) -> convert_moments_to_public_feed_items(Uid, PublicMoment, MomentScoresMap) end, PublicMoments),
+    Ret = #pb_public_feed_response{
+        result = success,
+        reason = ok,
+        cursor = NewCursor,
+        public_feed_content_type = moments,
+        cursor_restarted = ReloadFeed,
+        items = PublicFeedItems
+    },
+    ?INFO("Successful public feed response: Uid ~s, NewCursor ~p, Tag ~p NumItems ~p",
+        [Uid, NewCursor, GeoTag, length(PublicFeedItems)]),
+    pb:make_iq_result(IQ, Ret);
 
 process_local_iq(#pb_iq{payload = #pb_public_feed_request{public_feed_content_type = ContentType}} = IQ) ->
     %% Return error for content type other than moments
@@ -374,6 +366,7 @@ send_moment_notification(Uid, NotificationId, _NotificationTime, _NotificationTy
             end,
             model_feed:expire_all_user_posts(Uid, NotificationId),
             model_feed:set_notification_id(Uid, NotificationId),
+            model_feed:clear_ranked_feed(Uid),
             ok;
         _ -> ok
     end,
@@ -964,93 +957,111 @@ get_message_type(#pb_feed_item{action = publish, item = #pb_comment{}}, PushSet,
 get_message_type(#pb_feed_item{action = retract}, _, _) -> normal.
 
 
-%% Determine if we should reload_feed or not based on the cursor.
-%% Pretty Naive right now - but will improve over time.
-%% We reset cursor if timestamp is older than 5mins, but we could also fetch the content they have
--spec determine_cursor_action(Cursor :: binary()) -> {ReloadFeed :: boolean(), CursorVersion :: binary(),
-        RequestTimestampMs :: integer(), CursorToUse :: binary()}.
-determine_cursor_action(Cursor) ->
-    CurrentTimestampMs = util:now_ms(),
-    case Cursor =:= <<>> orelse Cursor =:= undefined of
-        true ->
-            {false, ?CURSOR_VERSION_V0, CurrentTimestampMs, <<>>};
-        false ->
-            case model_feed:split_cursor(Cursor) of
-                {undefined, undefined, undefined, undefined} ->
-                    {true, ?CURSOR_VERSION_V0, CurrentTimestampMs, <<>>};
-                {CursorVersion, RequestTimestampMs, _, _} ->
-                    case CurrentTimestampMs - RequestTimestampMs >= ?KATCHUP_PUBLIC_FEED_REFRESH_MSECS of
-                        true -> {true, CursorVersion, CurrentTimestampMs, <<>>};
-                        false -> {false, CursorVersion, RequestTimestampMs, Cursor}
+backfill_content(Uid, GeoTag) ->
+    %% Backfill seen posts, since these posts are already seen and they wont be ranked again.
+    %% This transition is necessary as we launch this new feed ranking code.
+    case model_feed:get_ranked_feed(Uid) of
+        {[], #{}} ->
+            %% If no content exists: then try to use past seen posts and
+            SeenPostIds = model_feed:get_past_seen_posts(Uid),
+            SeenMoments = model_feed:get_posts(SeenPostIds),
+            SeenMoments2 = filter_moments_by_author(Uid, SeenMoments, false),
+            {_RankedSeenMoments, RankedSeenMomentScoreMap} = rank_moments(Uid, GeoTag, SeenMoments2),
+            ok = model_feed:append_ranked_feed(Uid, SeenPostIds, RankedSeenMomentScoreMap),
+            ok;
+        _ ->
+            ok
+    end,
+    ok.
+
+
+%% This function takes Uid, their GeoTag, timestamp of the request, cursor and limit.
+%% returns the final list of moments ranked in a specific order.
+%% tries to return atmost Limit number of posts.
+get_ranked_public_moments(Uid, GeoTag, TimestampMs, Cursor, Limit, ShowDevContent, CursorReload) ->
+    backfill_content(Uid, GeoTag),
+    Time1 = util:now_ms(),
+    {RankedMomentIds, _} = model_feed:get_ranked_feed(Uid),
+    {_, CursorPostId, _} = model_feed:split_cursor(Cursor),
+    Result = case util:index_of(CursorPostId, RankedMomentIds) of
+        undefined ->
+            %% Find the next set of content items to rank and get the updated cursor.
+            {Moments, Cursor2} = get_moments_to_rank(Uid, GeoTag, RankedMomentIds, TimestampMs, Cursor, ?PUBLIC_FEED_LIMIT_FACTOR * Limit, ShowDevContent),
+            %% Rank these moments.
+            {NewRankedMoments, NewRankedMomentScoresMap} = rank_moments(Uid, GeoTag, Moments),
+            %% Fetch their ids and store them in cache.
+            NewRankedMomentIds = lists:map(fun(Moment) -> Moment#post.id end, NewRankedMoments),
+            %% Prepend to existing ranked feed.
+            ok = model_feed:prepend_ranked_feed(Uid, NewRankedMomentIds, NewRankedMomentScoresMap),
+            {Cursor3, DisplayMoments, DisplayMomentScoresMap} = fetch_items_from_ranked_feed(Uid, Cursor2, Limit, ShowDevContent),
+            %% Send updated cursor and moments.
+            {CursorReload, Cursor3, DisplayMoments, DisplayMomentScoresMap};
+        Index ->
+            RankedMoments = model_feed:get_posts(lists:nthtail(Index, RankedMomentIds)),
+            case length(RankedMoments) >= Limit of
+                true ->
+                    {Cursor2, DisplayMoments, NewMomentScoresMap} = fetch_items_from_ranked_feed(Uid, Cursor, Limit, ShowDevContent),
+                    {false, Cursor2, DisplayMoments, NewMomentScoresMap};
+                false ->
+                    case check_for_interesting_content(Uid, GeoTag, Cursor) of
+                        true ->
+                            get_ranked_public_moments(Uid, GeoTag, util:now_ms(), <<>>, Limit, ShowDevContent, true);
+                        false ->
+                            %% Find the next set of content items using the old cursor to rank and get the updated cursor.
+                            {Moments, Cursor2} = get_moments_to_rank(Uid, GeoTag, [], TimestampMs, Cursor, ?PUBLIC_FEED_LIMIT_FACTOR * Limit, ShowDevContent),
+                            %% Rank these moments.
+                            {NewRankedMoments, NewRankedMomentScoresMap} = rank_moments(Uid, GeoTag, Moments),
+                            %% Fetch their ids and store them in cache.
+                            NewRankedMomentIds = lists:map(fun(Moment) -> Moment#post.id end, NewRankedMoments),
+                            %% Append to existing ranked feed.
+                            ok = model_feed:append_ranked_feed(Uid, NewRankedMomentIds, NewRankedMomentScoresMap),
+                            {Cursor3, DisplayMoments, DisplayMomentScoresMap} = fetch_items_from_ranked_feed(Uid, Cursor2, Limit, ShowDevContent),
+                            %% Send updated cursor and moments.
+                            {CursorReload, Cursor3, DisplayMoments, DisplayMomentScoresMap}
                     end
             end
-    end.
-
-
-get_public_moments(Uid, Tag, TimestampMs, Cursor, Limit, ShowDevContent) ->
-    Time1 = util:now_ms(),
-    ?INFO("Uid: ~p, Tag: ~p, TimestampMs: ~p, Cursor: ~p, Limit: ~p", [Uid, Tag, TimestampMs, Cursor, Limit]),
-    %% Check on cursor if it is too old or invalid.
-    {CursorReload, _CursorVersion, RequestTimestampMs, _CursorToUse} = determine_cursor_action(Cursor),
-    %% Fetch all moment ids so far.
-    PublicMomentIds = model_feed:get_all_public_moments(undefined, TimestampMs),
-    %% Get past posts that have been seen recently.
-    PostIds = model_feed:get_past_discovered_posts(Uid, RequestTimestampMs),
-    OldPostIdSet = sets:from_list(PostIds),
-    %% Filter out past seen posts
-    PublicMomentIdsToRank = sets:to_list(sets:subtract(sets:from_list(PublicMomentIds),  OldPostIdSet)),
-    %% Rank posts in order of priority.
-    {RankedPublicMoments, MomentScoresMap} = rank_public_moments(Uid, Tag, PublicMomentIdsToRank, ShowDevContent),
-    %% TODO: we should cache this for each user and then update as users post.
-    %% Send only some of them to the user.
-    DisplayPublicMoments = lists:sublist(RankedPublicMoments, Limit),
-    DisplayMomentIds = lists:map(fun(PublicMoment) -> PublicMoment#post.id end, DisplayPublicMoments),
-    ok = model_feed:mark_discovered_posts(Uid, RequestTimestampMs, DisplayMomentIds),
-    NewCursor = case DisplayMomentIds of
-        [] -> <<>>;
-        _ ->
-            PostId = (lists:last(DisplayMomentIds)),
-            PostTsMs = model_feed:get_post_timestamp_ms(PostId),
-            model_feed:join_cursor(?CURSOR_VERSION_V0, RequestTimestampMs, PostId, PostTsMs)
     end,
+    %% TODO: might need to update cursor timestamp depending on cursor-reload.
     Time2 = util:now_ms(),
-    ?INFO("Total Time Taken for Uid: ~p, Tag: ~p is : ~p, DisplayMomentIds: ~p", [Uid, Tag, (Time2 - Time1), DisplayMomentIds]),
-    {CursorReload, NewCursor, DisplayPublicMoments, MomentScoresMap}.
+    {_, _, ResultDisplayMoments, _} = Result,
+    ?INFO("Uid: ~p, Tag: ~p Total time taken is: ~p, NumMoments: ~p", [Uid, GeoTag, (Time2 - Time1), length(ResultDisplayMoments)]),
+    Result.
 
 
-rank_public_moments(Uid, Tag, NewPublicMomentIds, ShowDevContent) ->
+get_moments_to_rank(Uid, GeoTag, CurrentMomentIds, TimestampMs, Cursor, NumLimit, ShowDevContent) ->
+    %% Fetch possible geo-tagged moment ids.
+    GeoTaggedMomentIds = model_feed:get_public_moments(GeoTag, TimestampMs, Cursor, NumLimit),
+    GeoTaggedMoments = model_feed:get_posts(GeoTaggedMomentIds),
+    %% fetch fof content here.
+    %% todo: wip
+    %% Fetch possible global moment ids.
+    GlobalMomentIds = model_feed:get_public_moments(undefined, TimestampMs, Cursor, NumLimit),
+    GlobalMoments = model_feed:get_posts(GlobalMomentIds),
+    %% Fetch current ranked feed posts.
+    CurrentRankedMoments = model_feed:get_posts(CurrentMomentIds),
 
-    %% Get past posts that have been seen recently.
-    PostIds = model_feed:get_past_seen_posts(Uid),
-    SeenPostIdSet = sets:from_list(PostIds),
-    %% We will rank them lower than others.
+    LastGeoTaggedMoment = case GeoTaggedMoments of
+        [] -> undefined;
+        _ -> lists:last(GeoTaggedMoments)
+    end,
+    LastGlobalMoment = case GlobalMoments of
+        [] -> undefined;
+        _ -> lists:last(GlobalMoments)
+    end,
+    Moments = case length(GeoTaggedMoments) < NumLimit of
+        false -> GeoTaggedMoments;
+        true -> sets:to_list(sets:from_list(GeoTaggedMoments ++ GlobalMoments))
+    end,
+    Cursor2 = model_feed:update_cursor_post_index(Cursor, LastGeoTaggedMoment, LastGlobalMoment),
+    %% Include geotagged, global and given current moment ids as well.
+    Moments2 = filter_public_moments(Uid, Moments ++ CurrentRankedMoments, ShowDevContent),
+    ?INFO("Uid: ~p, NumMoments: ~p Updated Cursor: ~p", [Uid, length(Moments2), Cursor2]),
+    {Moments2, Cursor2}.
 
-    %% Filter out deleted posts and convert PostIds to Posts
-    FilteredPublicMoments = model_feed:get_posts(NewPublicMomentIds),
-    LatestNotificationId = model_feed:get_notification_id(Uid),
-    %% Filter out expired posts, old content, and posts from self, following, dev users, and blocked users
-    RemoveAuthorSet = sets:from_list(model_follow:get_all_following(Uid)
-        ++ [Uid]
-        ++ model_follow:get_blocked_uids(Uid)
-        ++ model_follow:get_blocked_by_uids(Uid)),
-    FilteredPublicMoments1 = lists:filter(
-        fun
-            (#post{expired = true} = _Moment) ->
-                %% Filter out expired posts
-                false;
-            (#post{expired = false, uid = Ouid, moment_info = #pb_moment_info{notification_id = NotifId}}) ->
-                %% Ouid is ok if: not in RemoveAuthorSet AND allowed on public feed
-                IsOuidOk = not sets:is_element(Ouid, RemoveAuthorSet)
-                    andalso (ShowDevContent orelse dev_users:show_on_public_feed(Ouid)),
-                IsNotifIdOk = NotifId >= LatestNotificationId,
-                IsOuidOk andalso IsNotifIdOk;
-            (_Else) ->
-                false
-        end,
-        FilteredPublicMoments),
 
+rank_moments(Uid, GeoTag, Moments) ->
     %% Get campus author set
-    AuthorUids = lists:map(fun(PublicMoment) -> PublicMoment#post.uid end, FilteredPublicMoments1),
+    AuthorUids = lists:map(fun(PublicMoment) -> PublicMoment#post.uid end, Moments),
     AuthorUidsToGeoTagMap = model_accounts:get_latest_geo_tag(AuthorUids),
 
     %% Get num_mutual_following
@@ -1059,7 +1070,7 @@ rank_public_moments(Uid, Tag, NewPublicMomentIds, ShowDevContent) ->
     %% NumFollowing:
     NumFollowing = length(model_follow:get_all_following(Uid)),
 
-    ?INFO("Uid: ~p, Tag: ~p, NumFollowing: ~p", [Uid, Tag, NumFollowing]),
+    ?INFO("Uid: ~p, GeoTag: ~p, NumFollowing: ~p", [Uid, GeoTag, NumFollowing]),
 
     %% Score moments
     %% CampusTagScore * CampusScoreImportance + FollowingInterestScore * FollowingInterestImportance + RecencyScore * RecencyScoreImportance
@@ -1068,7 +1079,7 @@ rank_public_moments(Uid, Tag, NewPublicMomentIds, ShowDevContent) ->
         fun(PublicMoment, AccMomentScoresMap) ->
             MomentId = PublicMoment#post.id,
             AuthorUid = PublicMoment#post.uid,
-            CampusTagScore = case Tag =:= maps:get(AuthorUid, AuthorUidsToGeoTagMap, undefined) andalso Tag =/= undefined of
+            CampusTagScore = case GeoTag =:= maps:get(AuthorUid, AuthorUidsToGeoTagMap, undefined) andalso GeoTag =/= undefined of
                 true -> 1;
                 false -> 0
             end,
@@ -1085,37 +1096,31 @@ rank_public_moments(Uid, Tag, NewPublicMomentIds, ShowDevContent) ->
                 true -> 0;
                 false -> 1
             end,
-            UnseenScore = case sets:is_element(MomentId, SeenPostIdSet) of
-                true -> 0;
-                false -> 1
-            end,
             TotalScore = CampusTagScore * ?CAMPUS_SCORE_IMPORTANCE +
                 FollowingInterestScore * ?FOLLOWING_INTEREST_IMPORTANCE +
-                RecencyScore * ?RECENCY_SCORE_IMPORTANCE +
-                UnseenScore * ?UNSEEN_SCORE_IMPORTANCE,
-            ?INFO("Uid: ~p, PostId: ~p, CampusTagScore: ~p, FollowingInterestScore: ~p, RecencyScore: ~p, UnseenScore: ~p, TotalScore: ~p",
-                    [Uid, MomentId, CampusTagScore, FollowingInterestScore, RecencyScore, UnseenScore, TotalScore]),
+                RecencyScore * ?RECENCY_SCORE_IMPORTANCE,
+            ?INFO("Uid: ~p, PostId: ~p, CampusTagScore: ~p, FollowingInterestScore: ~p, RecencyScore: ~p, TotalScore: ~p",
+                    [Uid, MomentId, CampusTagScore, FollowingInterestScore, RecencyScore, TotalScore]),
             Explanation = "PostId: " ++ util:to_list(MomentId) ++ "; "
                 ++ "Campus: " ++ util:to_list(CampusTagScore) ++ "; "
                 ++ "FollowingInterest: " ++ util:to_list(FollowingInterestScore) ++ "; "
                 ++ "Recency: " ++ util:to_list(RecencyScore) ++ "; "
-                ++ "Unseen: " ++ util:to_list(UnseenScore) ++ "; "
                 ++ "Total: " ++ util:to_list(TotalScore),
             AccMomentScoresMap#{MomentId => {TotalScore, util:to_binary(Explanation)}}
 
-        end, #{}, FilteredPublicMoments1),
+        end, #{}, Moments),
     %% These are now ranked based on campus tags, fof scores and receny scores.
     %% Will experiment these for a few days and then decide.
 
-    RankedPublicMoments = lists:sort(
+    RankedMoments = lists:sort(
             fun(PublicMoment1, PublicMoment2) ->
                 %% This function returns if PublicMoment1 =< PublicMoment2
                 %% Meaning if PublicMoment2 is more important than PublicMoment1
 
                 MomentId1 = PublicMoment1#post.id,
                 MomentId2 = PublicMoment2#post.id,
-                Score1 = maps:get(MomentId1, MomentScoresMap, 0),
-                Score2 = maps:get(MomentId2, MomentScoresMap, 0),
+                {Score1, _} = maps:get(MomentId1, MomentScoresMap, {-1, <<"error getting score">>}),
+                {Score2, _} = maps:get(MomentId2, MomentScoresMap, {-1, <<"error getting score">>}),
                 TsMs1 = PublicMoment1#post.ts_ms,
                 TsMs2 = PublicMoment2#post.ts_ms,
 
@@ -1125,9 +1130,89 @@ rank_public_moments(Uid, Tag, NewPublicMomentIds, ShowDevContent) ->
                     false ->
                         Score1 =< Score2
                 end
-            end, FilteredPublicMoments1),
+            end, Moments),
 
-    {lists:reverse(RankedPublicMoments), MomentScoresMap}.
+    ?INFO("Uid: ~p, NumRankedMoments: ~p", [Uid, length(RankedMoments)]),
+    {lists:reverse(RankedMoments), MomentScoresMap}.
+
+
+-spec check_for_interesting_content(Uid :: uid(), GeoTag :: binary(), Cursor :: binary()) -> boolean().
+check_for_interesting_content(Uid, GeoTag, _Cursor) ->
+    %% Fetch latest content.
+    LatestGeoTagMomentIds = model_feed:get_public_moments(GeoTag, util:now_ms(), <<>>, ?NUM_PUBLIC_FEED_ITEMS_PER_REQUEST),
+    LatestGlobalMomentIds = model_feed:get_public_moments(undefined, util:now_ms(), <<>>, ?NUM_PUBLIC_FEED_ITEMS_PER_REQUEST),
+    LatestPostIdSet = sets:from_list(LatestGeoTagMomentIds ++ LatestGlobalMomentIds),
+    LatestPosts = model_feed:get_posts(sets:to_list(LatestPostIdSet)),
+    FilteredLatestPosts = filter_public_moments(Uid, LatestPosts, false),
+    FilteredLatestPostIdSet = sets:from_list(lists:map(fun(Post) -> Post#post.id end, FilteredLatestPosts)),
+
+    {RankedMomentIds, _MomentScoresMap} = model_feed:get_ranked_feed(Uid),
+    DiscoveredPostIdSet = sets:from_list(RankedMomentIds),
+    %% Now - we check for any new content available and then return a boolean.
+    Result = sets:size(sets:subtract(FilteredLatestPostIdSet, DiscoveredPostIdSet)) > 0,
+    %% We could check for new content that is interesting to the user and only then return a boolean.
+    ?INFO("Uid: ~p, GeoTag: ~p, Result: ~p", [Uid, GeoTag, Result]),
+    Result.
+
+
+%% Filters out content based on notification id, blocked/followed/dev users and also seen content.
+filter_public_moments(Uid, Moments, ShowDevContent) ->
+    filter_seen_moments(Uid, filter_moments_by_author(Uid, Moments, ShowDevContent)).
+
+
+filter_moments_by_author(Uid, Moments, ShowDevContent) ->
+    LatestNotificationId = model_feed:get_notification_id(Uid),
+    %% Filter out expired posts, old content, and posts from self, following, dev users, and blocked users
+    RemoveAuthorSet = sets:from_list(model_follow:get_all_following(Uid)
+        ++ [Uid]
+        ++ model_follow:get_blocked_uids(Uid)
+        ++ model_follow:get_blocked_by_uids(Uid)),
+    Moments2 = lists:filter(
+        fun
+            (#post{expired = true} = _Moment) ->
+                %% Filter out expired posts
+                false;
+            (#post{expired = false, uid = Ouid, moment_info = #pb_moment_info{notification_id = NotifId}}) ->
+                %% Ouid is ok if: not in RemoveAuthorSet AND allowed on public feed
+                IsOuidOk = not sets:is_element(Ouid, RemoveAuthorSet)
+                    andalso (ShowDevContent orelse dev_users:show_on_public_feed(Ouid)),
+                IsNotifIdOk = NotifId >= LatestNotificationId,
+                IsOuidOk andalso IsNotifIdOk;
+            (_Else) ->
+                false
+        end,
+        Moments),
+    sets:to_list(sets:from_list(Moments2)).
+
+
+filter_seen_moments(Uid, Moments) ->
+    %% Filter out seen posts.
+    SeenPostIdSet = sets:from_list(model_feed:get_past_seen_posts(Uid)),
+    Moments2 = lists:filter(fun(Moment) -> not sets:is_element(Moment#post.id, SeenPostIdSet) end, Moments),
+    sets:to_list(sets:from_list(Moments2)).
+
+
+fetch_items_from_ranked_feed(Uid, Cursor, Limit, ShowDevContent) ->
+    {_, CursorPostId, _} = model_feed:split_cursor(Cursor),
+    {RankedMomentIds, MomentScoresMap} = model_feed:get_ranked_feed(Uid),
+    DisplayMoments = case util:index_of(CursorPostId, RankedMomentIds) of
+        undefined ->
+            %% Send only some of them to the user.
+            lists:sublist(model_feed:get_posts(RankedMomentIds), Limit);
+        Index ->
+            lists:sublist(model_feed:get_posts(lists:nthtail(Index, RankedMomentIds)), Limit)
+    end,
+    %% Make sure to filter out any content from newly followed users if any.
+    DisplayMoments2 = filter_moments_by_author(Uid, DisplayMoments, ShowDevContent),
+    NewCursorPostId = case DisplayMoments2 of
+        [] -> CursorPostId;
+        _ ->
+            (lists:last(DisplayMoments))#post.id
+    end,
+    Cursor2 = model_feed:update_cursor_post_id(Cursor, NewCursorPostId),
+    ?INFO("Uid: ~p, UpdatedCursor: ~p, NumMoments: ~p", [Uid, Cursor2, length(DisplayMoments2)]),
+    {Cursor2, DisplayMoments2, MomentScoresMap}.
+
 
 %%====================================================================
 %% feed: helper internal functions
@@ -1359,7 +1444,7 @@ convert_moments_to_public_feed_items(Uid, #post{id = PostId, uid = OUid, payload
     },
     {ok, Comments} = model_feed:get_post_comments(PostId),
     PbComments = lists:map(fun convert_comments_to_pb_comments/1, Comments),
-    {Score, Explanation} = maps:get(PostId, MomentScoresMap, {-1, <<"error getting score">>}),
+    {Score, Explanation} = maps:get(PostId, MomentScoresMap, {-1.0, <<"error getting score">>}),
     PublicFeedItem = #pb_public_feed_item{
         user_profile = UserProfile,
         post = PbPost,

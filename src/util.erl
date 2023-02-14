@@ -375,7 +375,7 @@ to_binary_maybe(Data) ->
             <<>>
     end.
 
--spec to_list(Data :: list() | binary() | atom() | boolean() | integer()) -> maybe(list()).
+-spec to_list(Data :: list() | binary() | atom() | boolean() | integer() | float()) -> maybe(list()).
 to_list(Data) ->
     case type(Data) of
         "list" -> Data;

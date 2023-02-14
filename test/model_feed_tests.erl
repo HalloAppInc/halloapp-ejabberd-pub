@@ -589,6 +589,49 @@ get_moment_info_test() ->
     ok.
 
 
+ranked_feed_test() ->
+    setup(),
+    PostId1 = <<"p1">>,
+    PostId2 = <<"p2">>,
+    PostId3 = <<"p3">>,
+    MomentScoresMap1 = #{PostId1 => {1.0, <<"1">>}, PostId2 => {2.0, <<"2">>}},
+    MomentScoresMap2 = #{PostId1 => {1.0, <<"1">>}, PostId2 => {2.0, <<"2">>}, PostId3 => {3.0, <<"3">>}},
+    Uid1 = tutil:generate_uid(?KATCHUP),
+    ?assertEqual(ok, model_feed:clear_ranked_feed(Uid1)),
+    ?assertEqual({[], #{}}, model_feed:get_ranked_feed(Uid1)),
+    ?assertEqual(ok, model_feed:prepend_ranked_feed(Uid1, [PostId2, PostId1], MomentScoresMap1)),
+    ?assertEqual({[PostId2, PostId1], MomentScoresMap1}, model_feed:get_ranked_feed(Uid1)),
+    ?assertEqual(ok, model_feed:append_ranked_feed(Uid1, [PostId3], MomentScoresMap2)),
+    ?assertEqual({[PostId2, PostId1, PostId3], MomentScoresMap2}, model_feed:get_ranked_feed(Uid1)),
+    ?assertEqual(ok, model_feed:clear_ranked_feed(Uid1)),
+    ?assertEqual({[], #{}}, model_feed:get_ranked_feed(Uid1)),
+    ok.
+
+
+cursor_test() ->
+    setup(),
+    GeoTaggedPost = #post{
+        id = <<"p1">>,
+        ts_ms = 1
+    },
+    GlobalPost = #post{
+        id = <<"p2">>,
+        ts_ms = 2
+    },
+    EmptyCursor = <<"::::">>,
+    ?assertEqual({<<>>, <<>>, undefined}, model_feed:split_cursor(EmptyCursor)),
+    ?assertEqual({<<>>, undefined, <<>>, undefined, <<>>, undefined}, model_feed:split_cursor_index(<<>>)),
+    ?assertEqual(<<"::p3::">>, model_feed:update_cursor_post_id(EmptyCursor, <<"p3">>)),
+    ?assertEqual({<<>>, undefined}, model_feed:get_geotag_cursor_index(<<"::p3::">>)),
+    ?assertEqual({<<>>, undefined}, model_feed:get_global_cursor_index(<<"::p3::">>)),
+    ?assertEqual(<<"p1@1&&p2@2::p3::">>, model_feed:update_cursor_post_index(<<"::p3::">>, GeoTaggedPost, GlobalPost)),
+    ?assertEqual({<<"p1">>, 1}, model_feed:get_geotag_cursor_index(<<"p1@1&&p2@2::p3::">>)),
+    ?assertEqual({<<"p2">>, 2}, model_feed:get_global_cursor_index(<<"p1@1&&p2@2::p3::">>)),
+    ?assertEqual({<<"p1">>, 1, <<>>, undefined, <<"p2">>, 2}, model_feed:split_cursor_index(<<"p1@1&&p2@2">>)),
+    ?assertEqual(<<"p1@1&&p2@2::p3::123">>, model_feed:join_cursor(<<"p1@1&&p2@2">>, <<"p3">>, 123)),
+    ok.
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%                      Helper functions                                  %%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

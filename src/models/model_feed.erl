@@ -48,7 +48,12 @@
     get_posts_by_time_bucket/6,
     get_posts_by_geo_tag_time_bucket/7,
     split_cursor/1,
-    join_cursor/4,
+    join_cursor/3,
+    update_cursor_post_id/2,
+    get_global_cursor_index/1,
+    get_geotag_cursor_index/1,
+    split_cursor_index/1,
+    update_cursor_post_index/3,
     publish_comment/6,
     publish_comment/7,
     retract_post/2,
@@ -102,9 +107,14 @@
     mark_seen_posts/3,
     get_past_seen_posts/1,
     get_past_seen_posts/2,
+    clear_past_seen_posts/1,
     get_moment_info/1,
     get_post_num_seen/1,
-    inc_post_num_seen/1
+    inc_post_num_seen/1,
+    prepend_ranked_feed/3,
+    append_ranked_feed/3,
+    get_ranked_feed/1,
+    clear_ranked_feed/1
 ]).
 
 %% TODO(murali@): expose more apis specific to posts and comments only if necessary.
@@ -225,6 +235,77 @@ check_daily_limit(Uid, _PostId, MomentInfo) ->
     util:to_integer(Count) =< ?MAX_DAILY_MOMENT_LIMIT.
 
 
+prepend_ranked_feed(_Uid, [], _MomentScoresMap) -> ok;
+prepend_ranked_feed(Uid, RankedMomentIds, MomentScoresMap) ->
+    Commands1 = lists:map(fun(MomentId) -> ["LREM", feed_rank_key(Uid), 1, MomentId] end, RankedMomentIds),
+    Commands2 = [["LPUSH", feed_rank_key(Uid) | lists:reverse(RankedMomentIds)]],
+    Commands3 = lists:flatmap(
+        fun(MomentId) ->
+            {Score, Explanation} = maps:get(MomentId, MomentScoresMap, {-1, <<"error getting score">>}),
+            [
+                ["SET", post_score_key(Uid, MomentId), util:to_binary(Score)],
+                ["EXPIRE", post_score_key(Uid, MomentId), ?MOMENT_TAG_EXPIRATION],
+                ["SET", post_score_explanation_key(Uid, MomentId), Explanation],
+                ["EXPIRE", post_score_explanation_key(Uid, MomentId), ?MOMENT_TAG_EXPIRATION]
+            ]
+        end, RankedMomentIds),
+    Commands = Commands1 ++ Commands2 ++ Commands3,
+    qmn(Commands),
+    ok.
+
+
+append_ranked_feed(_Uid, [], _MomentScoresMap) -> ok;
+append_ranked_feed(Uid, RankedMomentIds, MomentScoresMap) ->
+    Commands1 = lists:map(fun(MomentId) -> ["LREM", feed_rank_key(Uid), 1, MomentId] end, RankedMomentIds),
+    Commands2 = [["RPUSH", feed_rank_key(Uid) | RankedMomentIds]],
+    Commands3 = lists:flatmap(
+        fun(MomentId) ->
+            {Score, Explanation} = maps:get(MomentId, MomentScoresMap, {-1.0, <<"error getting score">>}),
+            case Score =:= -1.0 of
+                true ->
+                    ?ERROR("Error finding score for momentId: ~p", [MomentId]);
+                false -> ok
+            end,
+            [
+                ["SET", post_score_key(Uid, MomentId), util:to_binary(Score)],
+                ["EXPIRE", post_score_key(Uid, MomentId), ?MOMENT_TAG_EXPIRATION],
+                ["SET", post_score_explanation_key(Uid, MomentId), Explanation],
+                ["EXPIRE", post_score_explanation_key(Uid, MomentId), ?MOMENT_TAG_EXPIRATION]
+            ]
+        end, RankedMomentIds),
+    Commands = Commands1 ++ Commands2 ++ Commands3,
+    qmn(Commands),
+    ok.
+
+
+get_ranked_feed(Uid) ->
+    {ok, RankedMomentIds} = q(["LRANGE", feed_rank_key(Uid), "0", "-1"]),
+    Commands = lists:flatmap(
+        fun(MomentId) ->
+            [["GET", post_score_key(Uid, MomentId)],
+            ["GET", post_score_explanation_key(Uid, MomentId)]]
+        end, RankedMomentIds),
+    MomentScoresMap = case Commands of
+        [] -> #{};
+        _ ->
+            Results = qmn(Commands),
+            Results2 = parse_score_and_explanation(Results, []),
+            maps:from_list(lists:zip(RankedMomentIds, Results2))
+    end,
+    {RankedMomentIds, MomentScoresMap}.
+
+
+clear_ranked_feed(Uid) ->
+    q(["DEL", feed_rank_key(Uid)]),
+    ok.
+
+
+parse_score_and_explanation([], Res) ->
+    lists:reverse(Res);
+parse_score_and_explanation([{ok, Score}, {ok, Exp} | Rest], Res) ->
+    parse_score_and_explanation(Rest, [{util_redis:decode_float(Score), Exp} | Res]).
+
+
 mark_discovered_posts(_Uid, _RequestTimestampMs, []) -> ok;
 mark_discovered_posts(Uid, RequestTimestampMs, PostIds) ->
     [{ok, _}, {ok, _}] = qp([
@@ -278,6 +359,17 @@ get_past_seen_posts(Uid, LatestNotifId) ->
     PostIds.
 
 
+clear_past_seen_posts(Uid) ->
+    case get_notification_id(Uid) of
+        undefined ->
+            %% this should never happen.
+            ?ERROR("Uid: ~p undefined notification_id", [Uid]);
+        LatestNotifId ->
+            q(["DEL", seen_posts_key(Uid, LatestNotifId)])
+    end,
+    ok.
+
+
 %% Indexes post-id by a specific geotag if the post-tag matches public content.
 -spec index_post_by_user_tags(PostId :: binary(), Uid :: uid(), PostTag :: post_tag(), TimestampMs :: integer()) -> ok.
 index_post_by_user_tags(PostId, Uid, PostTag, TimestampMs) ->
@@ -322,20 +414,20 @@ get_all_public_moments(GeoTag, TimestampMs) ->
 get_public_moments(GeoTag, TimestampMs, Cursor, Limit) ->
     case GeoTag =:= undefined orelse GeoTag =:= <<>> of
         true ->
-            case split_cursor(Cursor) of
-                {undefined, undefined, undefined, undefined} ->
+            case get_global_cursor_index(Cursor) of
+                {<<>>, undefined} ->
                     TimestampHr = floor(TimestampMs / ?HOURS_MS),
                     get_posts_by_time_bucket(TimestampHr, TimestampHr, undefined, Limit, Limit, []);
-                {_, _, CursorPostId, CursorTimestampMs} ->
+                {CursorPostId, CursorTimestampMs} ->
                     CursorTimestampHr = floor(CursorTimestampMs / ?HOURS_MS),
                     get_posts_by_time_bucket(CursorTimestampHr, CursorTimestampHr, CursorPostId, Limit, Limit, [])
             end;
         false ->
-            case split_cursor(Cursor) of
-                {undefined, undefined, undefined, undefined} ->
+            case get_geotag_cursor_index(Cursor) of
+                {<<>>, undefined} ->
                     TimestampHr = floor(TimestampMs / ?HOURS_MS),
                     get_posts_by_geo_tag_time_bucket(GeoTag, TimestampHr, TimestampHr, undefined, Limit, Limit, []);
-                {_, _, CursorPostId, CursorTimestampMs} ->
+                {CursorPostId, CursorTimestampMs} ->
                     CursorTimestampHr = floor(CursorTimestampMs / ?HOURS_MS),
                     get_posts_by_geo_tag_time_bucket(GeoTag, CursorTimestampHr, CursorTimestampHr, CursorPostId, Limit, Limit, [])
             end
@@ -413,28 +505,98 @@ get_all_posts_by_geo_tag_time_bucket(GeoTag, StartTimestampHr, CurTimestampHr, R
     get_all_posts_by_geo_tag_time_bucket(GeoTag, StartTimestampHr, CurTimestampHr-1, FinalResultPostIds).
 
 
--spec split_cursor(Cursor :: binary()) -> {maybe(binary()), maybe(integer()), maybe(binary()), maybe(integer())}.
-split_cursor(undefined) -> {undefined, undefined, undefined, undefined};
-split_cursor(<<>>) -> {undefined, undefined, undefined, undefined};
+-spec split_cursor(Cursor :: binary()) -> {maybe(binary()), maybe(binary()), maybe(integer())}.
+split_cursor(undefined) -> {<<>>, <<>>, undefined};
+split_cursor(<<>>) -> {<<>>, <<>>, undefined};
 split_cursor(Cursor) ->
     try
-        [CursorVersion, RequestTimestampMsBin, CursorPostId, CursorTimestampMsBin] = re:split(Cursor, "::"),
-        case RequestTimestampMsBin =:= <<>> orelse CursorPostId =:= <<>> orelse CursorTimestampMsBin =:= <<>> of
-            true -> {undefined, undefined, undefined, undefined};
-            false -> {CursorVersion, util:to_integer(RequestTimestampMsBin), CursorPostId, util:to_integer(CursorTimestampMsBin)}
-        end
+        [CursorPostIndex, CursorPostId, RequestTimestampMsBin] = re:split(Cursor, "::"),
+        {CursorPostIndex, CursorPostId, util_redis:decode_int(RequestTimestampMsBin)}
     catch
         _:_ ->
             ?ERROR("Failed to split cursor: ~p", [Cursor]),
-            {undefined, undefined, undefined, undefined}
+            {<<>>, <<>>, undefined}
     end.
 
 
--spec join_cursor(VersionBin :: binary(), RequestTimestampMs :: integer(), CursorPostId :: binary(), CursorTimestampMs :: integer()) -> binary().
-join_cursor(VersionBin, RequestTimestampMs, CursorPostId, CursorTimestampMs) ->
-    RequestTimestampMsBin = util:to_binary(RequestTimestampMs),
-    CursorTimestampMsBin = util:to_binary(CursorTimestampMs),
-    <<VersionBin/binary, "::", RequestTimestampMsBin/binary, "::", CursorPostId/binary, "::", CursorTimestampMsBin/binary>>.
+-spec join_cursor(CursorPostIndex :: binary(), CursorPostId :: binary(), RequestTimestampMs :: integer()) -> binary().
+join_cursor(CursorPostIndex, CursorPostId, RequestTimestampMs) ->
+    RequestTimestampMsBin = util_redis:encode_int(RequestTimestampMs),
+    <<CursorPostIndex/binary, "::", CursorPostId/binary, "::", RequestTimestampMsBin/binary>>.
+
+
+update_cursor_post_id(Cursor, PostId) ->
+    {CursorPostIndex, _CursorPostId, RequestTimestampMs} = split_cursor(Cursor),
+    join_cursor(CursorPostIndex, PostId, RequestTimestampMs).
+
+
+get_global_cursor_index(Cursor) ->
+    {CursorPostIndex, _CursorPostId, _RequestTimestampMs} = split_cursor(Cursor),
+    {
+    _GeoTagCursorPostId, _GeoTagCursorTimestampMs,
+    _FofCursorPostId, _FofCursorTimestampMs,
+    GlobalCursorPostId, GlobalCursorTimestampMs
+    } = split_cursor_index(CursorPostIndex),
+    {GlobalCursorPostId, GlobalCursorTimestampMs}.
+
+
+get_geotag_cursor_index(Cursor) ->
+    {CursorPostIndex, _CursorPostId, _RequestTimestampMs} = split_cursor(Cursor),
+    {
+    GeoTagCursorPostId, GeoTagCursorTimestampMs,
+    _FofCursorPostId, _FofCursorTimestampMs,
+    _GlobalCursorPostId, _GlobalCursorTimestampMs
+    } = split_cursor_index(CursorPostIndex),
+    {GeoTagCursorPostId, GeoTagCursorTimestampMs}.
+
+
+
+split_cursor_index(CursorPostIndex) ->
+    try
+        [GeoTagCursorIndex, FofCursorIndex, GlobalCursorIndex] = case CursorPostIndex of
+            <<>> -> [<<>>, <<>>, <<>>];
+            _ -> re:split(CursorPostIndex, "&")
+        end,
+        [GeoTagCursorPostId, GeoTagCursorTimestampMsBin] = case GeoTagCursorIndex of
+            <<>> -> [<<>>, <<>>];
+            _ -> re:split(GeoTagCursorIndex, "@")
+        end,
+        [FofCursorPostId, FofCursorTimestampMsBin] = case FofCursorIndex of
+            <<>> -> [<<>>, <<>>];
+            _ -> re:split(FofCursorIndex, "@")
+        end,
+        [GlobalCursorPostId, GlobalCursorTimestampMsBin] = case GlobalCursorIndex of
+            <<>> -> [<<>>, <<>>];
+            _ -> re:split(GlobalCursorIndex, "@")
+        end,
+        {
+        GeoTagCursorPostId, util_redis:decode_int(GeoTagCursorTimestampMsBin),
+        FofCursorPostId, util_redis:decode_int(FofCursorTimestampMsBin),
+        GlobalCursorPostId, util_redis:decode_int(GlobalCursorTimestampMsBin)
+        }
+    catch
+        _:_ ->
+            ?ERROR("Failed to split cursor: ~p", [CursorPostIndex]),
+            {<<>>, undefined, <<>>, undefined, <<>>, undefined}
+    end.
+
+
+%% TODO: add fof moment also here.
+update_cursor_post_index(Cursor, LastGeoTaggedMoment, LastGlobalMoment) ->
+    {GeoTagPostId, GeoTagTimestampMs} = case LastGeoTaggedMoment of
+        undefined -> get_geotag_cursor_index(Cursor);
+        _ -> {LastGeoTaggedMoment#post.id, LastGeoTaggedMoment#post.ts_ms}
+    end,
+    GeoTagTimestampMsBin = util_redis:encode_int(GeoTagTimestampMs),
+    {GlobalPostId, GlobalTimestampMs} = case LastGlobalMoment of
+        undefined -> get_global_cursor_index(Cursor);
+        _ -> {LastGlobalMoment#post.id, LastGlobalMoment#post.ts_ms}
+    end,
+    GlobalTimestampMsBin = util_redis:encode_int(GlobalTimestampMs),
+    {_, CursorPostId, RequestTimestampMs} = split_cursor(Cursor),
+    CursorPostIndex = <<GeoTagPostId/binary, "@", GeoTagTimestampMsBin/binary, "&", "&",
+        GlobalPostId/binary, "@", GlobalTimestampMsBin/binary>>,
+    join_cursor(CursorPostIndex, CursorPostId, RequestTimestampMs).
 
 
 -spec publish_comment(CommentId :: binary(), PostId :: binary(),
@@ -1001,7 +1163,7 @@ get_recent_user_posts(Uid) ->
 
 -spec get_user_latest_post(Uid :: uid()) -> maybe(post()).
 get_user_latest_post(Uid) ->
-    {ok, LatestPostIds} = q(["ZRANGE", reverse_post_key(Uid), "0", "0", "REV"]),
+    {ok, LatestPostIds} = q(["ZRANGE", reverse_post_key(Uid), "0", "0", "BYSCORE", "REV"]),
     LatestPost = case LatestPostIds of
         [] -> undefined;
         [LatestPostId] ->
@@ -1360,4 +1522,15 @@ seen_posts_key(Uid, LatestNotifId) ->
 num_seen_key(PostId) ->
     <<?POST_NUM_SEEN_KEY/binary, "{", PostId/binary, "}">>.
 
+
+feed_rank_key(Uid) ->
+    <<?FEED_RANK_KEY/binary, "{", Uid/binary, "}">>.
+
+
+post_score_key(Uid, PostId) ->
+    <<?POST_SCORE_KEY/binary, "{", Uid/binary, "}:", PostId/binary>>.
+
+
+post_score_explanation_key(Uid, PostId) ->
+    <<?POST_SCORE_EXPLANATION_KEY/binary, "{", Uid/binary, "}:", PostId/binary>>.
 

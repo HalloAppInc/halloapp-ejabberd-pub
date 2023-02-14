@@ -17,6 +17,7 @@
     decode_ts/1,
     encode_int/1,
     decode_int/1,
+    decode_float/1,
     decode_maybe_binary/1,
     encode_maybe_binary/1,
     q/2,
@@ -70,6 +71,15 @@ decode_int(Bin) ->
         <<"undefined">> -> undefined;
         <<>> -> undefined;
         _ -> binary_to_integer(Bin)
+    end.
+
+
+decode_float(Bin) ->
+    case Bin of
+        undefined -> undefined;
+        <<"undefined">> -> undefined;
+        <<>> -> undefined;
+        _ -> binary_to_float(Bin)
     end.
 
 
