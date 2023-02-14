@@ -92,10 +92,17 @@ get_dev_uids() ->
 -spec get_dev_phones() -> [phone()].
 get_dev_phones() ->
     [
-        <<"16503874384">>,   %% Jack test phone
         <<"16504508196">>,   %% Neeraj test phone
         <<"359884199917">>,  %% Vasil
+        <<"359877713791">>,  %% Vasil iOS
         <<"359888257524">>   %% Stefan
+    ].
+
+
+-spec get_public_feed_blocked_phones_list() -> [uid()].
+get_public_feed_blocked_phones_list() ->
+    [
+        <<"16503874384">>   %% Jack test phone
     ].
 
 
@@ -119,8 +126,9 @@ show_on_public_feed(Uid) ->
         {error, missing} ->
             not IsDevUid;
         {ok, Phone} ->
-            %% is user specifically allowed OR are they not a dev uid/phone
+            %% is user specifically allowed OR are they specifically disallowed OR are they not a dev uid/phone
             lists:member(Uid, get_katchup_public_feed_allowed_uids())
+                orelse not lists:member(Phone, get_public_feed_blocked_phones_list())
                 orelse (not IsDevUid andalso not lists:member(Phone, get_dev_phones()) andalso not util:is_test_number(Phone))
     end .
 
