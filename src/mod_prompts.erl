@@ -79,27 +79,27 @@ get_media_prompt() ->
 
 get_text_prompts() ->
     [
-    <<"Vibe Check">>,
-    <<"Vibe Check">>,
-    <<"Vibe Check">>,
-    <<"Vibe Check">>,
-    <<"Vibe Check">>,
-    <<"Vibe Check">>,
-    <<"Vibe Check">>,
-    <<"Vibe Check">>,
-    <<"Vibe Check">>
+    <<"VIBE CHECK">>,
+    <<"VIBE CHECK">>,
+    <<"VIBE CHECK">>,
+    <<"VIBE CHECK">>,
+    <<"VIBE CHECK">>,
+    <<"VIBE CHECK">>,
+    <<"VIBE CHECK">>,
+    <<"VIBE CHECK">>,
+    <<"VIBE CHECK">>
     ].
 
 get_media_prompts() ->
     [
-    <<"WYD1?">>,
-    <<"WYD2?">>,
-    <<"WYD3?">>,
-    <<"WYD4?">>,
-    <<"WYD5?">>,
-    <<"WYD6?">>,
-    <<"WYD7?">>,
-    <<"WYD8?">>,
-    <<"WYD9?">>
+    <<"WYD?">>,
+    <<"WYD?">>,
+    <<"WYD?">>,
+    <<"WYD?">>,
+    <<"WYD?">>,
+    <<"WYD?">>,
+    <<"WYD?">>,
+    <<"WYD?">>,
+    <<"WYD?">>
     ].
 
