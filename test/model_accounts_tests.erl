@@ -687,6 +687,8 @@ geo_tag_test(_) ->
 %% TODO: this test will start failing whent PST(GMT-8) becomes PDT(GMT-7).
 zone_offset_tag_test(_) ->
     Uid = tutil:generate_uid(?KATCHUP),
+    model_accounts:create_account(Uid, ?PHONE2, ?USER_AGENT2, ?CAMPAIGN_ID, ?TS2),
+    model_accounts:set_name(Uid, ?NAME2),
     [?_assertEqual({ok, []},
         model_accounts:get_zone_offset_tag_uids(?ZONE_OFFSET1)),
     ?_assertOk(model_accounts:update_zone_offset_tag(
