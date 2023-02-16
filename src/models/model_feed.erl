@@ -1017,11 +1017,18 @@ get_moment_time_to_send(Tag, DateTimeSecs) ->
         undefined ->
             ?INFO("Generating moment time to send now, Tag: ~p, DateTimeSecs: ~p", [Tag, DateTimeSecs]),
             Time = generate_notification_time(DateTimeSecs),
-            %% NotificationType, 5 out of 7 week days for live camera
-            %% rest for text post
-            Type = case rand:uniform(7) =< 5 of
+            {Date, {_,_,_}} = calendar:system_time_to_universal_time(DateTimeSecs, second),
+            DayOfWeek = calendar:day_of_the_week(Date),
+            %% live camera on Fri, Sat, Sun
+            Type = case DayOfWeek >= 5 andalso DayOfWeek =< 7 of
                 true -> live_camera;
-                false -> text_post
+                false ->
+                    %% NotificationType, 3 out of 4 (Mon,Tuw,Wed,Thu) week days for live camera
+                    %% rest for text post
+                    case rand:uniform(4) =< 3 of
+                        true -> live_camera;
+                        false -> text_post
+                    end
             end,
             Prompt = mod_prompts:get_prompt(Type),
             case set_moment_time_to_send(Time, DateTimeSecs, Type, Prompt, Tag) of
