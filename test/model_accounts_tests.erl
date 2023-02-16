@@ -686,29 +686,30 @@ geo_tag_test(_) ->
 
 %% TODO: this test will start failing whent PST(GMT-8) becomes PDT(GMT-7).
 zone_offset_tag_test(_) ->
+    Uid = tutil:generate_uid(?KATCHUP),
     [?_assertEqual({ok, []},
         model_accounts:get_zone_offset_tag_uids(?ZONE_OFFSET1)),
     ?_assertOk(model_accounts:update_zone_offset_tag(
-        ?UID1, ?ZONE_OFFSET1, undefined)),
+        Uid, ?ZONE_OFFSET1, undefined)),
     ?_assertOk(model_accounts:update_zone_offset_tag(
         ?UID1, ?ZONE_OFFSET1, undefined)),
-    ?_assertEqual({ok, [?UID1]},
+    ?_assertEqual({ok, [Uid]},
         model_accounts:get_zone_offset_tag_uids(?ZONE_OFFSET1)),
     ?_assertOk(model_accounts:update_zone_offset_tag(
-        ?UID1, ?ZONE_OFFSET1, ?ZONE_OFFSET1)),
-    ?_assertEqual({ok, [?UID1]},
+        Uid, ?ZONE_OFFSET1, ?ZONE_OFFSET1)),
+    ?_assertEqual({ok, [Uid]},
         model_accounts:get_zone_offset_tag_uids(?ZONE_OFFSET1)),
     ?_assertOk(model_accounts:delete_zone_offset_tag(
-        ?UID1, ?ZONE_OFFSET1)),
+        Uid, ?ZONE_OFFSET1)),
     ?_assertEqual({ok, []},
         model_accounts:get_zone_offset_tag_uids(?ZONE_OFFSET1)),
     ?_assertEqual({ok, []},
         model_accounts:get_zone_offset_tag_uids(?ZONE_OFFSET3)),
-    ?_assertOk(model_accounts:update_zone_offset_tag(?UID1, ?ZONE_OFFSET1, undefined)),
-    ?_assertOk(model_accounts:update_zone_offset_tag(?UID1, ?ZONE_OFFSET3, ?ZONE_OFFSET1)),
+    ?_assertOk(model_accounts:update_zone_offset_tag(Uid, ?ZONE_OFFSET1, undefined)),
+    ?_assertOk(model_accounts:update_zone_offset_tag(Uid, ?ZONE_OFFSET3, ?ZONE_OFFSET1)),
     ?_assertEqual({ok, []},
                   model_accounts:get_zone_offset_tag_uids(?ZONE_OFFSET1)),
-    ?_assertEqual({ok, [?UID1]},
+    ?_assertEqual({ok, [Uid]},
                    model_accounts:get_zone_offset_tag_uids(?ZONE_OFFSET4)),
     ?_assertEqual({ok, []},
                    model_accounts:get_zone_offset_tag_uids(?ZONE_OFFSET3)),
