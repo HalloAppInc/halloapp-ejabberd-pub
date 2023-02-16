@@ -79,15 +79,15 @@ get_media_prompt() ->
 
 get_text_prompts() ->
     [
-    <<"VIBE CHECK">>,
-    <<"VIBE CHECK">>,
-    <<"VIBE CHECK">>,
-    <<"VIBE CHECK">>,
-    <<"VIBE CHECK">>,
-    <<"VIBE CHECK">>,
-    <<"VIBE CHECK">>,
-    <<"VIBE CHECK">>,
-    <<"VIBE CHECK">>
+    <<"">>,
+    <<"">>,
+    <<"">>,
+    <<"">>,
+    <<"">>,
+    <<"">>,
+    <<"">>,
+    <<"">>,
+    <<"">>
     ].
 
 get_media_prompts() ->
