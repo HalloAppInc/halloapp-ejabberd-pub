@@ -63,7 +63,8 @@
     new_follow_relationship/2,
     get_ranked_public_moments/7,
     re_register_user/4,
-    convert_moments_to_public_feed_items/3
+    convert_moments_to_public_feed_items/3,
+    check_users/2
 ]).
 
 
@@ -1510,4 +1511,21 @@ convert_comments_to_pb_comments(#comment{id = CommentId, post_id = PostId, publi
         timestamp = util:ms_to_sec(TimestampMs),
         comment_type = CommentType
     }.
+
+
+%% Temp function to clean up expiry notices.
+check_users(Uids, OldNotificationId) ->
+    lists:foreach(
+        fun(Uid) ->
+            case model_feed:get_user_latest_post(Uid) of
+                undefined -> ok;
+                Post ->
+                    %% Send expiry notice only if the latest post was the previous days post.
+                    case Post#post.moment_info#pb_moment_info.notification_id =:= OldNotificationId of
+                        true -> send_expiry_notice(Post);
+                        false -> ok
+                    end
+            end
+        end, Uids),
+    ok.
 
