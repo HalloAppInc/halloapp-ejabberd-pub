@@ -177,7 +177,6 @@
     get_node_list/0,
     scan/3,
     get_user_activity_info/1,
-    update_zone_offset_tag2/3,  %% for migration
     update_zone_offset_tag/3,
     get_zone_offset_tag_uids/1,
     del_zone_offset/1,
@@ -202,7 +201,8 @@
     inc_num_posts/1,
     inc_num_comments/1,
     inc_num_seen/1,
-    remove_geo_tags/1
+    remove_geo_tags/1,
+    cleanup_zone_offset_index/2
 ]).
 
 %%====================================================================
@@ -899,38 +899,26 @@ update_lang_counters(Uid, LangId, OldLangId) ->
     end,
     ok.
 
-
-update_zone_offset_tag2(Uid, ZoneOffsetSec, OldZoneOffsetSec) when is_integer(ZoneOffsetSec) ->
-    HashSlot = util_redis:eredis_hash(binary_to_list(Uid)),
-    Slot = HashSlot rem ?NUM_SLOTS,
-    ZoneOffsetTag = util:to_binary(mod_moment_notification:get_four_zone_offset_hr(ZoneOffsetSec)),
-    Commands = case OldZoneOffsetSec of
-        undefined ->
-            [["SADD", zone_offset_tag_key(Slot, ZoneOffsetTag), Uid]];
-        _ ->
-            OldOffsetTag = util:to_binary(OldZoneOffsetSec div ?MOMENT_TAG_INTERVAL_SEC),
-            [["SREM", zone_offset_tag_key(Slot, OldOffsetTag), Uid],
-            ["SADD", zone_offset_tag_key(Slot, ZoneOffsetTag), Uid]]
-    end,
-    qp(Commands),
-    ok.
-
 -spec update_zone_offset_tag(Uid :: binary(), ZoneOffsetSec :: maybe(integer()), OldZoneOffsetSec :: maybe(integer())) -> ok.
 update_zone_offset_tag(Uid, ZoneOffsetSec, OldZoneOffsetSec) when ZoneOffsetSec =/= OldZoneOffsetSec ->
-    HashSlot = util_redis:eredis_hash(binary_to_list(Uid)),
-    Slot = HashSlot rem ?NUM_SLOTS,
-    {ok, Phone} = get_phone(Uid),
-    ZoneOffsetTag = util:to_binary(mod_moment_notification:get_four_zone_offset_hr(ZoneOffsetSec, Phone)),
-    Commands = case OldZoneOffsetSec of
-        undefined ->
-            [["SADD", zone_offset_tag_key(Slot, ZoneOffsetTag), Uid]];
-        _ ->
-            OldOffsetTag = util:to_binary(mod_moment_notification:get_four_zone_offset_hr(OldZoneOffsetSec, Phone)),
-            [["SREM", zone_offset_tag_key(Slot, OldOffsetTag), Uid],
-            ["SADD", zone_offset_tag_key(Slot, ZoneOffsetTag), Uid]]
-    end,
-    qp(Commands),
-    ok;
+    case util_uid:get_app_type(Uid) of
+        halloapp -> ok;
+        katchup ->
+            HashSlot = util_redis:eredis_hash(binary_to_list(Uid)),
+            Slot = HashSlot rem ?NUM_SLOTS,
+            {ok, Phone} = get_phone(Uid),
+            ZoneOffsetTag = util:to_binary(mod_moment_notification:get_four_zone_offset_hr(ZoneOffsetSec, Phone)),
+            Commands = case OldZoneOffsetSec of
+                undefined ->
+                    [["SADD", zone_offset_tag_key(Slot, ZoneOffsetTag), Uid]];
+                _ ->
+                    OldOffsetTag = util:to_binary(mod_moment_notification:get_four_zone_offset_hr(OldZoneOffsetSec, Phone)),
+                    [["SREM", zone_offset_tag_key(Slot, OldOffsetTag), Uid],
+                    ["SADD", zone_offset_tag_key(Slot, ZoneOffsetTag), Uid]]
+            end,
+            qp(Commands),
+            ok
+    end;
 update_zone_offset_tag(_Uid, _ZoneOffsetSec, _OldZoneOffsetSec) ->
     ok.
 
@@ -963,6 +951,30 @@ del_zone_offset(ZoneOffsetSec) ->
             {ok, _} = q(["DEL", zone_offset_tag_key(Slot, ZoneOffsetTag)])
         end, lists:seq(0, ?NUM_SLOTS - 1)),
     ok.
+
+
+%% TODO: remove this code after migration.
+-spec cleanup_zone_offset_index(ZoneOffsetSec :: integer(), DryRun :: boolean()) -> ok.
+cleanup_zone_offset_index(ZoneOffsetSec, DryRun) ->
+    {ok, Uids} = get_zone_offset_tag_uids(ZoneOffsetSec),
+    HalloAppUids = lists:filter(fun(Uid) -> util_uid:get_app_type(Uid) =:= halloapp end, Uids),
+    Commands = lists:map(
+        fun(Uid) ->
+            HashSlot = util_redis:eredis_hash(binary_to_list(Uid)),
+            Slot = HashSlot rem ?NUM_SLOTS,
+            ZoneOffsetTag = util:to_binary(mod_moment_notification:get_four_zone_offset_hr(ZoneOffsetSec, <<>>)),
+            ["SREM", zone_offset_tag_key(Slot, ZoneOffsetTag), Uid]
+        end, HalloAppUids),
+    case DryRun of
+        true ->
+            ?INFO("ZoneOffsetSec: ~p NumHalloAppUids: ~p", [ZoneOffsetSec, length(HalloAppUids)]),
+            ok;
+        false ->
+            ?INFO("Cleaned ZoneOffsetSec: ~p NumHalloAppUids: ~p", [ZoneOffsetSec, length(HalloAppUids)]),
+            _Res = util_redis:run_qmn(ecredis_accounts, Commands)
+    end,
+    ok.
+
 
 -spec remove_android_token(Uid :: uid()) -> ok | {error, missing}.
 remove_android_token(Uid) ->
