@@ -264,7 +264,8 @@ process_local_iq(#pb_iq{from_uid = Uid, payload = #pb_public_feed_request{cursor
         cursor = NewCursor,
         public_feed_content_type = moments,
         cursor_restarted = ReloadFeed,
-        items = PublicFeedItems
+        items = PublicFeedItems,
+        geo_tag = util:to_binary(GeoTag)
     },
     ?INFO("Successful public feed response: Uid ~s, NewCursor ~p, Tag ~p NumItems ~p",
         [Uid, NewCursor, GeoTag, length(PublicFeedItems)]),

@@ -280,6 +280,7 @@ message PublicFeedResponse {
     PublicFeedContentType public_feed_content_type = 4;
     bool cursor_restarted = 5;
     repeated PublicFeedItem items = 6; // items are ordered and should be presented in that order.
+    string geo_tag = 7; // Server will include the geo-tag here for counters on client.
 }
 
 
@@ -1041,7 +1042,7 @@ message MomentNotification {
     enum Type {
         LIVE_CAMERA = 0;
         TEXT_POST = 1;
-        PROMPT_POST = 2;
+        PROMPT_POST = 2 [deprecated = true];
     }
     Type type = 3;
     string prompt = 4;
