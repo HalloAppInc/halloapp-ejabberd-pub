@@ -1522,9 +1522,14 @@ check_users(Uids, OldNotificationId) ->
                 undefined -> ok;
                 Post ->
                     %% Send expiry notice only if the latest post was the previous days post.
-                    case Post#post.moment_info#pb_moment_info.notification_id =:= OldNotificationId of
-                        true -> send_expiry_notice(Post);
-                        false -> ok
+                    case Post#post.moment_info of
+                        undefined ->
+                            ok;
+                        MomentInfo ->
+                            case MomentInfo#pb_moment_info.notification_id =:= OldNotificationId of
+                                true -> send_expiry_notice(Post);
+                                false -> ok
+                            end
                     end
             end
         end, Uids),
