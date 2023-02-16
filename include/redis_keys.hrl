@@ -167,6 +167,7 @@
 -define(FOLLOWING_KEY, <<"fwg:">>).
 -define(BLOCKED_KEY, <<"blk">>).
 -define(BLOCKED_BY_KEY, <<"bkb">>).
+-define(FOF_INDEX_KEY, <<"fof">>).
 
 
 %% RedisMessages

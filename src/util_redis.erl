@@ -10,6 +10,7 @@
 -author("nikola").
 
 -include("util_redis.hrl").
+-include("ha_types.hrl").
 
 %% API
 -export([
@@ -30,6 +31,7 @@
     encode_b64/1,
     decode_b64/1,
     parse_zrange_with_scores/1,
+    flatten_proplist/1,
     run_qmn/2,
     verify_ok/1
 ]).
@@ -127,6 +129,17 @@ parse_zrange_with_scores([], Res) ->
     lists:reverse(Res);
 parse_zrange_with_scores([El, Score | Rest], Res) ->
     parse_zrange_with_scores(Rest, [{El, Score} | Res]).
+
+
+-spec flatten_proplist(L :: proplist()) -> list().
+flatten_proplist(L) ->
+    flatten_proplist(L, []).
+
+-spec flatten_proplist(List :: proplist(), Res :: list()) -> list().
+flatten_proplist([], Res) ->
+    Res;
+flatten_proplist([{A, B} | Rest], Res) ->
+    flatten_proplist(Rest, [A, B | Res]).
 
 
 -spec run_qmn(Client :: atom(), Commands :: list()) -> list().

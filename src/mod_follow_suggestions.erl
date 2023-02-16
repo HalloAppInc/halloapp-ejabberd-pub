@@ -13,6 +13,15 @@
 -include("logger.hrl").
 -include("packets.hrl").
 
+-define(CONTACT_SCORE, 100).
+-define(REV_CONTACT_SCORE, 70).
+-define(GEO_TAG_SCORE, 25).
+-define(FOFOLLOWING_SCORE, 40).
+-define(FOCONTACT_SCORE, 40).
+-define(FOREVCONTACT_SCORE, 20).
+-define(FOGEOTAG_SCORE, 20).
+-define(FOF_RUNTIME_LIMIT_MS, 100).
+
 %% gen_mod callbacks.
 -export([start/2, stop/1, reload/3, mod_options/1, depends/2]).
 
@@ -20,7 +29,9 @@
 -export([
     process_local_iq/1,
     generate_follow_suggestions/1,
-    remove_deleted/1
+    remove_deleted/1,
+    generate_fof_uids/0,
+    update_fof/1
 ]).
 
 
@@ -31,6 +42,7 @@
 start(_Host, Opts) ->
     ?INFO("start ~w ~p", [?MODULE, Opts]),
     gen_iq_handler:add_iq_handler(ejabberd_local, katchup, pb_follow_suggestions_request, ?MODULE, process_local_iq),
+    check_and_schedule(),
     ok.
 
 stop(_Host) ->
@@ -79,6 +91,138 @@ generate_follow_suggestions(Uid) ->
             generate_follow_suggestions(Uid, Phone)
     end.
 
+check_and_schedule() ->
+    case util:is_main_stest() of
+        true ->
+            ?INFO("Scheduling fof run", []),
+            erlcron:cron(send_notifications, {
+                {daily, {10, 00, am}},
+                {?MODULE, generate_fof_uids, []}
+            }),
+            ok;
+        false ->
+            ok
+    end.
+
+
+generate_fof_uids() ->
+    %% TODO: change migration to run for every zoneoffset uids.
+    %% that will ensure we do this in batches throughout the day.
+    redis_migrate:start_migration("calculate_fof_run", redis_accounts,
+        {migrate_check_accounts, calculate_fof_run},
+        [{execute, sequential}, {scan_count, 1000}]).
+
+
+update_fof(Uid) ->
+    Time1 = util:now_ms(),
+    %% Get Uid info:
+    AppType = util_uid:get_app_type(Uid),
+    {ok, Phone} = model_accounts:get_phone(Uid),
+    AllFollowingSet = sets:from_list(model_follow:get_all_following(Uid)),
+    GeoTag = model_accounts:get_latest_geo_tag(Uid),
+    Time2 = util:now_ms(),
+    ?INFO("Uid: ~p, Time taken to get user info: ~p", [Uid, Time2 - Time1]),
+
+    %% 1. Find list of contact uids.
+    {ok, ContactPhones} = model_contacts:get_contacts(Uid),
+    ContactUids = maps:values(model_phone:get_uids(ContactPhones, AppType)),
+    ContactUidSet = sets:from_list(ContactUids),
+    Time3 = util:now_ms(),
+    ?INFO("Uid: ~p, Time taken to get contact uids: ~p", [Uid, Time3 - Time2]),
+
+    %% 2. Find list of reverse contact uids.
+    {ok, RevContactUids} = model_contacts:get_contact_uids(Phone, AppType),
+    RevContactUidSet = sets:from_list(RevContactUids),
+    Time4 = util:now_ms(),
+    ?INFO("Uid: ~p, Time taken to get rev contact uids: ~p", [Uid, Time4 - Time3]),
+
+    %% 3. Find list of geo-tagged uids.
+    GeoTagUidSet = case GeoTag of
+        undefined -> sets:from_list([]);
+        _ -> sets:from_list(model_accounts:get_geotag_uids(GeoTag))
+    end,
+    Time5 = util:now_ms(),
+    ?INFO("Uid: ~p, Time taken to get geo-tag uids: ~p", [Uid, Time5 - Time4]),
+
+    %% 4. Find uids followed by all the above - following, contacts, revcontacts, geotagged uids.
+    %% TODO: Fetch atmost 1000 of each of them.
+    FofollowingSet = sets:from_list(model_follow:get_all_following(sets:to_list(AllFollowingSet))),
+    FoContactSet = sets:from_list(model_follow:get_all_following(sets:to_list(ContactUidSet))),
+    FoRevContactSet = sets:from_list(model_follow:get_all_following(sets:to_list(RevContactUidSet))),
+    FoGeoTagUidSet = sets:from_list(model_follow:get_all_following(sets:to_list(GeoTagUidSet))),
+    BroaderFollowingUidSet = sets:union([FofollowingSet, FoContactSet, FoRevContactSet, FoGeoTagUidSet]),
+    Time6 = util:now_ms(),
+    ?INFO("Uid: ~p, Time taken to get broader following set: ~p", [Uid, Time6 - Time5]),
+
+    %% BlockedUser set
+    BlockedUidSet = sets:from_list(model_follow:get_blocked_uids(Uid)),
+    BlockedByUidSet = sets:from_list(model_follow:get_blocked_by_uids(Uid)),
+    Time7 = util:now_ms(),
+    ?INFO("Uid: ~p, Time taken to get blocked uid set: ~p", [Uid, Time7 - Time6]),
+
+    %% Calculate potential Fof
+    FofSet = sets:subtract(
+        sets:union([BroaderFollowingUidSet, ContactUidSet, RevContactUidSet, GeoTagUidSet]),
+        sets:union([AllFollowingSet, BlockedByUidSet, BlockedUidSet])),
+    Time8 = util:now_ms(),
+    ?INFO("Uid: ~p, Time taken to get fof users without followers: ~p", [Uid, Time8 - Time7]),
+
+    %% Score Fof
+    %% TODO: Score only 5*1000 at-max.
+    FofWithScores = sets:fold(
+        fun(FofUid, Acc) ->
+            ContactScore = case sets:is_element(FofUid, ContactUidSet) of
+                true -> ?CONTACT_SCORE;
+                false -> 0
+            end,
+            RevContactScore = case sets:is_element(FofUid, RevContactUidSet) of
+                true -> ?REV_CONTACT_SCORE;
+                false -> 0
+            end,
+            GeoTagScore = case sets:is_element(FofUid, GeoTagUidSet) of
+                true -> ?GEO_TAG_SCORE;
+                false -> 0
+            end,
+            FoFollowingScore = case sets:is_element(FofUid, FofollowingSet) of
+                true -> ?FOFOLLOWING_SCORE;
+                false -> 0
+            end,
+            FoContactScore = case sets:is_element(FofUid, FoContactSet) of
+                true -> ?FOCONTACT_SCORE;
+                false -> 0
+            end,
+            FoRevContactScore = case sets:is_element(FofUid, FoRevContactSet) of
+                true -> ?FOREVCONTACT_SCORE;
+                false -> 0
+            end,
+            FoGeoTagScore = case sets:is_element(FofUid, FoGeoTagUidSet) of
+                true -> ?FOGEOTAG_SCORE;
+                false -> 0
+            end,
+            Acc#{FofUid => ContactScore + RevContactScore + GeoTagScore + FoFollowingScore + FoContactScore + FoRevContactScore + FoGeoTagScore}
+        end, #{}, FofSet),
+    Time9 = util:now_ms(),
+    ?INFO("Uid: ~p, Time taken to score fof: ~p", [Uid, Time9 - Time8]),
+
+    %% Store this in redis.
+    %% TODO: Store atmost 1000 only.
+    ok = model_follow:update_fof(Uid, FofWithScores),
+    Time10 = util:now_ms(),
+    ?INFO("Uid: ~p, Time taken to store fof in redis: ~p", [Uid, Time10 - Time9]),
+
+    case Time10 - Time1 > ?FOF_RUNTIME_LIMIT_MS of
+        true ->
+            ?WARNING("Uid: ~p, Total time taken to fetch, score and store fof: ~p", [Uid, Time10 - Time1]);
+        false ->
+            ?INFO("Uid: ~p, Total time taken to fetch, score and store fof: ~p", [Uid, Time10 - Time1])
+    end,
+    ok.
+
+
+%%====================================================================
+%% internal functions
+%%====================================================================
+
 generate_follow_suggestions(Uid, Phone) ->
     %% 1. Find list of contact uids.
     AppType = util_uid:get_app_type(Uid),
@@ -93,10 +237,7 @@ generate_follow_suggestions(Uid, Phone) ->
     %% 2. Find uids of followed by various follows and contacts
     AllFollowing = model_follow:get_all_following(Uid),
     AllFollowingAndContacts = sets:to_list(sets:union(sets:from_list(AllFollowing), ContactUidsSet)),
-    FoFSet1 = lists:foldl(fun(Elem, Acc) ->
-        FoF1 = model_follow:get_all_following(Elem),
-        sets:union(Acc, sets:from_list(FoF1))
-    end, sets:new(), AllFollowingAndContacts),
+    FoFSet1 = sets:from_list(model_follow:get_all_following(AllFollowingAndContacts)),
     FoFSet2 = sets:union(RevContactConsiderSet, FoFSet1),
 
     %% 3. Find uids of geo tagged users.

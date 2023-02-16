@@ -26,6 +26,7 @@
     is_following/2,
     is_follower/2,
     get_following/3,
+    get_following/2,
     get_all_following/1,
     get_following_count/1,
     get_followers/3,
@@ -44,12 +45,26 @@
     remove_all_blocked_by_uids/1,
     follower_key/1,
     following_key/1,
-    blocked_key/1
+    blocked_key/1,
+    update_fof/2,
+    get_fof/2
 ]).
 
 %%====================================================================
 %% API
 %%====================================================================
+
+update_fof(_Uid, #{}) -> ok;
+update_fof(Uid, FofWithScores) ->
+    FofScoresList = util_redis:flatten_proplist(maps:to_list(FofWithScores)),
+    {ok, _Res} = q(["ZADD", fof_index_key(Uid), FofScoresList]),
+    ok.
+
+%% TODO: some more work here.
+get_fof(_Uid, _Limit) ->
+    %% Use Limit and fetch some fof.
+    [].
+
 
 %% Uid follows Ouid
 -spec follow(Uid :: uid(), Ouid :: uid()) -> ok.
@@ -99,10 +114,26 @@ get_following(Uid, Cursor, Limit) ->
     get_all(following_key(Uid), Cursor, Limit).
 
 
-%% Get everyone that Uid is following (not paginated)
--spec get_all_following(Uid :: uid()) -> list(uid()).
+-spec get_following(Uids :: [uid()] | uid(), Limit :: integer()) -> [uid()].
+get_following(Uids, Limit) when is_list(Uids) ->
+    Commands = lists:map(
+        fun(Uid) ->
+            ["ZRANGE", following_key(Uid), "+inf", "-inf", "BYSCORE", "REV", "LIMIT", 0, Limit]
+        end, Uids),
+    Res = qmn(Commands),
+    Result = lists:flatmap(fun({ok, Followers}) -> Followers end, Res),
+    Result;
+get_following(Uid, Limit) ->
+    get_following([Uid], Limit).
+
+
+%% Get everyone that Uid/Uids is/are following (not paginated)
+-spec get_all_following(Uids :: [uid()] | uid()) -> [uid()].
+get_all_following(Uids) when is_list(Uids) ->
+    get_following(Uids, -1);
 get_all_following(Uid) ->
-    get_all_internal(following_key(Uid)).
+    get_all_following([Uid]).
+
 
 -spec get_following_count(Uid :: uid()) -> integer().
 get_following_count(Uid) ->
@@ -294,4 +325,7 @@ blocked_key(Uid) ->
 
 blocked_by_key(Uid) ->
     <<?BLOCKED_BY_KEY/binary, <<"{">>/binary, Uid/binary, <<"}">>/binary>>.
+
+fof_index_key(Uid) ->
+    <<?FOF_INDEX_KEY/binary, <<"{">>/binary, Uid/binary, <<"}">>/binary>>.
 
