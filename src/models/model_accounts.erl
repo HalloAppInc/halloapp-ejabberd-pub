@@ -201,8 +201,7 @@
     inc_num_posts/1,
     inc_num_comments/1,
     inc_num_seen/1,
-    remove_geo_tags/1,
-    cleanup_zone_offset_index/2
+    remove_geo_tags/1
 ]).
 
 %%====================================================================
@@ -950,29 +949,6 @@ del_zone_offset(ZoneOffsetSec) ->
         fun(Slot) ->
             {ok, _} = q(["DEL", zone_offset_tag_key(Slot, ZoneOffsetTag)])
         end, lists:seq(0, ?NUM_SLOTS - 1)),
-    ok.
-
-
-%% TODO: remove this code after migration.
--spec cleanup_zone_offset_index(ZoneOffsetSec :: integer(), DryRun :: boolean()) -> ok.
-cleanup_zone_offset_index(ZoneOffsetSec, DryRun) ->
-    {ok, Uids} = get_zone_offset_tag_uids(ZoneOffsetSec),
-    HalloAppUids = lists:filter(fun(Uid) -> util_uid:get_app_type(Uid) =:= halloapp end, Uids),
-    Commands = lists:map(
-        fun(Uid) ->
-            HashSlot = util_redis:eredis_hash(binary_to_list(Uid)),
-            Slot = HashSlot rem ?NUM_SLOTS,
-            ZoneOffsetTag = util:to_binary(mod_moment_notification:get_four_zone_offset_hr(ZoneOffsetSec, <<>>)),
-            ["SREM", zone_offset_tag_key(Slot, ZoneOffsetTag), Uid]
-        end, HalloAppUids),
-    case DryRun of
-        true ->
-            ?INFO("ZoneOffsetSec: ~p NumHalloAppUids: ~p", [ZoneOffsetSec, length(HalloAppUids)]),
-            ok;
-        false ->
-            ?INFO("Cleaned ZoneOffsetSec: ~p NumHalloAppUids: ~p", [ZoneOffsetSec, length(HalloAppUids)]),
-            _Res = util_redis:run_qmn(ecredis_accounts, Commands)
-    end,
     ok.
 
 
