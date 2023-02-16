@@ -493,7 +493,7 @@ update_zone_offset(Key, State) ->
                             ZoneOffsetTag = ?HOURS * mod_moment_notification:get_four_zone_offset_hr(ZoneOffsetSec, Phone),
                             case DryRun of
                                 false ->
-                                    model_accounts:update_zone_offset_tag2(Uid, ZoneOffsetTag, undefined),
+                                    model_accounts:update_zone_offset_tag(Uid, ZoneOffsetTag, undefined),
                                     ?INFO("Uid: ~s, new zone offset: ~p", [Uid, ZoneOffsetTag]);
                                 true ->
                                     ?INFO("[DRY RUN] Uid: ~s, new zone offset: ~p", [Uid, ZoneOffsetTag])
