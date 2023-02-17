@@ -76,7 +76,6 @@
     mark_psa_tag_done/1,
     del_psa_tag_done/1,
     get_moment_time_to_send/1,
-    get_moment_time_to_send/2,
     set_moment_time_to_send/5,
     overwrite_moment_time_to_send/5, %% dangerous.
     del_moment_time_to_send/1,
@@ -1011,12 +1010,7 @@ del_psa_tag_done(PSATag) ->
 
 -spec get_moment_time_to_send(DateTimeSecs :: integer()) -> {integer(), integer(), moment_type(), binary()}.
 get_moment_time_to_send(DateTimeSecs) ->
-    Day = util:get_date(DateTimeSecs),
-    get_moment_time_to_send(Day, DateTimeSecs).
-
-
--spec get_moment_time_to_send(Date :: integer(), DateTimeSecs :: integer()) -> {integer(), integer(), moment_type(), binary()}.
-get_moment_time_to_send(Date, DateTimeSecs) ->
+    Date = util:get_date(DateTimeSecs),
     [{ok, Payload1}, {ok, Payload2}, {ok, Payload3}, {ok, Payload4}] =
         qp([["GET", moment_time_to_send_key(Date)],
             ["HGET", moment_time_to_send_key2(Date), ?FIELD_MOMENT_NOTIFICATION_ID],
@@ -1025,25 +1019,25 @@ get_moment_time_to_send(Date, DateTimeSecs) ->
     case Payload1 of
         undefined ->
             ?INFO("Generating moment time to send now, Tag: ~p, DateTimeSecs: ~p", [Date, DateTimeSecs]),
-            Time = generate_notification_time(DateTimeSecs),
             {FullDate, {_,_,_}} = calendar:system_time_to_universal_time(DateTimeSecs, second),
             DayOfWeek = calendar:day_of_the_week(FullDate),
-            %% live camera on Fri, Sat, Sun
-            Type = case DayOfWeek >= 5 andalso DayOfWeek =< 7 of
-                true -> live_camera;
+            %% live camera on Fri, Sat, Sun, text_post on one of Mon, Tue, Wed, Thu
+            case DayOfWeek >= 5 andalso DayOfWeek =< 7 of
+                true ->
+                    set_moment_time(live_camera, DateTimeSecs);
                 false ->
-                    %% NotificationType, 3 out of 4 (Mon,Tuw,Wed,Thu) week days for live camera
-                    %% rest for text post
-                    case rand:uniform(4) =< 3 of
-                        true -> live_camera;
-                        false -> text_post
-                    end
-            end,
-            Prompt = mod_prompts:get_prompt(Type),
-            case set_moment_time_to_send(Time, DateTimeSecs, Type, Prompt, Date) of
-                true -> {Time, DateTimeSecs, Type, Prompt};
-                false -> get_moment_time_to_send(Date, DateTimeSecs)
-            end;
+                    TextPostDay = rand:uniform(4),
+                    lists:foreach(fun(WeekDay) ->
+                        PostType = case TextPostDay =:= WeekDay of
+                            true -> text_post;
+                            false -> live_camera
+                        end,
+                        ?INFO("Processing: ~p, PostType: ~p", [WeekDay, PostType]),
+                        WeekDayTimeSecs = DateTimeSecs + ((WeekDay - DayOfWeek) * ?DAYS),
+                        set_moment_time(PostType, WeekDayTimeSecs)
+                    end, lists:seq(DayOfWeek, 4))
+              end,
+              get_moment_time_to_send(DateTimeSecs);
         _ ->
             case {Payload2, Payload3, Payload4} of
                 {_, _, undefined} ->
@@ -1052,6 +1046,12 @@ get_moment_time_to_send(Date, DateTimeSecs) ->
                     {util:to_integer_zero(Payload1), util:to_integer_zero(Payload2), util_moments:to_moment_type(Payload3), Payload4}
             end
     end.
+
+set_moment_time(PostType, WeekDayTimeSecs) ->
+    Prompt = mod_prompts:get_prompt(PostType),
+    Time = generate_notification_time(WeekDayTimeSecs),
+    WeekDate = util:get_date(WeekDayTimeSecs),
+    set_moment_time_to_send(Time, WeekDayTimeSecs, PostType, Prompt, WeekDate).
 
 generate_notification_time(DateTimeSecs) ->
     {Date, {_,_,_}} = calendar:system_time_to_universal_time(DateTimeSecs, second),
@@ -1122,9 +1122,10 @@ get_moment_info(NotificationId) ->
     {util_redis:decode_ts(NotifTs), util_moments:to_moment_type(Type), Prompt}.
 
 
--spec del_moment_time_to_send(Tag :: integer()) -> ok.
-del_moment_time_to_send(Tag) ->
-    util_redis:verify_ok(qp([["DEL", moment_time_to_send_key(Tag)], ["DEL", moment_time_to_send_key2(Tag)]])).
+-spec del_moment_time_to_send(DateTimeSecs :: integer()) -> ok.
+del_moment_time_to_send(DateTimeSecs) ->
+    Date = util:get_date(DateTimeSecs),
+    util_redis:verify_ok(qp([["DEL", moment_time_to_send_key(Date)], ["DEL", moment_time_to_send_key2(Date)]])).
 
 -spec is_moment_tag_done(Tag :: binary()) -> boolean().
 is_moment_tag_done(Tag) ->

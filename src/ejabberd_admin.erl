@@ -1279,12 +1279,23 @@ friend_recos(Uid) ->
 
 get_moment_notif_time(Date) ->
     %% Date must be an integer representing the day of the (current or nearest) month.
-    %% Date cannot be more than 1 day in the future or ?MOMENT_TAG_EXPIRATION days in the past
-    Today = util:get_date(util:now()),
-    case Date > (Today + 1) orelse Date < (Today - ?MOMENT_TAG_EXPIRATION) of
+    %% Date cannot be more than 1 day in the future or 1 day in the past
+    CurrentTime = util:now(),
+    Today = util:get_date(CurrentTime),
+    Tomorrow = util:get_date(CurrentTime + ?DAYS),
+    Yesterday = util:get_date(CurrentTime - ?DAYS),
+    case Date =/= Today andalso Date =/= Tomorrow andalso Date =/= Yesterday of
         true -> io:format("Date out of range. Today is ~p", [Today]);
         false ->
-            {MinsElapsedOnDateBeforeSend, NotifId, NotifType, NotifPrompt} = model_feed:get_moment_time_to_send(Date, 0),
+            InspectionTime = case Date =:= Today of
+                true -> CurrentTime;
+                false ->
+                    case Date =:= Tomorrow of
+                        true -> CurrentTime + ?DAYS;
+                        false -> CurrentTime - ?DAYS
+                    end
+            end,
+            {MinsElapsedOnDateBeforeSend, NotifId, NotifType, NotifPrompt} = model_feed:get_moment_time_to_send(InspectionTime),
             Hrs = MinsElapsedOnDateBeforeSend div 60,
             MinsRemaining = MinsElapsedOnDateBeforeSend rem 60,
             MinsRemainingStr = case MinsRemaining < 10 of

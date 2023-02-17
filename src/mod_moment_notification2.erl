@@ -359,7 +359,7 @@ get_current_offsets(TodayTimestamp) ->
             {{_,_, Date}, {_, _,_}} =
                 calendar:system_time_to_universal_time(Timestamp, second),
             {MinToSend, NotifId, NotifType, Prompt} =
-                model_feed:get_moment_time_to_send(Date, Timestamp),
+                model_feed:get_moment_time_to_send(Timestamp),
             OffsetHr = GmtOffsetModifierFun((MinToSend div 60)),
             #{
                 date => Date,

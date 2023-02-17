@@ -346,11 +346,11 @@ process_moment_tag(TodaySecs, IsImmediateNotification) ->
     %% Following are number of minutes in local time when moment notification needs to be sent
     %% today, yesterday and tomorrow.
     {MinToSendToday, TodayNotificationId, TodayNotificationType, TodayPrompt} =
-        model_feed:get_moment_time_to_send(Today, TodaySecs),
+        model_feed:get_moment_time_to_send(TodaySecs),
     {MinToSendPrevDay, YesterdayNotificationId, YesterdayNotificationType, YesterdayPrompt} =
-        model_feed:get_moment_time_to_send(Yesterday, YesterdaySecs),
+        model_feed:get_moment_time_to_send(YesterdaySecs),
     {MinToSendNextDay, TomorrowNotificationId, TomorrowNotificationType, TomorrowPrompt} =
-        model_feed:get_moment_time_to_send(Tomorrow, TomorrowSecs),
+        model_feed:get_moment_time_to_send(TomorrowSecs),
     ?INFO("Times to send - Today: ~p, Yesterday: ~p, Tomorrow: ~p", 
         [MinToSendToday, MinToSendPrevDay, MinToSendNextDay]),
 

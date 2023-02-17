@@ -48,8 +48,7 @@
 -define(PSA_TAG1, <<"psa_tag1">>).
 -define(MOMENT_TAG, <<"moment_tag">>).
 -define(MOMENT_PROMPT, <<"moment_prompt">>).
--define(MOMENT_DAY, 10).
--define(MOMENT_ID, 1000).
+-define(MOMENT_ID, 1676673655).
 
 %% The setup is as follows:
 %% There are two posts: P1 (by U1) and P2 (by U2).
@@ -524,11 +523,12 @@ moment_tag_test() ->
     false = model_feed:is_moment_tag_done(?MOMENT_TAG),
     ok = model_feed:mark_moment_tag_done(?MOMENT_TAG),
     true = model_feed:is_moment_tag_done(?MOMENT_TAG),
-    {Time, ?MOMENT_ID, Type, Prompt} = model_feed:get_moment_time_to_send(?MOMENT_DAY, ?MOMENT_ID),
-    {Time, ?MOMENT_ID, Type, Prompt} = model_feed:get_moment_time_to_send(?MOMENT_DAY, ?MOMENT_ID + rand:uniform(1000)),
-    false = model_feed:set_moment_time_to_send(Time, ?MOMENT_ID + rand:uniform(1000), Type, ?MOMENT_PROMPT, ?MOMENT_DAY),
-    ok = model_feed:del_moment_time_to_send(?MOMENT_DAY),
-    true = model_feed:set_moment_time_to_send(Time, ?MOMENT_ID + rand:uniform(1000), Type, ?MOMENT_PROMPT, ?MOMENT_DAY),
+    {Time, ?MOMENT_ID, Type, Prompt} = model_feed:get_moment_time_to_send(?MOMENT_ID),
+    {Time, ?MOMENT_ID, Type, Prompt} = model_feed:get_moment_time_to_send(?MOMENT_ID + rand:uniform(1000)),
+    MomentDay = util:get_date(?MOMENT_ID),
+    false = model_feed:set_moment_time_to_send(Time, ?MOMENT_ID + rand:uniform(1000), Type, ?MOMENT_PROMPT, MomentDay),
+    ok = model_feed:del_moment_time_to_send(?MOMENT_ID),
+    true = model_feed:set_moment_time_to_send(Time, ?MOMENT_ID + rand:uniform(1000), Type, ?MOMENT_PROMPT, MomentDay),
     ok.
 
 
@@ -572,12 +572,10 @@ get_public_moments_test() ->
 get_moment_info_test() ->
     setup(),
     Uid1 = tutil:generate_uid(?KATCHUP),
-    TodaySecs = util:now_ms(),
+    TodaySecs = util:now(),
     NotifId = TodaySecs,
-    {{_, _,Today}, {_, _, _}} = 
-        calendar:system_time_to_universal_time(TodaySecs, second),
     {_MinToSendToday, TodayNotificationId, TodayNotificationType, TodayPrompt} =
-        model_feed:get_moment_time_to_send(Today, TodaySecs),
+        model_feed:get_moment_time_to_send(TodaySecs),
 
     {_MomentNotifTs, MomentType, MomentPrompt} = model_feed:get_moment_info(TodaySecs),
 
