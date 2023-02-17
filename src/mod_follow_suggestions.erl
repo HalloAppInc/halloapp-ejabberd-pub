@@ -149,9 +149,9 @@ update_fof(Uid) ->
 
     %% 4. Find uids followed by all the above - following, contacts, revcontacts, geotagged uids.
     FofollowingSet = sets:from_list(model_follow:get_following(sets:to_list(AllFollowingSet), ?FOF_BATCH_LIMIT)),
-    FoContactSet = sets:from_list(model_follow:get_all_following(sets:to_list(ContactUidSet), ?FOF_BATCH_LIMIT)),
-    FoRevContactSet = sets:from_list(model_follow:get_all_following(sets:to_list(RevContactUidSet), ?FOF_BATCH_LIMIT)),
-    FoGeoTagUidSet = sets:from_list(model_follow:get_all_following(sets:to_list(GeoTagUidSet), ?FOF_BATCH_LIMIT)),
+    FoContactSet = sets:from_list(model_follow:get_following(sets:to_list(ContactUidSet), ?FOF_BATCH_LIMIT)),
+    FoRevContactSet = sets:from_list(model_follow:get_following(sets:to_list(RevContactUidSet), ?FOF_BATCH_LIMIT)),
+    FoGeoTagUidSet = sets:from_list(model_follow:get_following(sets:to_list(GeoTagUidSet), ?FOF_BATCH_LIMIT)),
     BroaderFollowingUidSet = sets:union([FofollowingSet, FoContactSet, FoRevContactSet, FoGeoTagUidSet]),
     Time6 = util:now_ms(),
     ?INFO("Uid: ~p, Time taken to get broader following set: ~p", [Uid, Time6 - Time5]),
