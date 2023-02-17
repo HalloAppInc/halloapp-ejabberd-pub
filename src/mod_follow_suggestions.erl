@@ -21,6 +21,9 @@
 -define(FOREVCONTACT_SCORE, 20).
 -define(FOGEOTAG_SCORE, 20).
 -define(FOF_RUNTIME_LIMIT_MS, 100).
+%% limits for num of fof users.
+-define(FOF_BATCH_LIMIT, 100).
+-define(FOF_TOTAL_LIMIT, 500).
 
 %% gen_mod callbacks.
 -export([start/2, stop/1, reload/3, mod_options/1, depends/2]).
@@ -145,12 +148,11 @@ update_fof(Uid) ->
     ?INFO("Uid: ~p, Time taken to get geo-tag uids: ~p", [Uid, Time5 - Time4]),
 
     %% 4. Find uids followed by all the above - following, contacts, revcontacts, geotagged uids.
-    %% TODO: Fetch atmost 1000 of each of them.
-    FofollowingSet = sets:from_list(model_follow:get_all_following(sets:to_list(AllFollowingSet))),
-    FoContactSet = sets:from_list(model_follow:get_all_following(sets:to_list(ContactUidSet))),
-    FoRevContactSet = sets:from_list(model_follow:get_all_following(sets:to_list(RevContactUidSet))),
-    FoGeoTagUidSet = sets:from_list(model_follow:get_all_following(sets:to_list(GeoTagUidSet))),
-    BroaderFollowingUidSet = sets:union([FofollowingSet, FoContactSet, FoRevContactSet, FoGeoTagUidSet]),
+    FofollowingSet = sets:from_list(model_follow:get_following(sets:to_list(AllFollowingSet), ?FOF_BATCH_LIMIT)),
+    FoContactSet = sets:from_list(model_follow:get_all_following(sets:to_list(ContactUidSet), ?FOF_BATCH_LIMIT)),
+    FoRevContactSet = sets:from_list(model_follow:get_all_following(sets:to_list(RevContactUidSet), ?FOF_BATCH_LIMIT)),
+    FoGeoTagUidSet = sets:from_list(model_follow:get_all_following(sets:to_list(GeoTagUidSet), ?FOF_BATCH_LIMIT)),
+    BroaderFollowingUidSet = sets:union(FofollowingSet, FoContactSet, FoRevContactSet, FoGeoTagUidSet),
     Time6 = util:now_ms(),
     ?INFO("Uid: ~p, Time taken to get broader following set: ~p", [Uid, Time6 - Time5]),
 
@@ -162,14 +164,13 @@ update_fof(Uid) ->
 
     %% Calculate potential Fof
     FofSet = sets:subtract(
-        sets:union([BroaderFollowingUidSet, ContactUidSet, RevContactUidSet, GeoTagUidSet]),
-        sets:union([AllFollowingSet, BlockedByUidSet, BlockedUidSet])),
+        sets:union(BroaderFollowingUidSet, ContactUidSet, RevContactUidSet, GeoTagUidSet),
+        sets:union(AllFollowingSet, BlockedByUidSet, BlockedUidSet)),
     Time8 = util:now_ms(),
     ?INFO("Uid: ~p, Time taken to get fof users without followers: ~p", [Uid, Time8 - Time7]),
 
     %% Score Fof
-    %% TODO: Score only 5*1000 at-max.
-    FofWithScores = sets:fold(
+    TempFofWithScores = sets:fold(
         fun(FofUid, Acc) ->
             ContactScore = case sets:is_element(FofUid, ContactUidSet) of
                 true -> ?CONTACT_SCORE;
@@ -201,11 +202,13 @@ update_fof(Uid) ->
             end,
             Acc#{FofUid => ContactScore + RevContactScore + GeoTagScore + FoFollowingScore + FoContactScore + FoRevContactScore + FoGeoTagScore}
         end, #{}, FofSet),
+    %% Sort this map of uids and their scores by scores, pick the top uids by the limit and store them.
+    FofWithScores = maps:from_list(lists:sublist(lists:reverse(lists:keysort(2, maps:to_list(TempFofWithScores))), ?FOF_TOTAL_LIMIT)),
+
     Time9 = util:now_ms(),
     ?INFO("Uid: ~p, Time taken to score fof: ~p", [Uid, Time9 - Time8]),
 
     %% Store this in redis.
-    %% TODO: Store atmost 1000 only.
     ok = model_follow:update_fof(Uid, FofWithScores),
     Time10 = util:now_ms(),
     ?INFO("Uid: ~p, Time taken to store fof in redis: ~p", [Uid, Time10 - Time9]),
