@@ -487,8 +487,8 @@ update_zone_offset(Key, State) ->
                     {ok, PushInfo} = model_accounts:get_push_info(Uid),
                     OldZoneOffsetSecs = ?HOURS * mod_moment_notification:get_four_zone_offset_hr(Uid, Phone, PushInfo),
                     ZoneOffsetHr = case PushInfo#push_info.zone_offset of
-                        undefined -> mod_moment_notification:get_four_zone_offset_hr(undefined, Phone);
-                        Offset -> util:secs_to_hrs(Offset)
+                        undefined -> ?HOURS * mod_moment_notification:get_four_zone_offset_hr(undefined, Phone);
+                        Offset -> Offset
                     end,
                     case DryRun of
                         false ->

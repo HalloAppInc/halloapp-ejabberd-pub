@@ -449,19 +449,11 @@ fix_zone_tag_uids(ZoneTag) ->
     ?INFO("Tag OK: ~p", [TagOk]). 
 
 get_zone_tag_uids(ZoneOffsetDiff) ->
-    if
-        -10 =< ZoneOffsetDiff andalso ZoneOffsetDiff =< -3 ->
-            %% america
-            model_accounts:get_zone_offset_uids_by_range(-10, -3);
-        -3 < ZoneOffsetDiff andalso ZoneOffsetDiff < 3 ->
-            %% europe
-            model_accounts:get_zone_offset_uids_by_range(-2, -2);
-        3 =< ZoneOffsetDiff andalso ZoneOffsetDiff < 5 ->
-            %% west_asia
-            model_accounts:get_zone_offset_uids_by_range(3, 4);
-        ZoneOffsetDiff >= 5 orelse ZoneOffsetDiff < -10 ->
-            %% east_asia
-            model_accounts:get_zone_offset_uids_by_range(-12, -10) ++ model_accounts:get_zone_offset_uids_by_range(6, 14)
+    case ZoneOffsetDiff of
+        -8 -> model_accounts:get_zone_offset_uids_by_range(-10, -3);
+        0 -> model_accounts:get_zone_offset_uids_by_range(-2, 2);
+        3 -> model_accounts:get_zone_offset_uids_by_range(3, 4);
+        6 -> model_accounts:get_zone_offset_uids_by_range(-12, -10) ++ model_accounts:get_zone_offset_uids_by_range(5, 14)
     end.
 
 

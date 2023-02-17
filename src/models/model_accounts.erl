@@ -901,7 +901,7 @@ update_lang_counters(Uid, LangId, OldLangId) ->
 
 
 migrate_zone_offset_set(Uid, ZoneOffsetSec, OldZoneOffsetSec)
-        when is_integer(ZoneOffsetSec) andalso ZoneOffsetSec =/= OldZoneOffsetSec ->
+        when is_integer(ZoneOffsetSec) ->
     %% Before we were mapping Uids only to the 4 offsets (in seconds) associated with a region
     %% Now we will map Uids to their proper offset hours and will have separate functions
     %% to get all the uids from a region
@@ -912,8 +912,6 @@ migrate_zone_offset_set(Uid, ZoneOffsetSec, OldZoneOffsetSec)
         ["SREM", zone_offset_sec_key(Slot, OldZoneOffsetSec), Uid],
         ["SADD", zone_offset_hr_key(Slot, ZoneOffsetHr), Uid]
     ]),
-    ok;
-migrate_zone_offset_set(_Uid, _ZoneOffsetSec, _OldZoneOffsetSec) ->
     ok.
 
 
