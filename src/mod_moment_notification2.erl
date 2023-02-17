@@ -154,7 +154,9 @@ check_and_schedule() ->
         true ->
             %% Process last two hours again in case notifications were lost
             %% because of server restart.
+            ?INFO("Server restart – process current hour", []),
             maybe_schedule_moment_notif(util:now(), false),
+            ?INFO("Server restart – process 1 hour prior", []),
             maybe_schedule_moment_notif(util:now() - ?HOURS, true),
             schedule();
         false -> ok
@@ -163,7 +165,6 @@ check_and_schedule() ->
 
 
 schedule() ->
-    ?INFO("Scheduling", []),
     erlcron:cron(maybe_schedule_notifications, {
         {daily, {every, {1, hr}}},
         {?MODULE, maybe_schedule_notifications, []}
@@ -193,6 +194,8 @@ send_latest_notification(Uid, CurrentTime, HideBanner) ->
     TomorrowOffsetHr = maps:get(current_offset_hr, TomorrowInfoMap),
     TodayOffsetHr = maps:get(current_offset_hr, TodayInfoMap),
     YesterdayOffsetHr = maps:get(current_offset_hr, YesterdayInfoMap),
+
+    ?INFO("Sending latest moment notification to ~s with region offset ~p", [Uid, OffsetHr]),
 
     if
     %% if Uid is ahead of a certain offset, need to send that moment notif
@@ -293,7 +296,7 @@ check_and_send_moment_notifications(OffsetHr, NotificationId, NotificationType, 
         Uids),
     %% Terminate the worker processes
     lists:foreach(fun(Pid) -> Pid ! done end, WorkerPids),
-    TotalTime = (StartTime - util:now_ms()) / 1000,
+    TotalTime = (util:now_ms() - StartTime) / 1000,
     ?INFO("Finish assgining ~p uids in ~p to ~p workers to send moment notifications, took ~p seconds",
         [length(Uids), Region, NumWorkers, TotalTime]).
 
@@ -301,7 +304,6 @@ check_and_send_moment_notifications(OffsetHr, NotificationId, NotificationType, 
 send_moment_notification_async(NotificationId, NotificationType, Prompt, Name) ->
     receive
         done ->
-            ?INFO("send_moment_notification_async done ~p", [Name]),
             ok;
         Uid ->
             check_and_send_moment_notification(Uid, NotificationId, util:now(), NotificationType, Prompt, false),
@@ -315,10 +317,8 @@ check_and_send_moment_notification(Uid, NotificationId, NotificationTimestamp, N
     {{_,_, Date}, {_, _, _}} =
         calendar:system_time_to_universal_time(NotificationTimestamp, second),
     %% TODO(josh): run this for everybody
-    case dev_users:is_dev_uid(Uid) andalso model_accounts:mark_moment_notification_sent(Uid, util:to_binary(Date)) of
-        false ->
-            ?INFO("Already sent notification for ~s on ~p (id = ~p)", [Uid, Date, NotificationId]);
-        true ->
+    case {dev_users:is_dev_uid(Uid), model_accounts:mark_moment_notification_sent(Uid, util:to_binary(Date))} of
+        {true, true} ->
             NotificationTime = util:now(),
             AppType = util_uid:get_app_type(Uid),
             Packet = #pb_msg{
@@ -338,7 +338,9 @@ check_and_send_moment_notification(Uid, NotificationId, NotificationTimestamp, N
                 [Uid, NotificationId, NotificationTimestamp, NotificationType, Prompt, HideBanner]),
             ejabberd_router:route(Packet),
             ejabberd_hooks:run(send_moment_notification, AppType,
-                [Uid, NotificationId, NotificationTime, NotificationType, Prompt, HideBanner])
+                [Uid, NotificationId, NotificationTime, NotificationType, Prompt, HideBanner]);
+        {IsDev, NeverSent} ->
+            ?INFO("NOT Sending moment notification to ~s: dev = ~p, already_sent = ~p", [IsDev, not NeverSent])
     end.
 
 %%====================================================================

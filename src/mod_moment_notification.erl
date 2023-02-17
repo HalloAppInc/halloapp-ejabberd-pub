@@ -579,12 +579,12 @@ wait_and_send_notification(List, Tag, NotificationId, NotificationType, Prompt, 
 -spec wait_and_send_notification(Uid :: uid(), Tag :: binary(), NotificationId :: integer(),
         NotificationTimestamp :: integer(), NotificationType :: moment_type(), Prompt :: binary(), HideBanner :: boolean(), MinToWait :: integer()) -> ok.
 wait_and_send_notification(Uid, Tag, NotificationId, NotificationTimestamp, NotificationType, Prompt, HideBanner, MinToWait) ->
-    case dev_users:is_dev_uid(Uid) orelse util_uid:get_app_type(Uid) =:= katchup of
+    case not dev_users:is_dev_uid(Uid) andalso util_uid:get_app_type(Uid) =:= katchup of
         true ->
             timer:apply_after(MinToWait * ?MINUTES_MS, ?MODULE,
                 maybe_send_moment_notification, [Uid, Tag, NotificationId, NotificationTimestamp, NotificationType, Prompt, HideBanner]);
         false ->
-            ?INFO("Not a developer: ~p", [Uid])
+            ?INFO("Dev user or HalloApp user: ~s", [Uid])
     end,
     ok.
 
@@ -601,7 +601,6 @@ maybe_send_moment_notification(Uid, Tag, NotificationId, NotificationTimestamp, 
 -spec check_and_send_moment_notification(List :: list(uid()), Tag :: binary(), NotificationId :: integer(),
         NotificationType :: moment_type(), Prompt :: binary()) -> ok.
 check_and_send_moment_notification(List, Tag, NotificationId, NotificationType, Prompt) ->
-    ?INFO("Start send moment notifications", []),
     StartTime = util:now_ms(),
     ListToSend = lists:filter(
         fun(Uid) -> model_accounts:mark_moment_notification_sent(Uid, Tag) end,
@@ -620,14 +619,14 @@ check_and_send_moment_notification(List, Tag, NotificationId, NotificationType, 
         0,
         ListToSend),
     lists:foreach(fun(Pid) -> Pid ! done end, WorkerPids),
-    TotalTime = (StartTime - util:now_ms()) / 1000,
-    ?INFO("Finish send moment notifications, took ~p seconds", [TotalTime]).
+    TotalTime = (util:now_ms() - StartTime) / 1000,
+    ?INFO("Finish assgining ~p uids to ~p workers to send moment notifications, took ~p seconds",
+        [length(ListToSend), NumWorkers, TotalTime]).
 
 
 send_moment_notification_async(NotificationId, NotificationType, Prompt, Name) ->
     receive
         done ->
-            ?INFO("send_moment_notification_async done ~p", [Name]),
             ok;
         Uid ->
             send_moment_notification(Uid, NotificationId, util:now(), NotificationType, Prompt, false),
@@ -657,7 +656,8 @@ send_moment_notification(Uid, NotificationId, NotificationTimestamp, Notificatio
         }
     },
     stat:count(util:get_stat_namespace(AppType) ++ "/moment_notif", "send"),
-    ?INFO("Sending moment notification to ~p", [Uid]),
+    ?INFO("Sending moment notification to ~s | notif_id = ~p, notif_ts = ~p, notif_type = ~p, prompt = ~p, hide_banner = ~p",
+        [Uid, NotificationId, NotificationTimestamp, NotificationType, Prompt, HideBanner]),
     ejabberd_router:route(Packet),
     ejabberd_hooks:run(send_moment_notification, AppType, [Uid, NotificationId, NotificationTime, NotificationType, Prompt, HideBanner]),
     ok.
