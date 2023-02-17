@@ -152,7 +152,7 @@ update_fof(Uid) ->
     FoContactSet = sets:from_list(model_follow:get_all_following(sets:to_list(ContactUidSet), ?FOF_BATCH_LIMIT)),
     FoRevContactSet = sets:from_list(model_follow:get_all_following(sets:to_list(RevContactUidSet), ?FOF_BATCH_LIMIT)),
     FoGeoTagUidSet = sets:from_list(model_follow:get_all_following(sets:to_list(GeoTagUidSet), ?FOF_BATCH_LIMIT)),
-    BroaderFollowingUidSet = sets:union(FofollowingSet, FoContactSet, FoRevContactSet, FoGeoTagUidSet),
+    BroaderFollowingUidSet = sets:union([FofollowingSet, FoContactSet, FoRevContactSet, FoGeoTagUidSet]),
     Time6 = util:now_ms(),
     ?INFO("Uid: ~p, Time taken to get broader following set: ~p", [Uid, Time6 - Time5]),
 
@@ -164,8 +164,8 @@ update_fof(Uid) ->
 
     %% Calculate potential Fof
     FofSet = sets:subtract(
-        sets:union(BroaderFollowingUidSet, ContactUidSet, RevContactUidSet, GeoTagUidSet),
-        sets:union(AllFollowingSet, BlockedByUidSet, BlockedUidSet)),
+        sets:union([BroaderFollowingUidSet, ContactUidSet, RevContactUidSet, GeoTagUidSet]),
+        sets:union([AllFollowingSet, BlockedByUidSet, BlockedUidSet])),
     Time8 = util:now_ms(),
     ?INFO("Uid: ~p, Time taken to get fof users without followers: ~p", [Uid, Time8 - Time7]),
 
