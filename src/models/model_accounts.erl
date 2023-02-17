@@ -1087,7 +1087,7 @@ set_push_follower_pref(Uid, PushPref) ->
     ok.
 
 
--spec get_zone_offset_secs(Uid :: uid() | Uids :: [uid()]) -> maybe(integer()) | [maybe(integer())].
+-spec get_zone_offset_secs(Uid :: uid() | [uid()]) -> maybe(integer()) | [maybe(integer())].
 get_zone_offset_secs(Uid) when not is_list(Uid) ->
     [Res] = get_zone_offset_secs([Uid]),
     Res;

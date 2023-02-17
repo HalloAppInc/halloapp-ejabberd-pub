@@ -78,6 +78,7 @@
     get_moment_time_to_send/1,
     get_moment_time_to_send/2,
     set_moment_time_to_send/5,
+    overwrite_moment_time_to_send/5, %% dangerous.
     del_moment_time_to_send/1,
     is_moment_tag_done/1,
     mark_moment_tag_done/1,
@@ -1077,6 +1078,20 @@ set_moment_time_to_send(Time, Id, Type, Prompt, Tag) ->
             true;
         false -> false
     end.
+
+
+overwrite_moment_time_to_send(Time, Id, Type, Prompt, Tag) ->
+    q(["SET", moment_time_to_send_key(Tag), util:to_binary(Time), "EX", ?MOMENT_TAG_EXPIRATION, "NX"]),
+    qp([["HSET", moment_time_to_send_key2(Tag), ?FIELD_MOMENT_NOTIFICATION_ID, util:to_binary(Id)],
+        ["HSET", moment_time_to_send_key2(Tag), ?FIELD_MOMENT_NOTIFICATION_TYPE, util_moments:moment_type_to_bin(Type)],
+        ["HSET", moment_time_to_send_key2(Tag), ?FIELD_MOMENT_NOTIFICATION_PROMPT, Prompt],
+        ["EXPIRE", moment_time_to_send_key2(Tag), ?MOMENT_TAG_EXPIRATION]]),
+    % Store the type, timestamp and prompt by id.
+    qp([["HSET", moment_info_key(Id), ?FIELD_MOMENT_NOTIFICATION_TYPE, util_moments:moment_type_to_bin(Type)],
+        ["HSET", moment_info_key(Id), ?FIELD_MOMENT_NOTIFICATION_PROMPT, Prompt],
+        ["EXPIRE", moment_info_key(Id), ?MOMENT_TAG_EXPIRATION]]),
+    ok.
+
 
 -spec get_post_num_seen(PostId :: binary()) -> {ok, integer()} | {error, any()}.
 get_post_num_seen(PostId) ->
