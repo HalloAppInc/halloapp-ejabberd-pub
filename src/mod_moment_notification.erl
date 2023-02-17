@@ -453,7 +453,8 @@ get_zone_tag_uids(ZoneOffsetDiff) ->
         -8 -> model_accounts:get_zone_offset_uids_by_range(-10, -3);
         0 -> model_accounts:get_zone_offset_uids_by_range(-2, 2);
         3 -> model_accounts:get_zone_offset_uids_by_range(3, 4);
-        6 -> model_accounts:get_zone_offset_uids_by_range(-12, -10) ++ model_accounts:get_zone_offset_uids_by_range(5, 14)
+        6 -> model_accounts:get_zone_offset_uids_by_range(-12, -10) ++ model_accounts:get_zone_offset_uids_by_range(5, 14);
+        _ -> []
     end.
 
 
