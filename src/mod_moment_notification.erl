@@ -40,7 +40,8 @@
     get_offset_region_by_uid/1,
     process_moment_tag/2,
     check_and_schedule/0,
-    sync_latest_notification/3
+    sync_latest_notification/3,
+    get_offset_region/1
 ]).
 
 %% Hooks
@@ -130,7 +131,10 @@ send_notifications() ->
 -spec register_user(Uid :: binary(), Server :: binary(), Phone :: binary(), CampaignId :: binary()) -> ok.
 register_user(Uid, _Server, Phone, _CampaignId) ->
     ?INFO("Uid: ~s", [Uid]),
-    send_latest_notification(Uid, Phone),
+    case dev_users:is_dev_uid(Uid) of
+        true -> ok;
+        false -> send_latest_notification(Uid, Phone)
+    end,
     ok.
 
 
@@ -139,17 +143,21 @@ re_register_user(Uid, _Server, Phone, _CampaignId) ->
     ?INFO("Uid: ~s", [Uid]),
     %% Clear out any recent moment notifications sent.
     %% This will enable us to send another again if necessary.
-    Today = util:get_date(util:now()),
-    Yesterday = util:get_date(util:now() - ?DAYS),
-    DayBeforeYesterday = util:get_date(util:now() - 2*?DAYS),
-    Tomorrow = util:get_date(util:now() + ?DAYS),
-    DayAfterTomorrow = util:get_date(util:now() + 2*?DAYS),
-    model_accounts:delete_moment_notification_sent(Uid, util:to_binary(DayBeforeYesterday)),
-    model_accounts:delete_moment_notification_sent(Uid, util:to_binary(Yesterday)),
-    model_accounts:delete_moment_notification_sent(Uid, util:to_binary(Today)),
-    model_accounts:delete_moment_notification_sent(Uid, util:to_binary(Tomorrow)),
-    model_accounts:delete_moment_notification_sent(Uid, util:to_binary(DayAfterTomorrow)),
-    send_latest_notification(Uid, Phone),
+    case dev_users:is_dev_uid(Uid) of
+        true -> ok;
+        false ->
+            Today = util:get_date(util:now()),
+            Yesterday = util:get_date(util:now() - ?DAYS),
+            DayBeforeYesterday = util:get_date(util:now() - 2*?DAYS),
+            Tomorrow = util:get_date(util:now() + ?DAYS),
+            DayAfterTomorrow = util:get_date(util:now() + 2*?DAYS),
+            model_accounts:delete_moment_notification_sent(Uid, util:to_binary(DayBeforeYesterday)),
+            model_accounts:delete_moment_notification_sent(Uid, util:to_binary(Yesterday)),
+            model_accounts:delete_moment_notification_sent(Uid, util:to_binary(Today)),
+            model_accounts:delete_moment_notification_sent(Uid, util:to_binary(Tomorrow)),
+            model_accounts:delete_moment_notification_sent(Uid, util:to_binary(DayAfterTomorrow)),
+            send_latest_notification(Uid, Phone)
+    end,
     ok.
 
 
@@ -441,14 +449,20 @@ fix_zone_tag_uids(ZoneTag) ->
     ?INFO("Tag OK: ~p", [TagOk]). 
 
 get_zone_tag_uids(ZoneOffsetDiff) ->
-    %% If the tag is < -12 or greater than +14, it can safely be ignored.
-    {ok, UidsList} = case ZoneOffsetDiff >= -12 andalso ZoneOffsetDiff =< 14 of
-        true -> model_accounts:get_zone_offset_tag_uids(ZoneOffsetDiff * ?MOMENT_TAG_INTERVAL_SEC);
-        false ->
-            ?INFO("Invalid zone offset diff: ~p, Ignoring", [ZoneOffsetDiff]),
-            {ok, []}
-    end,
-    UidsList.
+    if
+        -10 =< ZoneOffsetDiff andalso ZoneOffsetDiff =< -3 ->
+            %% america
+            model_accounts:get_zone_offset_uids_by_range(-10, -3);
+        -3 < ZoneOffsetDiff andalso ZoneOffsetDiff < 3 ->
+            %% europe
+            model_accounts:get_zone_offset_uids_by_range(-2, -2);
+        3 =< ZoneOffsetDiff andalso ZoneOffsetDiff < 5 ->
+            %% west_asia
+            model_accounts:get_zone_offset_uids_by_range(3, 4);
+        ZoneOffsetDiff >= 5 orelse ZoneOffsetDiff < -10 ->
+            %% east_asia
+            model_accounts:get_zone_offset_uids_by_range(-12, -10) ++ model_accounts:get_zone_offset_uids_by_range(6, 14)
+    end.
 
 
 get_four_zone_offset_hr(_Uid, Phone, PushInfo) ->
@@ -564,7 +578,7 @@ is_time_ok(LocalMin, MinToSendToday, MinToSendPrevDay, MinToSendNextDay) ->
 %% TODO: remove this function.
 -spec wait_and_send_notification(List :: list(uid()), Tag :: binary(), NotificationId :: integer(), NotificationType :: moment_type(), Prompt :: binary(), MinToWait :: integer()) -> {error, term()} | {ok, timer:tref()}.
 wait_and_send_notification(List, Tag, NotificationId, NotificationType, Prompt, MinToWait) ->
-    NonHalloAppList = lists:filter(fun(Uid) -> util_uid:get_app_type(Uid) =/= halloapp end, List),
+    NonHalloAppList = lists:filter(fun(Uid) -> util_uid:get_app_type(Uid) =/= halloapp andalso not dev_users:is_dev_uid(Uid) end, List),
     timer:apply_after(MinToWait * ?MINUTES_MS, ?MODULE, check_and_send_moment_notification,
         [NonHalloAppList, Tag, NotificationId, NotificationType, Prompt]).
 
@@ -673,7 +687,7 @@ get_offset_region(_ZoneOffsetSec) ->
 
 -spec get_offset_region_by_uid(Uid :: uid()) -> maybe(america | europe | west_asia | east_asia).
 get_offset_region_by_uid(Uid) ->
-    ZoneOffsetSec = model_accounts:get_zone_offset(Uid),
+    ZoneOffsetSec = model_accounts:get_zone_offset_secs(Uid),
     case get_offset_region(ZoneOffsetSec) of
         undefined ->
             ?ERROR("ZoneOffsetSec does not fit into region for ~s: ~p", [Uid, ZoneOffsetSec]),

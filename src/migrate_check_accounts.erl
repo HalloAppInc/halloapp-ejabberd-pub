@@ -479,27 +479,26 @@ check_huawei_token_run(Key, State) ->
 
 update_zone_offset(Key, State) ->
     DryRun = maps:get(dry_run, State, false),
-    MappedToRegionSet = maps:get(params, State),
-    Result = re:run(Key, "^acc:{1001000000[0-9]{9}}$", [global, {capture, all, binary}]),
+    Result = re:run(Key, "^acc:{(1001000000[0-9]{9})}$", [global, {capture, all, binary}]),
     case Result of
         {match, [[_FullKey, Uid]]} ->
-            case sets:is_element(Uid, MappedToRegionSet) of
-                true -> ?INFO("Skipping ~s (already mapped to region)");
-                false ->
-                    case model_accounts:get_phone(Uid) of
-                        {error, missing} ->
-                            ?WARNING("Uid ~s has no phone, skipping", [Uid]);
-                        {ok, Phone} ->
-                            ZoneOffsetSec = model_accounts:get_zone_offset(Uid),
-                            ZoneOffsetTag = ?HOURS * mod_moment_notification:get_four_zone_offset_hr(ZoneOffsetSec, Phone),
-                            case DryRun of
-                                false ->
-                                    model_accounts:update_zone_offset_tag(Uid, ZoneOffsetTag, undefined),
-                                    ?INFO("Uid: ~s, new zone offset: ~p", [Uid, ZoneOffsetTag]);
-                                true ->
-                                    ?INFO("[DRY RUN] Uid: ~s, new zone offset: ~p", [Uid, ZoneOffsetTag])
-                            end
-                    end
+            case model_accounts:get_phone(Uid) of
+                {ok, Phone} ->
+                    {ok, PushInfo} = model_accounts:get_push_info(Uid),
+                    OldZoneOffsetSecs = ?HOURS * mod_moment_notification:get_four_zone_offset_hr(Uid, Phone, PushInfo),
+                    ZoneOffsetHr = case PushInfo#push_info.zone_offset of
+                        undefined -> mod_moment_notification:get_four_zone_offset_hr(undefined, Phone);
+                        Offset -> util:secs_to_hrs(Offset)
+                    end,
+                    case DryRun of
+                        false ->
+                            model_accounts:migrate_zone_offset_set(Uid, ZoneOffsetHr, OldZoneOffsetSecs),
+                            ?INFO("Uid: ~p, old: ~p, new: ~p", [Uid, OldZoneOffsetSecs, ZoneOffsetHr]);
+                        true ->
+                            ?INFO("[DRY RUN] Uid: ~p, old: ~p, new: ~p", [Uid, OldZoneOffsetSecs, ZoneOffsetHr])
+                    end;
+                {error, missing} ->
+                    ?INFO("Skipping user (no phone): ~p", [Uid])
             end;
         _ -> ok
     end,

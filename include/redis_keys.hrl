@@ -77,7 +77,9 @@
 -define(EXPORT_DATA_KEY, <<"eda:">>).
 
 -define(MARKETING_TAG_KEY, <<"mta:">>).
--define(ZONE_OFFSET_TAG_KEY, <<"zot:">>).
+-define(ZONE_OFFSET_HR_KEY, <<"zoh:">>).
+%% TODO(josh): remove after sec -> hr migration is completed
+-define(ZONE_OFFSET_SEC_KEY, <<"zot:">>).
 
 -define(USERNAME_KEY, <<"usu:">>).
 -define(USERNAME_INDEX_KEY, <<"usi:">>).

@@ -1006,19 +1006,19 @@ get_moment_time_to_send(DateTimeSecs) ->
     get_moment_time_to_send(Day, DateTimeSecs).
 
 
--spec get_moment_time_to_send(Tag :: integer(), DateTimeSecs :: integer()) -> {integer(), integer(), moment_type(), binary()}.
-get_moment_time_to_send(Tag, DateTimeSecs) ->
+-spec get_moment_time_to_send(Date :: integer(), DateTimeSecs :: integer()) -> {integer(), integer(), moment_type(), binary()}.
+get_moment_time_to_send(Date, DateTimeSecs) ->
     [{ok, Payload1}, {ok, Payload2}, {ok, Payload3}, {ok, Payload4}] =
-        qp([["GET", moment_time_to_send_key(Tag)],
-            ["HGET", moment_time_to_send_key2(Tag), ?FIELD_MOMENT_NOTIFICATION_ID],
-            ["HGET", moment_time_to_send_key2(Tag), ?FIELD_MOMENT_NOTIFICATION_TYPE],
-            ["HGET", moment_time_to_send_key2(Tag), ?FIELD_MOMENT_NOTIFICATION_PROMPT]]),
+        qp([["GET", moment_time_to_send_key(Date)],
+            ["HGET", moment_time_to_send_key2(Date), ?FIELD_MOMENT_NOTIFICATION_ID],
+            ["HGET", moment_time_to_send_key2(Date), ?FIELD_MOMENT_NOTIFICATION_TYPE],
+            ["HGET", moment_time_to_send_key2(Date), ?FIELD_MOMENT_NOTIFICATION_PROMPT]]),
     case Payload1 of
         undefined ->
-            ?INFO("Generating moment time to send now, Tag: ~p, DateTimeSecs: ~p", [Tag, DateTimeSecs]),
+            ?INFO("Generating moment time to send now, Tag: ~p, DateTimeSecs: ~p", [Date, DateTimeSecs]),
             Time = generate_notification_time(DateTimeSecs),
-            {Date, {_,_,_}} = calendar:system_time_to_universal_time(DateTimeSecs, second),
-            DayOfWeek = calendar:day_of_the_week(Date),
+            {FullDate, {_,_,_}} = calendar:system_time_to_universal_time(DateTimeSecs, second),
+            DayOfWeek = calendar:day_of_the_week(FullDate),
             %% live camera on Fri, Sat, Sun
             Type = case DayOfWeek >= 5 andalso DayOfWeek =< 7 of
                 true -> live_camera;
@@ -1031,9 +1031,9 @@ get_moment_time_to_send(Tag, DateTimeSecs) ->
                     end
             end,
             Prompt = mod_prompts:get_prompt(Type),
-            case set_moment_time_to_send(Time, DateTimeSecs, Type, Prompt, Tag) of
+            case set_moment_time_to_send(Time, DateTimeSecs, Type, Prompt, Date) of
                 true -> {Time, DateTimeSecs, Type, Prompt};
-                false -> get_moment_time_to_send(Tag, DateTimeSecs)
+                false -> get_moment_time_to_send(Date, DateTimeSecs)
             end;
         _ ->
             case {Payload2, Payload3, Payload4} of

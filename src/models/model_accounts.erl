@@ -124,8 +124,7 @@
     set_push_fire_pref/2,
     set_push_new_user_pref/2,
     set_push_follower_pref/2,
-    get_zone_offset/1,
-    get_zone_offsets/1,
+    get_zone_offset_secs/1,
     presence_subscribe/2,
     presence_unsubscribe/2,
     presence_unsubscribe_all/1,
@@ -177,10 +176,11 @@
     get_node_list/0,
     scan/3,
     get_user_activity_info/1,
-    update_zone_offset_tag/3,
-    get_zone_offset_tag_uids/1,
-    del_zone_offset/1,
-    delete_zone_offset_tag/2,
+    migrate_zone_offset_set/3,  %% for migration
+    update_zone_offset_hr_index/3,
+    get_uids_from_zone_offset_set/1,
+    get_zone_offset_uids_by_range/2,
+    remove_from_zone_offset_set/2,
     is_username_available/1,
     set_username/2,
     get_username/1,
@@ -236,7 +236,7 @@
 -define(FIELD_PUSH_NEW_USER, <<"pn">>).
 -define(FIELD_PUSH_FOLLOWER, <<"pf">>).
 -define(FIELD_PUSH_LANGUAGE_ID, <<"pl">>).
--define(FIELD_ZONE_OFFSET, <<"tz">>).
+-define(FIELD_ZONE_OFFSET_SECS, <<"tz">>).
 -define(FIELD_VOIP_TOKEN, <<"pvt">>).
 -define(FIELD_HUAWEI_TOKEN, <<"ht">>).
 -define(FIELD_DEVICE, <<"dvc">>).
@@ -309,12 +309,12 @@ delete_account(Uid) ->
     case q(["HMGET", account_key(Uid), ?FIELD_PHONE,
             ?FIELD_CREATION_TIME, ?FIELD_LAST_REGISTRATION_TIME, ?FIELD_LAST_ACTIVITY, ?FIELD_ACTIVITY_STATUS,
             ?FIELD_USER_AGENT, ?FIELD_CAMPAIGN_ID, ?FIELD_CLIENT_VERSION, ?FIELD_PUSH_LANGUAGE_ID,
-            ?FIELD_DEVICE, ?FIELD_OS_VERSION, ?FIELD_USERNAME]) of
+            ?FIELD_DEVICE, ?FIELD_OS_VERSION, ?FIELD_USERNAME, ?FIELD_ZONE_OFFSET_SECS]) of
         {ok, [undefined | _]} ->
             ?WARNING("Looks like it is already deleted, Uid: ~p", [Uid]),
             ok;
         {ok, [_Phone, CreationTsMsBin, RegistrationTsMsBin, LastActivityTsMs, ActivityStatus,
-                UserAgent, CampaignId, ClientVersion, LangId, Device, OsVersion, Username]} ->
+                UserAgent, CampaignId, ClientVersion, LangId, Device, OsVersion, Username, ZoneOffsetSec]} ->
             [{ok, _}, RenameResult, {ok, _}, DecrResult] = qp([
                 ["HSET", deleted_uid_key(Uid),
                             ?FIELD_CREATION_TIME, CreationTsMsBin,
@@ -344,6 +344,7 @@ delete_account(Uid) ->
             end,
             decrement_version_and_lang_counters(Uid, ClientVersion, LangId),
             remove_geo_tags(Uid),
+            remove_from_zone_offset_set(Uid, util_redis:decode_int(ZoneOffsetSec)),
             {ok, _} = DecrResult;
         {error, _} ->
             ?ERROR("Error, fetching details: ~p", [Uid]),
@@ -799,7 +800,7 @@ get_account(Uid) ->
                     activity_status = util:to_atom(maps:get(?FIELD_ACTIVITY_STATUS, M, undefined)),
                     client_version = maps:get(?FIELD_CLIENT_VERSION, M, undefined),
                     lang_id = maps:get(?FIELD_PUSH_LANGUAGE_ID, M, undefined),
-                    zone_offset = util_redis:decode_int(maps:get(?FIELD_ZONE_OFFSET, M, undefined)),
+                    zone_offset = util_redis:decode_int(maps:get(?FIELD_ZONE_OFFSET_SECS, M, undefined)),
                     device = maps:get(?FIELD_DEVICE, M, undefined),
                     os_version = maps:get(?FIELD_OS_VERSION, M, undefined),
                     last_ipaddress = util:to_list(maps:get(?FIELD_LAST_IPADDRESS, M, undefined)),
@@ -841,10 +842,10 @@ set_push_token(Uid, TokenType, PushToken, TimestampMs, LangId, ZoneOffset) ->
             ?FIELD_PUSH_TOKEN, PushToken,
             ?FIELD_PUSH_TIMESTAMP, integer_to_binary(TimestampMs),
             ?FIELD_PUSH_LANGUAGE_ID, LangId,
-            ?FIELD_ZONE_OFFSET, util:to_binary(ZoneOffset)
+            ?FIELD_ZONE_OFFSET_SECS, util:to_binary(ZoneOffset)
         ]),
     update_lang_counters(Uid, LangId, OldLangId),
-    update_zone_offset_tag(Uid, ZoneOffset, OldZoneOffset),
+    update_zone_offset_hr_index(Uid, ZoneOffset, OldZoneOffset),
     ok.
 
 
@@ -858,7 +859,7 @@ set_huawei_token(Uid, HuaweiToken, TimestampMs, LangId, ZoneOffset) ->
             ?FIELD_HUAWEI_TOKEN, HuaweiToken,
             ?FIELD_PUSH_TIMESTAMP, integer_to_binary(TimestampMs),
             ?FIELD_PUSH_LANGUAGE_ID, LangId,
-            ?FIELD_ZONE_OFFSET, util:to_binary(ZoneOffset)
+            ?FIELD_ZONE_OFFSET_SECS, util:to_binary(ZoneOffset)
         ]),
     update_lang_counters(Uid, LangId, OldLangId),
     ok.
@@ -873,7 +874,7 @@ set_voip_token(Uid, VoipToken, TimestampMs, LangId, ZoneOffset) ->
             ?FIELD_VOIP_TOKEN, VoipToken,
             ?FIELD_PUSH_TIMESTAMP, integer_to_binary(TimestampMs),
             ?FIELD_PUSH_LANGUAGE_ID, LangId,
-            ?FIELD_ZONE_OFFSET, util:to_binary(ZoneOffset)
+            ?FIELD_ZONE_OFFSET_SECS, util:to_binary(ZoneOffset)
         ]),
     update_lang_counters(Uid, LangId, OldLangId),
     ok.
@@ -898,58 +899,89 @@ update_lang_counters(Uid, LangId, OldLangId) ->
     end,
     ok.
 
--spec update_zone_offset_tag(Uid :: binary(), ZoneOffsetSec :: maybe(integer()), OldZoneOffsetSec :: maybe(integer())) -> ok.
-update_zone_offset_tag(Uid, ZoneOffsetSec, OldZoneOffsetSec) when ZoneOffsetSec =/= OldZoneOffsetSec ->
+
+migrate_zone_offset_set(Uid, ZoneOffsetSec, OldZoneOffsetSec)
+        when is_integer(ZoneOffsetSec) andalso ZoneOffsetSec =/= OldZoneOffsetSec ->
+    %% Before we were mapping Uids only to the 4 offsets (in seconds) associated with a region
+    %% Now we will map Uids to their proper offset hours and will have separate functions
+    %% to get all the uids from a region
+    HashSlot = util_redis:eredis_hash(binary_to_list(Uid)),
+    Slot = HashSlot rem ?NUM_SLOTS,
+    ZoneOffsetHr = util:secs_to_hrs(ZoneOffsetSec),
+    [{ok, _}, {ok, _}] = qp([
+        ["SREM", zone_offset_sec_key(Slot, OldZoneOffsetSec), Uid],
+        ["SADD", zone_offset_hr_key(Slot, ZoneOffsetHr), Uid]
+    ]),
+    ok;
+migrate_zone_offset_set(_Uid, _ZoneOffsetSec, _OldZoneOffsetSec) ->
+    ok.
+
+
+-spec update_zone_offset_hr_index(Uid :: binary(), ZoneOffsetSec :: maybe(integer()), OldZoneOffsetSec :: maybe(integer())) -> ok.
+update_zone_offset_hr_index(Uid, ZoneOffsetSec, OldZoneOffsetSec) when ZoneOffsetSec =/= OldZoneOffsetSec ->
     case util_uid:get_app_type(Uid) of
         halloapp -> ok;
         katchup ->
             HashSlot = util_redis:eredis_hash(binary_to_list(Uid)),
             Slot = HashSlot rem ?NUM_SLOTS,
-            {ok, Phone} = get_phone(Uid),
-            ZoneOffsetTag = util:to_binary(mod_moment_notification:get_four_zone_offset_hr(ZoneOffsetSec, Phone)),
-            Commands = case OldZoneOffsetSec of
+            ZoneOffsetHr = util:secs_to_hrs(ZoneOffsetSec),
+            case OldZoneOffsetSec of
                 undefined ->
-                    [["SADD", zone_offset_tag_key(Slot, ZoneOffsetTag), Uid]];
+                    {ok, _} = q(["SADD", zone_offset_hr_key(Slot, ZoneOffsetHr), Uid]);
                 _ ->
-                    OldOffsetTag = util:to_binary(mod_moment_notification:get_four_zone_offset_hr(OldZoneOffsetSec, Phone)),
-                    [["SREM", zone_offset_tag_key(Slot, OldOffsetTag), Uid],
-                    ["SADD", zone_offset_tag_key(Slot, ZoneOffsetTag), Uid]]
-            end,
-            qp(Commands),
-            ok
-    end;
-update_zone_offset_tag(_Uid, _ZoneOffsetSec, _OldZoneOffsetSec) ->
+                    OldZoneOffsetHr = util:secs_to_hrs(OldZoneOffsetSec),
+                    [{ok, _}, {ok, _}] = qp([
+                        ["SREM", zone_offset_hr_key(Slot, OldZoneOffsetHr), Uid],
+                        ["SADD", zone_offset_hr_key(Slot, ZoneOffsetHr), Uid]
+                    ])
+            end
+    end,
+    ok;
+update_zone_offset_hr_index(_Uid, _ZoneOffsetSecs, _OldZoneOffsetSecs) ->
     ok.
 
--spec delete_zone_offset_tag(Uid :: binary(), ZoneOffsetSec :: maybe(integer())) -> ok.
-delete_zone_offset_tag(Uid, ZoneOffsetSec) ->
+
+-spec remove_from_zone_offset_set(Uid :: binary(), ZoneOffsetSec :: maybe(integer())) -> ok.
+remove_from_zone_offset_set(Uid, ZoneOffsetSec) when ZoneOffsetSec =/= undefined ->
     HashSlot = util_redis:eredis_hash(binary_to_list(Uid)),
     Slot = HashSlot rem ?NUM_SLOTS,
-    {ok, Phone} = get_phone(Uid),
-    ZoneOffsetTag = util:to_binary(mod_moment_notification:get_four_zone_offset_hr(ZoneOffsetSec, Phone)),
-    q(["SREM", zone_offset_tag_key(Slot, ZoneOffsetTag), Uid]),
+    ZoneOffsetHr = util:secs_to_hrs(ZoneOffsetSec),
+    q(["SREM", zone_offset_hr_key(Slot, ZoneOffsetHr), Uid]),
+    ok;
+remove_from_zone_offset_set(_Uid, undefined) ->
     ok.
- 
--spec get_zone_offset_tag_uids(ZoneOffsetSec :: integer()) -> {ok, [binary()]}.
-get_zone_offset_tag_uids(ZoneOffsetSec) ->
-    ZoneOffsetTag = util:to_binary(ZoneOffsetSec div ?MOMENT_TAG_INTERVAL_SEC),
+
+
+-spec get_uids_from_zone_offset_set(ZoneOffsetHr :: integer()) -> {ok, [binary()]}.
+get_uids_from_zone_offset_set(ZoneOffsetHr) ->
     ListUids = lists:foldl(
         fun (Slot, Acc) ->
-            {ok, Res} = q(["SMEMBERS", zone_offset_tag_key(Slot, ZoneOffsetTag)]),
+            {ok, Res} = q(["SMEMBERS", zone_offset_hr_key(Slot, ZoneOffsetHr)]),
             Acc ++ Res
         end,
         [],
         lists:seq(0, ?NUM_SLOTS - 1)),
     {ok, ListUids}.
 
--spec del_zone_offset(ZoneOffsetSec :: integer()) -> ok.
-del_zone_offset(ZoneOffsetSec) ->
-    ZoneOffsetTag = util:to_binary(mod_moment_notification:get_four_zone_offset_hr(ZoneOffsetSec)),
-    lists:foreach(
+
+-spec get_zone_offset_uids_by_range(MinHr :: integer(), MaxHr :: integer()) -> [uid()].
+get_zone_offset_uids_by_range(MinHr, MaxHr) ->
+    lists:flatmap(
         fun(Slot) ->
-            {ok, _} = q(["DEL", zone_offset_tag_key(Slot, ZoneOffsetTag)])
-        end, lists:seq(0, ?NUM_SLOTS - 1)),
-    ok.
+            Commands = lists:map(
+                fun(ZoneOffsetHr) ->
+                    ["SMEMBERS", zone_offset_hr_key(Slot, ZoneOffsetHr)]
+                end,
+                lists:seq(MinHr, MaxHr)),
+            Results = qp(Commands),
+            lists:flatmap(
+                fun
+                    ({ok, Uids}) -> Uids;
+                    ({error, Err}) -> ?ERROR("Error: ~p", [Err])
+                end,
+                Results)
+        end,
+        lists:seq(0, ?NUM_SLOTS - 1)).
 
 
 -spec remove_android_token(Uid :: uid()) -> ok | {error, missing}.
@@ -969,7 +1001,7 @@ get_push_info(Uid) ->
     {ok, [Os, Token, TimestampMs, PushPost, PushComment, ClientVersion, LangId, VoipToken, HuaweiToken, ZoneOffset]} = q(
             ["HMGET", account_key(Uid), ?FIELD_PUSH_OS, ?FIELD_PUSH_TOKEN, ?FIELD_PUSH_TIMESTAMP,
             ?FIELD_PUSH_POST, ?FIELD_PUSH_COMMENT, ?FIELD_CLIENT_VERSION, ?FIELD_PUSH_LANGUAGE_ID,
-            ?FIELD_VOIP_TOKEN, ?FIELD_HUAWEI_TOKEN, ?FIELD_ZONE_OFFSET]),
+            ?FIELD_VOIP_TOKEN, ?FIELD_HUAWEI_TOKEN, ?FIELD_ZONE_OFFSET_SECS]),
     Res = #push_info{
             uid = Uid,
             os = Os,
@@ -1057,17 +1089,15 @@ set_push_follower_pref(Uid, PushPref) ->
     ok.
 
 
--spec get_zone_offset(Uid :: uid()) -> maybe(integer()).
-get_zone_offset(Uid) ->
-    {ok, Res} = q(["HGET", account_key(Uid), ?FIELD_ZONE_OFFSET]),
-    util_redis:decode_int(Res).
+-spec get_zone_offset_secs(Uid :: uid() | Uids :: [uid()]) -> maybe(integer()) | [maybe(integer())].
+get_zone_offset_secs(Uid) when not is_list(Uid) ->
+    [Res] = get_zone_offset_secs([Uid]),
+    Res;
 
-
--spec get_zone_offsets(Uids :: list(uid())) -> list(maybe(integer())).
-get_zone_offsets(Uids) ->
+get_zone_offset_secs(Uids) ->
     Commands = lists:map(
         fun(Uid) ->
-            ["HGET", account_key(Uid), ?FIELD_ZONE_OFFSET]
+            ["HGET", account_key(Uid), ?FIELD_ZONE_OFFSET_SECS]
         end, Uids),
     Results = qmn(Commands),
     lists:map(fun({ok, ZoneOffsetSec}) -> util_redis:decode_int(ZoneOffsetSec) end, Results).
@@ -2035,9 +2065,16 @@ rejected_suggestion_key(Uid) ->
     <<?REJECTED_SUGGESTIONS_KEY/binary, "{", Uid/binary, "}">>.
 
 
-zone_offset_tag_key(Slot, ZoneOffsetTag) ->
+zone_offset_hr_key(Slot, ZoneOffsetHr) ->
     SlotBin = util:to_binary(Slot),
-    <<?ZONE_OFFSET_TAG_KEY/binary, "{", SlotBin/binary, "}:", ZoneOffsetTag/binary>>.
+    ZoneOffsetHrBin = util:to_binary(ZoneOffsetHr),
+    <<?ZONE_OFFSET_HR_KEY/binary, "{", SlotBin/binary, "}:", ZoneOffsetHrBin/binary>>.
+
+%% TODO(josh): remove after sec -> hr migration is completed
+zone_offset_sec_key(Slot, ZoneOffsetSec) ->
+    SlotBin = util:to_binary(Slot),
+    ZoneOffsetSecBin = util:to_binary(ZoneOffsetSec),
+    <<?ZONE_OFFSET_SEC_KEY/binary, "{", SlotBin/binary, "}:", ZoneOffsetSecBin/binary>>.
 
 username_index_key(UsernamePrefix) ->
     <<?USERNAME_INDEX_KEY/binary, "{", UsernamePrefix/binary, "}">>.

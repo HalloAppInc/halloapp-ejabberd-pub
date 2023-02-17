@@ -649,9 +649,11 @@ get_and_check_whisper_keys(IdentityKeyB64, SignedKeyB64, OneTimeKeysB64) ->
 -spec process_push_token(Uid :: uid(), Phone :: phone(), PushPayload :: map()) -> ok.
 process_push_token(Uid, Phone, PushPayload) ->
     LangId = maps:get(<<"lang_id">>, PushPayload, <<"en-US">>),
-    ZoneOffsetSec = maps:get(<<"zoneOffset">>, PushPayload, undefined),
-    ZoneOffsetTag = ?HOURS * mod_moment_notification:get_four_zone_offset_hr(ZoneOffsetSec, Phone),
-    model_accounts:update_zone_offset_tag(Uid, ZoneOffsetTag, undefined),
+    ZoneOffsetSec = case maps:get(<<"zoneOffset">>, PushPayload, undefined) of
+        undefined -> mod_moment_notification:get_four_zone_offset_hr(undefined, Phone);
+        ZoneOffset -> ZoneOffset
+    end,
+    model_accounts:update_zone_offset_hr_index(Uid, ZoneOffsetSec, undefined),
     PushToken = maps:get(<<"push_token">>, PushPayload, undefined),
     %% TODO: rename this field to token_type.
     PushTokenType = maps:get(<<"push_os">>, PushPayload, undefined),

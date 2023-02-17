@@ -182,8 +182,9 @@ meck_init(Module, FunName, Fun) ->
 
 -spec meck_init(module(), [meck_fun()]) -> module().
 meck_init(Module, MockedAndReplacementFuns) ->
+    %% unstick allows modules like timer to be mocked
     %% the passthrough option allows all non-mocked functions in the module to be preserved
-    meck:new(Module, [passthrough]),
+    meck:new(Module, [unstick, passthrough]),
     lists:foreach(
         fun({MockedFun, ReplacementFun}) ->
             meck:expect(Module, MockedFun, ReplacementFun)

@@ -425,7 +425,7 @@ is_psa_tag_allowed(PSATag) ->
 send_expiry_notice(#post{id = PostId, uid = PostOwnerUid} = Post) ->
     %% get all audience, set action=retract to include everyone.
     FeedAudienceList = sets:to_list(get_feed_audience_set(retract, PostOwnerUid, Post#post.audience_list)),
-    [PostOwnerZoneOffset | AudienceListZoneOffset] = model_accounts:get_zone_offsets([PostOwnerUid] ++ FeedAudienceList),
+    [PostOwnerZoneOffset | AudienceListZoneOffset] = model_accounts:get_zone_offset_secs([PostOwnerUid] ++ FeedAudienceList),
     lists:foreach(
         fun({ToUid, ToUidZoneOffset}) ->
             case ToUidZoneOffset =:= PostOwnerZoneOffset andalso PostOwnerZoneOffset =/= undefined of

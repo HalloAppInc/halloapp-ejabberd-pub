@@ -12,6 +12,7 @@
 -include("stanza.hrl").
 -include("packets.hrl").
 -include("ha_types.hrl").
+-include("time.hrl").
 
 -define(NOISE_STATIC_KEY, <<"static_key">>).
 -define(NOISE_SERVER_CERTIFICATE, <<"server_certificate">>).
@@ -105,7 +106,8 @@
     get_nodes/0,
     get_node/0,
     index_of/2,
-    get_stat_namespace/1
+    get_stat_namespace/1,
+    secs_to_hrs/1
 ]).
 
 
@@ -865,3 +867,8 @@ get_stat_namespace(Bin) when is_binary(Bin) ->
     end;
 get_stat_namespace(A) ->
     ?ERROR("Unexpected arg: ~p", [A]).
+
+
+secs_to_hrs(Secs) ->
+    round(Secs / ?HOURS).
+

@@ -225,6 +225,7 @@ modules:
   mod_recommendations: {}
   mod_reporting: {}
   mod_moment_notification: {}
+  mod_moment_notification2: {}
   mod_username: {}
   mod_search: {}
   mod_follow: {}

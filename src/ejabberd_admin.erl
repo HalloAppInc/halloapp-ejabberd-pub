@@ -1189,7 +1189,7 @@ send_moment_notification_internal(PhoneRaw, AppType) ->
             case model_phone:get_uid(NormalizedPhone, AppType) of
                 {ok, undefined} ->
                     io:format("No account associated with phone: ~s~n", [PhoneRaw]);
-                {ok, Uid} -> mod_moment_notification:send_moment_notification(Uid)
+                {ok, Uid} -> mod_moment_notification2:send_latest_notification(Uid, false)
             end
     end,
     ok.

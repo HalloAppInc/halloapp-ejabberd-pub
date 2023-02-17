@@ -104,9 +104,9 @@
 
 -define(POSTID1, <<"post1">>).
 
--define(ZONE_OFFSET1, -28800).
--define(ZONE_OFFSET3, 28800).
--define(ZONE_OFFSET4, 21600).
+-define(ZONE_OFFSET_SEC1, -28800).  % -8 hrs
+-define(ZONE_OFFSET_SEC3, -18000).   % +8 hrs
+-define(ZONE_OFFSET_SEC4, 21600).   % +6 hrs
 
 -define(USERNAME1, <<"username1">>).
 -define(USERNAME2, <<"usernaem1">>).
@@ -381,7 +381,7 @@ voip_and_push_tokens(_) ->
     ?_assertOk(model_accounts:set_push_token(?UID2, ?PUSH_TOKEN_OS2,
             ?PUSH_TOKEN2, ?PUSH_TOKEN_TIMESTAMP2, ?PUSH_LANG_ID2, ?ZONE_OFFSET2)),
     ?_assertEqual({ok, ?PUSH_INFO2}, model_accounts:get_push_info(?UID2)),
-    ?_assertEqual(?ZONE_OFFSET2, model_accounts:get_zone_offset(?UID2)),
+    ?_assertEqual(?ZONE_OFFSET2, model_accounts:get_zone_offset_secs(?UID2)),
     ?_assertOk(model_accounts:delete_account(?UID2)),
     %% voip token
     ?_assertOk(model_accounts:remove_push_info(?UID1)),
@@ -686,38 +686,39 @@ geo_tag_test(_) ->
 
 %% TODO: this test will start failing whent PST(GMT-8) becomes PDT(GMT-7).
 zone_offset_tag_test(_) ->
-    Uid = tutil:generate_uid(?KATCHUP),
-    model_accounts:create_account(Uid, ?PHONE2, ?USER_AGENT2, ?CAMPAIGN_ID, ?TS2),
-    model_accounts:set_name(Uid, ?NAME2),
+    Uid1 = tutil:generate_uid(?KATCHUP),
+    Uid2 = tutil:generate_uid(?KATCHUP),
     [?_assertEqual({ok, []},
-        model_accounts:get_zone_offset_tag_uids(?ZONE_OFFSET1)),
-    ?_assertOk(model_accounts:update_zone_offset_tag(
-        Uid, ?ZONE_OFFSET1, undefined)),
-    ?_assertOk(model_accounts:update_zone_offset_tag(
-        ?UID1, ?ZONE_OFFSET1, undefined)),
-    ?_assertEqual({ok, [Uid]},
-        model_accounts:get_zone_offset_tag_uids(?ZONE_OFFSET1)),
-    ?_assertOk(model_accounts:update_zone_offset_tag(
-        Uid, ?ZONE_OFFSET1, ?ZONE_OFFSET1)),
-    ?_assertEqual({ok, [Uid]},
-        model_accounts:get_zone_offset_tag_uids(?ZONE_OFFSET1)),
-    ?_assertOk(model_accounts:delete_zone_offset_tag(
-        Uid, ?ZONE_OFFSET1)),
+        model_accounts:get_uids_from_zone_offset_set(util:secs_to_hrs(?ZONE_OFFSET_SEC1))),
+    ?_assertOk(model_accounts:update_zone_offset_hr_index(
+        Uid1, ?ZONE_OFFSET_SEC1, undefined)),
+    ?_assertOk(model_accounts:update_zone_offset_hr_index(
+        Uid1, ?ZONE_OFFSET_SEC1, undefined)),
+    ?_assertOk(model_accounts:update_zone_offset_hr_index(
+        Uid2, ?ZONE_OFFSET_SEC3, undefined)),
+    ?_assertEqual({ok, [Uid1]},
+        model_accounts:get_uids_from_zone_offset_set(util:secs_to_hrs(?ZONE_OFFSET_SEC1))),
+    ?_assertEqual({ok, [Uid2]},
+        model_accounts:get_uids_from_zone_offset_set(util:secs_to_hrs(?ZONE_OFFSET_SEC3))),
+    ?_assertOk(model_accounts:update_zone_offset_hr_index(
+        Uid1, ?ZONE_OFFSET_SEC1, ?ZONE_OFFSET_SEC1)),
+    ?_assertEqual({ok, [Uid1]},
+        model_accounts:get_uids_from_zone_offset_set(util:secs_to_hrs(?ZONE_OFFSET_SEC1))),
+    ?_assertOk(model_accounts:remove_from_zone_offset_set(
+        Uid1, ?ZONE_OFFSET_SEC1)),
     ?_assertEqual({ok, []},
-        model_accounts:get_zone_offset_tag_uids(?ZONE_OFFSET1)),
+        model_accounts:get_uids_from_zone_offset_set(util:secs_to_hrs(?ZONE_OFFSET_SEC1))),
+    ?_assertOk(model_accounts:update_zone_offset_hr_index(Uid1, ?ZONE_OFFSET_SEC1, undefined)),
+    ?_assertOk(model_accounts:update_zone_offset_hr_index(Uid1, ?ZONE_OFFSET_SEC4, ?ZONE_OFFSET_SEC1)),
     ?_assertEqual({ok, []},
-        model_accounts:get_zone_offset_tag_uids(?ZONE_OFFSET3)),
-    ?_assertOk(model_accounts:update_zone_offset_tag(Uid, ?ZONE_OFFSET1, undefined)),
-    ?_assertOk(model_accounts:update_zone_offset_tag(Uid, ?ZONE_OFFSET3, ?ZONE_OFFSET1)),
-    ?_assertEqual({ok, []},
-                  model_accounts:get_zone_offset_tag_uids(?ZONE_OFFSET1)),
-    ?_assertEqual({ok, [Uid]},
-                   model_accounts:get_zone_offset_tag_uids(?ZONE_OFFSET4)),
-    ?_assertEqual({ok, []},
-                   model_accounts:get_zone_offset_tag_uids(?ZONE_OFFSET3)),
-    ?_assertOk(model_accounts:del_zone_offset(?ZONE_OFFSET3)),
-    ?_assertEqual({ok, []},
-                   model_accounts:get_zone_offset_tag_uids(?ZONE_OFFSET3))].
+                  model_accounts:get_uids_from_zone_offset_set(util:secs_to_hrs(?ZONE_OFFSET_SEC1))),
+    ?_assertEqual({ok, [Uid1]},
+                   model_accounts:get_uids_from_zone_offset_set(util:secs_to_hrs(?ZONE_OFFSET_SEC4))),
+    ?_assertEqual({ok, [Uid2]},
+                   model_accounts:get_uids_from_zone_offset_set(util:secs_to_hrs(?ZONE_OFFSET_SEC3))),
+    ?_assertEqual(sets:to_list(sets:from_list([Uid1, Uid2])), sets:to_list(sets:from_list(
+        model_accounts:get_zone_offset_uids_by_range(util:secs_to_hrs(?ZONE_OFFSET_SEC3), util:secs_to_hrs(?ZONE_OFFSET_SEC4)))))
+    ].
 
 set_get_bio_test(_) ->
     Bio = <<"test bio">>,

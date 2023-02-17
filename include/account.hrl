@@ -75,6 +75,7 @@
 
 -define(MAX_NAME_SIZE, 25).   %% 25 utf8 characters
 
+%% TODO(josh): remove
 -define(MOMENT_TAG_INTERVAL_MIN, 60).
 -define(MOMENT_TAG_INTERVAL_SEC, (?MOMENT_TAG_INTERVAL_MIN * ?MINUTES)).
 
