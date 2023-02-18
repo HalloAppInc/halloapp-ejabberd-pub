@@ -153,26 +153,37 @@ convert_avatar(Id, Username, IsFullAvatar) ->
             ImageSize = util:to_list(Width) ++ "x" ++ util:to_list(Height),
             TranslateCoOrd = util:to_list(TranslateWidth) ++ "," ++ util:to_list(TranslateHeight),
             EllipsisSize = util:to_list(EllipsisWidth) ++ "," ++ util:to_list(EllipsisHeight),
-            %% Crop using a rotated ellipse
-            Command1 = "convert " ++ TmpFileName ++ " -gravity Center \\( -size " ++ ImageSize ++ " xc:Black -draw \"push graphic-context translate " ++ TranslateCoOrd ++ " rotate -15 fill white stroke black ellipse 0,0 " ++ EllipsisSize ++ " 0,360 pop graphic-context\" -alpha copy \\) -compose copy-opacity -composite -background black -alpha remove " ++ TmpFileName1,
-            ?INFO("cmd2: ~p", [Command1]),
-            os:cmd(Command1),
+            TmpFileName3 = case IsFullAvatar of
+                true ->
+                    %% Crop using a rotated ellipse
+                    Command1 = "convert " ++ TmpFileName ++ " -gravity Center \\( -size " ++ ImageSize ++ " xc:Black -draw \"push graphic-context translate " ++ TranslateCoOrd ++ " rotate -15 fill white stroke black ellipse 0,0 " ++ EllipsisSize ++ " 0,360 pop graphic-context\" -alpha copy \\) -compose copy-opacity -composite -background black -alpha remove " ++ TmpFileName1,
+                    ?INFO("cmd2: ~p", [Command1]),
+                    os:cmd(Command1),
+                    TmpFileName1;
+                false ->
+                    TmpFileName
+            end,
             %% Add username sligtly rotated.
             DefFontSize = case IsFullAvatar of
                 true -> 116;
-                false -> 35
+                false -> 30
             end,
             Username2 = string:uppercase(Username),
             FontSize = util:to_list(erlang:min(DefFontSize, (DefFontSize * 10) / (length(Username2) + 1))),
             FontCoOrd = case IsFullAvatar of
                 true -> "-10,630";
-                false -> "-10,185"
+                false -> "20,185"
             end,
-            Command2 = "convert -font /home/ha/RubikBubbles-Regular.ttf -fill \"#C2D69B\" -pointsize " ++ FontSize ++ " -strokewidth 1 -stroke black -draw 'rotate -5 text " ++ FontCoOrd ++ " \"@" ++ Username2 ++ "\"' " ++ TmpFileName1 ++ " " ++ TmpFileName2,
+            Command2 = "convert -font /home/ha/RubikBubbles-Regular.ttf -fill \"#C2D69B\" -pointsize " ++ FontSize ++ " -strokewidth 1 -stroke black -draw 'rotate -5 text " ++ FontCoOrd ++ " \"@" ++ Username2 ++ "\"' " ++ TmpFileName3 ++ " " ++ TmpFileName2,
             ?INFO("cmd2: ~p", [Command2]),
             os:cmd(Command2),
             file:delete(TmpFileName),
-            file:delete(TmpFileName1),
+            case IsFullAvatar of
+                true ->
+                    file:delete(TmpFileName1);
+                false ->
+                    ok
+            end,
             {ok, Data} = file:read_file(TmpFileName2),
             file:delete(TmpFileName2),
             Data
