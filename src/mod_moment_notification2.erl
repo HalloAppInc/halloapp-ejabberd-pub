@@ -381,8 +381,8 @@ get_current_offsets(TodayTimestamp) ->
 %%====================================================================
 
 get_uids_by_region(RegionPredicate) ->
-    [MinHr | Rest] = lists:filter(RegionPredicate, lists:seq(-12, 14)),
-    model_accounts:get_zone_offset_uids_by_range(MinHr, lists:last(Rest)).
+    ZoneOffsetHrs = lists:filter(RegionPredicate, lists:seq(-12, 14)),
+    model_accounts:get_uids_from_zone_offset_hrs(ZoneOffsetHrs).
 
 
 is_region_offset_hr(ZoneOffsetHr) ->

@@ -450,10 +450,10 @@ fix_zone_tag_uids(ZoneTag) ->
 
 get_zone_tag_uids(ZoneOffsetDiff) ->
     case ZoneOffsetDiff of
-        -8 -> model_accounts:get_zone_offset_uids_by_range(-10, -3);
-        0 -> model_accounts:get_zone_offset_uids_by_range(-2, 2);
-        3 -> model_accounts:get_zone_offset_uids_by_range(3, 4);
-        6 -> model_accounts:get_zone_offset_uids_by_range(-12, -10) ++ model_accounts:get_zone_offset_uids_by_range(5, 14);
+        -8 -> model_accounts:get_uids_from_zone_offset_hrs(lists:seq(-10, -3));
+        0 -> model_accounts:get_uids_from_zone_offset_hrs(lists:seq(-2, 2));
+        3 -> model_accounts:get_uids_from_zone_offset_hrs(lists:seq(3, 4));
+        6 -> model_accounts:get_uids_from_zone_offset_hrs(lists:seq(-12, -10) ++ lists:seq(5, 14));
         _ -> []
     end.
 

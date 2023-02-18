@@ -178,8 +178,7 @@
     get_user_activity_info/1,
     migrate_zone_offset_set/3,  %% for migration
     update_zone_offset_hr_index/3,
-    get_uids_from_zone_offset_set/1,
-    get_zone_offset_uids_by_range/2,
+    get_uids_from_zone_offset_hrs/1,
     remove_from_zone_offset_set/2,
     is_username_available/1,
     set_username/2,
@@ -950,36 +949,30 @@ remove_from_zone_offset_set(_Uid, undefined) ->
     ok.
 
 
--spec get_uids_from_zone_offset_set(ZoneOffsetHr :: integer()) -> {ok, [binary()]}.
-get_uids_from_zone_offset_set(ZoneOffsetHr) ->
-    ListUids = lists:foldl(
-        fun (Slot, Acc) ->
-            {ok, Res} = q(["SMEMBERS", zone_offset_hr_key(Slot, ZoneOffsetHr)]),
-            Acc ++ Res
-        end,
-        [],
-        lists:seq(0, ?NUM_SLOTS - 1)),
-    {ok, ListUids}.
-
-
--spec get_zone_offset_uids_by_range(MinHr :: integer(), MaxHr :: integer()) -> [uid()].
-get_zone_offset_uids_by_range(MinHr, MaxHr) ->
+-spec get_uids_from_zone_offset_hrs(ZoneOffsetHr :: integer() | [integer()]) -> [uid()].
+get_uids_from_zone_offset_hrs(ZoneOffsetHrs) when is_list(ZoneOffsetHrs) ->
     lists:flatmap(
         fun(Slot) ->
             Commands = lists:map(
                 fun(ZoneOffsetHr) ->
                     ["SMEMBERS", zone_offset_hr_key(Slot, ZoneOffsetHr)]
                 end,
-                lists:seq(MinHr, MaxHr)),
+                ZoneOffsetHrs),
             Results = qp(Commands),
             lists:flatmap(
                 fun
-                    ({ok, Uids}) -> Uids;
-                    ({error, Err}) -> ?ERROR("Error: ~p", [Err])
+                    ({ok, Uids}) ->
+                        Uids;
+                    ({error, Err}) ->
+                        ?ERROR("Error: ~p", [Err]),
+                        []
                 end,
                 Results)
         end,
-        lists:seq(0, ?NUM_SLOTS - 1)).
+        lists:seq(0, ?NUM_SLOTS - 1));
+
+get_uids_from_zone_offset_hrs(ZoneOffsetHr) ->
+    get_uids_from_zone_offset_hrs([ZoneOffsetHr]).
 
 
 -spec remove_android_token(Uid :: uid()) -> ok | {error, missing}.
