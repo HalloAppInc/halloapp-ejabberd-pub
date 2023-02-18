@@ -143,6 +143,12 @@ message MomentInfo {
     int64 num_takes = 3; // Number of times a moment has been captured.
     int64 num_selfie_takes = 4; // Number of times the selfie view has been captured.
     int64 notification_id = 5;  // Id of the notification that resulted in the user posting this moment.
+    enum ContentType {
+        IMAGE = 0;
+        VIDEO = 1;
+        TEXT = 2;
+    }
+    ContentType content_type = 6; // Actual content type based on moment notification info.
 }
 
 message MediaCounters {

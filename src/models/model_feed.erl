@@ -143,6 +143,7 @@
 -define(FIELD_TIME_TAKEN, <<"tt">>).
 -define(FIELD_NUM_SELFIE_TAKES, <<"nst">>).
 -define(FIELD_NOTIFICATION_ID, <<"nid">>).
+-define(FIELD_CONTENT_TYPE, <<"cnt">>).
 -define(FIELD_MOMENT_NOTIFICATION_ID, <<"nfi">>).
 -define(FIELD_MOMENT_NOTIFICATION_TYPE, <<"nft">>).
 -define(FIELD_MOMENT_NOTIFICATION_PROMPT, <<"nfp">>).
@@ -200,7 +201,7 @@ publish_moment(PostId, Uid, Payload, PostTag, FeedAudienceType, FeedAudienceList
         FeedAudienceType :: atom(), FeedAudienceList :: [binary()],
         TimestampMs :: integer(), MomentInfo :: maybe(pb_moment_info())) -> ok | {error, any()}.
 publish_post_internal(PostId, Uid, Payload, PostTag, FeedAudienceType, FeedAudienceList, TimestampMs, MomentInfo) ->
-    {NotificationTimestampBin, NumTakesBin, TimeTakenBin, NumSelfieTakesBin, NotificationIdBin} = encode_moment_info(MomentInfo),
+    {NotificationTimestampBin, NumTakesBin, TimeTakenBin, NumSelfieTakesBin, NotificationIdBin, ContentTypeBin} = encode_moment_info(MomentInfo),
     C1 = [["HSET", post_key(PostId),
         ?FIELD_UID, Uid,
         ?FIELD_PAYLOAD, Payload,
@@ -211,7 +212,8 @@ publish_post_internal(PostId, Uid, Payload, PostTag, FeedAudienceType, FeedAudie
         ?FIELD_NOTIFICATION_TIMESTAMP, NotificationTimestampBin,
         ?FIELD_TIME_TAKEN, TimeTakenBin,
         ?FIELD_NUM_SELFIE_TAKES, NumSelfieTakesBin,
-        ?FIELD_NOTIFICATION_ID, NotificationIdBin]],
+        ?FIELD_NOTIFICATION_ID, NotificationIdBin,
+        ?FIELD_CONTENT_TYPE, ContentTypeBin]],
     C2 = case FeedAudienceList of
         [] -> [];
         _ -> [["SADD", post_audience_key(PostId) | FeedAudienceList]]
@@ -228,7 +230,8 @@ publish_post_internal(PostId, Uid, Payload, PostTag, FeedAudienceType, FeedAudie
 
 
 check_daily_limit(Uid, _PostId, MomentInfo) ->
-    {_NotificationTimestampBin, _NumTakesBin, _TimeTakenBin, _NumSelfieTakesBin, NotificationIdBin} = encode_moment_info(MomentInfo),
+    {_NotificationTimestampBin, _NumTakesBin, _TimeTakenBin,
+        _NumSelfieTakesBin, NotificationIdBin, _ContentTypeBin} = encode_moment_info(MomentInfo),
     DailyLimitKey = daily_limit_key(Uid, NotificationIdBin),
     [{ok, Count}, {ok, _}] = qp([
             ["INCR", DailyLimitKey],
@@ -771,12 +774,14 @@ get_num_posts(Uid) ->
 get_post(PostId) ->
     [
         {ok, [Uid, Payload, PostTag, AudienceType, TimestampMs, Gid, PSATag, IsDeletedBin,
-            NotificationTimestampBin, NumTakesBin, TimeTakenBin, NumSelfieTakesBin, NotificationIdBin, IsExpiredBin]},
+            NotificationTimestampBin, NumTakesBin, TimeTakenBin, NumSelfieTakesBin, NotificationIdBin,
+            ContentTypeBin, IsExpiredBin]},
         {ok, AudienceList}] = qp([
             ["HMGET", post_key(PostId),
                 ?FIELD_UID, ?FIELD_PAYLOAD, ?FIELD_TAG, ?FIELD_AUDIENCE_TYPE, ?FIELD_TIMESTAMP_MS,
                 ?FIELD_GROUP_ID, ?FIELD_PSA_TAG, ?FIELD_DELETED, ?FIELD_NOTIFICATION_TIMESTAMP,
-                ?FIELD_NUM_TAKES, ?FIELD_TIME_TAKEN, ?FIELD_NUM_SELFIE_TAKES, ?FIELD_NOTIFICATION_ID, ?FIELD_EXPIRED],
+                ?FIELD_NUM_TAKES, ?FIELD_TIME_TAKEN, ?FIELD_NUM_SELFIE_TAKES, ?FIELD_NOTIFICATION_ID,
+                ?FIELD_CONTENT_TYPE, ?FIELD_EXPIRED],
             ["SMEMBERS", post_audience_key(PostId)]]),
     IsDeleted = util_redis:decode_boolean(IsDeletedBin, false),
     case Uid =:= undefined orelse IsDeleted =:= true of
@@ -792,7 +797,8 @@ get_post(PostId) ->
                 ts_ms = util_redis:decode_ts(TimestampMs),
                 gid = Gid,
                 psa_tag = PSATag,
-                moment_info = decode_moment_info(NotificationTimestampBin, NumTakesBin, TimeTakenBin, NumSelfieTakesBin, NotificationIdBin),
+                moment_info = decode_moment_info(NotificationTimestampBin, NumTakesBin, TimeTakenBin,
+                    NumSelfieTakesBin, NotificationIdBin, ContentTypeBin),
                 expired = util_redis:decode_boolean(IsExpiredBin, false)
             }}
     end.
@@ -862,12 +868,13 @@ get_comment_data(PostId, CommentId, ParentId) ->
     [{ok, Res1}, {ok, Res2}, {ok, Res3}] = qp([
         ["HMGET", post_key(PostId), ?FIELD_UID, ?FIELD_PAYLOAD, ?FIELD_TAG,
                 ?FIELD_AUDIENCE_TYPE, ?FIELD_TIMESTAMP_MS, ?FIELD_DELETED, ?FIELD_NOTIFICATION_TIMESTAMP,
-                ?FIELD_NUM_TAKES, ?FIELD_TIME_TAKEN, ?FIELD_NUM_SELFIE_TAKES, ?FIELD_NOTIFICATION_ID, ?FIELD_EXPIRED],
+                ?FIELD_NUM_TAKES, ?FIELD_TIME_TAKEN, ?FIELD_NUM_SELFIE_TAKES, ?FIELD_NOTIFICATION_ID,
+                ?FIELD_CONTENT_TYPE, ?FIELD_EXPIRED],
         ["SMEMBERS", post_audience_key(PostId)],
         ["HMGET", comment_key(CommentId, PostId), ?FIELD_PUBLISHER_UID, ?FIELD_PARENT_COMMENT_ID, ?FIELD_COMMENT_TYPE,
                 ?FIELD_PAYLOAD, ?FIELD_TIMESTAMP_MS, ?FIELD_DELETED]]),
     [PostUid, PostPayload, PostTag, AudienceType, PostTsMs, IsPostDeletedBin,
-        NotificationTimestampBin, NumTakesBin, TimeTakenBin, NumSelfieTakesBin, NotificationIdBin, IsExpiredBin] = Res1,
+        NotificationTimestampBin, NumTakesBin, TimeTakenBin, NumSelfieTakesBin, NotificationIdBin, ContentTypeBin, IsExpiredBin] = Res1,
     AudienceList = Res2,
     [CommentPublisherUid, ParentCommentId, CommentTypeBin, CommentPayload, CommentTsMs, IsCommentDeletedBin] = Res3,
     
@@ -886,7 +893,8 @@ get_comment_data(PostId, CommentId, ParentId) ->
                 payload = PostPayload,
                 tag = decode_post_tag(PostTag),
                 ts_ms = util_redis:decode_ts(PostTsMs),
-                moment_info = decode_moment_info(NotificationTimestampBin, NumTakesBin, TimeTakenBin, NumSelfieTakesBin, NotificationIdBin),
+                moment_info = decode_moment_info(NotificationTimestampBin, NumTakesBin, TimeTakenBin,
+                    NumSelfieTakesBin, NotificationIdBin, ContentTypeBin),
                 expired = util_redis:decode_boolean(IsExpiredBin, false)
             },
             %% Fetch push data.
@@ -1358,18 +1366,20 @@ decode_post_tag(<<"pm">>) -> public_moment;
 decode_post_tag(_) -> undefined.
 
 
-encode_moment_info(undefined) -> {<<>>, <<>>, <<>>, <<>>, <<>>};
+encode_moment_info(undefined) -> {<<>>, <<>>, <<>>, <<>>, <<>>, <<>>};
 encode_moment_info(#pb_moment_info{notification_timestamp = NotificationTimestamp, num_takes = NumTakes,
-        time_taken = TimeTaken, num_selfie_takes = NumSelfieTakes, notification_id = NotificationId}) ->
+        time_taken = TimeTaken, num_selfie_takes = NumSelfieTakes, notification_id = NotificationId,
+        content_type = ContentType}) ->
     NotificationTimestampBin = util_redis:encode_int(NotificationTimestamp),
     NumTakesBin = util_redis:encode_int(NumTakes),
     TimeTakenBin = util_redis:encode_int(TimeTaken),
     NumSelfieTakesBin = util_redis:encode_int(NumSelfieTakes),
     NotificationIdBin = util_redis:encode_int(NotificationId),
-    {NotificationTimestampBin, NumTakesBin, TimeTakenBin, NumSelfieTakesBin, NotificationIdBin}.
+    ContentTypeBin = util:to_binary(ContentType),
+    {NotificationTimestampBin, NumTakesBin, TimeTakenBin, NumSelfieTakesBin, NotificationIdBin, ContentTypeBin}.
 
 
-decode_moment_info(NotificationTimestampBin, NumTakesBin, TimeTakenBin, NumSelfieTakesBin, NotificationIdBin) ->
+decode_moment_info(NotificationTimestampBin, NumTakesBin, TimeTakenBin, NumSelfieTakesBin, NotificationIdBin, ContentTypeBin) ->
     NotifTs = case util_redis:decode_int(NotificationTimestampBin) of
         undefined -> 0;
         Val -> Val
@@ -1390,6 +1400,10 @@ decode_moment_info(NotificationTimestampBin, NumTakesBin, TimeTakenBin, NumSelfi
         undefined -> 0;
         Val5 -> Val5
     end,
+    ContentType = case util:to_atom(ContentTypeBin) of
+        undefined -> image;
+        Val6 -> Val6
+    end,
     case NotifTs =:= 0 andalso NotificationId =:= 0 of
         true -> undefined;
         false ->
@@ -1398,7 +1412,8 @@ decode_moment_info(NotificationTimestampBin, NumTakesBin, TimeTakenBin, NumSelfi
                 num_takes = NumTakes,
                 time_taken = TimeTaken,
                 num_selfie_takes = NumSelfieTakes,
-                notification_id = NotificationId
+                notification_id = NotificationId,
+                content_type = ContentType
             }
     end.
 
