@@ -826,7 +826,7 @@ is_main_stest(Node, Nodes) ->
         true ->
             case config:get_hallo_env() of
                 localhost -> false;
-                _ -> false;
+                _ -> false
             end;
         false ->
             OwnShard = get_shard(Node),
