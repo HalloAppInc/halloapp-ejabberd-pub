@@ -79,8 +79,8 @@ get_media_prompt() ->
 
 get_text_prompts() ->
     [
-    <<"">>,
-    <<"">>,
+    <<"A movie you thought was overrated, but turned out great">>,
+    <<"If you had to listen to only one artist for a week, who would it be?">>,
     <<"">>,
     <<"">>,
     <<"">>,
