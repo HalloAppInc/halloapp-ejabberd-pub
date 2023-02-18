@@ -1184,14 +1184,14 @@ filter_moments_by_author(Uid, Moments, ShowDevContent) ->
                 false
         end,
         Moments),
-    sets:to_list(sets:from_list(Moments2)).
+    util:uniq(Moments2).
 
 
 filter_seen_moments(Uid, Moments) ->
     %% Filter out seen posts.
     SeenPostIdSet = sets:from_list(model_feed:get_past_seen_posts(Uid)),
     Moments2 = lists:filter(fun(Moment) -> not sets:is_element(Moment#post.id, SeenPostIdSet) end, Moments),
-    sets:to_list(sets:from_list(Moments2)).
+    util:uniq(Moments2).
 
 
 fetch_items_from_ranked_feed(Uid, Cursor, Limit, ShowDevContent) ->

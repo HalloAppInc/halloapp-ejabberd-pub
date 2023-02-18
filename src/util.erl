@@ -107,7 +107,8 @@
     get_node/0,
     index_of/2,
     get_stat_namespace/1,
-    secs_to_hrs/1
+    secs_to_hrs/1,
+    uniq/1
 ]).
 
 
@@ -871,4 +872,19 @@ get_stat_namespace(A) ->
 
 secs_to_hrs(Secs) ->
     round(Secs / ?HOURS).
+
+
+%% preserves the order.
+uniq(L) when is_list(L) ->
+    lists:reverse(uniq_1(L, #{})).
+
+uniq_1([X | Xs], M) ->
+    case is_map_key(X, M) of
+        true ->
+            uniq_1(Xs, M);
+        false ->
+            [X | uniq_1(Xs, M#{X => true})]
+    end;
+uniq_1([], _) ->
+    [].
 
