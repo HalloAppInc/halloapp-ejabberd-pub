@@ -98,7 +98,7 @@ check_and_schedule() ->
     case util:is_main_stest() of
         true ->
             ?INFO("Scheduling fof run", []),
-            erlcron:cron(send_notifications, {
+            erlcron:cron(follow_suggestions, {
                 {daily, {10, 00, am}},
                 {?MODULE, generate_fof_uids, []}
             }),
