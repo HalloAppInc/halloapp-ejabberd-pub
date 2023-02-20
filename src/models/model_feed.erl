@@ -1089,7 +1089,7 @@ set_moment_time_to_send(Time, Id, Type, Prompt, Tag) ->
 
 
 overwrite_moment_time_to_send(Time, Id, Type, Prompt, Tag) ->
-    q(["SET", moment_time_to_send_key(Tag), util:to_binary(Time), "EX", ?MOMENT_TAG_EXPIRATION, "NX"]),
+    q(["SET", moment_time_to_send_key(Tag), util:to_binary(Time), "EX", ?MOMENT_TAG_EXPIRATION]),
     qp([["HSET", moment_time_to_send_key2(Tag), ?FIELD_MOMENT_NOTIFICATION_ID, util:to_binary(Id)],
         ["HSET", moment_time_to_send_key2(Tag), ?FIELD_MOMENT_NOTIFICATION_TYPE, util_moments:moment_type_to_bin(Type)],
         ["HSET", moment_time_to_send_key2(Tag), ?FIELD_MOMENT_NOTIFICATION_PROMPT, Prompt],

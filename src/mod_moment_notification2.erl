@@ -40,7 +40,8 @@
     get_region_offset_hr_by_sec/1,
     get_region_offset_hr/2,
     get_region_by_zone_offset_sec/1,
-    get_region_by_uid/1
+    get_region_by_uid/1,
+    get_current_offsets/1
 ]).
 
 %% Hooks
@@ -117,11 +118,7 @@ reassign_jobs() ->
 -spec register_user(Uid :: binary(), Server :: binary(), Phone :: binary(), CampaignId :: binary()) -> ok.
 register_user(Uid, _Server, _Phone, _CampaignId) ->
     ?INFO("Uid: ~s", [Uid]),
-    %% TODO(josh): run this for everybody
-    case dev_users:is_dev_uid(Uid) of
-        true -> send_latest_notification(Uid, true);
-        false -> ok
-    end,
+    send_latest_notification(Uid, true),
     ok.
 
 
@@ -130,22 +127,17 @@ re_register_user(Uid, _Server, _Phone, _CampaignId) ->
     ?INFO("Uid: ~s", [Uid]),
     %% Clear out any recent moment notifications sent.
     %% This will enable us to send another again if necessary.
-    %% TODO(josh): run this for everybody
-    case dev_users:is_dev_uid(Uid) of
-        false -> ok;
-        true ->
-            Today = util:get_date(util:now()),
-            Yesterday = util:get_date(util:now() - ?DAYS),
-            DayBeforeYesterday = util:get_date(util:now() - (2 * ?DAYS)),
-            Tomorrow = util:get_date(util:now() + ?DAYS),
-            DayAfterTomorrow = util:get_date(util:now() + (2 * ?DAYS)),
-            model_accounts:delete_moment_notification_sent(Uid, util:to_binary(DayBeforeYesterday)),
-            model_accounts:delete_moment_notification_sent(Uid, util:to_binary(Yesterday)),
-            model_accounts:delete_moment_notification_sent(Uid, util:to_binary(Today)),
-            model_accounts:delete_moment_notification_sent(Uid, util:to_binary(Tomorrow)),
-            model_accounts:delete_moment_notification_sent(Uid, util:to_binary(DayAfterTomorrow)),
-            send_latest_notification(Uid, true)
-    end,
+    Today = util:get_date(util:now()),
+    Yesterday = util:get_date(util:now() - ?DAYS),
+    DayBeforeYesterday = util:get_date(util:now() - (2 * ?DAYS)),
+    Tomorrow = util:get_date(util:now() + ?DAYS),
+    DayAfterTomorrow = util:get_date(util:now() + (2 * ?DAYS)),
+    model_accounts:delete_moment_notification_sent(Uid, util:to_binary(DayBeforeYesterday)),
+    model_accounts:delete_moment_notification_sent(Uid, util:to_binary(Yesterday)),
+    model_accounts:delete_moment_notification_sent(Uid, util:to_binary(Today)),
+    model_accounts:delete_moment_notification_sent(Uid, util:to_binary(Tomorrow)),
+    model_accounts:delete_moment_notification_sent(Uid, util:to_binary(DayAfterTomorrow)),
+    send_latest_notification(Uid, true),
     ok.
 
 
@@ -316,9 +308,8 @@ send_moment_notification_async(NotificationId, NotificationType, Prompt, Name) -
 check_and_send_moment_notification(Uid, NotificationId, NotificationTimestamp, NotificationType, Prompt, HideBanner) ->
     {{_,_, Date}, {_, _, _}} =
         calendar:system_time_to_universal_time(NotificationTimestamp, second),
-    %% TODO(josh): run this for everybody
-    case {dev_users:is_dev_uid(Uid), model_accounts:mark_moment_notification_sent(Uid, util:to_binary(Date))} of
-        {true, true} ->
+    case model_accounts:mark_moment_notification_sent(Uid, util:to_binary(Date)) of
+        true ->
             NotificationTime = util:now(),
             AppType = util_uid:get_app_type(Uid),
             Packet = #pb_msg{
@@ -339,8 +330,8 @@ check_and_send_moment_notification(Uid, NotificationId, NotificationTimestamp, N
             ejabberd_router:route(Packet),
             ejabberd_hooks:run(send_moment_notification, AppType,
                 [Uid, NotificationId, NotificationTime, NotificationType, Prompt, HideBanner]);
-        {IsDev, NeverSent} ->
-            ?INFO("NOT Sending moment notification to ~s: dev = ~p, already_sent = ~p", [IsDev, not NeverSent])
+        NeverSent ->
+            ?INFO("NOT Sending moment notification to ~s, already_sent = ~p", [Uid, not NeverSent])
     end.
 
 %%====================================================================

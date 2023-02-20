@@ -229,7 +229,7 @@ feed_item_published(Uid, PostOwnerUid, ItemId, ItemType, ItemTag, FeedAudienceTy
     CC = mod_libphonenumber:get_cc(Phone),
     IsDev = dev_users:is_dev_uid(Uid),
     StatNamespace = util:get_stat_namespace(Uid),
-    ZoneOffsetRegion = mod_moment_notification:get_offset_region_by_uid(Uid),
+    ZoneOffsetRegion = mod_moment_notification2:get_region_by_uid(Uid),
     case ItemType of
         post ->
             ?INFO("post ~s from Uid: ~s CC: ~s IsDev: ~p",[ItemId, Uid, CC, IsDev]),

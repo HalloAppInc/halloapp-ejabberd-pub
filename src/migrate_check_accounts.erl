@@ -27,9 +27,9 @@
     set_login_run/2,
     cleanup_offline_queue_run/2,
     check_huawei_token_run/2,
-    update_zone_offset/2,
+    % update_zone_offset/2,
     update_name_index/2,
-    sync_latest_notification/2,
+    % sync_latest_notification/2,
     calculate_fof_run/2
 ]).
 
@@ -477,32 +477,32 @@ check_huawei_token_run(Key, State) ->
 %%                         Update Zone Offset Tag                        %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-update_zone_offset(Key, State) ->
-    DryRun = maps:get(dry_run, State, false),
-    Result = re:run(Key, "^acc:{(1001000000[0-9]{9})}$", [global, {capture, all, binary}]),
-    case Result of
-        {match, [[_FullKey, Uid]]} ->
-            case model_accounts:get_phone(Uid) of
-                {ok, Phone} ->
-                    {ok, PushInfo} = model_accounts:get_push_info(Uid),
-                    OldZoneOffsetSecs = ?HOURS * mod_moment_notification:get_four_zone_offset_hr(Uid, Phone, PushInfo),
-                    ZoneOffsetHr = case PushInfo#push_info.zone_offset of
-                        undefined -> ?HOURS * mod_moment_notification:get_four_zone_offset_hr(undefined, Phone);
-                        Offset -> Offset
-                    end,
-                    case DryRun of
-                        false ->
-                            model_accounts:migrate_zone_offset_set(Uid, ZoneOffsetHr, OldZoneOffsetSecs),
-                            ?INFO("Uid: ~p, old: ~p, new: ~p", [Uid, OldZoneOffsetSecs, ZoneOffsetHr]);
-                        true ->
-                            ?INFO("[DRY RUN] Uid: ~p, old: ~p, new: ~p", [Uid, OldZoneOffsetSecs, ZoneOffsetHr])
-                    end;
-                {error, missing} ->
-                    ?INFO("Skipping user (no phone): ~p", [Uid])
-            end;
-        _ -> ok
-    end,
-    State.
+% update_zone_offset(Key, State) ->
+%     DryRun = maps:get(dry_run, State, false),
+%     Result = re:run(Key, "^acc:{(1001000000[0-9]{9})}$", [global, {capture, all, binary}]),
+%     case Result of
+%         {match, [[_FullKey, Uid]]} ->
+%             case model_accounts:get_phone(Uid) of
+%                 {ok, Phone} ->
+%                     {ok, PushInfo} = model_accounts:get_push_info(Uid),
+%                     OldZoneOffsetSecs = ?HOURS * mod_moment_notification:get_four_zone_offset_hr(Uid, Phone, PushInfo),
+%                     ZoneOffsetHr = case PushInfo#push_info.zone_offset of
+%                         undefined -> ?HOURS * mod_moment_notification:get_four_zone_offset_hr(undefined, Phone);
+%                         Offset -> Offset
+%                     end,
+%                     case DryRun of
+%                         false ->
+%                             model_accounts:migrate_zone_offset_set(Uid, ZoneOffsetHr, OldZoneOffsetSecs),
+%                             ?INFO("Uid: ~p, old: ~p, new: ~p", [Uid, OldZoneOffsetSecs, ZoneOffsetHr]);
+%                         true ->
+%                             ?INFO("[DRY RUN] Uid: ~p, old: ~p, new: ~p", [Uid, OldZoneOffsetSecs, ZoneOffsetHr])
+%                     end;
+%                 {error, missing} ->
+%                     ?INFO("Skipping user (no phone): ~p", [Uid])
+%             end;
+%         _ -> ok
+%     end,
+%     State.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -537,26 +537,26 @@ update_name_index(Key, State) ->
     State.
 
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%                             update feed index                            %%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% %%                             update feed index                            %%
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-sync_latest_notification(Key, State) ->
-    DryRun = maps:get(dry_run, State, false),
-    Result = re:run(Key, "^acc:{(1001[0-9]+)}$", [global, {capture, all, binary}]),
-    case Result of
-        {match, [[_FullKey, Uid]]} ->
-            case util_uid:get_app_type(Uid) of
-                katchup ->
-                    {ok, Phone} = model_accounts:get_phone(Uid),
-                    mod_moment_notification:sync_latest_notification(Uid, Phone, DryRun),
-                    ok;
-                halloapp ->
-                    ok
-            end;
-        _ -> ok
-    end,
-    State.
+% sync_latest_notification(Key, State) ->
+%     DryRun = maps:get(dry_run, State, false),
+%     Result = re:run(Key, "^acc:{(1001[0-9]+)}$", [global, {capture, all, binary}]),
+%     case Result of
+%         {match, [[_FullKey, Uid]]} ->
+%             case util_uid:get_app_type(Uid) of
+%                 katchup ->
+%                     {ok, Phone} = model_accounts:get_phone(Uid),
+%                     mod_moment_notification:sync_latest_notification(Uid, Phone, DryRun),
+%                     ok;
+%                 halloapp ->
+%                     ok
+%             end;
+%         _ -> ok
+%     end,
+%     State.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
