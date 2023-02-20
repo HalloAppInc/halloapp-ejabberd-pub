@@ -877,7 +877,7 @@ secs_to_hrs(Secs) ->
 
 %% preserves the order.
 uniq(L) when is_list(L) ->
-    lists:reverse(uniq_1(L, #{})).
+    uniq_1(L, #{}).
 
 uniq_1([X | Xs], M) ->
     case is_map_key(X, M) of
