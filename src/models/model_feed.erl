@@ -114,7 +114,9 @@
     prepend_ranked_feed/3,
     append_ranked_feed/3,
     get_ranked_feed/1,
-    clear_ranked_feed/1
+    clear_ranked_feed/1,
+    expire_post/1,
+    unexpire_post/1
 ]).
 
 %% TODO(murali@): expose more apis specific to posts and comments only if necessary.
@@ -681,10 +683,16 @@ delete_post(PostId, _Uid) ->
     ok.
 
 
--spec expire_post(PostId :: binary(), Uid :: uid()) -> ok | {error, any()}.
-expire_post(PostId, _Uid) ->
+-spec expire_post(PostId :: binary()) -> ok | {error, any()}.
+expire_post(PostId) ->
     %% Set expired field to be 1.
     {ok, _} = q(["HSET", post_key(PostId), ?FIELD_EXPIRED, 1]),
+    ok.
+
+
+unexpire_post(PostId) ->
+    %% Set expired field to be 0.
+    {ok, _} = q(["HSET", post_key(PostId), ?FIELD_EXPIRED, 0]),
     ok.
 
 
@@ -732,7 +740,7 @@ expire_all_user_posts(Uid, NotificationId) ->
                             end
                     end
                 end, Posts),
-            lists:foreach(fun(PostId) -> ok = expire_post(PostId, Uid) end, ExpirePostIds)
+            lists:foreach(fun(PostId) -> ok = expire_post(PostId) end, ExpirePostIds)
     end,
     cleanup_reverse_index(Uid),
     ok.

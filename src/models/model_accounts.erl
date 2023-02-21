@@ -906,9 +906,11 @@ migrate_zone_offset_set(Uid, ZoneOffsetSec, OldZoneOffsetSec)
     %% to get all the uids from a region
     HashSlot = util_redis:eredis_hash(binary_to_list(Uid)),
     Slot = HashSlot rem ?NUM_SLOTS,
+    OldZoneOffsetHr = util:secs_to_hrs(OldZoneOffsetSec),
     ZoneOffsetHr = util:secs_to_hrs(ZoneOffsetSec),
-    [{ok, _}, {ok, _}] = qp([
+    [{ok, _}, {ok, _}, {ok, _}] = qp([
         ["SREM", zone_offset_sec_key(Slot, OldZoneOffsetSec), Uid],
+        ["SREM", zone_offset_hr_key(Slot, OldZoneOffsetHr), Uid],
         ["SADD", zone_offset_hr_key(Slot, ZoneOffsetHr), Uid]
     ]),
     ok.
