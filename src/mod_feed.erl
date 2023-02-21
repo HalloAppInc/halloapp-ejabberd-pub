@@ -60,7 +60,7 @@
     send_old_items/3,
     share_feed_items/4,
     send_old_moment/2,
-    send_moment_notification/6,
+    send_moment_notification/7,
     new_follow_relationship/2,
     get_ranked_public_moments/7,
     re_register_user/4,
@@ -350,7 +350,7 @@ remove_user(Uid, _Server) ->
 %% we clear all old posts of this user from the server once we send a notification.
 %% since this post is no longer valid from that user.
 %% when a new user follows this user - they should no longer get old posts.
-send_moment_notification(Uid, NotificationId, _NotificationTime, _NotificationType, _Prompt, _HideBanner) ->
+send_moment_notification(Uid, _Region, NotificationId, _NotificationTime, _NotificationType, _Prompt, _HideBanner) ->
     AppType = util_uid:get_app_type(Uid),
     case AppType of
         katchup ->

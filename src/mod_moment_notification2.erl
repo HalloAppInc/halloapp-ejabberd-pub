@@ -36,12 +36,13 @@
     maybe_schedule_notifications/0,
     maybe_schedule_moment_notif/2,
     check_and_send_moment_notifications/5,
-    send_moment_notification_async/5,
+    send_moment_notification_async/6,
     get_region_offset_hr_by_sec/1,
     get_region_offset_hr/2,
     get_region_by_zone_offset_sec/1,
     get_region_by_uid/1,
-    get_current_offsets/1
+    get_current_offsets/1,
+    is_region_offset_hr/1
 ]).
 
 %% Hooks
@@ -100,7 +101,7 @@ stop(_Host) ->
     ok.
 
 depends(_Host, _Opts) ->
-    [].
+    [{mod_moment_notif_monitor, hard}].
 
 mod_options(_Host) ->
     [].
@@ -178,7 +179,8 @@ send_latest_notification(Uid, HideBanner) ->
 
 send_latest_notification(Uid, CurrentTime, HideBanner) ->
     %% Figure out which region's offset is assigned to this user
-    OffsetHr = get_region_offset_hr(get_region_by_uid(Uid)),
+    Region = get_region_by_uid(Uid),
+    OffsetHr = get_region_offset_hr(Region),
     %% Figure out the most recent moment notif to send for the user's offset
     %% Fetch time for today, tomorrow, yesterday and day before yesterday.
     [YesterdayInfoMap, TodayInfoMap, TomorrowInfoMap] = get_current_offsets(CurrentTime),
@@ -192,21 +194,21 @@ send_latest_notification(Uid, CurrentTime, HideBanner) ->
     if
     %% if Uid is ahead of a certain offset, need to send that moment notif
         OffsetHr > TomorrowOffsetHr ->
-            check_and_send_moment_notification(Uid, maps:get(date, TomorrowInfoMap), maps:get(notif_id, TomorrowInfoMap),
+            check_and_send_moment_notification(Uid, Region, maps:get(date, TomorrowInfoMap), maps:get(notif_id, TomorrowInfoMap),
                 util_moments:calculate_notif_timestamp(1, maps:get(mins_to_send, TomorrowInfoMap), OffsetHr),
                 maps:get(notif_type, TomorrowInfoMap), maps:get(prompt, TomorrowInfoMap), HideBanner);
         OffsetHr > TodayOffsetHr ->
-            check_and_send_moment_notification(Uid, maps:get(date, TodayInfoMap), maps:get(notif_id, TodayInfoMap),
+            check_and_send_moment_notification(Uid, Region, maps:get(date, TodayInfoMap), maps:get(notif_id, TodayInfoMap),
                 util_moments:calculate_notif_timestamp(0, maps:get(mins_to_send, TodayInfoMap), OffsetHr),
                 maps:get(notif_type, TodayInfoMap), maps:get(prompt, TodayInfoMap), HideBanner);
         OffsetHr > YesterdayOffsetHr ->
-            check_and_send_moment_notification(Uid, maps:get(date, YesterdayInfoMap), maps:get(notif_id, YesterdayInfoMap),
+            check_and_send_moment_notification(Uid, Region, maps:get(date, YesterdayInfoMap), maps:get(notif_id, YesterdayInfoMap),
                 util_moments:calculate_notif_timestamp(-1, maps:get(mins_to_send, YesterdayInfoMap), OffsetHr),
                 maps:get(notif_type, YesterdayInfoMap), maps:get(prompt, YesterdayInfoMap), HideBanner);
         true ->
             %% if Uid isn't ahead of any of the current offsets, the moment notif is from day before yesterday
             [DayBeforeYesterdayInfoMap, _, _] = get_current_offsets(CurrentTime - ?DAYS),
-            check_and_send_moment_notification(Uid, maps:get(date, DayBeforeYesterdayInfoMap), maps:get(notif_id, DayBeforeYesterdayInfoMap),
+            check_and_send_moment_notification(Uid, Region, maps:get(date, DayBeforeYesterdayInfoMap), maps:get(notif_id, DayBeforeYesterdayInfoMap),
                 util_moments:calculate_notif_timestamp(-2, maps:get(mins_to_send, DayBeforeYesterdayInfoMap), OffsetHr),
                 maps:get(notif_type, DayBeforeYesterdayInfoMap), maps:get(prompt, DayBeforeYesterdayInfoMap), HideBanner)
     end.
@@ -236,9 +238,9 @@ maybe_schedule_moment_notif(TodaySecs, IsImmediateNotification) ->
     lists:foreach(
         fun(#{date := Date, current_offset_hr := OffsetHr, mins_to_send := LocalMinToSend,
             notif_id := NotifId, notif_type := NotifType, prompt := Prompt}) ->
-            case is_region_offset_hr(OffsetHr) of
+            case check_for_region_offset_hr(OffsetHr) of
                 false -> ok;
-                true ->
+                {Region, _Predicate, OffsetHr} ->
                     %% It is almost time to send for a particular region (< 1hr)
                     %% Calculate the remaining minutes to wait until sending notification
                     LocalMinNow = (CurrentHrGMT * 60) + (OffsetHr * 60) + CurrentMinGMT,
@@ -258,6 +260,7 @@ maybe_schedule_moment_notif(TodaySecs, IsImmediateNotification) ->
                     end,
                     ?INFO("Scheduling moment notification to send in ~p minutes for OffsetHr ~p, Date: ~p",
                         [MinsUntilSend, OffsetHr, Date]),
+                    ejabberd_hooks:run(start_timer_moment_notification, ?KATCHUP, [Region, MinsUntilSend, OffsetHr, Date, NotifId, NotifType, Prompt]),
                     timer:apply_after(MinsUntilSend * ?MINUTES_MS, ?MODULE, check_and_send_moment_notifications,
                         [OffsetHr, Date, NotifId, NotifType, Prompt])
             end
@@ -271,11 +274,12 @@ check_and_send_moment_notifications(OffsetHr, Date, NotificationId, Notification
     StartTime = util:now_ms(),
     {Region, Predicate, OffsetHr} = lists:keyfind(OffsetHr, 3, get_regions()),
     Uids = get_uids_by_region(Predicate),
+    ejabberd_hooks:run(check_and_send_moment_notifications, ?KATCHUP, [Region, length(Uids), OffsetHr, Date, NotificationId, NotificationType, Prompt]),
     %% Spawn some worker processes
     NumWorkers = ?NUM_MOMENT_NOTIF_SENDER_PROCS,
     WorkerPids = lists:map(
         fun(N) ->
-            spawn(?MODULE, send_moment_notification_async, [Date, NotificationId, NotificationType, Prompt, N])
+            spawn(?MODULE, send_moment_notification_async, [Region, Date, NotificationId, NotificationType, Prompt, N])
         end,
         lists:seq(1, NumWorkers)),
     %% Send Uids to the worker processes for moment notifications to be sent
@@ -290,22 +294,23 @@ check_and_send_moment_notifications(OffsetHr, Date, NotificationId, Notification
     lists:foreach(fun(Pid) -> Pid ! done end, WorkerPids),
     TotalTime = (util:now_ms() - StartTime) / 1000,
     ?INFO("Finish assgining ~p uids in ~p to ~p workers to send moment notifications, took ~p seconds",
-        [length(Uids), Region, NumWorkers, TotalTime]).
+        [length(Uids), Region, NumWorkers, TotalTime]),
+    ok.
 
 
-send_moment_notification_async(Date, NotificationId, NotificationType, Prompt, Name) ->
+send_moment_notification_async(Region, Date, NotificationId, NotificationType, Prompt, Name) ->
     receive
         done ->
             ok;
         Uid ->
-            check_and_send_moment_notification(Uid, Date, NotificationId, util:now(), NotificationType, Prompt, false),
-            send_moment_notification_async(Date, NotificationId, NotificationType, Prompt, Name)
+            check_and_send_moment_notification(Uid, Region, Date, NotificationId, util:now(), NotificationType, Prompt, false),
+            send_moment_notification_async(Region, Date, NotificationId, NotificationType, Prompt, Name)
     end.
 
 
 %% This is the function that actually sends the notification to the client
 %% Before sending, it checks to ensure a notification has not been sent to this user on this date
-check_and_send_moment_notification(Uid, Date, NotificationId, NotificationTimestamp, NotificationType, Prompt, HideBanner) ->
+check_and_send_moment_notification(Uid, Region, Date, NotificationId, NotificationTimestamp, NotificationType, Prompt, HideBanner) ->
     case model_accounts:mark_moment_notification_sent(Uid, util:to_binary(Date)) of
         true ->
             NotificationTime = util:now(),
@@ -327,7 +332,7 @@ check_and_send_moment_notification(Uid, Date, NotificationId, NotificationTimest
                 [Uid, Date, NotificationId, NotificationTimestamp, NotificationType, Prompt, HideBanner]),
             ejabberd_router:route(Packet),
             ejabberd_hooks:run(send_moment_notification, AppType,
-                [Uid, NotificationId, NotificationTime, NotificationType, Prompt, HideBanner]);
+                [Uid, Region, NotificationId, NotificationTime, NotificationType, Prompt, HideBanner]);
         NeverSent ->
             ?INFO("NOT Sending moment notification to ~s, already_sent = ~p", [Uid, not NeverSent])
     end.
@@ -372,6 +377,10 @@ get_current_offsets(TodayTimestamp) ->
 get_uids_by_region(RegionPredicate) ->
     ZoneOffsetHrs = lists:filter(RegionPredicate, lists:seq(-12, 14)),
     model_accounts:get_uids_from_zone_offset_hrs(ZoneOffsetHrs).
+
+
+check_for_region_offset_hr(ZoneOffsetHr) ->
+    lists:keyfind(ZoneOffsetHr, 3, get_regions()).
 
 
 is_region_offset_hr(ZoneOffsetHr) ->
