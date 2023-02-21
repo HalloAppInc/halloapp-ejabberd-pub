@@ -879,7 +879,7 @@ set_voip_token(Uid, VoipToken, TimestampMs, LangId, ZoneOffset) ->
     ok.
 
 
--spec update_lang_counters(Uid :: binary(), LangId :: binary(), OldLangId :: binary()) -> ok.
+-spec update_lang_counters(Uid :: binary(), LangId :: maybe(binary()), OldLangId :: maybe(binary())) -> ok.
 update_lang_counters(Uid, undefined, OldLangId) when OldLangId =/= undefined ->
     HashSlot = util_redis:eredis_hash(binary_to_list(Uid)),
     LangSlot = HashSlot rem ?NUM_SLOTS,
