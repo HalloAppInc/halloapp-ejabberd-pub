@@ -646,14 +646,15 @@ get_and_check_whisper_keys(IdentityKeyB64, SignedKeyB64, OneTimeKeysB64) ->
     end.
 
 
+%% Runs only for ios-appclip.
+%% Else it is not useful.
 -spec process_push_token(Uid :: uid(), Phone :: phone(), PushPayload :: map()) -> ok.
 process_push_token(Uid, Phone, PushPayload) ->
     LangId = maps:get(<<"lang_id">>, PushPayload, <<"en-US">>),
+    PushToken = maps:get(<<"push_token">>, PushPayload, undefined),
     InputZoneOffsetSec = maps:get(<<"zoneOffset">>, PushPayload, undefined),
     RegionOffsetHr = mod_moment_notification2:get_region_offset_hr(InputZoneOffsetSec, Phone),
     ZoneOffsetSec = RegionOffsetHr * ?HOURS,
-    model_accounts:update_zone_offset_hr_index(Uid, ZoneOffsetSec, undefined),
-    PushToken = maps:get(<<"push_token">>, PushPayload, undefined),
     %% TODO: rename this field to token_type.
     PushTokenType = maps:get(<<"push_os">>, PushPayload, undefined),
     case PushToken =/= undefined andalso mod_push_tokens:is_appclip_token_type(PushTokenType) of

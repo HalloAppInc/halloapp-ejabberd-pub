@@ -880,7 +880,13 @@ set_voip_token(Uid, VoipToken, TimestampMs, LangId, ZoneOffset) ->
 
 
 -spec update_lang_counters(Uid :: binary(), LangId :: binary(), OldLangId :: binary()) -> ok.
-update_lang_counters(Uid, LangId, OldLangId) ->
+update_lang_counters(Uid, undefined, OldLangId) when OldLangId =/= undefined ->
+    HashSlot = util_redis:eredis_hash(binary_to_list(Uid)),
+    LangSlot = HashSlot rem ?NUM_SLOTS,
+    AppType = util_uid:get_app_type(Uid),
+    [{ok, _}] = qp([["HINCRBY", lang_key(LangSlot, AppType), OldLangId, -1]]),
+    ok;
+update_lang_counters(Uid, LangId, OldLangId) when LangId =/= OldLangId ->
     HashSlot = util_redis:eredis_hash(binary_to_list(Uid)),
     LangSlot = HashSlot rem ?NUM_SLOTS,
     AppType = util_uid:get_app_type(Uid),
@@ -896,6 +902,8 @@ update_lang_counters(Uid, LangId, OldLangId) ->
                 ]),
             ok
     end,
+    ok;
+update_lang_counters(_Uid, _LangId, _OldLangId) ->
     ok.
 
 
@@ -917,6 +925,16 @@ migrate_zone_offset_set(Uid, ZoneOffsetSec, OldZoneOffsetSec)
 
 
 -spec update_zone_offset_hr_index(Uid :: binary(), ZoneOffsetSec :: maybe(integer()), OldZoneOffsetSec :: maybe(integer())) -> ok.
+update_zone_offset_hr_index(Uid, undefined, OldZoneOffsetSec) when OldZoneOffsetSec =/= undefined ->
+    case util_uid:get_app_type(Uid) of
+        halloapp -> ok;
+        katchup ->
+            HashSlot = util_redis:eredis_hash(binary_to_list(Uid)),
+            Slot = HashSlot rem ?NUM_SLOTS,
+            OldZoneOffsetHr = util:secs_to_hrs(OldZoneOffsetSec),
+            {ok, _} = q(["SREM", zone_offset_hr_key(Slot, OldZoneOffsetHr), Uid])
+    end,
+    ok;
 update_zone_offset_hr_index(Uid, ZoneOffsetSec, OldZoneOffsetSec) when ZoneOffsetSec =/= OldZoneOffsetSec ->
     case util_uid:get_app_type(Uid) of
         halloapp -> ok;
@@ -1013,8 +1031,11 @@ get_push_info(Uid) ->
 
 -spec remove_push_info(Uid :: uid()) -> ok | {error, missing}.
 remove_push_info(Uid) ->
+    {ok, OldPushInfo} = get_push_info(Uid),
     {ok, _Res} = q(["HDEL", account_key(Uid), ?FIELD_PUSH_OS, ?FIELD_PUSH_TOKEN,
-        ?FIELD_PUSH_TIMESTAMP, ?FIELD_PUSH_LANGUAGE_ID, ?FIELD_VOIP_TOKEN, ?FIELD_HUAWEI_TOKEN]),
+        ?FIELD_PUSH_TIMESTAMP, ?FIELD_PUSH_LANGUAGE_ID, ?FIELD_VOIP_TOKEN, ?FIELD_HUAWEI_TOKEN, ?FIELD_ZONE_OFFSET_SECS]),
+    update_lang_counters(Uid, undefined, OldPushInfo#push_info.lang_id),
+    update_zone_offset_hr_index(Uid, undefined, OldPushInfo#push_info.zone_offset),
     ok.
 
 

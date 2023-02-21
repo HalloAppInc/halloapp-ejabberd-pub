@@ -23,6 +23,7 @@
     get_push_info/1,
     remove_huawei_token/2,
     remove_android_token/2,
+    register_user/4,
     re_register_user/4,
     remove_user/2,
     register_push_info/5,
@@ -45,6 +46,7 @@ start(_Host, _Opts) ->
     %% Katchup
     gen_iq_handler:add_iq_handler(ejabberd_local, katchup, pb_push_register, ?MODULE, process_local_iq),
     gen_iq_handler:add_iq_handler(ejabberd_local, katchup, pb_notification_prefs, ?MODULE, process_local_iq),
+    ejabberd_hooks:add(register_user, katchup, ?MODULE, register_user, 10),
     ejabberd_hooks:add(re_register_user, katchup, ?MODULE, re_register_user, 10),
     ejabberd_hooks:add(remove_user, katchup, ?MODULE, remove_user, 10),
     ok.
@@ -60,6 +62,7 @@ stop(_Host) ->
     %% Katchup
     gen_iq_handler:remove_iq_handler(ejabberd_local, katchup, pb_push_register),
     gen_iq_handler:remove_iq_handler(ejabberd_local, katchup, pb_notification_prefs),
+    ejabberd_hooks:delete(register_user, katchup, ?MODULE, register_user, 10),
     ejabberd_hooks:delete(re_register_user, katchup, ?MODULE, re_register_user, 10),
     ejabberd_hooks:delete(remove_user, katchup, ?MODULE, remove_user, 10),
     ok.
@@ -81,10 +84,27 @@ mod_options(_Host) ->
 %% hooks.
 %%====================================================================
 
--spec re_register_user(UserId :: binary(), Server :: binary(), Phone :: binary(), CampaignId :: binary()) -> ok.
-re_register_user(UserId, _Server, _Phone, _CampaignId) ->
+set_default_zone_offset_hr(Uid, Phone) ->
+    %% Always set a default zoneoffset for users registering.
+    RegionOffsetHr = mod_moment_notification2:get_region_offset_hr(undefined, Phone),
+    ZoneOffsetSec = RegionOffsetHr * ?HOURS,
+    model_accounts:update_zone_offset_hr_index(Uid, ZoneOffsetSec, undefined),
+    ok.
+
+-spec register_user(Uid :: binary(), Server :: binary(), Phone :: binary(), CampaignId :: binary()) -> ok.
+register_user(Uid, _Server, Phone, _CampaignId) ->
+    %% Always set a default zoneoffset for users registering.
+    set_default_zone_offset_hr(Uid, Phone),
+    ok.
+
+
+-spec re_register_user(Uid :: binary(), Server :: binary(), Phone :: binary(), CampaignId :: binary()) -> ok.
+re_register_user(Uid, _Server, Phone, _CampaignId) ->
     stat:count("HA/push_tokens", "remove_push_token"),
-    model_accounts:remove_push_info(UserId),
+    %% This will remove all push info including zoneoffset.
+    model_accounts:remove_push_info(Uid),
+    %% Always set a default zoneoffset for users re-registering.
+    set_default_zone_offset_hr(Uid, Phone),
     ok.
 
 
