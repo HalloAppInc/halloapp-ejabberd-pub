@@ -43,6 +43,7 @@
 %% TODO: Show score for post?
 -define(CAMPUS_SCORE_IMPORTANCE, 10.0).
 -define(FOLLOWING_INTEREST_IMPORTANCE, 110.0).
+-define(FOF_SCORE_IMPORTANCE, 0.1).
 -define(RECENCY_SCORE_IMPORTANCE, 1.0).
 
 
@@ -968,7 +969,7 @@ backfill_content(Uid, GeoTag) ->
             SeenPostIds = model_feed:get_past_seen_posts(Uid),
             SeenMoments = model_feed:get_posts(SeenPostIds),
             SeenMoments2 = filter_moments_by_author(Uid, SeenMoments, false),
-            {_RankedSeenMoments, RankedSeenMomentScoreMap} = rank_moments(Uid, GeoTag, SeenMoments2),
+            {_RankedSeenMoments, RankedSeenMomentScoreMap} = rank_moments(Uid, GeoTag, SeenMoments2, #{}),
             ok = model_feed:append_ranked_feed(Uid, SeenPostIds, RankedSeenMomentScoreMap),
             ok;
         _ ->
@@ -988,9 +989,9 @@ get_ranked_public_moments(Uid, GeoTag, TimestampMs, Cursor, Limit, ShowDevConten
     Result = case util:index_of(CursorPostId, RankedMomentIds) of
         undefined ->
             %% Find the next set of content items to rank and get the updated cursor.
-            {Moments, Cursor2} = get_moments_to_rank(Uid, GeoTag, RankedMomentIds, TimestampMs, Cursor, ?PUBLIC_FEED_LIMIT_FACTOR * Limit, ShowDevContent),
+            {Moments, Cursor2, FofUidsWithScores} = get_moments_to_rank(Uid, GeoTag, RankedMomentIds, TimestampMs, Cursor, ?PUBLIC_FEED_LIMIT_FACTOR * Limit, ShowDevContent),
             %% Rank these moments.
-            {NewRankedMoments, NewRankedMomentScoresMap} = rank_moments(Uid, GeoTag, Moments),
+            {NewRankedMoments, NewRankedMomentScoresMap} = rank_moments(Uid, GeoTag, Moments, FofUidsWithScores),
             %% Fetch their ids and store them in cache.
             NewRankedMomentIds = lists:map(fun(Moment) -> Moment#post.id end, NewRankedMoments),
             %% Prepend to existing ranked feed.
@@ -1010,9 +1011,9 @@ get_ranked_public_moments(Uid, GeoTag, TimestampMs, Cursor, Limit, ShowDevConten
                             get_ranked_public_moments(Uid, GeoTag, util:now_ms(), <<>>, Limit, ShowDevContent, true);
                         false ->
                             %% Find the next set of content items using the old cursor to rank and get the updated cursor.
-                            {Moments, Cursor2} = get_moments_to_rank(Uid, GeoTag, [], TimestampMs, Cursor, ?PUBLIC_FEED_LIMIT_FACTOR * Limit, ShowDevContent),
+                            {Moments, Cursor2, FofUidsWithScores} = get_moments_to_rank(Uid, GeoTag, [], TimestampMs, Cursor, ?PUBLIC_FEED_LIMIT_FACTOR * Limit, ShowDevContent),
                             %% Rank these moments.
-                            {NewRankedMoments, NewRankedMomentScoresMap} = rank_moments(Uid, GeoTag, Moments),
+                            {NewRankedMoments, NewRankedMomentScoresMap} = rank_moments(Uid, GeoTag, Moments, FofUidsWithScores),
                             %% Fetch their ids and store them in cache.
                             NewRankedMomentIds = lists:map(fun(Moment) -> Moment#post.id end, NewRankedMoments),
                             %% Append to existing ranked feed.
@@ -1034,14 +1035,21 @@ get_moments_to_rank(Uid, GeoTag, CurrentMomentIds, TimestampMs, Cursor, NumLimit
     %% Fetch possible geo-tagged moment ids.
     GeoTaggedMomentIds = model_feed:get_public_moments(GeoTag, TimestampMs, Cursor, NumLimit),
     GeoTaggedMoments = model_feed:get_posts(GeoTaggedMomentIds),
+
     %% fetch fof content here.
-    %% todo: wip
+    {FofCursorUidScoreBin, _FofCursorTimestampMsBin} = model_feed:get_fof_cursor_index(Cursor),
+    {FofUidsWithScores, NewFofScoreCursor} = model_follow:get_fof(Uid, FofCursorUidScoreBin, NumLimit),
+    FofUids = maps:keys(FofUidsWithScores),
+    FofPosts = model_feed:get_latest_posts(FofUids),
+
     %% Fetch possible global moment ids.
     GlobalMomentIds = model_feed:get_public_moments(undefined, TimestampMs, Cursor, NumLimit),
     GlobalMoments = model_feed:get_posts(GlobalMomentIds),
+
     %% Fetch current ranked feed posts.
     CurrentRankedMoments = model_feed:get_posts(CurrentMomentIds),
 
+    %% Fetch last moments to update cursor.
     LastGeoTaggedMoment = case GeoTaggedMoments of
         [] -> undefined;
         _ -> lists:last(GeoTaggedMoments)
@@ -1050,18 +1058,23 @@ get_moments_to_rank(Uid, GeoTag, CurrentMomentIds, TimestampMs, Cursor, NumLimit
         [] -> undefined;
         _ -> lists:last(GlobalMoments)
     end,
-    Moments = case length(GeoTaggedMoments) < NumLimit of
-        false -> GeoTaggedMoments;
-        true -> sets:to_list(sets:from_list(GeoTaggedMoments ++ GlobalMoments))
+
+    MomentsToRank1 = filter_public_moments(Uid, FofPosts ++ GeoTaggedMoments ++ CurrentRankedMoments, ShowDevContent),
+    {MomentsToRank3, Cursor3} = case length(MomentsToRank1) > NumLimit of
+        true ->
+            Cursor2 = model_feed:update_cursor_post_index(Cursor, LastGeoTaggedMoment, NewFofScoreCursor, undefined),
+            {MomentsToRank1, Cursor2};
+        false ->
+            MomentsToRank2 = filter_public_moments(Uid, MomentsToRank1 ++ GlobalMoments, ShowDevContent),
+            Cursor2 = model_feed:update_cursor_post_index(Cursor, LastGeoTaggedMoment, NewFofScoreCursor, LastGlobalMoment),
+            {MomentsToRank2, Cursor2}
     end,
-    Cursor2 = model_feed:update_cursor_post_index(Cursor, LastGeoTaggedMoment, LastGlobalMoment),
+    ?INFO("Uid: ~p, NumMoments: ~p Updated Cursor: ~p", [Uid, length(MomentsToRank3), Cursor3]),
     %% Include geotagged, global and given current moment ids as well.
-    Moments2 = filter_public_moments(Uid, Moments ++ CurrentRankedMoments, ShowDevContent),
-    ?INFO("Uid: ~p, NumMoments: ~p Updated Cursor: ~p", [Uid, length(Moments2), Cursor2]),
-    {Moments2, Cursor2}.
+    {MomentsToRank3, Cursor3, FofUidsWithScores}.
 
 
-rank_moments(Uid, GeoTag, Moments) ->
+rank_moments(Uid, GeoTag, Moments, FofUidsWithScores) ->
     %% Get campus author set
     AuthorUids = lists:map(fun(PublicMoment) -> PublicMoment#post.uid end, Moments),
     AuthorUidsToGeoTagMap = model_accounts:get_latest_geo_tag(AuthorUids),
@@ -1098,15 +1111,18 @@ rank_moments(Uid, GeoTag, Moments) ->
                 true -> 0;
                 false -> 1
             end,
+            FofScore = maps:get(AuthorUid, FofUidsWithScores, 0),
             TotalScore = CampusTagScore * ?CAMPUS_SCORE_IMPORTANCE +
                 FollowingInterestScore * ?FOLLOWING_INTEREST_IMPORTANCE +
-                RecencyScore * ?RECENCY_SCORE_IMPORTANCE,
-            ?INFO("Uid: ~p, PostId: ~p, CampusTagScore: ~p, FollowingInterestScore: ~p, RecencyScore: ~p, TotalScore: ~p",
+                RecencyScore * ?RECENCY_SCORE_IMPORTANCE +
+                FofScore * ?FOF_SCORE_IMPORTANCE,
+            ?INFO("Uid: ~p, PostId: ~p, CampusTagScore: ~p, FollowingInterestScore: ~p, RecencyScore: ~p, FofScore: ~p, TotalScore: ~p",
                     [Uid, MomentId, CampusTagScore, FollowingInterestScore, RecencyScore, TotalScore]),
             Explanation = "PostId: " ++ util:to_list(MomentId) ++ "; "
                 ++ "Campus: " ++ util:to_list(CampusTagScore) ++ "; "
                 ++ "FollowingInterest: " ++ util:to_list(FollowingInterestScore) ++ "; "
                 ++ "Recency: " ++ util:to_list(RecencyScore) ++ "; "
+                ++ "FofScore: " ++ util:to_list(FofScore) ++ "; "
                 ++ "Total: " ++ util:to_list(TotalScore),
             AccMomentScoresMap#{MomentId => {TotalScore, util:to_binary(Explanation)}}
 

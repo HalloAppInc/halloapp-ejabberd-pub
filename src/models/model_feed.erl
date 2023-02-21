@@ -52,8 +52,9 @@
     update_cursor_post_id/2,
     get_global_cursor_index/1,
     get_geotag_cursor_index/1,
+    get_fof_cursor_index/1,
     split_cursor_index/1,
-    update_cursor_post_index/3,
+    update_cursor_post_index/4,
     publish_comment/6,
     publish_comment/7,
     retract_post/2,
@@ -71,6 +72,7 @@
     get_entire_group_feed/1,
     get_recent_user_posts/1,
     get_user_latest_post/1,
+    get_latest_posts/1,
     get_psa_tag_posts/1,
     is_psa_tag_done/1,
     mark_psa_tag_done/1,
@@ -538,9 +540,9 @@ update_cursor_post_id(Cursor, PostId) ->
 get_global_cursor_index(Cursor) ->
     {CursorPostIndex, _CursorPostId, _RequestTimestampMs} = split_cursor(Cursor),
     {
-    _GeoTagCursorPostId, _GeoTagCursorTimestampMs,
-    _FofCursorPostId, _FofCursorTimestampMs,
-    GlobalCursorPostId, GlobalCursorTimestampMs
+        _GeoTagCursorPostId, _GeoTagCursorTimestampMs,
+        _FofCursorUidScoreBin, _FofCursorTimestampMs,
+        GlobalCursorPostId, GlobalCursorTimestampMs
     } = split_cursor_index(CursorPostIndex),
     {GlobalCursorPostId, GlobalCursorTimestampMs}.
 
@@ -548,12 +550,21 @@ get_global_cursor_index(Cursor) ->
 get_geotag_cursor_index(Cursor) ->
     {CursorPostIndex, _CursorPostId, _RequestTimestampMs} = split_cursor(Cursor),
     {
-    GeoTagCursorPostId, GeoTagCursorTimestampMs,
-    _FofCursorPostId, _FofCursorTimestampMs,
-    _GlobalCursorPostId, _GlobalCursorTimestampMs
+        GeoTagCursorPostId, GeoTagCursorTimestampMs,
+        _FofCursorUidScoreBin, _FofCursorTimestampMs,
+        _GlobalCursorPostId, _GlobalCursorTimestampMs
     } = split_cursor_index(CursorPostIndex),
     {GeoTagCursorPostId, GeoTagCursorTimestampMs}.
 
+
+get_fof_cursor_index(Cursor) ->
+    {CursorPostIndex, _CursorPostId, _RequestTimestampMs} = split_cursor(Cursor),
+    {
+        _GeoTagCursorPostId, _GeoTagCursorTimestampMs,
+        FofCursorUidScoreBin, FofCursorTimestampMs,
+        _GlobalCursorPostId, _GlobalCursorTimestampMs
+    } = split_cursor_index(CursorPostIndex),
+    {FofCursorUidScoreBin, FofCursorTimestampMs}.
 
 
 split_cursor_index(CursorPostIndex) ->
@@ -566,7 +577,7 @@ split_cursor_index(CursorPostIndex) ->
             <<>> -> [<<>>, <<>>];
             _ -> re:split(GeoTagCursorIndex, "@")
         end,
-        [FofCursorPostId, FofCursorTimestampMsBin] = case FofCursorIndex of
+        [FofCursorUidScoreBin, FofCursorTimestampMsBin] = case FofCursorIndex of
             <<>> -> [<<>>, <<>>];
             _ -> re:split(FofCursorIndex, "@")
         end,
@@ -576,7 +587,7 @@ split_cursor_index(CursorPostIndex) ->
         end,
         {
         GeoTagCursorPostId, util_redis:decode_int(GeoTagCursorTimestampMsBin),
-        FofCursorPostId, util_redis:decode_int(FofCursorTimestampMsBin),
+        FofCursorUidScoreBin, util_redis:decode_int(FofCursorTimestampMsBin),
         GlobalCursorPostId, util_redis:decode_int(GlobalCursorTimestampMsBin)
         }
     catch
@@ -586,22 +597,34 @@ split_cursor_index(CursorPostIndex) ->
     end.
 
 
-%% TODO: add fof moment also here.
-update_cursor_post_index(Cursor, LastGeoTaggedMoment, LastGlobalMoment) ->
-    {GeoTagPostId, GeoTagTimestampMs} = case LastGeoTaggedMoment of
-        undefined -> get_geotag_cursor_index(Cursor);
-        _ -> {LastGeoTaggedMoment#post.id, LastGeoTaggedMoment#post.ts_ms}
-    end,
-    GeoTagTimestampMsBin = util_redis:encode_int(GeoTagTimestampMs),
-    {GlobalPostId, GlobalTimestampMs} = case LastGlobalMoment of
-        undefined -> get_global_cursor_index(Cursor);
-        _ -> {LastGlobalMoment#post.id, LastGlobalMoment#post.ts_ms}
-    end,
-    GlobalTimestampMsBin = util_redis:encode_int(GlobalTimestampMs),
-    {_, CursorPostId, RequestTimestampMs} = split_cursor(Cursor),
-    CursorPostIndex = <<GeoTagPostId/binary, "@", GeoTagTimestampMsBin/binary, "&", "&",
-        GlobalPostId/binary, "@", GlobalTimestampMsBin/binary>>,
-    join_cursor(CursorPostIndex, CursorPostId, RequestTimestampMs).
+update_cursor_post_index(Cursor, LastGeoTaggedMoment, NewFofScoreCursorBin, LastGlobalMoment) ->
+    try
+        {GeoTagPostId, GeoTagTimestampMs} = case LastGeoTaggedMoment of
+            undefined -> get_geotag_cursor_index(Cursor);
+            _ -> {LastGeoTaggedMoment#post.id, LastGeoTaggedMoment#post.ts_ms}
+        end,
+        GeoTagTimestampMsBin = util_redis:encode_int(GeoTagTimestampMs),
+        {GlobalPostId, GlobalTimestampMs} = case LastGlobalMoment of
+            undefined -> get_global_cursor_index(Cursor);
+            _ -> {LastGlobalMoment#post.id, LastGlobalMoment#post.ts_ms}
+        end,
+        {NewFofScoreCursorBin, NewFofCursorTimestampMs} = case NewFofScoreCursorBin of
+            <<>> -> {<<>>, undefined};
+            undefined -> get_fof_cursor_index(Cursor);
+            _ -> {NewFofScoreCursorBin, undefined}
+        end,
+        NewFofCursorTimestampMsBin = util_redis:encode_int(NewFofCursorTimestampMs),
+        GlobalTimestampMsBin = util_redis:encode_int(GlobalTimestampMs),
+        {_, CursorPostId, RequestTimestampMs} = split_cursor(Cursor),
+        CursorPostIndex = <<GeoTagPostId/binary, "@", GeoTagTimestampMsBin/binary, "&",
+            NewFofScoreCursorBin/binary, "@", NewFofCursorTimestampMsBin/binary, "&",
+            GlobalPostId/binary, "@", GlobalTimestampMsBin/binary>>,
+        join_cursor(CursorPostIndex, CursorPostId, RequestTimestampMs)
+    catch
+        Error:Reason ->
+            ?ERROR("Failed to update cursor: ~p, Error: ~p, Reason: ~p", [Cursor, Error, Reason]),
+            Cursor
+    end.
 
 
 -spec publish_comment(CommentId :: binary(), PostId :: binary(),
@@ -1212,6 +1235,16 @@ get_user_latest_post(Uid) ->
             end
     end,
     LatestPost.
+
+
+-spec get_latest_posts(Uids :: [uid()]) -> list(post()).
+get_latest_posts(Uids) ->
+    Commands = lists:map(
+        fun(Uid) ->
+            ["ZRANGE", reverse_post_key(Uid), "0", "0", "REV"]
+        end, Uids),
+    PostIds = lists:foldl(fun ({ok, Res}, Acc) -> Acc ++ Res end, [], qmn(Commands)),
+    get_posts(PostIds).
 
 
 -spec get_group_feed(Uid :: uid(), DeadlineMs :: integer()) -> {ok, [feed_item()]} | {error, any()}.

@@ -622,11 +622,30 @@ cursor_test() ->
     ?assertEqual(<<"::p3::">>, model_feed:update_cursor_post_id(EmptyCursor, <<"p3">>)),
     ?assertEqual({<<>>, undefined}, model_feed:get_geotag_cursor_index(<<"::p3::">>)),
     ?assertEqual({<<>>, undefined}, model_feed:get_global_cursor_index(<<"::p3::">>)),
-    ?assertEqual(<<"p1@1&&p2@2::p3::">>, model_feed:update_cursor_post_index(<<"::p3::">>, GeoTaggedPost, GlobalPost)),
+    ?assertEqual(<<"p1@1&@&p2@2::p3::">>, model_feed:update_cursor_post_index(<<"::p3::">>, GeoTaggedPost, <<>>, GlobalPost)),
+    ?assertEqual(<<"p1@1&200@&p2@2::p3::">>, model_feed:update_cursor_post_index(<<"::p3::">>, GeoTaggedPost, <<"200">>, GlobalPost)),
     ?assertEqual({<<"p1">>, 1}, model_feed:get_geotag_cursor_index(<<"p1@1&&p2@2::p3::">>)),
     ?assertEqual({<<"p2">>, 2}, model_feed:get_global_cursor_index(<<"p1@1&&p2@2::p3::">>)),
     ?assertEqual({<<"p1">>, 1, <<>>, undefined, <<"p2">>, 2}, model_feed:split_cursor_index(<<"p1@1&&p2@2">>)),
     ?assertEqual(<<"p1@1&&p2@2::p3::123">>, model_feed:join_cursor(<<"p1@1&&p2@2">>, <<"p3">>, 123)),
+    ok.
+
+
+latest_post_test() ->
+    setup(),
+    Uid1 = tutil:generate_uid(?KATCHUP),
+    Uid2 = tutil:generate_uid(?KATCHUP),
+    NowMs = util:now_ms(),
+    ?assertEqual(undefined, model_feed:get_user_latest_post(Uid1)),
+    ok = model_feed:publish_moment(?POST_ID1, Uid1, ?PAYLOAD1, public_moment, all, [Uid2], NowMs - 2 * ?HOURS_MS,
+        #pb_moment_info{notification_timestamp = (NowMs - 2 * ?HOURS_MS)}),
+    ok = model_feed:publish_moment(?POST_ID2, Uid2, ?PAYLOAD2, public_moment, all, [Uid1], NowMs,
+        #pb_moment_info{notification_timestamp = (NowMs - 2 * ?HOURS_MS)}),
+    Post1 = model_feed:get_user_latest_post(Uid1),
+    Post2 = model_feed:get_user_latest_post(Uid2),
+    ?assertEqual(?POST_ID1, Post1#post.id),
+    ?assertEqual(?POST_ID2, Post2#post.id),
+    ?assertEqual([Post1, Post2], model_feed:get_latest_posts([Uid1, Uid2])),
     ok.
 
 

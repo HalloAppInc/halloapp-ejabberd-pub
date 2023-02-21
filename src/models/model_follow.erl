@@ -47,23 +47,54 @@
     following_key/1,
     blocked_key/1,
     update_fof/2,
-    get_fof/2
+    get_all_fof/1,
+    get_fof/3,
+    get_all_fof_list/1,
+    get_fof_list/3
 ]).
 
 %%====================================================================
 %% API
 %%====================================================================
 
-update_fof(_Uid, #{}) -> ok;
 update_fof(Uid, FofWithScores) ->
-    FofScoresList = util_redis:flatten_proplist(maps:to_list(FofWithScores)),
-    {ok, _Res} = q(["ZADD", fof_index_key(Uid), FofScoresList]),
-    ok.
+    case util_redis:flatten_proplist(maps:to_list(FofWithScores)) of
+        [] -> ok;
+        RevFofScoresList ->
+            {ok, _Res} = q(["ZADD", fof_index_key(Uid) | lists:reverse(RevFofScoresList)]),
+            ok
+    end.
 
-%% TODO: some more work here.
-get_fof(_Uid, _Limit) ->
+
+-spec get_all_fof(Uid :: uid()) -> map().
+get_all_fof(Uid) ->
+    {Res, _} = get_fof(Uid, <<"+inf">>, -1),
+    Res.
+
+-spec get_all_fof_list(Uid :: uid()) -> list({uid(), integer()}).
+get_all_fof_list(Uid) ->
+    {Res, _} = get_fof_list(Uid, <<"+inf">>, -1),
+    Res.
+
+
+-spec get_fof(Uid :: uid(), Cursor :: binary(), Limit :: integer()) -> {map(), binary()}.
+get_fof(Uid, <<>>, Limit) -> get_fof(Uid, <<"+inf">>, Limit);
+get_fof(Uid, Cursor, Limit) ->
+    {Res, NewCursor} = get_fof_list(Uid, Cursor, Limit),
+    {maps:from_list(Res), NewCursor}.
+
+
+-spec get_fof_list(Uid :: uid(), Cursor :: binary(), Limit :: integer()) -> {list({uid(), integer()}), binary()}.
+get_fof_list(Uid, <<>>, Limit) -> get_fof_list(Uid, <<"+inf">>, Limit);
+get_fof_list(Uid, Cursor, Limit) ->
     %% Use Limit and fetch some fof.
-    [].
+    {ok, RawRes} = q(["ZRANGE", fof_index_key(Uid), <<"(", Cursor/binary>>, "-inf", "BYSCORE", "REV", "WITHSCORES", "LIMIT", 0, Limit]),
+    Res = util_redis:parse_zrange_with_scores(RawRes),
+    Res2 = lists:map(fun({FofUid, ScoreBin}) -> {FofUid, util:to_integer(ScoreBin)} end, Res),
+    case length(Res) < Limit orelse length(Res) =:= 0 of
+        true -> {Res2, <<"">>};
+        false -> {Res2, element(2, lists:last(Res))}
+    end.
 
 
 %% Uid follows Ouid

@@ -268,6 +268,21 @@ remove_all_followers_testset() ->
         ?_assert(model_follow:is_follower(Uid2, Uid1))
     ].
 
+
+update_fof_testset() ->
+    Uid1 = tutil:generate_uid(?KATCHUP),
+    Uid2 = tutil:generate_uid(?KATCHUP),
+    Uid3 = tutil:generate_uid(?KATCHUP),
+    Uid4 = tutil:generate_uid(?KATCHUP),
+    ok = model_follow:update_fof(Uid1, #{Uid2 => 2, Uid3 => 3, Uid4 => 4}),
+    [
+        ?_assertEqual(#{Uid4 => 4, Uid3 => 3, Uid2 => 2 }, model_follow:get_all_fof(Uid1)),
+        ?_assertEqual([{Uid4, 4}, {Uid3, 3}, {Uid2, 2}], model_follow:get_all_fof_list(Uid1)),
+        ?_assertEqual({[{Uid4, 4}], <<"4">>}, model_follow:get_fof_list(Uid1, <<>>, 1)),
+        ?_assertEqual({[{Uid3, 3}], <<"3">>}, model_follow:get_fof_list(Uid1, <<"4">>, 1))
+    ].
+
+
 %%====================================================================
 %% Helper functions
 %%====================================================================
