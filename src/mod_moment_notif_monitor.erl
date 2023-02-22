@@ -199,6 +199,7 @@ monitor_all_regions(State) ->
     CurrentTimestamp = util:now(),
     {{_,_, _}, {CurrentHrGMT, CurrentMinGMT, _}} =
         calendar:system_time_to_universal_time(CurrentTimestamp, second),
+    AllRegions = mod_moment_notification2:get_regions(),
     State1 = lists:foldl(
         fun({Region, _Predicate, OffsetHr}, AccState) ->
             %% Get the local time there.
@@ -231,15 +232,15 @@ monitor_all_regions(State) ->
             %% Now schedule an alert timer for these mins + 1 to ensure that the timer_started hook gets triggered by then.
             %% timer_started hook if triggered correctly will cancel this alert timer.
             %% If not, this alert timer will send an alert to us indicating that the timer was not fired correctly.
-            ?INFO("Setting moment_notif_timer_alert for Region: ~p, Date: ~p, NotifId: ~p", [Region, Date, NotifId]),
+            ?INFO("Setting moment_notif_timer_alert for Region: ~p, Date: ~p, NotifId: ~p, MinsUntilSend: ~p", [Region, Date, NotifId, MinsUntilSend]),
             {ok, TRef} = timer:send_after((MinsUntilSend + 1) * ?MINUTES_MS, self(), {moment_notif_timer_alert, Region, Date, NotifId}),
-            MomentTimers = maps:get(moment_timers, State),
+            MomentTimers = maps:get(moment_timers, AccState, #{}),
             AccState#{
                 moment_timers => MomentTimers#{
                     Region => TRef
                 }
             }
-        end, State, mod_moment_notification2:get_regions()),
+        end, State, AllRegions),
     State1.
 
 
