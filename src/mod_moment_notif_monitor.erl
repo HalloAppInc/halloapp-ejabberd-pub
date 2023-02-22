@@ -235,9 +235,16 @@ monitor_all_regions(State) ->
                     %% Now schedule an alert timer for these mins + 1 to ensure that the timer_started hook gets triggered by then.
                     %% timer_started hook if triggered correctly will cancel this alert timer.
                     %% If not, this alert timer will send an alert to us indicating that the timer was not fired correctly.
-                    ?INFO("Setting moment_notif_timer_alert for Region: ~p, Date: ~p, NotifId: ~p, MinsUntilSend: ~p", [Region, Date, NotifId, MinsUntilSend]),
-                    {ok, TRef} = timer:send_after((MinsUntilSend + 1) * ?MINUTES_MS, self(), {moment_notif_timer_alert, Region, Date, NotifId}),
                     MomentTimers = maps:get(moment_timers, AccState, #{}),
+                    TRef = case maps:get(Region, MomentTimers, undefined) of
+                        undefined ->
+                            ?INFO("Setting moment_notif_timer_alert for Region: ~p, Date: ~p, NotifId: ~p, MinsUntilSend: ~p", [Region, Date, NotifId, MinsUntilSend]),
+                            {ok, NewTRef} = timer:send_after((MinsUntilSend + 1) * ?MINUTES_MS, self(), {moment_notif_timer_alert, Region, Date, NotifId}),
+                            NewTRef;
+                        CurrentTRef ->
+                            ?INFO("Already exists, moment_notif_timer_alert for Region: ~p, Date: ~p, NotifId: ~p, MinsUntilSend: ~p", [Region, Date, NotifId, MinsUntilSend]),
+                            CurrentTRef
+                    end,
                     AccState#{
                         moment_timers => MomentTimers#{
                             Region => TRef
@@ -286,8 +293,8 @@ moment_notif_timer_started(Region, State) ->
         undefined ->
             ?WARNING("Missing moment_notif alert timer for region: ~p", [Region]);
         _ ->
-            ?INFO("Cancelled moment_notif alert timer for region: ~p, tref: ~p", [Region, TRef]),
-            timer:cancel(TRef)
+            Result = timer:cancel(TRef),
+            ?INFO("Cancelled moment_notif alert timer for region: ~p, tref: ~p, Result: ~p", [Region, TRef, Result])
     end,
     State#{
         moment_timers => MomentTimers#{
