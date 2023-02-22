@@ -15,14 +15,6 @@
 -include("account.hrl").
 -include("moments.hrl").
 
--ifdef(TEST).
--export([
-    get_regions/0,
-    send_latest_notification/3,
-    get_current_offsets/1
-]).
--endif.
-
 %% gen_mod callbacks
 -export([start/2, stop/1, mod_options/1, depends/2]).
 
@@ -42,7 +34,10 @@
     get_region_by_zone_offset_sec/1,
     get_region_by_uid/1,
     get_current_offsets/1,
-    is_region_offset_hr/1
+    is_region_offset_hr/1,
+    get_regions/0,
+    send_latest_notification/3,
+    get_current_offsets/1
 ]).
 
 %% Hooks
