@@ -65,7 +65,8 @@
     get_ranked_public_moments/7,
     re_register_user/4,
     convert_moments_to_public_feed_items/3,
-    check_users/2
+    check_users/2,
+    send_all_old_moments_to_self/1
 ]).
 
 
@@ -387,6 +388,7 @@ new_follow_relationship(Uid, Ouid) ->
 re_register_user(Uid, _Server, _Phone, _CampaignId) ->
     ?INFO("re_register_user Uid: ~p", [Uid]),
     send_old_moment(Uid, Uid),
+    send_all_old_moments_to_self(Uid),
     AppType = util_uid:get_app_type(Uid),
     case AppType of
         katchup ->
@@ -1271,6 +1273,43 @@ send_old_moment(FromUid, ToUid) ->
                 }
             },
             ejabberd_router:route(Packet),
+            ok
+    end.
+
+
+send_all_old_moments_to_self(Uid) ->
+    AppType = util_uid:get_app_type(Uid),
+    case AppType of
+        katchup ->
+            ?INFO("send_all_old_moments_to_self of ~s, to ~s", [Uid, Uid]),
+            {ok, FeedItems} = model_feed:get_entire_user_feed(Uid),
+            {Posts, Comments} = lists:partition(fun(Item) -> is_record(Item, post) end, FeedItems),
+            case Posts of
+                [] ->
+                    ?INFO("No valid moment to sent from ~s, to ~s", [Uid, Uid]);
+                _ ->
+                    PostStanzas = lists:map(fun convert_posts_to_feed_items/1, Posts),
+                    CommentStanzas = lists:map(fun convert_comments_to_feed_items/1, Comments),
+
+                    ?INFO("Sending FromUid: ~s ToUid: ~s ~p posts and ~p comments",
+                        [Uid, Uid, length(PostStanzas), length(CommentStanzas)]),
+
+                    ejabberd_hooks:run(feed_share_old_items, AppType,
+                        [Uid, Uid, length(PostStanzas), length(CommentStanzas)]),
+
+                    Packet = #pb_msg{
+                        id = util_id:new_msg_id(),
+                        to_uid = Uid,
+                        type = normal,
+                        payload = #pb_feed_items{
+                            uid = Uid,
+                            items = PostStanzas ++ CommentStanzas
+                        }
+                    },
+                    ejabberd_router:route(Packet),
+                    ok
+            end;
+        _ ->
             ok
     end.
 
