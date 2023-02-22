@@ -867,7 +867,9 @@ set_huawei_token(Uid, HuaweiToken, TimestampMs, LangId, ZoneOffset) ->
 -spec set_voip_token(Uid :: binary(), VoipToken :: binary(),
     TimestampMs :: integer(), LangId :: binary(), ZoneOffset :: integer()) -> ok.
 set_voip_token(Uid, VoipToken, TimestampMs, LangId, ZoneOffset) ->
-    {ok, OldLangId} = get_lang_id(Uid),
+    {ok, OldPushInfo} = get_push_info(Uid),
+    OldLangId = OldPushInfo#push_info.lang_id,
+    OldZoneOffset = OldPushInfo#push_info.zone_offset,
     {ok, _Res} = q([
             "HMSET", account_key(Uid),
             ?FIELD_VOIP_TOKEN, VoipToken,
@@ -876,6 +878,7 @@ set_voip_token(Uid, VoipToken, TimestampMs, LangId, ZoneOffset) ->
             ?FIELD_ZONE_OFFSET_SECS, util:to_binary(ZoneOffset)
         ]),
     update_lang_counters(Uid, LangId, OldLangId),
+    update_zone_offset_hr_index(Uid, ZoneOffset, OldZoneOffset),
     ok.
 
 
