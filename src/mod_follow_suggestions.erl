@@ -206,7 +206,7 @@ update_fof(Uid) ->
     FofWithScores = maps:from_list(lists:sublist(lists:reverse(lists:keysort(2, maps:to_list(TempFofWithScores))), ?FOF_TOTAL_LIMIT)),
 
     Time9 = util:now_ms(),
-    ?INFO("Uid: ~p, Time taken to score fof: ~p", [Uid, Time9 - Time8]),
+    ?INFO("Uid: ~p, Time taken to score fof: ~p, NumFoF: ~p", [Uid, Time9 - Time8, maps:size(FofWithScores)]),
 
     %% Store this in redis.
     ok = model_follow:update_fof(Uid, FofWithScores),
