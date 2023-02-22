@@ -228,18 +228,29 @@ monitor_all_regions(State) ->
                     LocalMinNow + (24 * 60);
                 true -> LocalMinNow
             end,
-            MinsUntilSend = max(0, LocalMinToSend - AdjustedLocalMinNow),
-            %% Now schedule an alert timer for these mins + 1 to ensure that the timer_started hook gets triggered by then.
-            %% timer_started hook if triggered correctly will cancel this alert timer.
-            %% If not, this alert timer will send an alert to us indicating that the timer was not fired correctly.
-            ?INFO("Setting moment_notif_timer_alert for Region: ~p, Date: ~p, NotifId: ~p, MinsUntilSend: ~p", [Region, Date, NotifId, MinsUntilSend]),
-            {ok, TRef} = timer:send_after((MinsUntilSend + 1) * ?MINUTES_MS, self(), {moment_notif_timer_alert, Region, Date, NotifId}),
+            %% Schedule an alert timer if we are yet to send notification, else ignore.
             MomentTimers = maps:get(moment_timers, AccState, #{}),
-            AccState#{
-                moment_timers => MomentTimers#{
-                    Region => TRef
-                }
-            }
+            case LocalMinToSend - AdjustedLocalMinNow of
+                MinsUntilSend when MinsUntilSend >= 0 ->
+                    %% Now schedule an alert timer for these mins + 1 to ensure that the timer_started hook gets triggered by then.
+                    %% timer_started hook if triggered correctly will cancel this alert timer.
+                    %% If not, this alert timer will send an alert to us indicating that the timer was not fired correctly.
+                    ?INFO("Setting moment_notif_timer_alert for Region: ~p, Date: ~p, NotifId: ~p, MinsUntilSend: ~p", [Region, Date, NotifId, MinsUntilSend]),
+                    {ok, TRef} = timer:send_after((MinsUntilSend + 1) * ?MINUTES_MS, self(), {moment_notif_timer_alert, Region, Date, NotifId}),
+                    MomentTimers = maps:get(moment_timers, AccState, #{}),
+                    AccState#{
+                        moment_timers => MomentTimers#{
+                            Region => TRef
+                        }
+                    };
+                MinsUntilSend ->
+                    ?INFO("Skip setting moment_notif_timer_alert for Region: ~p, Date: ~p, NotifId: ~p, MinsUntilSend: ~p", [Region, Date, NotifId, MinsUntilSend]),
+                    AccState#{
+                        moment_timers => MomentTimers#{
+                            Region => undefined
+                        }
+                    }
+            end
         end, State, AllRegions),
     State1.
 
