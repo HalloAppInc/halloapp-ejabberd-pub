@@ -304,6 +304,7 @@ moment_notif_timer_started(Region, State) ->
 
 
 count_send_moment_notifs(Region, NumUids, Date, NotifId, State) ->
+    ?INFO("Region: ~p, NumUids: ~p, Date: ~p, NotifId: ~p", [Region, NumUids, Date, NotifId]),
     UidCountTimers = maps:get(uid_count_timers, State, #{}),
     {ok, TRef} = timer:send_after(2 * ?MINUTES_MS, self(), {uid_count_timer_alert, Region, NumUids, Date, NotifId}),
     State#{
@@ -336,8 +337,8 @@ uid_count_timer_alert(Region, NumUids, Date, NotifId, State) ->
             ?ERROR("Invalid state to end up in: ~p, Region: ~p, Date: ~p, NotifId: ~p", [State, Region, Date, NotifId]);
         {CurrentNumUids, _TRef} ->
             %% Difference of about 2% on either side is fine.
-            SentUids = NumUids - CurrentNumUids,
-            case (abs(NumUids - SentUids) * 100.0 / NumUids) > ?ALLOWED_DIFFERENCE_RATE of
+            SentNumUids = NumUids - CurrentNumUids,
+            case (abs(NumUids - SentNumUids) * 100.0 / NumUids) > ?ALLOWED_DIFFERENCE_RATE of
                 true ->
                     Host = util:get_machine_name(),
                     
@@ -351,7 +352,7 @@ uid_count_timer_alert(Region, NumUids, Date, NotifId, State) ->
                         Host,
                         <<"critical">>,
                         <<"Region: ", RegionBin/binary, " ExpectedNumUidsBin: ", NumUidsBin/binary, " CurrentNumUids: ", CurrentNumUidsBin/binary, " NotifId: ", NotifIdBin/binary>>),
-                    ?ERROR("Some users in Region: ~p missed daily moment notification on Date: ~p, NotifId: ~p", [Region, Date, NotifId]);
+                    ?ERROR("Some users in Region: ~p missed daily moment notification on Date: ~p, NotifId: ~p, TotalNumUids: ~p, SentNumUids: ~p", [Region, Date, NotifId, NumUids, SentNumUids]);
                 false ->
                     ok
             end
