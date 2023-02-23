@@ -28,6 +28,7 @@
     maybe_schedule_notifications/0,
     maybe_schedule_moment_notif/2,
     check_and_send_moment_notifications/5,
+    send_moment_notification/6,
     send_moment_notification_async/6,
     get_region_offset_hr_by_sec/1,
     get_region_offset_hr/2,
@@ -36,8 +37,7 @@
     get_current_offsets/1,
     is_region_offset_hr/1,
     get_regions/0,
-    send_latest_notification/3,
-    get_current_offsets/1
+    send_latest_notification/3
 ]).
 
 %% Hooks
@@ -303,34 +303,37 @@ send_moment_notification_async(Region, Date, NotificationId, NotificationType, P
     end.
 
 
-%% This is the function that actually sends the notification to the client
-%% Before sending, it checks to ensure a notification has not been sent to this user on this date
+%% Before sending, check to ensure a notification has not been sent to this user on this date
 check_and_send_moment_notification(Uid, Region, Date, NotificationId, NotificationTimestamp, NotificationType, Prompt, HideBanner) ->
     case model_accounts:mark_moment_notification_sent(Uid, util:to_binary(Date)) of
         true ->
-            NotificationTime = util:now(),
             AppType = util_uid:get_app_type(Uid),
-            Packet = #pb_msg{
-                id = util_id:new_msg_id(),
-                to_uid = Uid,
-                type = headline,
-                payload = #pb_moment_notification{
-                    timestamp = NotificationTimestamp,
-                    notification_id = NotificationId,
-                    type = NotificationType,
-                    prompt = Prompt,
-                    hide_banner = HideBanner
-                }
-            },
             stat:count(util:get_stat_namespace(AppType) ++ "/moment_notif", "send"),
-            ?INFO("Sending moment notification to ~s | date = ~p, notif_id = ~p, notif_ts = ~p, notif_type = ~p, prompt = ~p, hide_banner = ~p",
-                [Uid, Date, NotificationId, NotificationTimestamp, NotificationType, Prompt, HideBanner]),
-            ejabberd_router:route(Packet),
+            send_moment_notification(Uid, NotificationTimestamp, NotificationId, NotificationType, Prompt, HideBanner),
             ejabberd_hooks:run(send_moment_notification, AppType,
-                [Uid, Region, NotificationId, NotificationTime, NotificationType, Prompt, HideBanner]);
+                [Uid, Region, NotificationId, NotificationTimestamp, NotificationType, Prompt, HideBanner]);
         NeverSent ->
-            ?INFO("NOT Sending moment notification to ~s, already_sent = ~p", [Uid, not NeverSent])
+            ?INFO("NOT Sending moment notification to ~s, already_sent = ~p, date = ~p", [Uid, not NeverSent, Date])
     end.
+
+
+%% This is the function that actually sends the notification to the client
+send_moment_notification(Uid, Timestamp, Id, Type, Prompt, HideBanner) ->
+    Packet = #pb_msg{
+        id = util_id:new_msg_id(),
+        to_uid = Uid,
+        type = headline,
+        payload = #pb_moment_notification{
+            timestamp = Timestamp,
+            notification_id = Id,
+            type = Type,
+            prompt = Prompt,
+            hide_banner = HideBanner
+        }
+    },
+    ?INFO("Sending moment notification to ~s | notif_id = ~p, notif_ts = ~p, notif_type = ~p, prompt = ~p, hide_banner = ~p",
+        [Uid, Id, Timestamp, Type, Prompt, HideBanner]),
+    ejabberd_router:route(Packet).
 
 %%====================================================================
 %% Helper/internal functions

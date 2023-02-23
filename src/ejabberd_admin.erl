@@ -63,8 +63,7 @@
     session_info/1,
     spub_info/1,
     get_sms_codes/1,
-    send_moment_notification/1,
-    send_moment_notification/2,
+    send_moment_notification/6,
     send_invite/2,
     reset_sms_backoff/1,
     delete_account/1,
@@ -442,9 +441,11 @@ get_commands_spec() ->
     #ejabberd_commands{name = send_moment_notification, tags = [server],
         desc = "Send Moment Notification",
         module = ?MODULE, function = send_moment_notification,
-        args_desc = ["Phone number", "AppType"],
-        args_example = [<<"12065555586">>, halloapp],
-        args=[{phone, binary}, {app_type, string}], result = {res, rescode}},
+        %% PhoneOrUid, Timestamp, Id, Type, Prompt, HideBanner
+        args_desc = ["Phone number or Uid", "Timestamp", "NotificationId", "NotificationType", "Prompt", "HideBanner"],
+        args_example = [<<"12065555586">>, 1677115217, 1677115000, <<"live_camera">>, <<"WYD?">>, <<"false">>],
+        args=[{phone_or_uid, binary}, {timestamp, integer}, {id, integer}, {type, binary}, {prompt, binary}, {hide_banner, binary}],
+        result = {res, rescode}},
      #ejabberd_commands{name = get_invite_string, tags = [server],
         desc = "Get invite string from its hash ID",
         module = mod_invites, function = lookup_invite_string,
@@ -1163,36 +1164,16 @@ get_sms_codes(PhoneRaw, AppType) ->
     ok.
 
 
-send_moment_notification(PhoneRaw) ->
-    send_moment_notification(PhoneRaw, halloapp).
-
-
-send_moment_notification(PhoneRaw, AppTypeStr) ->
-    AppType = util:to_atom(AppTypeStr),
-    case AppType of
-        all ->
-            send_moment_notification_internal(PhoneRaw, ?HALLOAPP),
-            io:format("------------------------------------------------------------~n"),
-            send_moment_notification_internal(PhoneRaw, ?KATCHUP);
-        _ ->
-            send_moment_notification_internal(PhoneRaw, AppType)
-    end.
-
-send_moment_notification_internal(PhoneRaw, AppType) ->
-    ?INFO("Admin requesting moment notification for ~p", [PhoneRaw]),
-    Phone = mod_libphonenumber:prepend_plus(PhoneRaw),
-    case mod_libphonenumber:normalized_number(Phone, <<"US">>) of
-        undefined ->
-            io:format("Phone number invalid~n"),
-            io:format("Try entering only the numbers, no additional characters~n");
-        NormalizedPhone ->
-            case model_phone:get_uid(NormalizedPhone, AppType) of
-                {ok, undefined} ->
-                    io:format("No account associated with phone: ~s~n", [PhoneRaw]);
-                {ok, Uid} -> mod_moment_notification2:send_latest_notification(Uid, false)
-            end
+send_moment_notification(PhoneOrUid, Timestamp, Id, Type, Prompt, HideBanner) ->
+    Uid = case util_uid:looks_like_uid(PhoneOrUid) of
+        true ->
+            PhoneOrUid;
+        false ->
+            {ok, U} = model_phone:get_uid(PhoneOrUid, ?KATCHUP),
+            U
     end,
-    ok.
+    ?INFO("Admin Sending moment notification to ~s", [Uid]),
+    mod_moment_notification2:send_moment_notification(Uid, Timestamp, Id, util:to_atom(Type), Prompt, util:to_atom(HideBanner)).
 
 
 send_invite(FromUid, ToPhone) ->
