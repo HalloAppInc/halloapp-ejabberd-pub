@@ -242,7 +242,7 @@ monitor_all_regions(State) ->
                             {ok, NewTRef} = timer:send_after((MinsUntilSend + 1) * ?MINUTES_MS, self(), {moment_notif_timer_alert, Region, Date, NotifId}),
                             NewTRef;
                         CurrentTRef ->
-                            ?INFO("Already exists, moment_notif_timer_alert for Region: ~p, Date: ~p, NotifId: ~p, MinsUntilSend: ~p", [Region, Date, NotifId, MinsUntilSend]),
+                            ?DEBUG("Already exists, moment_notif_timer_alert for Region: ~p, Date: ~p, NotifId: ~p, MinsUntilSend: ~p", [Region, Date, NotifId, MinsUntilSend]),
                             CurrentTRef
                     end,
                     AccState#{
@@ -251,7 +251,7 @@ monitor_all_regions(State) ->
                         }
                     };
                 MinsUntilSend ->
-                    ?INFO("Skip setting moment_notif_timer_alert for Region: ~p, Date: ~p, NotifId: ~p, MinsUntilSend: ~p", [Region, Date, NotifId, MinsUntilSend]),
+                    ?DEBUG("Skip setting moment_notif_timer_alert for Region: ~p, Date: ~p, NotifId: ~p, MinsUntilSend: ~p", [Region, Date, NotifId, MinsUntilSend]),
                     AccState#{
                         moment_timers => MomentTimers#{
                             Region => undefined
@@ -354,6 +354,7 @@ uid_count_timer_alert(Region, NumUids, Date, NotifId, State) ->
                         <<"Region: ", RegionBin/binary, " ExpectedNumUidsBin: ", NumUidsBin/binary, " CurrentNumUids: ", CurrentNumUidsBin/binary, " NotifId: ", NotifIdBin/binary>>),
                     ?ERROR("Some users in Region: ~p missed daily moment notification on Date: ~p, NotifId: ~p, TotalNumUids: ~p, SentNumUids: ~p", [Region, Date, NotifId, NumUids, SentNumUids]);
                 false ->
+                    ?INFO("Sent daily notification to SentNumUids/TotalNumUids: ~p/~p in Region: ~p on Date: ~p, NotifId: ~p", [SentNumUids, NumUids, Region, Date, NotifId]),
                     ok
             end
     end,
