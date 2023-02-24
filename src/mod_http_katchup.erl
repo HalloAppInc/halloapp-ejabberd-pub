@@ -42,6 +42,26 @@ process([<<".well-known">>, FileBin], #request{method = 'GET'} = _R)
             util_http:return_500()
     end;
 
+%% /katchup/dl
+process([<<"dl">>],
+        #request{method = 'GET', q = _Q, ip = {NetIP, _Port}, headers = Headers} = _R) ->
+    try
+        UserAgent = util_http:get_user_agent(Headers),
+        Platform = util_http:get_platform(UserAgent),
+        IP = util_http:get_ip(NetIP, Headers),
+        ?INFO("App download redirect, UserAgent ~p Platform: ~p, IP: ~p", [UserAgent, Platform, IP]),
+        case Platform of
+            android -> {302, [?LOCATION_HEADER(?ANDROID_LINK)], <<"">>};
+            ios -> {302, [?LOCATION_HEADER(?IOS_LINK)], <<"">>};
+            _ -> {302, [?LOCATION_HEADER(?WEBSITE)], <<"">>}
+        end
+   catch
+        error : Reason : Stacktrace ->
+            ?ERROR("error: Stacktrace: ~s",
+                [lager:pr_stacktrace(Stacktrace, {error, Reason})]),
+            util_http:return_500()
+    end;
+
 %% /katchup/v/username
 process([<<"v">>, Username],
         #request{method = 'GET', q = _Q, ip = {NetIP, _Port}, headers = Headers} = _R) when size(Username) > 2 ->
