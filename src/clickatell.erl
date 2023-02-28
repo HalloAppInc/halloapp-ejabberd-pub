@@ -163,7 +163,7 @@ get_auth_token() ->
 %% `callback` = `7` indicates to clickatell to return all 7 parameters in the callback
 -spec compose_body(Phone :: phone(), Message :: io_lib:chars()) -> Body :: string().
 compose_body(Phone, Message) ->
-    Unicode = unicode:characters_to_binary(Message, latin1, utf16),
+    Unicode = unicode:characters_to_binary(Message, utf16, utf16),
     Text = str:to_hexlist(Unicode),
     Mp = #{
        <<"to">> => [Phone],
