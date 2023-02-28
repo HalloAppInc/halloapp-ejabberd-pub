@@ -161,6 +161,7 @@ add_verification_success(Phone, AppType, FetchedInfo, AllVerifyInfo) ->
         false ->
             #verification_info{attempt_id = AttemptId, gateway = Gateway} = FetchedInfo,
             ok = model_phone:add_verification_success(Phone, AppType, AttemptId),
+            ?INFO("verify_sms from ~s, AppType: ~s", [Phone, AppType]),
             stat:count(util:get_stat_namespace(AppType) ++ "/registration", "verify_sms", 1,
                 [{gateway, Gateway}, {cc, mod_libphonenumber:get_cc(Phone)}]),
             GatewayAtom = util:to_atom(Gateway),
@@ -207,6 +208,7 @@ send_otp(OtpPhone, LangId, Phone, UserAgent, Method, CampaignId) ->
     AppType = util_ua:get_app_type(UserAgent),
     StatNamespace = util:get_stat_namespace(AppType),
     {ok, OldResponses} = model_phone:get_all_gateway_responses(Phone, AppType),
+    ?INFO("send_otp to ~s, AppType: ~p, UserAgent: ~p", [OtpPhone, AppType, UserAgent]),
     stat:count(StatNamespace ++ "/registration", "send_otp"),
     stat:count(StatNamespace ++ "/registration", "send_otp_by_cc", 1,
         [{cc, mod_libphonenumber:get_cc(Phone)}]),
