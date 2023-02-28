@@ -115,7 +115,7 @@ process_local_iq(#pb_iq{from_uid = Uid,
                 profile = model_accounts:get_basic_user_profiles(Uid, Ouid)
             };
         true ->
-            ?INFO("~s follows ~s failed (someone was blocked)"),
+            ?INFO("~s follows ~s failed (someone was blocked)", [Uid, Ouid]),
             #pb_relationship_response{
                 result = fail
             }
@@ -241,8 +241,10 @@ notify_profile_update(Uid, Ouid, UpdateType) ->
 
 
 send_msg(From, To, Payload) ->
+    MsgId = util_id:new_msg_id(),
+    ?INFO("FromUid: ~p, ToUid: ~p, MsgId: ~p", [From, To, MsgId]),
     Msg = #pb_msg{
-        id = util_id:new_msg_id(),
+        id = MsgId,
         to_uid = To,
         from_uid = From,
         payload = Payload

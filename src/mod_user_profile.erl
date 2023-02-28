@@ -130,18 +130,21 @@ process_local_iq(#pb_iq{payload = #pb_user_profile_request{}} = Iq) ->
 
 -spec account_name_updated(Uid :: binary(), Name :: binary()) -> ok.
 account_name_updated(Uid, _Name) ->
+    ?INFO("Uid: ~p", [Uid]),
     broadcast_profile_update(Uid),
     ok.
 
 
 -spec user_avatar_published(Uid :: binary(), Server :: binary(), AvatarId :: binary()) -> ok.
 user_avatar_published(Uid, _Server, _AvatarId) ->
+    ?INFO("Uid: ~p", [Uid]),
     broadcast_profile_update(Uid),
     ok.
 
 
 -spec username_updated(Uid :: binary(), Username :: binary(), IsFirstTime :: boolean()) -> ok.
 username_updated(Uid, _Username, _IsFirstTime) ->
+    ?INFO("Uid: ~p", [Uid]),
     broadcast_profile_update(Uid),
     ok.
 
@@ -191,34 +194,9 @@ compose_user_profile_result(Uid, Ouid) ->
 broadcast_profile_update(Uid) ->
     ?INFO("Broadcasting update Uid: ~p", [Uid]),
     Followers = model_follow:get_all_followers(Uid),
-    Following = model_follow:get_all_following(Uid),
-    {ok, Account} = model_accounts:get_account(Uid),
-
     lists:foreach(
-        fun(FollowerUid) ->
-            ?INFO("Sending update of Uid: ~p ToUid: ~p", [Uid, FollowerUid]),
-            FollowingStatus = case sets:is_element(FollowerUid, sets:from_list(Following)) of
-                true -> following;
-                false -> none
-            end,
-            OFollowing = model_follow:get_all_following(FollowerUid),
-            Message = #pb_msg{
-                id = util_id:new_msg_id(),
-                to_uid = FollowerUid,
-                payload = #pb_profile_update{
-                    type = normal,
-                    profile =  #pb_basic_user_profile{
-                            uid = Uid,
-                            username = Account#account.username,
-                            name = Account#account.name,
-                            avatar_id = Account#account.avatar_id,
-                            follower_status = following,
-                            following_status = FollowingStatus,
-                            num_mutual_following = sets:size(sets:intersection(sets:from_list(Following), sets:from_list(OFollowing)))
-                        }
-                    }
-                },
-            ejabberd_router:route(Message)
+        fun(Ouid) ->
+            mod_follow:notify_profile_update(Uid, Ouid)
         end, Followers),
     ok.
 
