@@ -1338,7 +1338,9 @@ get_basic_user_profile(Uid, Ouid) ->
         _ -> following
     end,
     Following = sets:from_list(model_follow:get_all_following(Uid)),
-    OFollowing = sets:from_list(model_follow:get_all_following(Ouid)),
+    OuidFollowers = model_follow:get_all_followers(Ouid),
+    %% We probably have some users following their own self - causing some issues.
+    RelevantFollowerSet = sets:del_element(Uid, sets:del_element(Ouid, sets:intersection(Following, sets:from_list(OuidFollowers)))),
     #pb_basic_user_profile{
         uid = Ouid,
         username = Username,
@@ -1346,7 +1348,8 @@ get_basic_user_profile(Uid, Ouid) ->
         avatar_id = AvatarId,
         follower_status = FollowerStatus,
         following_status = FollowingStatus,
-        num_mutual_following = sets:size(sets:intersection(OFollowing, Following)),
+        %% mutuals for B as seen by A is the number of followers of B whom A follows.
+        num_mutual_following = sets:size(RelevantFollowerSet),
         blocked = util_redis:decode_boolean(IsBlocked)
     }.
 
@@ -1406,7 +1409,6 @@ get_user_profile(Uid, Ouid) ->
         _ -> following
     end,
     Following = sets:from_list(model_follow:get_all_following(Uid)),
-    OFollowing = sets:from_list(model_follow:get_all_following(Ouid)),
     Bio = case RawBio of
         undefined -> <<>>;
         _ -> RawBio
@@ -1437,7 +1439,8 @@ get_user_profile(Uid, Ouid) ->
         avatar_id = AvatarId,
         follower_status = FollowerStatus,
         following_status = FollowingStatus,
-        num_mutual_following = sets:size(sets:intersection(OFollowing, Following)),
+        %% mutuals for B as seen by A is the number of followers of B whom A follows.
+        num_mutual_following = sets:size(RelevantFollowerSet),
         bio = Bio,
         links = Links,
         relevant_followers = RelevantFollowerBasicProfiles,
