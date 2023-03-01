@@ -1571,12 +1571,6 @@ geo_tag_time_bucket_key_hr(GeoTag, TimestampHr) ->
     <<?GEO_TAG_TIME_BUCKET_KEY/binary, ":", GeoTagBin/binary, "{", TimestampHrBin/binary, "}">>.
 
 
--spec discovered_posts_key(Uid :: binary(), RequestTimestampMs :: integer()) -> binary().
-discovered_posts_key(Uid, RequestTimestampMs) ->
-    TimestampBin = util:to_binary(RequestTimestampMs),
-    <<?DISCOVERED_POSTS_KEY/binary, "{", Uid/binary, "}:", TimestampBin/binary>>.
-
-
 -spec seen_posts_key(Uid :: binary(), LatestNotifId :: integer()) -> binary().
 seen_posts_key(Uid, LatestNotifId) ->
     LatestNotifIdBin = util:to_binary(LatestNotifId),

@@ -118,7 +118,6 @@
 -define(TIME_BUCKET_KEY, <<"tk:">>).
 -define(GEO_TAG_TIME_BUCKET_KEY, <<"gtk:">>).
 -define(DAILY_LIMIT_KEY, <<"dl:">>).
--define(DISCOVERED_POSTS_KEY, <<"dpk:">>).
 -define(SEEN_POSTS_KEY, <<"spk:">>).
 -define(PROMPT_KEY, <<"pmk:">>).
 -define(MOMENT_INFO_KEY, <<"mik:">>).
