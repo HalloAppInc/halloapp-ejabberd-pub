@@ -1302,9 +1302,70 @@ get_broadcast_uids(Uid) ->
     {ok, Buids}.
 
 
--spec get_basic_user_profiles(Uid :: uid(), Ouids :: uid() | list(uid()))
+-spec get_basic_user_profiles(Uids :: uid() | list(uid()), Ouids :: uid() | list(uid()))
         -> pb_basic_user_profile() | list(pb_basic_user_profile()).
+get_basic_user_profiles(Uids, Ouid) when is_list(Uids) ->
+    %% Gets profiles of Ouid from the perspective of each Uid
+    [{ok, Username}, {ok, Name}, {ok, AvatarId}] = qp([
+        ["HGET", account_key(Ouid), ?FIELD_USERNAME],
+        ["HGET", account_key(Ouid), ?FIELD_NAME],
+        ["HGET", account_key(Ouid), ?FIELD_AVATAR_ID]
+    ]),
+    OFollowersSet = sets:from_list(model_follow:get_all_followers(Ouid) -- [Ouid]),
+    Commands = lists:flatmap(
+        fun(Uid) ->
+            [
+                ["ZSCORE", model_follow:follower_key(Uid), Ouid],
+                ["ZSCORE", model_follow:following_key(Uid), Ouid],
+                ["SISMEMBER", model_follow:blocked_key(Uid), Ouid],
+                ["SISMEMBER", model_follow:blocked_key(Ouid), Uid]
+            ]
+        end,
+        Uids),
+    Results = qmn(Commands),
+    {[], ResultProfiles} = lists:foldl(
+        fun(Uid, {[{ok, RawIsFollower}, {ok, RawIsFollowing}, {ok, RawIsBlocked}, {ok, RawIsBlockedBy} | Rest], Profiles}) ->
+            [IsFollower, IsFollowing] = lists:map(
+                fun(RawStatus) ->
+                    case util_redis:decode_int(RawStatus) of
+                        undefined -> none;
+                        0 -> none;
+                        _ -> following
+                    end
+                end,
+                [RawIsFollower, RawIsFollowing]),
+            IsBlocked = util_redis:decode_boolean(RawIsBlocked),
+            IsBlockedBy = util_redis:decode_boolean(RawIsBlockedBy),
+            Profile = case IsBlocked orelse IsBlockedBy of
+                true ->
+                    #pb_basic_user_profile{
+                        uid = Ouid,
+                        username = Username,
+                        following_status = none,
+                        follower_status = none,
+                        blocked = IsBlocked
+                    };
+                false ->
+                    FollowingSet = sets:from_list(model_follow:get_all_following(Uid) -- [Uid]),
+                    #pb_basic_user_profile{
+                        uid = Ouid,
+                        username = Username,
+                        name = Name,
+                        avatar_id = AvatarId,
+                        follower_status = IsFollower,
+                        following_status = IsFollowing,
+                        num_mutual_following = sets:size(sets:intersection(OFollowersSet, FollowingSet)),
+                        blocked = IsBlocked
+                    }
+            end,
+            {Rest, [Profile | Profiles]}
+        end,
+        {Results, []},
+        Uids),
+    lists:reverse(ResultProfiles);
+
 get_basic_user_profiles(Uid, Ouids) when is_list(Ouids) ->
+    %% Gets profiles of Ouids from the perspective of Uid
     lists:map(
         fun(Ouid) ->
             case model_follow:is_blocked_any(Uid, Ouid) of
@@ -1315,6 +1376,7 @@ get_basic_user_profiles(Uid, Ouids) when is_list(Ouids) ->
         Ouids);
 
 get_basic_user_profiles(Uid, Ouid) ->
+    %% Gets profile of Ouid from the perspective of Uid
     [BasicUserProfile] = get_basic_user_profiles(Uid, [Ouid]),
     BasicUserProfile.
 

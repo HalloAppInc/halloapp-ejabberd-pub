@@ -810,6 +810,75 @@ get_user_activity_info_testset(_) ->
     ].
 
 
+basic_user_profile_testset(_) ->
+    %% populate profile info for 3 accounts
+    Uid1 = tutil:generate_uid(?KATCHUP),
+    Username1 = <<"uid1">>,
+    Name1 = <<"Uid 1">>,
+    AvatarId1 = <<"av1">>,
+    model_accounts:set_username(Uid1, Username1),
+    model_accounts:set_name(Uid1, Name1),
+    model_accounts:set_avatar_id(Uid1, AvatarId1),
+    Uid2 = tutil:generate_uid(?KATCHUP),
+    Username2 = <<"uid12">>,
+    Name2 = <<"Uid 2">>,
+    AvatarId2 = <<"av2">>,
+    model_accounts:set_username(Uid2, Username2),
+    model_accounts:set_name(Uid2, Name2),
+    model_accounts:set_avatar_id(Uid2, AvatarId2),
+    Uid3 = tutil:generate_uid(?KATCHUP),
+    Username3 = <<"uid3">>,
+    Name3 = <<"Uid 3">>,
+    AvatarId3 = <<"av3">>,
+    model_accounts:set_username(Uid3, Username3),
+    model_accounts:set_name(Uid3, Name3),
+    model_accounts:set_avatar_id(Uid3, AvatarId3),
+    %% set relationship states
+    %% Uid1 follows Uid2
+    %% Uid1 blocked Uid3
+    model_follow:follow(Uid1, Uid2),
+    model_follow:block(Uid1, Uid3),
+    %% Expected profiles
+    Uid2ProfileToUid1 = #pb_basic_user_profile{
+        uid = Uid2,
+        username = Username2,
+        name = Name2,
+        avatar_id = AvatarId2,
+        follower_status = none,
+        following_status = following,
+        num_mutual_following = 0,
+        blocked = false
+    },
+    Uid3ProfileToUid1 = #pb_basic_user_profile{
+        uid = Uid3,
+        username = Username3,
+        follower_status = none,
+        following_status = none,
+        blocked = true
+    },
+    Uid1ProfileToUid2 = #pb_basic_user_profile{
+        uid = Uid1,
+        username = Username1,
+        name = Name1,
+        avatar_id = AvatarId1,
+        follower_status = following,
+        following_status = none,
+        num_mutual_following = 0,
+        blocked = false
+    },
+    Uid1ProfileToUid3 = #pb_basic_user_profile{
+        uid = Uid1,
+        username = Username1,
+        follower_status = none,
+        following_status = none,
+        blocked = false
+    },
+    %% Tests
+    [
+        ?_assertEqual(Uid2ProfileToUid1, model_accounts:get_basic_user_profiles(Uid1, Uid2)),
+        ?_assertEqual([Uid2ProfileToUid1, Uid3ProfileToUid1], model_accounts:get_basic_user_profiles(Uid1, [Uid2, Uid3])),
+        ?_assertEqual([Uid1ProfileToUid2, Uid1ProfileToUid3], model_accounts:get_basic_user_profiles([Uid2, Uid3], Uid1))
+    ].
 
 
 api_test_() ->

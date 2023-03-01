@@ -218,6 +218,27 @@ remove_user(Uid, _Server) ->
     ?INFO("Removed all following/follower, blocked/blocked by lists for ~s", [Uid]),
     ok.
 
+
+-spec notify_profile_update(Uid :: uid() | list(uid()), Ouid :: uid() | list(uid())) -> ok.
+notify_profile_update(Uid, Ouid)  ->
+    notify_profile_update(Uid, Ouid, normal).
+
+
+-spec notify_profile_update(Uid :: uid() | list(uid()), Ouid :: uid() | list(uid()), UpdateType :: 'pb_profile_update.Type'()) -> ok.
+notify_profile_update(Uid, Ouids, UpdateType) when is_list(Ouids) ->
+    %% Notify Ouids about a change to Uid's profile
+    Profiles = model_accounts:get_basic_user_profiles(Ouids, Uid),
+    lists:foreach(
+        fun({Ouid, Profile}) ->
+            send_msg(Uid, Ouid, #pb_profile_update{type = UpdateType, profile = Profile})
+        end,
+        lists:zip(Ouids, Profiles));
+
+notify_profile_update(Uid, Ouid, UpdateType) ->
+    %% Notify Ouid about a change to Uid's profile
+    ProfileUpdate = #pb_profile_update{type = UpdateType, profile = model_accounts:get_basic_user_profiles(Ouid, Uid)},
+    send_msg(Uid, Ouid, ProfileUpdate).
+
 %%====================================================================
 %% Internal functions
 %%====================================================================
@@ -227,16 +248,6 @@ notify_account_deleted(Uid, Ouid) ->
     %% this could also mean Ouid has been blocked by Uid
     UserProfile = model_accounts:get_basic_user_profiles(Ouid, Uid),
     ProfileUpdate = #pb_profile_update{type = delete, profile = UserProfile},
-    send_msg(Uid, Ouid, ProfileUpdate).
-
-
-notify_profile_update(Uid, Ouid)  ->
-    notify_profile_update(Uid, Ouid, normal).
-
-
-notify_profile_update(Uid, Ouid, UpdateType) ->
-    %% Notify Ouid that Uid has changed the status of the relationship
-    ProfileUpdate = #pb_profile_update{type = UpdateType, profile = model_accounts:get_basic_user_profiles(Ouid, Uid)},
     send_msg(Uid, Ouid, ProfileUpdate).
 
 

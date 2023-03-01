@@ -188,15 +188,12 @@ compose_user_profile_result(Uid, Ouid) ->
     }.
 
 
- %% Broadcasts profile update to followers.
+%% Broadcasts profile update to followers.
 %% TODO: Send this to contactUids who have this number.
 -spec broadcast_profile_update(Uid :: binary()) -> ok.
 broadcast_profile_update(Uid) ->
     ?INFO("Broadcasting update Uid: ~p", [Uid]),
     Followers = model_follow:get_all_followers(Uid),
-    lists:foreach(
-        fun(Ouid) ->
-            mod_follow:notify_profile_update(Uid, Ouid)
-        end, Followers),
+    mod_follow:notify_profile_update(Uid, Followers),
     ok.
 
