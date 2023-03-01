@@ -31,13 +31,15 @@
     send_moment_notification/6,
     send_moment_notification_async/6,
     get_region_offset_hr_by_sec/1,
+    get_region_offset_hr/1,
     get_region_offset_hr/2,
     get_region_by_zone_offset_sec/1,
     get_region_by_uid/1,
     get_current_offsets/1,
     is_region_offset_hr/1,
     get_regions/0,
-    send_latest_notification/3
+    send_latest_notification/3,
+    get_fallback_region/0
 ]).
 
 %% Hooks

@@ -945,16 +945,17 @@ update_zone_offset_hr_index(Uid, ZoneOffsetSec, OldZoneOffsetSec) when ZoneOffse
             HashSlot = util_redis:eredis_hash(binary_to_list(Uid)),
             Slot = HashSlot rem ?NUM_SLOTS,
             ZoneOffsetHr = util:secs_to_hrs(ZoneOffsetSec),
-            case OldZoneOffsetSec of
+            OldZoneOffsetHr = case OldZoneOffsetSec of
                 undefined ->
-                    {ok, _} = q(["SADD", zone_offset_hr_key(Slot, ZoneOffsetHr), Uid]);
+                    %% TODO: move these functions to util_moments calls.
+                    mod_moment_notification2:get_region_offset_hr(mod_moment_notification2:get_fallback_region());
                 _ ->
-                    OldZoneOffsetHr = util:secs_to_hrs(OldZoneOffsetSec),
-                    [{ok, _}, {ok, _}] = qp([
-                        ["SREM", zone_offset_hr_key(Slot, OldZoneOffsetHr), Uid],
-                        ["SADD", zone_offset_hr_key(Slot, ZoneOffsetHr), Uid]
-                    ])
-            end
+                    util:secs_to_hrs(OldZoneOffsetSec)
+            end,
+            [{ok, _}, {ok, _}] = qp([
+                ["SREM", zone_offset_hr_key(Slot, OldZoneOffsetHr), Uid],
+                ["SADD", zone_offset_hr_key(Slot, ZoneOffsetHr), Uid]
+            ])
     end,
     ok;
 update_zone_offset_hr_index(_Uid, _ZoneOffsetSecs, _OldZoneOffsetSecs) ->
