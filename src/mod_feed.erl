@@ -962,29 +962,10 @@ get_message_type(#pb_feed_item{action = publish, item = #pb_comment{}}, PushSet,
 get_message_type(#pb_feed_item{action = retract}, _, _) -> normal.
 
 
-backfill_content(Uid, GeoTag) ->
-    %% Backfill seen posts, since these posts are already seen and they wont be ranked again.
-    %% This transition is necessary as we launch this new feed ranking code.
-    case model_feed:get_ranked_feed(Uid) of
-        {[], #{}} ->
-            %% If no content exists: then try to use past seen posts and
-            SeenPostIds = model_feed:get_past_seen_posts(Uid),
-            SeenMoments = model_feed:get_posts(SeenPostIds),
-            SeenMoments2 = filter_moments_by_author(Uid, SeenMoments, false),
-            {_RankedSeenMoments, RankedSeenMomentScoreMap} = rank_moments(Uid, GeoTag, SeenMoments2, #{}),
-            ok = model_feed:append_ranked_feed(Uid, SeenPostIds, RankedSeenMomentScoreMap),
-            ok;
-        _ ->
-            ok
-    end,
-    ok.
-
-
 %% This function takes Uid, their GeoTag, timestamp of the request, cursor and limit.
 %% returns the final list of moments ranked in a specific order.
 %% tries to return atmost Limit number of posts.
 get_ranked_public_moments(Uid, GeoTag, TimestampMs, Cursor, Limit, ShowDevContent, CursorReload) ->
-    backfill_content(Uid, GeoTag),
     Time1 = util:now_ms(),
     {RankedMomentIds, _} = model_feed:get_ranked_feed(Uid),
     {_, CursorPostId, _} = model_feed:split_cursor(Cursor),

@@ -103,8 +103,6 @@
     get_all_public_moments/2,
     get_all_posts_by_time_bucket/3,
     get_all_posts_by_geo_tag_time_bucket/4,
-    mark_discovered_posts/3,
-    get_past_discovered_posts/2,
     mark_seen_posts/2,
     mark_seen_posts/3,
     get_past_seen_posts/1,
@@ -311,19 +309,6 @@ parse_score_and_explanation([], Res) ->
     lists:reverse(Res);
 parse_score_and_explanation([{ok, Score}, {ok, Exp} | Rest], Res) ->
     parse_score_and_explanation(Rest, [{util_redis:decode_float(Score), Exp} | Res]).
-
-
-mark_discovered_posts(_Uid, _RequestTimestampMs, []) -> ok;
-mark_discovered_posts(Uid, RequestTimestampMs, PostIds) ->
-    [{ok, _}, {ok, _}] = qp([
-            ["SADD", discovered_posts_key(Uid, RequestTimestampMs)] ++ PostIds,
-            ["EXPIRE", discovered_posts_key(Uid, RequestTimestampMs), ?MOMENT_TAG_EXPIRATION]]),
-    ok.
-
-
-get_past_discovered_posts(Uid, RequestTimestampMs) ->
-    {ok, PostIds} = q(["SMEMBERS", discovered_posts_key(Uid, RequestTimestampMs)]),
-    PostIds.
 
 
 mark_seen_posts(_Uid, []) -> ok;
