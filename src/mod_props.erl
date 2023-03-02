@@ -113,7 +113,8 @@ get_props(Uid, ClientVersion, katchup) ->
         enable_sentry_perf_tracking => false, %% Enable Sentry perf tracking on iOS clients
         background_upload => true,   %% Enables background upload on ios clients.
         relationship_sync_frequency => 1 * ?DAYS, %% how often should clients sync all relationships.
-        refresh_public_feed_interval_secs => ?KATCHUP_PUBLIC_FEED_REFRESH_SECS
+        refresh_public_feed_interval_secs => ?KATCHUP_PUBLIC_FEED_REFRESH_SECS,
+        close_friends_recos => false %% Should invite recommendations be sorted based on number of close friends
     },
     ClientType = util_ua:get_client_type(ClientVersion),
     AppType = util_ua:get_app_type(ClientVersion),
@@ -227,7 +228,7 @@ get_uid_based_props(PropMap, halloapp, Uid) ->
             PropMap18 = maps:update(background_upload, true, PropMap17),
             PropMap19 = maps:update(aggressive_invite_screen, true, PropMap18),
             PropMap20 = maps:update(contact_sharing, true, PropMap19),
-            PropMap21 = maps:update(close_friends_recos, true, PropMap20),
+            PropMap21 = maps:update(close_friends_recos, false, PropMap20),
             PropMap22 = maps:update(location_sharing, true, PropMap21),
             PropMap23 = maps:update(moment_external_share, true, PropMap22),
             PropMap23
