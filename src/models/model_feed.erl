@@ -326,7 +326,7 @@ get_past_seen_posts(Uid) ->
     DeadlineMs = util:now_ms() - ?KATCHUP_MOMENT_EXPIRATION_MS,
     [{ok, PostIds}, {ok, _}] = qp([
         ["ZRANGE", seen_posts_key(Uid), util:to_binary(DeadlineMs), "+inf", "BYSCORE"],
-        ["ZREMRANGE", seen_posts_key(Uid), "-inf", util:to_binary(DeadlineMs), "BYSCORE"]]),
+        ["ZREMRANGEBYSCORE", seen_posts_key(Uid), "-inf", util:to_binary(DeadlineMs)]]),
     PostIds.
 
 
