@@ -79,15 +79,11 @@ get_media_prompt() ->
 
 get_text_prompts() ->
     [
+    <<"What food are you craving right now?">>,
+    <<"Describe your day in emojis">>,
+    <<"If you could live in any time period, which one would you choose?">>,
     <<"A movie you thought was overrated, but turned out great">>,
-    <<"If you had to listen to only one artist for a week, who would it be?">>,
-    <<"">>,
-    <<"">>,
-    <<"">>,
-    <<"">>,
-    <<"">>,
-    <<"">>,
-    <<"">>
+    <<"If you had to listen to only one artist for a week, who would it be?">>
     ].
 
 get_media_prompts() ->
