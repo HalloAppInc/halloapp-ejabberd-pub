@@ -413,11 +413,6 @@ normalize_and_insert_contacts(UserId, _Server, Contacts, SyncId) ->
     Time6 = os:system_time(microsecond),
     ?INFO("Timetaken:obtain_avatar_ids: ~w us", [Time6 - Time5]),
 
-    %% Obtain potential_friends for unregistered contacts.
-    UnRegisteredContacts2 = obtain_potential_friends(UserId, UnRegisteredContacts1),
-    Time7 = os:system_time(microsecond),
-    ?INFO("Timetaken:obtain_potential_friends: ~w us", [Time7 - Time6]),
-
     %% Call the batched API to insert the normalized phone numbers.
     %% If it is a delta-sync - undefined syncId, we need to notify contacts,
     %% otherwise, we will notify them at the end in finish_sync(...)
@@ -428,18 +423,18 @@ normalize_and_insert_contacts(UserId, _Server, Contacts, SyncId) ->
         _ ->
             model_contacts:sync_contacts(UserId, SyncId, NormalizedPhoneNumbers)
     end,
-    Time8 = os:system_time(microsecond),
-    ?INFO("Timetaken:sync/add_contacts: ~w us", [Time8 - Time7]),
+    Time7 = os:system_time(microsecond),
+    ?INFO("Timetaken:sync/add_contacts: ~w us", [Time7 - Time6]),
 
     ?INFO("Uid: ~p, NumContacts: ~p, NumBlockedContacts: ~p, NumUidContacts: ~p",
         [UserId, length(Contacts), length(BlockedContacts), length(NonBlockedContacts2)]),
 
     %% Return all contacts. Includes the following:
     %% - un-normalized phone numbers
-    %% - normalized but unregistered contacts with num_potential_friends
+    %% - normalized but unregistered contacts
     %% - registered and blocked contacts
     %% - registered and unblocked contacts.
-    Result = UnNormalizedContacts1 ++ UnRegisteredContacts2 ++ BlockedContacts ++ NonBlockedContacts2,
+    Result = UnNormalizedContacts1 ++ UnRegisteredContacts1 ++ BlockedContacts ++ NonBlockedContacts2,
     Result.
 
 
@@ -501,19 +496,6 @@ obtain_avatar_ids(RegContacts) ->
             AvatarId = maps:get(ContactId, ContactIdAvatarsMap, <<>>),
             Contact#pb_contact{avatar_id = AvatarId}
         end, RegContacts).
-
-
-%% Sets potential friends for un-registered contacts.
--spec obtain_potential_friends(Uid :: binary(), UnRegisteredContacts :: [pb_contact()]) -> [pb_contact()].
-obtain_potential_friends(Uid, UnRegisteredContacts) ->
-    AppType = util_uid:get_app_type(Uid),
-    ContactPhones = extract_normalized(UnRegisteredContacts),
-    PhoneToContactsMap = model_contacts:get_contacts_uids_size(ContactPhones, AppType),
-    lists:map(
-        fun(#pb_contact{normalized = ContactPhone} = Contact) ->
-            NumPotentialFriends = maps:get(ContactPhone, PhoneToContactsMap, 0),
-            Contact#pb_contact{num_potential_friends = NumPotentialFriends}
-        end, UnRegisteredContacts).
 
 
 %% Splits contacts to blocked and non blocked.
