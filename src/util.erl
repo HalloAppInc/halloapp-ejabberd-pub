@@ -108,7 +108,9 @@
     index_of/2,
     get_stat_namespace/1,
     secs_to_hrs/1,
-    uniq/1
+    uniq/1,
+    is_dst_america/1,
+    is_dst_europe/1
 ]).
 
 
@@ -889,3 +891,76 @@ uniq_1([X | Xs], M) ->
 uniq_1([], _) ->
     [].
 
+
+is_dst_america(AmericaTimestamp) ->
+    %% In the US, DST rules are as follows:
+    %%   * begins at 2:00am on the second Sunday of March (at 2am the local time time skips ahead to 3am)
+    %%   * ends at 2:00am on the first Sunday of November (at 2am the local time becomes 1am and that hour is repeated)
+    {{_, Month, Day} = Date, {_, _, _}} =
+        calendar:system_time_to_universal_time(AmericaTimestamp, second),
+    if
+        Month < 3 orelse Month > 11 ->
+            %% Between November and March, there is no DST
+            false;
+        Month > 3 andalso Month < 11 ->
+            %% Between March and November, there is DST
+            true;
+        Month =:= 3 ->
+            %% DST iff Date is on or after 2nd Sunday
+            DayNum = calendar:day_of_the_week(Date),  %% DayNum = 7 is Sunday
+            if
+                DayNum < 7 andalso Day - 7 > 0 andalso Day - 14 > 0 ->
+                    %% If Day - 7 and Day - 14 are valid, we are after the 2nd Sunday
+                    true;
+                DayNum =:= 7 andalso Day - 7 > 0 ->
+                    %% If today is Sunday and Date - 7 is a valid day, then it is >= 2nd Sunday
+                    true;
+                true ->
+                    false
+            end;
+        Month =:= 11 ->
+            %% DST iff Date is before the 1st Sunday
+            DayNum = calendar:day_of_the_week(Date),  %% DayNum = 7 is Sunday
+            if
+                DayNum =:= 7 ->
+                    %% No Sunday in November is on DST
+                    false;
+                Day - DayNum =< 0 ->
+                    %% This will only be true if a Sunday hasn't already occurred
+                    true;
+                true ->
+                    false
+            end
+    end.
+
+
+is_dst_europe(EuropeTimestamp) ->
+    %% In Europe, DST rules are as follows:
+    %%   * begins on the last Sunday of March
+    %%   * ends on the last Sunday of October
+    {{Year, Month, Day}, {_, _, _}} =
+        calendar:system_time_to_universal_time(EuropeTimestamp, second),
+    if
+        Month < 3 orelse Month > 10 ->
+            %% Between October and March, there is no DST
+            false;
+        Month > 3 andalso Month < 10 ->
+            %% Between March and October, there is DST
+            true;
+        Month =:= 3 ->
+            %% DST iff Date is on or last Sunday
+            LastDayNum = calendar:day_of_the_week({Year, 3, 31}),  %% DayNum = 7 is Sunday
+            LastSundayDay = case LastDayNum of
+                7 -> 31;
+                _ -> 31 - LastDayNum
+            end,
+            Day >= LastSundayDay;
+        Month =:= 10 ->
+            %% DST iff Date is before the last Sunday
+            LastDayNum = calendar:day_of_the_week({Year, 10, 31}),  %% DayNum = 7 is Sunday
+            LastSundayDay = case LastDayNum of
+                7 -> 31;
+                _ -> 31 - LastDayNum
+            end,
+            Day < LastSundayDay
+    end.

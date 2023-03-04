@@ -170,6 +170,34 @@ test_get_stat_namespace(_) ->
     ].
 
 
+test_is_dst_america(_) ->
+    [
+        ?_assertNot(util:is_dst_america(1675209600)),  %% Feb 1, 2023
+        ?_assertNot(util:is_dst_america(1677628800)),  %% Mar 1, 2023
+        ?_assert(util:is_dst_america(1678579200)),     %% Mar 12, 2023
+        ?_assert(util:is_dst_america(1679270400)),     %% Mar 20, 2023
+        ?_assert(util:is_dst_america(1688169600)),     %% Jul 1, 2023
+        ?_assert(util:is_dst_america(1698796800)),     %% Nov 1, 2023
+        ?_assertNot(util:is_dst_america(1699142400)),  %% Nov 5, 2023
+        ?_assertNot(util:is_dst_america(1700438400)),  %% Nov 20, 2023
+        ?_assertNot(util:is_dst_america(1701388800))  %% Dec 1, 2023
+    ].
+
+
+test_is_dst_europe(_) ->
+    [
+        ?_assertNot(util:is_dst_europe(1675209600)),  %% Feb 1, 2023
+        ?_assertNot(util:is_dst_europe(1677628800)),  %% Mar 1, 2023
+        ?_assert(util:is_dst_europe(1679788800)),     %% Mar 26, 2023
+        ?_assert(util:is_dst_europe(1680134400)),     %% Mar 30, 2023
+        ?_assert(util:is_dst_europe(1688169600)),     %% Jul 1, 2023
+        ?_assert(util:is_dst_europe(1696118400)),     %% Oct 1, 2023
+        ?_assertNot(util:is_dst_europe(1698537600)),  %% Oct 29, 2023
+        ?_assertNot(util:is_dst_europe(1698710400)),  %% Oct 31, 2023
+        ?_assertNot(util:is_dst_europe(1701388800))  %% Dec 1, 2023
+    ].
+
+
 do_util_test_() ->
     % Note, this is an unnecessary amount of complexity -- all of these test functions could just end
     % in _test_() and work great. It's just fun to parallelize to go super duper fast
@@ -191,6 +219,8 @@ do_util_test_() ->
         fun test_normalize_scores/1,
         fun test_remove_cc_from_langid/1,
         fun test_is_main_stest/1,
-        fun test_get_stat_namespace/1
+        fun test_get_stat_namespace/1,
+        fun test_is_dst_america/1,
+        fun test_is_dst_europe/1
     ]).
 

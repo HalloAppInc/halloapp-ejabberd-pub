@@ -59,17 +59,30 @@ get_regions() ->
     %%     e.g. if OffsetHrToSend is -5, all the moment notifications for that region will be sent
     %%     when the moment notification time in GMT-5 is reached
     [
-        %% TODO: adjust for daylight savings time
-        {america, fun(Hr) -> -10 =< Hr andalso Hr =< -3 end, -8},   %% PST (California)
-        {europe, fun(Hr) -> -3 < Hr andalso Hr < 3 end, 0},         %% GMT (UK)
-        {west_asia, fun(Hr) -> 3 =< Hr andalso Hr < 5 end, 3},      %% Saudi Arabia
-        {east_asia, fun(Hr) -> 5 =< Hr orelse Hr < -10 end, 6}      %% India
+        {america, fun(Hr) -> -10 =< Hr andalso Hr =< -3 end, get_hr_to_send_america()},   %% PST (California)
+        {europe, fun(Hr) -> -3 < Hr andalso Hr < 3 end, get_hr_to_send_europe()},         %% GMT (UK)
+        {west_asia, fun(Hr) -> 3 =< Hr andalso Hr < 5 end, 3},                            %% Saudi Arabia
+        {east_asia, fun(Hr) -> 5 =< Hr orelse Hr < -10 end, 6}                            %% India
     ].
 
 
 get_fallback_region() ->
     %% Currently fallback to the US if no region info can be determined otherwise
     america.
+
+
+get_hr_to_send_america() ->
+    case util:is_dst_america(util:now() - (8 * ?HOURS)) of
+        true -> -7;
+        false -> -8
+    end.
+
+
+get_hr_to_send_europe() ->
+    case util:is_dst_europe(util:now()) of
+        true -> 1;
+        false -> 0
+    end.
 
 %%====================================================================
 %% gen_mod callbacks
