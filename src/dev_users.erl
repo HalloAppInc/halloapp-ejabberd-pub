@@ -105,6 +105,7 @@ get_dev_phones() ->
 -spec get_public_feed_blocked_phones_list() -> [uid()].
 get_public_feed_blocked_phones_list() ->
     [
+        <<"16504992804">>,  %% Google tester
         <<"16503874384">>   %% Jack test phone
     ].
 
