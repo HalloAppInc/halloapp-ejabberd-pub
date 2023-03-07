@@ -2108,8 +2108,13 @@ any_rules_allowed(Host, Access, #jid{luser = User} = Entity) ->
 process_username_query([{nokey, _}]) -> [];
 process_username_query(Query) ->
 	[{<<"username">>, RawUsernames} | _] = Query,
-	Usernames = lists:filter(
-		fun(U) -> U =/= <<>> end,
+	Usernames = lists:filtermap(
+		fun(U) ->
+			case U of
+				<<>> -> false;
+				_ -> {true, string:lowercase(U)}
+			end
+		end,
 		re:split(RawUsernames, <<"\s+">>)),
 	InfoMap = model_accounts:get_user_activity_info(Usernames),
 	Headers = [
