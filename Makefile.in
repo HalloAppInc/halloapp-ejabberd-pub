@@ -392,7 +392,8 @@ pre-invite-strings:
 	$(MAKE) STRING_NAME='invite.contact.count' RESULT_FILE=pre_invite_strings.json copy-lang-strings-internal
 
 invite-strings:
-	$(MAKE) STRING_NAME='\"invite.text*' RESULT_FILE=invite_strings.json copy-lang-strings-internal
+	@echo "currently disabled – doesn't work for both apps."
+	# $(MAKE) STRING_NAME='\"invite.text*' RESULT_FILE=invite_strings.json copy-lang-strings-internal
 
 copy-lang-strings-internal:
 	rm -rf temp

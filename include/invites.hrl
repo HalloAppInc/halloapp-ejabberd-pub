@@ -8,8 +8,10 @@
 
 -define(INVITE_STRING_ID_SHA_HASH_LENGTH_BYTES, 16).
 
--define(INVITE_STRINGS_TABLE, invite_strings).
--define(INVITE_STRINGS_ETS_KEY, invite_strings_map).
+-define(HA_INVITE_STRINGS_TABLE, invite_strings_halloapp).
+-define(HA_INVITE_STRINGS_ETS_KEY, invite_strings_map_halloapp).
+-define(KA_INVITE_STRINGS_TABLE, invite_strings_katchup).
+-define(KA_INVITE_STRINGS_ETS_KEY, invite_strings_map_katchup).
 
 -define(PRE_INVITE_STRINGS_TABLE, pre_invite_strings).
 -define(PRE_INVITE_STRINGS_ETS_KEY, pre_invite_strings_map).

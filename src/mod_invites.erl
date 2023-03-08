@@ -48,7 +48,8 @@
 -define(NS_INVITE, <<"halloapp:invites">>).
 -define(NS_INVITE_STATS, "HA/invite").
 
--define(INVITE_STRINGS_FILE, "invite_strings.json").
+-define(HA_INVITE_STRINGS_FILE, "invite_strings_halloapp.json").
+-define(KA_INVITE_STRINGS_FILE, "invite_strings_katchup.json").
 -define(PRE_INVITE_STRINGS_FILE, "pre_invite_strings.json").
 
 %%====================================================================
@@ -66,10 +67,11 @@ stop(_Host) ->
     gen_iq_handler:remove_iq_handler(ejabberd_local, halloapp, pb_invites_request),
     ejabberd_hooks:delete(register_user, halloapp, ?MODULE, register_user, 50),
     try
-        ets:delete(?INVITE_STRINGS_TABLE),
+        ets:delete(?HA_INVITE_STRINGS_TABLE),
+        ets:delete(?KA_INVITE_STRINGS_TABLE),
         ets:delete(?PRE_INVITE_STRINGS_TABLE)
     catch Error:Reason ->
-        ?WARNING("Could not delete ets table ~p: ~p: ~p", [?INVITE_STRINGS_TABLE, Error, Reason])
+        ?WARNING("Could not delete ets table: ~p: ~p", [Error, Reason])
     end,
     ok.
 
@@ -204,9 +206,14 @@ request_invite(FromUid, ToPhoneNum) ->
 
 -spec get_invite_strings(Uid :: uid()) -> map().
 get_invite_strings(Uid) ->
+    {Table, EtsKey} = case util_uid:get_app_type(Uid) of
+        ?KATCHUP ->
+            {?KA_INVITE_STRINGS_TABLE, ?KA_INVITE_STRINGS_ETS_KEY};
+        _ ->
+            {?HA_INVITE_STRINGS_TABLE, ?HA_INVITE_STRINGS_ETS_KEY}
+    end,
     try
-        [{?INVITE_STRINGS_ETS_KEY, InviteStringsMap}] =
-            ets:lookup(?INVITE_STRINGS_TABLE, ?INVITE_STRINGS_ETS_KEY),
+        [{EtsKey, InviteStringsMap}] = ets:lookup(Table, EtsKey),
         InviteStringsMapForCC = rm_invite_strings_by_cc(InviteStringsMap, Uid),
         maps:fold(
             fun(LangId, Strings, Acc) ->
@@ -241,16 +248,25 @@ get_invite_string_id(InvStr) ->
 %% for `h get-invite-string`
 -spec lookup_invite_string(HashId :: binary()) -> ok.
 lookup_invite_string(HashId) ->
-    try
-        case ets:lookup(?INVITE_STRINGS_TABLE, HashId) of
-            [{HashId, {LangId, String}}] ->
-                io:format("~s: ~s~n", [LangId, String]),
-                String;
-            [] -> io:format("Invalid Version ID~n", [])
-        end
-    catch Error : Reason ->
-        io:format("Error (~p): ~p~n", [Error, Reason])
-    end.
+    lists:foldl(
+        fun(AppType, Result) ->
+            Table = case AppType of
+                ?KATCHUP -> ?KA_INVITE_STRINGS_TABLE;
+                _ -> ?HA_INVITE_STRINGS_TABLE
+            end,
+            try
+                case ets:lookup(Table, HashId) of
+                    [{HashId, {LangId, String}}] ->
+                        io:format("~s: ~s~n", [LangId, String]),
+                        Result ++ String;
+                    [] -> Result
+                end
+            catch Error : Reason ->
+                io:format("Error (~p): ~p~n", [Error, Reason])
+            end
+        end,
+        "",
+        [?HALLOAPP, ?KATCHUP]).
 
 
 list_of_langids_to_keep_cc() ->
@@ -425,55 +441,47 @@ init_pre_invite_string_table() ->
 
 init_invite_string_table() ->
     %% Load invite strings into ets
-    try
-        ?INFO("Trying to create table for invite strings in ets", []),
-        ets:new(?INVITE_STRINGS_TABLE, [named_table, public, {read_concurrency, true}]),
-        % load and store invite strings in ets
-        % to refresh the invite strings json file, run `make invite-strings`
-        Filename = filename:join(misc:data_dir(), ?INVITE_STRINGS_FILE),
-        {ok, Bin} = file:read_file(Filename),
-        InviteStringsMap = jiffy:decode(Bin, [return_maps]),
-        %% en localization strings dont appear with other languages in ios repo for some reason.
-        %% TODO: need to fix this in the ios repo.
-        InviteStringsMap1 = InviteStringsMap#{
-            <<"en">> => [
-                <<"I’m inviting you to join me on HalloApp. It is a private and secure app to share pictures, chat and call your friends. Get it at https://halloapp.com/get"/utf8>>,
-                <<"Hey %1$@, I have an invite for you to join me on HalloApp - a real-relationship network for those closest to me. Use %2$@ to register. Get it at https://halloapp.com/dl"/utf8>>,
-                <<"Join me on HalloApp – a simple, private, and secure way to stay in touch with friends and family. Get it at https://halloapp.com/dl"/utf8>>,
-                <<"Hey %@, I’m on HalloApp. Download to join me https://halloapp.com/install"/utf8>>,
-                <<"Hey %@, let’s keep in touch on HalloApp. Download at https://halloapp.com/kit (HalloApp is a new, private social app for close friends and family, with no ads or algorithms)."/utf8>>,
-                <<"I am inviting you to install HalloApp. Download for free here: https://halloapp.com/free"/utf8>>,
-                <<"Hey %@! Join me on HalloApp, and share real moments with real friends. Check it out: https://halloapp.com/new"/utf8>>
-            ]
-        },
-        ets:insert(?INVITE_STRINGS_TABLE, {?INVITE_STRINGS_ETS_KEY, InviteStringsMap1}),
-        %% store shortened hash of each string to identify it later
-        %% TODO: use maps:foreach here after upgrade to otp 24
-        lists:foreach(
-            fun({LangId, Strings}) ->
-                lists:foreach(
-                    fun(String) ->
-                        InviteStringId = get_invite_string_id(String),
-                        ets:insert(?INVITE_STRINGS_TABLE, {InviteStringId, {LangId, String}})
+    lists:foreach(
+        fun({File, Table, EtsKey}) ->
+            try
+                ?INFO("Trying to create table for invite strings in ets", []),
+                ets:new(Table, [named_table, public, {read_concurrency, true}]),
+                % load and store invite strings in ets
+                % to refresh the invite strings json file, run `make invite-strings`
+                Filename = filename:join(misc:data_dir(), File),
+                {ok, Bin} = file:read_file(Filename),
+                InviteStringsMap = jiffy:decode(Bin, [return_maps]),
+                ets:insert(Table, {EtsKey, InviteStringsMap}),
+                %% store shortened hash of each string to identify it later
+                maps:foreach(
+                    fun(LangId, Strings) ->
+                        lists:foreach(
+                            fun(String) ->
+                                InviteStringId = get_invite_string_id(String),
+                                ets:insert(Table, {InviteStringId, {LangId, String}})
+                            end,
+                            Strings)
                     end,
-                    Strings)
-            end,
-            maps:to_list(InviteStringsMap1))
-    catch Error:Reason ->
-        ?WARNING("Failed to create a table for invite strings in ets: ~p: ~p", [Error, Reason])
-    end,
+                    InviteStringsMap)
+            catch Error:Reason ->
+                ?WARNING("Failed to create a table for ~p in ets: ~p: ~p", [Table, Error, Reason])
+            end
+        end,
+        [{?HA_INVITE_STRINGS_FILE, ?HA_INVITE_STRINGS_TABLE, ?HA_INVITE_STRINGS_ETS_KEY},
+            {?KA_INVITE_STRINGS_FILE, ?KA_INVITE_STRINGS_TABLE, ?KA_INVITE_STRINGS_ETS_KEY}]),
     ok.
 
 
 rm_invite_strings_by_cc(InviteStringMap, Uid) ->
     {ok, RawLangId} = model_accounts:get_lang_id(Uid),
+    AppType = util_uid:get_app_type(Uid),
     case RawLangId of
         undefined -> InviteStringMap;
         _ ->
             case binary:split(RawLangId, <<"-">>) of
                 [RawLangId] -> InviteStringMap;
                 [_LangId, CC] ->
-                    InvStrsToRm = mod_props:get_invite_strings_to_rm_by_cc(CC),
+                    InvStrsToRm = mod_props:get_invite_strings_to_rm_by_cc(CC, AppType),
                     maps:map(
                         fun(LangId, Strings) ->
                             InvStrsToRmForLangId = maps:get(LangId, InvStrsToRm, []),

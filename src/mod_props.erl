@@ -32,7 +32,7 @@
 -export([
     get_hash/2,
     get_props/2,    %% debug only
-    get_invite_strings_to_rm_by_cc/1
+    get_invite_strings_to_rm_by_cc/2
 ]).
 
 %%====================================================================
@@ -185,11 +185,11 @@ get_props(Uid, ClientVersion, halloapp) ->
     lists:keysort(1, Proplist).
 
 
--spec get_invite_strings_to_rm_by_cc(binary()) -> #{LangId :: binary() => list(InvStr :: binary())}.
-get_invite_strings_to_rm_by_cc(CC) ->
+-spec get_invite_strings_to_rm_by_cc(binary(), app_type()) -> #{LangId :: binary() => list(InvStr :: binary())}.
+get_invite_strings_to_rm_by_cc(CC, AppType) ->
     %% This is a map of lang_id -> strings_to_rm for each country
-    case CC of
-        <<"US">> -> #{<<"en">> => [
+    case {CC, AppType} of
+        {<<"US">>, ?HALLOAPP} -> #{<<"en">> => [
             %% ID: bC4w8HJbHV0zVxoZsIh+rA==
             <<"I am inviting you to install HalloApp. Download for free here: https://halloapp.com/free">>,
             %% ID: rpQ1erWtA2dUhEnDRYXOuA==
