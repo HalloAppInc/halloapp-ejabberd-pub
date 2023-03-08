@@ -125,6 +125,7 @@
     set_push_new_user_pref/2,
     set_push_follower_pref/2,
     get_zone_offset_secs/1,
+    get_zone_offset_hr/1,
     presence_subscribe/2,
     presence_unsubscribe/2,
     presence_unsubscribe_all/1,
@@ -236,6 +237,7 @@
 -define(FIELD_PUSH_FOLLOWER, <<"pf">>).
 -define(FIELD_PUSH_LANGUAGE_ID, <<"pl">>).
 -define(FIELD_ZONE_OFFSET_SECS, <<"tz">>).
+-define(FIELD_ZONE_OFFSET_HR, <<"tzh">>).
 -define(FIELD_VOIP_TOKEN, <<"pvt">>).
 -define(FIELD_HUAWEI_TOKEN, <<"ht">>).
 -define(FIELD_DEVICE, <<"dvc">>).
@@ -851,7 +853,9 @@ set_push_token(Uid, TokenType, PushToken, TimestampMs, LangId, ZoneOffset) ->
 -spec set_huawei_token(Uid :: binary(), HuaweiToken :: binary(),
     TimestampMs :: integer(), LangId :: binary(), ZoneOffset :: integer()) -> ok.
 set_huawei_token(Uid, HuaweiToken, TimestampMs, LangId, ZoneOffset) ->
-    {ok, OldLangId} = get_lang_id(Uid),
+    {ok, OldPushInfo} = get_push_info(Uid),
+    OldLangId = OldPushInfo#push_info.lang_id,
+    OldZoneOffset = OldPushInfo#push_info.zone_offset,
     {ok, _Res} = q([
             "HMSET", account_key(Uid),
             ?FIELD_PUSH_OS, ?ANDROID_HUAWEI_TOKEN_TYPE,
@@ -861,6 +865,7 @@ set_huawei_token(Uid, HuaweiToken, TimestampMs, LangId, ZoneOffset) ->
             ?FIELD_ZONE_OFFSET_SECS, util:to_binary(ZoneOffset)
         ]),
     update_lang_counters(Uid, LangId, OldLangId),
+    update_zone_offset_hr_index(Uid, ZoneOffset, OldZoneOffset),
     ok.
 
 
@@ -935,7 +940,9 @@ update_zone_offset_hr_index(Uid, undefined, OldZoneOffsetSec) when OldZoneOffset
             HashSlot = util_redis:eredis_hash(binary_to_list(Uid)),
             Slot = HashSlot rem ?NUM_SLOTS,
             OldZoneOffsetHr = util:secs_to_hrs(OldZoneOffsetSec),
-            {ok, _} = q(["SREM", zone_offset_hr_key(Slot, OldZoneOffsetHr), Uid])
+            {ok, _} = q(["SREM", zone_offset_hr_key(Slot, OldZoneOffsetHr), Uid]),
+            %% Delete the zone_offset_hr field for this user.
+            {ok, _} = q(["HDEL", account_key(Uid), ?FIELD_ZONE_OFFSET_HR])
     end,
     ok;
 update_zone_offset_hr_index(Uid, ZoneOffsetSec, OldZoneOffsetSec) when ZoneOffsetSec =/= OldZoneOffsetSec ->
@@ -952,9 +959,11 @@ update_zone_offset_hr_index(Uid, ZoneOffsetSec, OldZoneOffsetSec) when ZoneOffse
                 _ ->
                     util:secs_to_hrs(OldZoneOffsetSec)
             end,
-            [{ok, _}, {ok, _}] = qp([
+            [{ok, _}, {ok, _}, {ok, _}] = qmn([
                 ["SREM", zone_offset_hr_key(Slot, OldZoneOffsetHr), Uid],
-                ["SADD", zone_offset_hr_key(Slot, ZoneOffsetHr), Uid]
+                ["SADD", zone_offset_hr_key(Slot, ZoneOffsetHr), Uid],
+                %% Set the zone_offset_hr for this user.
+                ["HSET", account_key(Uid), ?FIELD_ZONE_OFFSET_HR, util:to_binary(ZoneOffsetHr)]
             ])
     end,
     ok;
@@ -1116,6 +1125,19 @@ get_zone_offset_secs(Uids) ->
     Commands = lists:map(
         fun(Uid) ->
             ["HGET", account_key(Uid), ?FIELD_ZONE_OFFSET_SECS]
+        end, Uids),
+    Results = qmn(Commands),
+    lists:map(fun({ok, ZoneOffsetSec}) -> util_redis:decode_int(ZoneOffsetSec) end, Results).
+
+
+-spec get_zone_offset_hr(Uid :: uid() | [uid()]) -> maybe(integer()) | [maybe(integer())].
+get_zone_offset_hr(Uid) when not is_list(Uid) ->
+    [Res] = get_zone_offset_hr([Uid]),
+    Res;
+get_zone_offset_hr(Uids) ->
+    Commands = lists:map(
+        fun(Uid) ->
+            ["HGET", account_key(Uid), ?FIELD_ZONE_OFFSET_HR]
         end, Uids),
     Results = qmn(Commands),
     lists:map(fun({ok, ZoneOffsetSec}) -> util_redis:decode_int(ZoneOffsetSec) end, Results).

@@ -45,6 +45,7 @@
 -define(FOLLOWING_INTEREST_IMPORTANCE, 110.0).
 -define(FOF_SCORE_IMPORTANCE, 0.1).
 -define(RECENCY_SCORE_IMPORTANCE, 1.0).
+-define(TIME_ZONE_IMPORTANCE, 40.0).
 
 
 %% gen_mod API.
@@ -1067,6 +1068,10 @@ rank_moments(Uid, GeoTag, Moments, FofUidsWithScores) ->
     AuthorUids = lists:map(fun(PublicMoment) -> PublicMoment#post.uid end, Moments),
     AuthorUidsToGeoTagMap = model_accounts:get_latest_geo_tag(AuthorUids),
 
+    %% Get timezones for users.
+    OwnZoneOffsetHr = model_accounts:get_zone_offset_hr(Uid),
+    AuthorUidsToZoneOffsetHrMap = maps:from_list(lists:zip(AuthorUids, model_accounts:get_zone_offset_hr(AuthorUids))),
+
     %% Get num_mutual_following
     AuthorProfileMap = maps:from_list(lists:zip(AuthorUids, model_accounts:get_user_profiles(Uid, AuthorUids))),
 
@@ -1083,34 +1088,41 @@ rank_moments(Uid, GeoTag, Moments, FofUidsWithScores) ->
             MomentId = PublicMoment#post.id,
             AuthorUid = PublicMoment#post.uid,
             CampusTagScore = case GeoTag =:= maps:get(AuthorUid, AuthorUidsToGeoTagMap, undefined) andalso GeoTag =/= undefined of
-                true -> 1;
-                false -> 0
+                true -> 1 * ?CAMPUS_SCORE_IMPORTANCE;
+                false -> 0 * ?CAMPUS_SCORE_IMPORTANCE
             end,
             UserProfile = maps:get(AuthorUid, AuthorProfileMap, undefined),
             FollowingInterestScore = case UserProfile of
-                undefined -> 0;
+                undefined -> 0 * ?FOLLOWING_INTEREST_IMPORTANCE;
                 #pb_user_profile{relevant_followers = RelevantFollowers} ->
                     case NumFollowing =:= 0 of
-                        true -> 0;
-                        false -> length(RelevantFollowers) / NumFollowing
+                        true -> 0 * ?FOLLOWING_INTEREST_IMPORTANCE;
+                        false -> (length(RelevantFollowers) / NumFollowing) * ?FOLLOWING_INTEREST_IMPORTANCE
                     end
             end,
             RecencyScore = case CurrentTimestampMs - PublicMoment#post.ts_ms > ?HOURS_MS of
-                true -> 0;
-                false -> 1
+                true -> 0 * ?RECENCY_SCORE_IMPORTANCE;
+                false -> 1 * ?RECENCY_SCORE_IMPORTANCE
             end,
-            FofScore = maps:get(AuthorUid, FofUidsWithScores, 0),
-            TotalScore = CampusTagScore * ?CAMPUS_SCORE_IMPORTANCE +
-                FollowingInterestScore * ?FOLLOWING_INTEREST_IMPORTANCE +
-                RecencyScore * ?RECENCY_SCORE_IMPORTANCE +
-                FofScore * ?FOF_SCORE_IMPORTANCE,
-            ?INFO("Uid: ~p, PostId: ~p, CampusTagScore: ~p, FollowingInterestScore: ~p, RecencyScore: ~p, FofScore: ~p, TotalScore: ~p",
-                    [Uid, MomentId, CampusTagScore, FollowingInterestScore, RecencyScore, FofScore, TotalScore]),
+            FofScore = maps:get(AuthorUid, FofUidsWithScores, 0) * ?FOF_SCORE_IMPORTANCE,
+            AuthorZoneOffsetHr = maps:get(AuthorUid, AuthorUidsToZoneOffsetHrMap, undefined),
+            TimezoneScore = case OwnZoneOffsetHr =/= AuthorZoneOffsetHr andalso AuthorZoneOffsetHr =/= undefined andalso OwnZoneOffsetHr =/= undefined of
+                true -> -1 * ?TIME_ZONE_IMPORTANCE;
+                false -> 0 * ?TIME_ZONE_IMPORTANCE
+            end,
+            TotalScore = CampusTagScore +
+                FollowingInterestScore +
+                RecencyScore +
+                FofScore +
+                TimezoneScore,
+            ?INFO("Uid: ~p, PostId: ~p, CampusTagScore: ~p, FollowingInterestScore: ~p, RecencyScore: ~p, FofScore: ~p, TimezoneScore: ~p, TotalScore: ~p",
+                    [Uid, MomentId, CampusTagScore, FollowingInterestScore, RecencyScore, FofScore, TimezoneScore, TotalScore]),
             Explanation = "PostId: " ++ util:to_list(MomentId) ++ "; "
                 ++ "Campus: " ++ util:to_list(CampusTagScore) ++ "; "
                 ++ "FollowingInterest: " ++ util:to_list(FollowingInterestScore) ++ "; "
                 ++ "Recency: " ++ util:to_list(RecencyScore) ++ "; "
                 ++ "FofScore: " ++ util:to_list(FofScore) ++ "; "
+                ++ "TimezoneScore: " ++ util:to_list(TimezoneScore) ++ "; "
                 ++ "Total: " ++ util:to_list(TotalScore),
             AccMomentScoresMap#{MomentId => {TotalScore, util:to_binary(Explanation)}}
 
