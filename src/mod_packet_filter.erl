@@ -144,6 +144,14 @@ check_content_version_rules(Platform, ClientVersion, PayloadType, Message) ->
                 <<>> -> false;
                 _ -> true
             end;
+        #pb_packet{stanza = #pb_msg{payload = #pb_feed_item{action = expire}}} ->
+            Platform = util_ua:get_client_type(ClientVersion),
+            case Platform of
+                ios ->
+                    util_ua:is_version_greater_than(ClientVersion, <<"Katchup/iOS0.05.41">>);
+                _ ->
+                    true
+            end;
         _ ->
             check_version_rules(Platform, ClientVersion, PayloadType)
     end.
