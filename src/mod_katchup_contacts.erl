@@ -521,12 +521,24 @@ obtain_avatar_ids(RegContacts) ->
 -spec obtain_potential_friends(Uid :: binary(), UnRegisteredContacts :: [pb_contact()]) -> [pb_contact()].
 obtain_potential_friends(Uid, UnRegisteredContacts) ->
     AppType = util_uid:get_app_type(Uid),
+    Following = sets:from_list(model_follow:get_all_following(Uid)),
+    Followers = sets:from_list(model_follow:get_all_followers(Uid)),
+    Mutual = sets:to_list(sets:intersection(Following, Followers)),
+    {ok, CloseFriendsContacts} =  model_contacts:get_contacts(Mutual),
+    PhoneToNumCloseFriendsMap = lists:foldl(
+        fun(Phone, Acc) ->
+            maps:update_with(Phone, fun(X) -> X + 1 end, 1, Acc)
+        end,
+        #{},
+        lists:flatten(CloseFriendsContacts)),
+
     ContactPhones = extract_normalized(UnRegisteredContacts),
     PhoneToContactsMap = model_contacts:get_contacts_uids_size(ContactPhones, AppType),
     lists:map(
         fun(#pb_contact{normalized = ContactPhone} = Contact) ->
             NumPotentialFriends = maps:get(ContactPhone, PhoneToContactsMap, 0),
-            Contact#pb_contact{num_potential_friends = NumPotentialFriends}
+            NumCloseFriends = maps:get(ContactPhone, PhoneToNumCloseFriendsMap, 0),
+            Contact#pb_contact{num_potential_friends = NumPotentialFriends, num_potential_close_friends = NumCloseFriends}
         end, UnRegisteredContacts).
 
 
