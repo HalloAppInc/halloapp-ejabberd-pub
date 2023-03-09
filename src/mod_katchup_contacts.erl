@@ -419,7 +419,7 @@ normalize_and_insert_contacts(UserId, _Server, Contacts, SyncId) ->
             ClientType = util_ua:get_client_type(ClientVersion),
             case ClientType of
                 ios ->
-                    case util_ua:is_version_greater_than(ClientVersion, <<"Katchup/iOS0.06.39">>) of
+                    case util_ua:is_version_greater_than(ClientVersion, <<"Katchup/iOS0.05.39">>) of
                         true -> obtain_potential_friends(UserId, UnRegisteredContacts1);
                         false -> UnRegisteredContacts1
                     end;
