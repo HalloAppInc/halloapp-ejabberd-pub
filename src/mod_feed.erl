@@ -401,6 +401,9 @@ re_register_user(Uid, _Server, _Phone, _CampaignId) ->
         _ ->
             ok
     end,
+    %% Clear everything on public feed as well, recompute everything.
+    model_feed:clear_ranked_feed(Uid),
+    model_feed:clear_past_seen_posts(Uid),
     ok.
 
 
