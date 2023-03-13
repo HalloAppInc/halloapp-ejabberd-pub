@@ -116,6 +116,7 @@
     append_ranked_feed/3,
     get_ranked_feed/1,
     clear_ranked_feed/1,
+    clean_ranked_feed/2,
     expire_post/1,
     unexpire_post/1
 ]).
@@ -303,6 +304,30 @@ get_ranked_feed(Uid) ->
 
 clear_ranked_feed(Uid) ->
     q(["DEL", feed_rank_key(Uid)]),
+    ok.
+
+
+clean_ranked_feed(Uid, NotificationId) ->
+    {ok, RankedMomentIds} = q(["LRANGE", feed_rank_key(Uid), "0", "-1"]),
+    case get_posts(RankedMomentIds) of
+        [] -> ok;
+        Posts ->
+            ExpireMomentIds = lists:filtermap(
+                fun(Post) ->
+                    case Post#post.moment_info of
+                        undefined ->
+                            ?ERROR("PostId: ~p moment_info is undefined", [Post#post.id]),
+                            {true, Post#post.id};
+                        MomentInfo ->
+                            case MomentInfo#pb_moment_info.notification_id < NotificationId of
+                                true -> {true, Post#post.id};
+                                false -> false
+                            end
+                    end
+                end, Posts),
+            Commands = lists:map(fun(MomentId) -> ["LREM", feed_rank_key(Uid), 1, MomentId] end, ExpireMomentIds),
+            qp(Commands)
+    end,
     ok.
 
 
