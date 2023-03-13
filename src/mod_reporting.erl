@@ -66,6 +66,9 @@ log_user_report(ReportingUid, ReportedUid) ->
     }).
 
 log_post_report(ReportingUid, ReportedUid, ContentId) ->
+    %% Store reported posts by user to not send them again.
+    %% TODO: Keep track of reverse index so that we can flag content depending on num of reports etc.
+    model_feed:mark_reported_posts(ReportingUid, ContentId),
     ha_events:log_event(?USER_REPORT_NS, #{
         report_type => post,
         reporting_uid => ReportingUid,

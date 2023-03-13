@@ -106,6 +106,9 @@
     mark_seen_posts/2,
     get_past_seen_posts/1,
     clear_past_seen_posts/1,
+    mark_reported_posts/2,
+    get_past_reported_posts/1,
+    clear_past_reported_posts/1,
     get_moment_info/1,
     get_post_num_seen/1,
     inc_post_num_seen/1,
@@ -332,6 +335,32 @@ get_past_seen_posts(Uid) ->
 
 clear_past_seen_posts(Uid) ->
     q(["DEL", seen_posts_key(Uid)]),
+    ok.
+
+
+mark_reported_posts(_Uid, []) -> ok;
+mark_reported_posts(Uid, PostIds) when is_list(PostIds) ->
+    TimestampMs = util:now_ms(),
+    PostIdsWithScores = lists:flatmap(
+        fun(PostId) -> [TimestampMs, PostId] end, PostIds),
+    [{ok, _}, {ok, _}] = qp([
+        ["ZADD", reported_posts_key(Uid)] ++ PostIdsWithScores,
+        ["EXPIRE", reported_posts_key(Uid), ?MOMENT_TAG_EXPIRATION]]),
+    ok;
+mark_reported_posts(Uid, PostId) ->
+    mark_reported_posts(Uid, [PostId]).
+
+
+get_past_reported_posts(Uid) ->
+    DeadlineMs = util:now_ms() - ?KATCHUP_MOMENT_EXPIRATION_MS,
+    [{ok, PostIds}, {ok, _}] = qp([
+        ["ZRANGE", reported_posts_key(Uid), util:to_binary(DeadlineMs), "+inf", "BYSCORE"],
+        ["ZREMRANGEBYSCORE", reported_posts_key(Uid), "-inf", util:to_binary(DeadlineMs)]]),
+    PostIds.
+
+
+clear_past_reported_posts(Uid) ->
+    q(["DEL", reported_posts_key(Uid)]),
     ok.
 
 
@@ -1547,6 +1576,11 @@ geo_tag_time_bucket_key_hr(GeoTag, TimestampHr) ->
 -spec seen_posts_key(Uid :: binary()) -> binary().
 seen_posts_key(Uid) ->
     <<?SEEN_POSTS_KEY/binary, "{", Uid/binary, "}">>.
+
+
+-spec reported_posts_key(Uid :: binary()) -> binary().
+reported_posts_key(Uid) ->
+    <<?REPORTED_POSTS_KEY/binary, "{", Uid/binary, "}">>.
 
 
 num_seen_key(PostId) ->

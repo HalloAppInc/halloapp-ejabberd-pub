@@ -1180,7 +1180,7 @@ check_for_interesting_content(Uid, GeoTag, _Cursor) ->
 %% sent content is the content that is currently on device already - we dont want to be re-fetching/re-ranking/resending them now.
 filter_public_moments(Uid, Moments, SentMomentIds, ShowDevContent) ->
     SentMomentIdSet = sets:from_list(SentMomentIds),
-    FilteredMoments1 = filter_seen_moments(Uid, filter_moments_by_author(Uid, Moments, ShowDevContent)),
+    FilteredMoments1 = filter_reported_moments(Uid, filter_seen_moments(Uid, filter_moments_by_author(Uid, Moments, ShowDevContent))),
     FilteredMoments2 = lists:filter(fun(Moment) -> not sets:is_element(Moment#post.id, SentMomentIdSet) end, FilteredMoments1),
     FilteredMoments2.
 
@@ -1214,6 +1214,13 @@ filter_seen_moments(Uid, Moments) ->
     %% Filter out seen posts.
     SeenPostIdSet = sets:from_list(model_feed:get_past_seen_posts(Uid)),
     Moments2 = lists:filter(fun(Moment) -> not sets:is_element(Moment#post.id, SeenPostIdSet) end, Moments),
+    util:uniq(Moments2).
+
+
+filter_reported_moments(Uid, Moments) ->
+    %% Filter out reported posts.
+    ReportedPostIdSet = sets:from_list(model_feed:get_past_reported_posts(Uid)),
+    Moments2 = lists:filter(fun(Moment) -> not sets:is_element(Moment#post.id, ReportedPostIdSet) end, Moments),
     util:uniq(Moments2).
 
 
