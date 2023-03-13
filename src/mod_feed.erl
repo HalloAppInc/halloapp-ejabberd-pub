@@ -67,7 +67,8 @@
     re_register_user/4,
     convert_moments_to_public_feed_items/3,
     check_users/2,
-    send_all_old_moments_to_self/1
+    send_all_old_moments_to_self/1,
+    c2s_session_opened/1
 ]).
 
 
@@ -87,6 +88,7 @@ start(_Host, _Opts) ->
     ejabberd_hooks:add(send_moment_notification, katchup, ?MODULE, send_moment_notification, 50),
     ejabberd_hooks:add(new_follow_relationship, katchup, ?MODULE, new_follow_relationship, 50),
     ejabberd_hooks:add(re_register_user, katchup, ?MODULE, re_register_user, 50),
+    ejabberd_hooks:add(c2s_session_opened, katchup, ?MODULE, c2s_session_opened, 50),
     ok.
 
 stop(_Host) ->
@@ -103,6 +105,7 @@ stop(_Host) ->
     ejabberd_hooks:delete(send_moment_notification, katchup, ?MODULE, send_moment_notification, 50),
     ejabberd_hooks:delete(new_follow_relationship, katchup, ?MODULE, new_follow_relationship, 50),
     ejabberd_hooks:delete(re_register_user, katchup, ?MODULE, re_register_user, 50),
+    ejabberd_hooks:delete(c2s_session_opened, katchup, ?MODULE, c2s_session_opened, 50),
     ok.
 
 reload(_Host, _NewOpts, _OldOpts) ->
@@ -163,6 +166,37 @@ user_send_packet({#pb_msg{id = MsgId, to_uid = ToUid, from_uid = FromUid,
 
 user_send_packet({_Packet, _State} = Acc) ->
     Acc.
+
+
+c2s_session_opened(#{user := Uid} = State) ->
+    %% TODO: Use latest location from login instead of old geotag.
+    %% Fetch latest geotag, public moments (convert them to pb feed items) and calculate cursor
+    %% Check for unseen content and send the message only if content discovered has new content, else discard.
+    GeoTag = model_accounts:get_latest_geo_tag(Uid),
+    Cursor = <<>>,
+    {_ReloadFeed, NewCursor, PublicMoments, MomentScoresMap} = get_ranked_public_moments(Uid, GeoTag, util:now_ms(), Cursor, ?NUM_PUBLIC_FEED_ITEMS_PER_REQUEST, false, false),
+    case filter_seen_moments(Uid, PublicMoments) of
+        [] ->
+            ?INFO("Uid: ~p, GeoTag: ~p no unseen posts to send on public feed, so skip", [Uid, GeoTag]);
+        _ ->
+            %% We send all fetched content but we check for unseen content.
+            PublicFeedItems = lists:map(fun(PublicMoment) -> convert_moments_to_public_feed_items(Uid, PublicMoment, MomentScoresMap) end, PublicMoments),
+            MsgId = util_id:new_msg_id(),
+            Packet = #pb_msg{
+                id = MsgId,
+                to_uid = Uid,
+                payload = #pb_public_feed_update{
+                    cursor = NewCursor,
+                    public_feed_content_type = moments,
+                    items = PublicFeedItems
+                }
+            },
+            ?INFO("Uid: ~p, GeoTag: ~p sending public feed update MsgId: ~p, NewCursor: ~p, NumItems: ~p", [Uid, GeoTag, MsgId, NewCursor, length(PublicFeedItems)]),
+            ejabberd_router:route(Packet)
+    end,
+    %% Return state without any change.
+    State.
+
 
 %% Publish post.
 process_local_iq(#pb_iq{from_uid = Uid, type = set,
