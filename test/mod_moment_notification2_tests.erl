@@ -55,8 +55,9 @@ setup() ->
         {redis, [redis_accounts, redis_feed]},
 %%        {meck, timer, apply_after, fun(A, B, C, D) -> ?debugFmt("~p | ~p | ~p | ~p", [A, B, C, D]) end},  % for debugging
         {meck, timer, apply_after, fun(_, _, _, _) -> ok end},  % use above line for debugging calls to this
-%%        {meck, util_moments, calculate_notif_timestamp, fun(A, B, C) -> ?debugFmt("~p | ~p | ~p", [A, B, C]), 0 end}  % for debugging
-        {meck, util_moments, calculate_notif_timestamp, fun(_, _, _) -> 0 end}  % use above line for debugging calls to this
+%%        {meck, util_moments, calculate_notif_timestamp, fun(A, B, C) -> ?debugFmt("~p | ~p | ~p", [A, B, C]), 0 end},  % for debugging
+        {meck, util_moments, calculate_notif_timestamp, fun(_, _, _) -> 0 end},  % use above line for debugging calls to this
+        {meck ,util, now, fun() -> 1675209600 end}  %% Feb 1, 2023 | Need this so that the OffsetHrToSend is non-DST hour
     ]),
     %% Set moment time to send + info for moment notif info outlined in ?MOMENT_INFO_MAP
     maps:foreach(

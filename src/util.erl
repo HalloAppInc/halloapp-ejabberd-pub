@@ -896,7 +896,7 @@ is_dst_america(AmericaTimestamp) ->
     %% In the US, DST rules are as follows:
     %%   * begins at 2:00am on the second Sunday of March (at 2am the local time time skips ahead to 3am)
     %%   * ends at 2:00am on the first Sunday of November (at 2am the local time becomes 1am and that hour is repeated)
-    {{_, Month, Day} = Date, {_, _, _}} =
+    {{Year, Month, Date}, {_, _, _}} =
         calendar:system_time_to_universal_time(AmericaTimestamp, second),
     if
         Month < 3 orelse Month > 11 ->
@@ -907,30 +907,17 @@ is_dst_america(AmericaTimestamp) ->
             true;
         Month =:= 3 ->
             %% DST iff Date is on or after 2nd Sunday
-            DayNum = calendar:day_of_the_week(Date),  %% DayNum = 7 is Sunday
-            if
-                DayNum < 7 andalso Day - 7 > 0 andalso Day - 14 > 0 ->
-                    %% If Day - 7 and Day - 14 are valid, we are after the 2nd Sunday
-                    true;
-                DayNum =:= 7 andalso Day - 7 > 0 ->
-                    %% If today is Sunday and Date - 7 is a valid day, then it is >= 2nd Sunday
-                    true;
-                true ->
-                    false
-            end;
+            %% Calculate date of second Sunday
+            FirstDayNum = calendar:day_of_the_week({Year, Month, 1}),  %% DayNum = 7 is Sunday
+            DaysToFirstSunday = 7 - FirstDayNum,
+            SecondSundayDate = 7 + DaysToFirstSunday,
+            Date >= SecondSundayDate;
         Month =:= 11 ->
             %% DST iff Date is before the 1st Sunday
-            DayNum = calendar:day_of_the_week(Date),  %% DayNum = 7 is Sunday
-            if
-                DayNum =:= 7 ->
-                    %% No Sunday in November is on DST
-                    false;
-                Day - DayNum =< 0 ->
-                    %% This will only be true if a Sunday hasn't already occurred
-                    true;
-                true ->
-                    false
-            end
+            %% Calculate date of first Sunday
+            FirstDayNum = calendar:day_of_the_week({Year, Month, 1}),  %% DayNum = 7 is Sunday
+            DaysToFirstSunday = 7 - FirstDayNum,
+            Date < DaysToFirstSunday
     end.
 
 
