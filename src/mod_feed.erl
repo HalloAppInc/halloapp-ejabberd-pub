@@ -405,7 +405,7 @@ send_moment_notification(Uid, _Region, NotificationId, _NotificationTime, _Notif
             end,
             model_feed:expire_all_user_posts(Uid, NotificationId),
             model_feed:set_notification_id(Uid, NotificationId),
-            model_feed:clean_ranked_feed(Uid, NotificationId),
+            model_feed:clear_ranked_feed(Uid),
             ok;
         _ -> ok
     end,
