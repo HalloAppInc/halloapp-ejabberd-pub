@@ -117,6 +117,7 @@
 -define(SHARE_POST_KEY, <<"fsp:">>).
 -define(TIME_BUCKET_KEY, <<"tk:">>).
 -define(GEO_TAG_TIME_BUCKET_KEY, <<"gtk:">>).
+-define(UID_TIME_BUCKET_KEY, <<"utk:">>).
 -define(DAILY_LIMIT_KEY, <<"dl:">>).
 -define(SEEN_POSTS_KEY, <<"spk:">>).
 -define(CURSOR_KEY, <<"ck:">>).

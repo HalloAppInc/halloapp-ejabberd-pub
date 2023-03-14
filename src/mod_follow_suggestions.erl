@@ -257,7 +257,19 @@ generate_follow_suggestions(Uid, Phone) ->
     AllSubtractSet = sets:union(sets:from_list(AllFollowing), sets:from_list(RejectedUids)),
     ContactSuggestionsSet = remove_deleted(sets:subtract(ContactUidsSet, AllSubtractSet)),
     FoFSuggestions1 = sets:subtract(FoFSet, AllSubtractSet),
-    FoFSuggestionsSet = remove_deleted(sets:subtract(FoFSuggestions1, ContactSuggestionsSet)),
+    FoFSuggestionsSet2 = remove_deleted(sets:subtract(FoFSuggestions1, ContactSuggestionsSet)),
+
+    NewFoFSuggestionsSet1 = case (sets:size(FoFSuggestionsSet2) + sets:size(ContactSuggestionsSet)) < 5 of
+        true ->
+            NegSet = sets:union([FoFSuggestionsSet2, ContactSuggestionsSet, AllSubtractSet]),
+            model_feed:get_active_uids(NegSet);
+        false ->
+            sets:from_list([])
+    end,
+
+    NewFoFSuggestionsSet2 = remove_deleted(NewFoFSuggestionsSet1),
+
+    FoFSuggestionsSet = sets:union(NewFoFSuggestionsSet2, FoFSuggestionsSet2),
  
     %% Reverse sort ContactSuggestionsSet, FoFSuggestionsSet on number of followers
     ContactSuggestions = get_sorted_uids(Uid, ContactSuggestionsSet),

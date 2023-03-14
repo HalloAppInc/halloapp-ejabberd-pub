@@ -21,6 +21,7 @@
 -include("redis_keys.hrl").
 -include("feed.hrl").
 -include("moments.hrl").
+-include("util_redis.hrl").
 
 -ifdef(TEST).
 -export([
@@ -120,7 +121,8 @@
     clear_ranked_feed/1,
     clean_ranked_feed/2,
     expire_post/1,
-    unexpire_post/1
+    unexpire_post/1,
+    get_active_uids/1
 ]).
 
 %% TODO(murali@): expose more apis specific to posts and comments only if necessary.
@@ -428,6 +430,14 @@ index_post_by_user_tags(PostId, Uid, PostTag, TimestampMs) ->
                 [{ok, _}, {ok, _}] = qp([
                             ["ZADD", geo_tag_time_bucket_key(GeoTag, TimestampMs), TimestampMs, PostId],
                             ["EXPIRE", geo_tag_time_bucket_key(GeoTag, TimestampMs), ?KATCHUP_MOMENT_INDEX_EXPIRATION]]),
+
+                %% Index Uid into active user time bucket.
+                TimestampDay = floor(TimestampMs / (1 * ?DAYS_MS)),
+                UidSlot = util_redis:eredis_hash(binary_to_list(Uid)),
+                [{ok, _}, {ok, _}] = qp([
+                    ["SADD", uid_slot_time_bucket_key(UidSlot, TimestampDay), Uid],
+                    ["EXPIRE", uid_slot_time_bucket_key(UidSlot, TimestampDay), ?KATCHUP_ACTIVE_USER_EXPIRATION]]),
+
                 ok;
             false -> ok
         end,
@@ -437,6 +447,37 @@ index_post_by_user_tags(PostId, Uid, PostTag, TimestampMs) ->
             ok
     end,
     ok.
+
+get_active_uids(NegSet) ->
+    get_active_uids(sets:from_list([]), NegSet, util:now_ms()).
+
+get_active_uids(AccSet, NegSet, CurTimeMs) ->
+    IsEnough = sets:size(AccSet) >= ?ACTIVE_UIDS_LIMIT,
+    IsVeryOld = CurTimeMs =< (util:now_ms() - (?KATCHUP_ACTIVE_USER_EXPIRATION * ?SECONDS_MS)),
+    case {IsEnough, IsVeryOld} of
+        {false, false} ->
+            CurDay = floor(CurTimeMs / (1 * ?DAYS_MS)),
+            NewSet = get_active_uids_day(AccSet, NegSet, CurDay, 0),
+            get_active_uids(NewSet, NegSet, CurTimeMs - ?DAYS_MS);
+        {_ , _} -> AccSet
+    end.
+
+get_active_uids_day(AccSet, _NegSet, _CurDay, Slot) when Slot >= ?NUM_SLOTS ->
+    AccSet;
+get_active_uids_day(AccSet, NegSet, CurDay, Slot) ->
+    {ok, List} = q(["SMEMBERS", uid_slot_time_bucket_key(Slot, CurDay)]),
+    NewSet = lists:foldl(fun(Uid, AccIn) ->
+        case sets:size(AccIn) < ?ACTIVE_UIDS_LIMIT andalso 
+                not sets:is_element(Uid, NegSet) of
+            true -> sets:add_element(Uid, AccIn);
+            false -> AccIn
+        end
+    end, AccSet, List),
+    case sets:size(NewSet) >= ?ACTIVE_UIDS_LIMIT of
+        true -> NewSet;
+        false -> get_active_uids_day(NewSet, NegSet, CurDay, Slot + 1)
+    end.
+    
 
 
 get_all_public_moments(GeoTag, TimestampMs) ->
@@ -1591,6 +1632,14 @@ reverse_comment_key(Uid) ->
 -spec external_share_post_key(BlobId :: binary()) -> binary().
 external_share_post_key(BlobId) ->
     <<?SHARE_POST_KEY/binary, "{", BlobId/binary, "}">>.
+
+-spec uid_slot_time_bucket_key(UidSlot :: integer(), Day :: integer()) -> binary().
+uid_slot_time_bucket_key(UidSlot, Day) ->
+    SlotBin = integer_to_binary(UidSlot),
+    DayBin = integer_to_binary(Day),
+    <<?UID_TIME_BUCKET_KEY/binary, "{", SlotBin/binary, "}:", DayBin/binary>>.
+    
+
 
 -spec time_bucket_key(TimestampMs :: integer()) -> binary().
 time_bucket_key(TimestampMs) ->
