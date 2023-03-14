@@ -103,6 +103,8 @@
     get_all_public_moments/2,
     get_all_posts_by_time_bucket/3,
     get_all_posts_by_geo_tag_time_bucket/4,
+    set_last_cursor/2,
+    get_last_cursor/1,
     mark_seen_posts/2,
     get_past_seen_posts/1,
     clear_past_seen_posts/1,
@@ -335,6 +337,24 @@ parse_score_and_explanation([], Res) ->
     lists:reverse(Res);
 parse_score_and_explanation([{ok, Score}, {ok, Exp} | Rest], Res) ->
     parse_score_and_explanation(Rest, [{util_redis:decode_float(Score), Exp} | Res]).
+
+
+-spec set_last_cursor(Uid :: binary(), Cursor :: binary()) -> ok.
+set_last_cursor(Uid, <<>>) ->
+    {ok, _} = q(["DEL", cursor_key(Uid)]),
+    ok;
+set_last_cursor(Uid, Cursor) ->
+    {ok, _} = q(["SET", cursor_key(Uid), Cursor]),
+    ok.
+
+
+-spec get_last_cursor(Uid :: binary()) -> binary().
+get_last_cursor(Uid) ->
+    {ok, Cursor} = q(["GET", cursor_key(Uid)]),
+    case util_redis:decode_binary(Cursor) of
+        undefined -> <<>>;
+        CursorBin -> CursorBin
+    end.
 
 
 mark_seen_posts(_Uid, []) -> ok;
@@ -1602,6 +1622,10 @@ geo_tag_time_bucket_key_hr(GeoTag, TimestampHr) ->
 seen_posts_key(Uid) ->
     <<?SEEN_POSTS_KEY/binary, "{", Uid/binary, "}">>.
 
+
+-spec cursor_key(Uid :: binary()) -> binary().
+cursor_key(Uid) ->
+    <<?CURSOR_KEY/binary, "{", Uid/binary, "}">>.
 
 -spec reported_posts_key(Uid :: binary()) -> binary().
 reported_posts_key(Uid) ->

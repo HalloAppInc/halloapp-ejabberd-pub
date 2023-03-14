@@ -174,25 +174,37 @@ c2s_session_opened(#{user := Uid} = State) ->
     %% Check for unseen content and send the message only if content discovered has new content, else discard.
     GeoTag = model_accounts:get_latest_geo_tag(Uid),
     Cursor = <<>>,
-    {_ReloadFeed, NewCursor, PublicMoments, MomentScoresMap} = get_ranked_public_moments(Uid, GeoTag, util:now_ms(), Cursor, ?NUM_PUBLIC_FEED_ITEMS_PER_REQUEST, false, false),
-    case filter_seen_moments(Uid, PublicMoments) of
-        [] ->
-            ?INFO("Uid: ~p, GeoTag: ~p no unseen posts to send on public feed, so skip", [Uid, GeoTag]);
-        _ ->
-            %% We send all fetched content but we check for unseen content.
-            PublicFeedItems = lists:map(fun(PublicMoment) -> convert_moments_to_public_feed_items(Uid, PublicMoment, MomentScoresMap) end, PublicMoments),
-            MsgId = util_id:new_msg_id(),
-            Packet = #pb_msg{
-                id = MsgId,
-                to_uid = Uid,
-                payload = #pb_public_feed_update{
-                    cursor = NewCursor,
-                    public_feed_content_type = moments,
-                    items = PublicFeedItems
-                }
-            },
-            ?INFO("Uid: ~p, GeoTag: ~p sending public feed update MsgId: ~p, NewCursor: ~p, NumItems: ~p", [Uid, GeoTag, MsgId, NewCursor, length(PublicFeedItems)]),
-            ejabberd_router:route(Packet)
+    {_ReloadFeed, NewCursor, PublicMoments, MomentScoresMap} = get_ranked_public_moments(Uid,
+        GeoTag, util:now_ms(), Cursor, ?NUM_PUBLIC_FEED_ITEMS_PER_REQUEST, false, false),
+    %% We dont want to be sending the public feed update with the same set of items that the user has seen already.
+    %% PublicFeedUpdate messages are to be sent when there is new unseen content - meaning content that is not on the device and not seen.
+    OldCursor = model_feed:get_last_cursor(Uid),
+    case OldCursor =:= NewCursor of
+        true ->
+            ?INFO("Uid: ~p, GeoTag: ~p Cursor: ~p no new posts to send to the clients", [Uid, GeoTag, Cursor]);
+        false ->
+            case filter_seen_moments(Uid, PublicMoments) of
+                [] ->
+                    ?INFO("Uid: ~p, GeoTag: ~p no unseen posts to send on public feed, so skip", [Uid, GeoTag]);
+                _ ->
+                    model_feed:set_last_cursor(Uid, NewCursor),
+                    %% We send all fetched content but we check for unseen content.
+                    PublicFeedItems = lists:map(
+                        fun(PublicMoment) -> convert_moments_to_public_feed_items(Uid, PublicMoment, MomentScoresMap) end, PublicMoments),
+                    MsgId = util_id:new_msg_id(),
+                    Packet = #pb_msg{
+                        id = MsgId,
+                        to_uid = Uid,
+                        payload = #pb_public_feed_update{
+                            cursor = NewCursor,
+                            public_feed_content_type = moments,
+                            items = PublicFeedItems
+                        }
+                    },
+                    ?INFO("Uid: ~p, GeoTag: ~p sending public feed update MsgId: ~p, NewCursor: ~p, NumItems: ~p",
+                        [Uid, GeoTag, MsgId, NewCursor, length(PublicFeedItems)]),
+                    ejabberd_router:route(Packet)
+            end
     end,
     %% Return state without any change.
     State.
@@ -294,6 +306,7 @@ process_local_iq(#pb_iq{from_uid = Uid, payload = #pb_public_feed_request{cursor
     %% Fetch latest geotag, public moments (convert them to pb feed items) and calculate cursor
     GeoTag = model_accounts:get_latest_geo_tag(Uid),
     {ReloadFeed, NewCursor, PublicMoments, MomentScoresMap} = get_ranked_public_moments(Uid, GeoTag, util:now_ms(), Cursor, ?NUM_PUBLIC_FEED_ITEMS_PER_REQUEST, ShowDevContent, false),
+    model_feed:set_last_cursor(Uid, NewCursor),
     PublicFeedItems = lists:map(fun(PublicMoment) -> convert_moments_to_public_feed_items(Uid, PublicMoment, MomentScoresMap) end, PublicMoments),
     Ret = #pb_public_feed_response{
         result = success,
