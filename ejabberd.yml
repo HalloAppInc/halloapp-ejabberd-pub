@@ -234,6 +234,7 @@ modules:
   mod_http_katchup: {}
   mod_ka_vanity: {}
   mod_moment_notif_monitor: {}
+  mod_image_ai: {}
 
 ### Local Variables:
 ### mode: yaml
