@@ -39,7 +39,8 @@
     is_region_offset_hr/1,
     get_regions/0,
     send_latest_notification/3,
-    get_fallback_region/0
+    get_fallback_region/0,
+    get_region_by_zone_offset_hr/1
 ]).
 
 %% Hooks

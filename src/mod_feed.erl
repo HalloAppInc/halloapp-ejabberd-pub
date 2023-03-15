@@ -1127,6 +1127,7 @@ rank_moments(Uid, GeoTag, Moments, FofUidsWithScores) ->
 
     %% Get timezones for users.
     OwnZoneOffsetHr = model_accounts:get_zone_offset_hr(Uid),
+    OwnRegion = mod_moment_notification2:get_region_by_zone_offset_hr(OwnZoneOffsetHr),
     AuthorUidsToZoneOffsetHrMap = maps:from_list(lists:zip(AuthorUids, model_accounts:get_zone_offset_hr(AuthorUids))),
 
     %% Get num_mutual_following
@@ -1163,7 +1164,8 @@ rank_moments(Uid, GeoTag, Moments, FofUidsWithScores) ->
             end,
             FofScore = maps:get(AuthorUid, FofUidsWithScores, 0) * ?FOF_SCORE_IMPORTANCE,
             AuthorZoneOffsetHr = maps:get(AuthorUid, AuthorUidsToZoneOffsetHrMap, undefined),
-            TimezoneScore = case OwnZoneOffsetHr =/= AuthorZoneOffsetHr andalso AuthorZoneOffsetHr =/= undefined andalso OwnZoneOffsetHr =/= undefined of
+            AuthorRegion = mod_moment_notification2:get_region_by_zone_offset_hr(AuthorZoneOffsetHr),
+            TimezoneScore = case OwnRegion =/= AuthorRegion andalso OwnRegion =/= undefined andalso AuthorRegion =/= undefined of
                 true -> -1 * ?TIME_ZONE_IMPORTANCE;
                 false -> 0 * ?TIME_ZONE_IMPORTANCE
             end,
