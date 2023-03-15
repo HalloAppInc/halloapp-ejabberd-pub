@@ -580,7 +580,14 @@ publish_post(Uid, PostId, PayloadBase64, public_moment, PSATag, AudienceList, Ho
     end,
     FilteredAudienceList2 = sets:to_list(get_feed_audience_set(Action, Uid, FilteredAudienceList1)),
     LatestNotificationId = model_feed:get_notification_id(Uid),
-
+    ContentType = MomentInfo#pb_moment_info.content_type,
+    FilteredAudienceList3 = case ContentType =:= album_image orelse ContentType =:= album_video of
+        true ->
+            DevUids = dev_users:get_dev_uids(),
+            sets:to_list(sets:intersection(sets:from_list(FilteredAudienceList2), sets:from_list(DevUids)));
+        false ->
+            FilteredAudienceList2
+    end,
     case LatestNotificationId =:= undefined orelse MomentInfo#pb_moment_info.notification_id >= LatestNotificationId of
         false ->
             ?ERROR("Uid: ~p tried to publish using old notif id", [Uid]),
@@ -593,7 +600,7 @@ publish_post(Uid, PostId, PayloadBase64, public_moment, PSATag, AudienceList, Ho
                         {error, missing} ->
                             TimestampMs = util:now_ms(),
                             ?INFO("Uid: ~s PostId ~p published as public_moment: ~p", [Uid, PostId]),
-                            ok = model_feed:publish_moment(PostId, Uid, PayloadBase64, public_moment, all, FilteredAudienceList2, TimestampMs, MomentInfo),
+                            ok = model_feed:publish_moment(PostId, Uid, PayloadBase64, public_moment, all, FilteredAudienceList3, TimestampMs, MomentInfo),
                             ejabberd_hooks:run(feed_item_published, AppType,
                                 [Uid, Uid, PostId, post, public_moment, all, 0, MediaCounters]),
                             {ok, TimestampMs};
@@ -601,7 +608,7 @@ publish_post(Uid, PostId, PayloadBase64, public_moment, PSATag, AudienceList, Ho
                             ?INFO("Uid: ~s PostId: ~s already published", [Uid, PostId]),
                             {ok, ExistingPost#post.ts_ms}
                     end,
-                    broadcast_post(Uid, FilteredAudienceList2, HomeFeedSt, FinalTimestampMs),
+                    broadcast_post(Uid, FilteredAudienceList3, HomeFeedSt, FinalTimestampMs),
                     {ok, FinalTimestampMs}
             end
     end;
