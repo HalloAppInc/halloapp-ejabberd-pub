@@ -13,6 +13,7 @@
 
 -include("logger.hrl").
 -include("packets.hrl").
+-include("proc.hrl").
 
 %% gen_mod API
 -export([start/2, stop/1, reload/3, depends/2, mod_options/1]).
@@ -44,13 +45,13 @@ process_iq(#pb_iq{from_uid = Uid, payload = #pb_ai_image_request{text = Prompt, 
 
 start(Host, Opts) ->
     ?INFO("Start ~p", [?MODULE]),
-    gen_mod:start_child(?MODULE, Host, Opts, get_gen_server_name()),
+    gen_mod:start_child(?MODULE, Host, Opts, ?PROC()),
     gen_iq_handler:add_iq_handler(ejabberd_local, katchup, pb_ai_image_request, ?MODULE, process_iq),
     ok.
 
 stop(_Host) ->
     ?INFO("Stop ~p", [?MODULE]),
-    gen_mod:stop_child(get_gen_server_name()),
+    gen_mod:stop_child(?PROC()),
     gen_iq_handler:remove_iq_handler(ejabberd_local, katchup, pb_ai_image_request),
     ok.
 
@@ -185,10 +186,7 @@ code_change(_OldVsn, State, _Extra) ->
 
 request_images(Uid, Prompt, NumImages, RequestId) ->
     %% TODO: some logic for choosing different models?
-    gen_server:cast(get_gen_server_name(), {request_image, Uid, Prompt, NumImages, RequestId, ?STABLE_DIFFUSION_1_5}).
-
-get_gen_server_name() ->
-    gen_mod:get_module_proc(util:to_binary(node()), ?MODULE).
+    gen_server:cast(?PROC(), {request_image, Uid, Prompt, NumImages, RequestId, ?STABLE_DIFFUSION_1_5}).
 
 
 -spec get_model_parameters(binary(), pos_integer(), string()) -> jiffy:json_object().
