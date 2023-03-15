@@ -147,6 +147,8 @@ message MomentInfo {
         IMAGE = 0;
         VIDEO = 1;
         TEXT = 2;
+        ALBUM_IMAGE = 3;
+        ALBUM_VIDEO = 4;
     }
     ContentType content_type = 6; // Actual content type based on moment notification info.
 }
@@ -1049,6 +1051,7 @@ message MomentNotification {
         LIVE_CAMERA = 0;
         TEXT_POST = 1;
         PROMPT_POST = 2 [deprecated = true];
+        ALBUM_POST = 3;
     }
     Type type = 3;
     string prompt = 4;
