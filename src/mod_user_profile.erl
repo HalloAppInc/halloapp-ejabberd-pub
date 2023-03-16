@@ -38,6 +38,7 @@ start(_Host, _Opts) ->
     gen_iq_handler:add_iq_handler(ejabberd_local, ?KATCHUP, pb_set_bio_request, ?MODULE, process_local_iq),
     gen_iq_handler:add_iq_handler(ejabberd_local, ?KATCHUP, pb_set_link_request, ?MODULE, process_local_iq),
     gen_iq_handler:add_iq_handler(ejabberd_local, ?KATCHUP, pb_user_profile_request, ?MODULE, process_local_iq),
+    gen_iq_handler:add_iq_handler(ejabberd_local, ?KATCHUP, pb_archive_request, ?MODULE, process_local_iq),
     ejabberd_hooks:add(account_name_updated, katchup, ?MODULE, account_name_updated, 50),
     ejabberd_hooks:add(user_avatar_published, katchup, ?MODULE, user_avatar_published, 50),
     ejabberd_hooks:add(username_updated, katchup, ?MODULE, username_updated, 50),
@@ -47,6 +48,7 @@ stop(_Host) ->
     gen_iq_handler:remove_iq_handler(ejabberd_local, ?KATCHUP, pb_set_bio_request),
     gen_iq_handler:remove_iq_handler(ejabberd_local, ?KATCHUP, pb_set_link_request),
     gen_iq_handler:remove_iq_handler(ejabberd_local, ?KATCHUP, pb_user_profile_request),
+    gen_iq_handler:remove_iq_handler(ejabberd_local, ?KATCHUP, pb_archive_request),
     ejabberd_hooks:delete(account_name_updated, katchup, ?MODULE, account_name_updated, 50),
     ejabberd_hooks:delete(user_avatar_published, katchup, ?MODULE, user_avatar_published, 50),
     ejabberd_hooks:delete(username_updated, katchup, ?MODULE, username_updated, 50),
@@ -122,6 +124,19 @@ process_local_iq(#pb_iq{payload = #pb_user_profile_request{}} = Iq) ->
         result = fail,
         reason = unknown_reason
     },
+    pb:make_iq_result(Iq, Ret);
+
+%% UserProfileRequest for uid
+process_local_iq(#pb_iq{type = get, from_uid = Uid,
+        payload = #pb_archive_request{uid = Ouid}} = Iq) when Ouid =/= undefined andalso Ouid =/= <<>> ->
+    process_user_archive_request(Uid, Ouid, Iq);
+
+%% UserProfileRequest (invalid)
+process_local_iq(#pb_iq{payload = #pb_archive_request{}} = Iq) ->
+    Ret = #pb_archive_result{
+        result = fail,
+        reason = invalid_user
+    },
     pb:make_iq_result(Iq, Ret).
 
 %%====================================================================
@@ -185,6 +200,29 @@ compose_user_profile_result(Uid, Ouid) ->
         result = ok,
         profile = UserProfile,
         recent_posts = RecentPosts
+    }.
+
+
+process_user_archive_request(Uid, Ouid, Iq) ->
+    Ret = case model_accounts:account_exists(Ouid) andalso not model_follow:is_blocked_any(Uid, Ouid) of
+        true -> compose_user_archive_result(Uid, Ouid);
+        false ->
+            #pb_archive_result{
+                result = fail,
+                reason = invalid_user
+            }
+    end,
+    pb:make_iq_result(Iq, Ret).
+
+
+compose_user_archive_result(_Uid, Ouid) ->
+    Items = model_feed:get_entire_user_feed(Ouid),
+    {Posts, _Comments} = lists:partition(fun(Item) -> is_record(Item, post) end, Items),
+    ArchivePostStanzas = lists:map(fun mod_feed:convert_posts_to_feed_items/1, Posts),
+    #pb_archive_result{
+        result = ok,
+        uid = Ouid,
+        posts = ArchivePostStanzas
     }.
 
 
