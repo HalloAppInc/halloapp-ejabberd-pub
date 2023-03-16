@@ -170,47 +170,54 @@ user_send_packet({_Packet, _State} = Acc) ->
     Acc.
 
 
-sm_register_connection_hook(_SID, #jid{luser = Uid} = _JID, _Mode, _Info) ->
-    %% TODO: Use latest location from login instead of old geotag.
-    %% Fetch latest geotag, public moments (convert them to pb feed items) and calculate cursor
-    %% Check for unseen content and send the message only if content discovered has new content, else discard.
-    GeoTag = model_accounts:get_latest_geo_tag(Uid),
-    Cursor = <<>>,
-    {_ReloadFeed, NewCursor, PublicMoments, MomentScoresMap} = get_ranked_public_moments(Uid,
-        GeoTag, util:now_ms(), Cursor, ?NUM_PUBLIC_FEED_ITEMS_PER_REQUEST, false, false),
-    %% We dont want to be sending the public feed update with the same set of items that the user has seen already.
-    %% PublicFeedUpdate messages are to be sent when there is new unseen content - meaning content that is not on the device and not seen.
-    OldCursor = model_feed:get_last_cursor(Uid),
-    %% Get LastConnection time.
-    TimeDiffMs = case model_accounts:get_last_connection_time(Uid) of
-        undefined -> ?KATCHUP_PUBLIC_FEED_REFRESH_SECS;
-        LastConnectionTimeMs -> util:now_ms() - LastConnectionTimeMs
-    end,
-    case OldCursor =:= NewCursor andalso TimeDiffMs < ?KATCHUP_PUBLIC_FEED_REFRESH_SECS of
+sm_register_connection_hook(_SID, #jid{luser = Uid, lresource = Resource} = _JID, _Mode, _Info) ->
+    case util_ua:is_resource_extension(Resource) of
         true ->
-            ?INFO("Uid: ~p, GeoTag: ~p Cursor: ~p no new posts to send to the clients", [Uid, GeoTag, Cursor]);
+            ?INFO("Uid: ~p ignoring session from resource: ~p", [Uid, Resource]);
         false ->
-            case filter_seen_moments(Uid, PublicMoments) of
-                [] ->
-                    ?INFO("Uid: ~p, GeoTag: ~p no unseen posts to send on public feed, so skip", [Uid, GeoTag]);
-                _ ->
-                    model_feed:set_last_cursor(Uid, NewCursor),
-                    %% We send all fetched content but we check for unseen content.
-                    PublicFeedItems = lists:map(
-                        fun(PublicMoment) -> convert_moments_to_public_feed_items(Uid, PublicMoment, MomentScoresMap) end, PublicMoments),
-                    MsgId = util_id:new_msg_id(),
-                    Packet = #pb_msg{
-                        id = MsgId,
-                        to_uid = Uid,
-                        payload = #pb_public_feed_update{
-                            cursor = NewCursor,
-                            public_feed_content_type = moments,
-                            items = PublicFeedItems
-                        }
-                    },
-                    ?INFO("Uid: ~p, GeoTag: ~p sending public feed update MsgId: ~p, NewCursor: ~p, NumItems: ~p",
-                        [Uid, GeoTag, MsgId, NewCursor, length(PublicFeedItems)]),
-                    ejabberd_router:route(Packet)
+            %% TODO: Use latest location from login instead of old geotag.
+            %% Fetch latest geotag, public moments (convert them to pb feed items) and calculate cursor
+            %% Check for unseen content and send the message only if content discovered has new content, else discard.
+            GeoTag = model_accounts:get_latest_geo_tag(Uid),
+            Cursor = <<>>,
+            {_ReloadFeed, NewCursor, PublicMoments, MomentScoresMap} = get_ranked_public_moments(Uid,
+                GeoTag, util:now_ms(), Cursor, ?NUM_PUBLIC_FEED_ITEMS_PER_REQUEST, false, false),
+            %% We dont want to be sending the public feed update with the same set of items that the user has seen already.
+            %% PublicFeedUpdate messages are to be sent when there is new unseen content - meaning content that is not on the device and not seen.
+            OldCursor = model_feed:get_last_cursor(Uid),
+            %% Get LastConnection time.
+            TimeDiffMs = case model_accounts:get_last_connection_time(Uid) of
+                undefined -> ?KATCHUP_PUBLIC_FEED_REFRESH_SECS;
+                LastConnectionTimeMs -> util:now_ms() - LastConnectionTimeMs
+            end,
+            %% Michelle is testing something, will turn off once she is done.
+            IsMichelleUid = Uid =:= <<"1001000000272613628">>,
+            case OldCursor =:= NewCursor andalso TimeDiffMs < ?KATCHUP_PUBLIC_FEED_REFRESH_SECS andalso not IsMichelleUid of
+                true ->
+                    ?INFO("Uid: ~p, GeoTag: ~p Cursor: ~p no new posts to send to the clients", [Uid, GeoTag, Cursor]);
+                false ->
+                    case filter_seen_moments(Uid, PublicMoments) =/= [] orelse IsMichelleUid of
+                        false ->
+                            ?INFO("Uid: ~p, GeoTag: ~p no unseen posts to send on public feed, so skip", [Uid, GeoTag]);
+                        true ->
+                            model_feed:set_last_cursor(Uid, NewCursor),
+                            %% We send all fetched content but we check for unseen content.
+                            PublicFeedItems = lists:map(
+                                fun(PublicMoment) -> convert_moments_to_public_feed_items(Uid, PublicMoment, MomentScoresMap) end, PublicMoments),
+                            MsgId = util_id:new_msg_id(),
+                            Packet = #pb_msg{
+                                id = MsgId,
+                                to_uid = Uid,
+                                payload = #pb_public_feed_update{
+                                    cursor = NewCursor,
+                                    public_feed_content_type = moments,
+                                    items = PublicFeedItems
+                                }
+                            },
+                            ?INFO("Uid: ~p, GeoTag: ~p sending public feed update MsgId: ~p, NewCursor: ~p, NumItems: ~p",
+                                [Uid, GeoTag, MsgId, NewCursor, length(PublicFeedItems)]),
+                            ejabberd_router:route(Packet)
+                    end
             end
     end,
     ok.

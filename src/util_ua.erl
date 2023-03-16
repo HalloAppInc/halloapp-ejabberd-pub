@@ -25,6 +25,7 @@
     is_android_release/1,
     is_valid_ua/1,
     resource_to_client_type/1,
+    is_resource_extension/1,
     is_version_greater_than/2,
     is_version_less_than/2
 ]).
@@ -137,6 +138,18 @@ resource_to_client_type(Resource) ->
         <<"iphone_share">> -> ios;
         <<"ipad">> -> ios;
         _ -> undefined
+    end.
+
+
+-spec is_resource_extension(Resource :: maybe(binary())) -> boolean().
+is_resource_extension(Resource) ->
+    case Resource of
+        <<"android">> -> false;
+        <<"iphone">> -> false;
+        <<"iphone_nse">> -> true;
+        <<"iphone_share">> -> true;
+        <<"ipad">> -> false;
+        _ -> false
     end.
 
 
