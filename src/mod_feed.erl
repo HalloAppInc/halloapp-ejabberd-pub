@@ -69,7 +69,8 @@
     convert_moments_to_public_feed_items/3,
     check_users/2,
     send_all_old_moments_to_self/1,
-    sm_register_connection_hook/4
+    sm_register_connection_hook/4,
+    convert_posts_to_feed_items/1
 ]).
 
 
