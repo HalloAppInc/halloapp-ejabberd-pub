@@ -216,7 +216,7 @@ process_user_archive_request(Uid, Ouid, Iq) ->
 
 
 compose_user_archive_result(_Uid, Ouid) ->
-    Items = model_feed:get_entire_user_feed(Ouid),
+    {ok, Items} = model_feed:get_entire_user_feed(Ouid),
     {Posts, _Comments} = lists:partition(fun(Item) -> is_record(Item, post) end, Items),
     ArchivePostStanzas = lists:map(fun mod_feed:convert_posts_to_feed_items/1, Posts),
     #pb_archive_result{
