@@ -13,6 +13,7 @@
 -include("packets.hrl").
 -include("logger.hrl").
 -include("feed.hrl").
+-include("jid.hrl").
 
 -dialyzer({no_match, make_pb_feed_post/7}).
 -dialyzer({no_match, broadcast_event/5}).
@@ -68,7 +69,7 @@
     convert_moments_to_public_feed_items/3,
     check_users/2,
     send_all_old_moments_to_self/1,
-    c2s_session_opened/1
+    sm_register_connection_hook/4
 ]).
 
 
@@ -88,7 +89,8 @@ start(_Host, _Opts) ->
     ejabberd_hooks:add(send_moment_notification, katchup, ?MODULE, send_moment_notification, 50),
     ejabberd_hooks:add(new_follow_relationship, katchup, ?MODULE, new_follow_relationship, 50),
     ejabberd_hooks:add(re_register_user, katchup, ?MODULE, re_register_user, 50),
-    ejabberd_hooks:add(c2s_session_opened, katchup, ?MODULE, c2s_session_opened, 50),
+    %% We must run the sm_register_connection_hook early on - so that we have access to their their previous login time.
+    ejabberd_hooks:add(sm_register_connection_hook, katchup, ?MODULE, sm_register_connection_hook, 10),
     ok.
 
 stop(_Host) ->
@@ -105,7 +107,7 @@ stop(_Host) ->
     ejabberd_hooks:delete(send_moment_notification, katchup, ?MODULE, send_moment_notification, 50),
     ejabberd_hooks:delete(new_follow_relationship, katchup, ?MODULE, new_follow_relationship, 50),
     ejabberd_hooks:delete(re_register_user, katchup, ?MODULE, re_register_user, 50),
-    ejabberd_hooks:delete(c2s_session_opened, katchup, ?MODULE, c2s_session_opened, 50),
+    ejabberd_hooks:delete(sm_register_connection_hook, katchup, ?MODULE, sm_register_connection_hook, 10),
     ok.
 
 reload(_Host, _NewOpts, _OldOpts) ->
@@ -168,7 +170,7 @@ user_send_packet({_Packet, _State} = Acc) ->
     Acc.
 
 
-c2s_session_opened(#{user := Uid} = State) ->
+sm_register_connection_hook(_SID, #jid{luser = Uid} = _JID, _Mode, _Info) ->
     %% TODO: Use latest location from login instead of old geotag.
     %% Fetch latest geotag, public moments (convert them to pb feed items) and calculate cursor
     %% Check for unseen content and send the message only if content discovered has new content, else discard.
@@ -179,7 +181,12 @@ c2s_session_opened(#{user := Uid} = State) ->
     %% We dont want to be sending the public feed update with the same set of items that the user has seen already.
     %% PublicFeedUpdate messages are to be sent when there is new unseen content - meaning content that is not on the device and not seen.
     OldCursor = model_feed:get_last_cursor(Uid),
-    case OldCursor =:= NewCursor of
+    %% Get LastConnection time.
+    TimeDiffMs = case model_accounts:get_last_connection_time(Uid) of
+        undefined -> ?KATCHUP_PUBLIC_FEED_REFRESH_SECS;
+        LastConnectionTimeMs -> util:now_ms() - LastConnectionTimeMs
+    end,
+    case OldCursor =:= NewCursor andalso TimeDiffMs < ?KATCHUP_PUBLIC_FEED_REFRESH_SECS of
         true ->
             ?INFO("Uid: ~p, GeoTag: ~p Cursor: ~p no new posts to send to the clients", [Uid, GeoTag, Cursor]);
         false ->
@@ -206,8 +213,7 @@ c2s_session_opened(#{user := Uid} = State) ->
                     ejabberd_router:route(Packet)
             end
     end,
-    %% Return state without any change.
-    State.
+    ok.
 
 
 %% Publish post.
