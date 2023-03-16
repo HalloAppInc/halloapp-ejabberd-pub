@@ -66,5 +66,13 @@ search_username_prefix(Prefix, Uid) ->
     {ok, Usernames} = model_accounts:search_username_prefix(LowercasedPrefix, 20),
     Ouids = maps:values(model_accounts:get_username_uids(Usernames)),
     FilteredOuids = lists:filter(fun(Ouid) -> not (Uid =:= Ouid orelse model_follow:is_blocked_any(Uid, Ouid)) end, Ouids),
-    model_accounts:get_basic_user_profiles(Uid, FilteredOuids).
+    BasicProfiles = model_accounts:get_basic_user_profiles(Uid, FilteredOuids),
+    %% Filter out profiles that don't have name or username set
+    lists:filter(
+        fun
+            (#pb_basic_user_profile{name = undefined}) -> false;
+            (#pb_basic_user_profile{username = undefined}) -> false;
+            (_) -> true
+        end,
+        BasicProfiles).
 

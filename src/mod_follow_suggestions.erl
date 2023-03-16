@@ -268,7 +268,16 @@ generate_follow_suggestions(Uid, Phone) ->
         fetch_suggested_profiles(Uid, ContactSuggestions, direct_contact, 1),
     FoFSuggestedProfiles =
         fetch_suggested_profiles(Uid, FoFSuggestions, fof, length(ContactSuggestions) + 1),
-    ContactSuggestedProfiles ++ FoFSuggestedProfiles.
+    AllSuggestedProfiles = ContactSuggestedProfiles ++ FoFSuggestedProfiles,
+
+    %% Filter out profiles that don't have name or username set
+    lists:filter(
+        fun
+            (#pb_basic_user_profile{name = undefined}) -> false;
+            (#pb_basic_user_profile{username = undefined}) -> false;
+            (_) -> true
+        end,
+        AllSuggestedProfiles).
 
 remove_deleted(UidsSet) ->
     %% Get rid of deleted users.
