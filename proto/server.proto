@@ -148,7 +148,6 @@ message MomentInfo {
         VIDEO = 1;
         TEXT = 2;
         ALBUM_IMAGE = 3;
-        ALBUM_VIDEO = 4;
     }
     ContentType content_type = 6; // Actual content type based on moment notification info.
 }
@@ -1058,6 +1057,26 @@ message MomentNotification {
     bool hide_banner = 5; // default value will be false.
 }
 
+message ArchiveRequest {
+    int64 uid = 1 [ebin = true];
+}
+
+message ArchiveResult {
+    enum Result {
+        UNKNOWN_RESULT = 0;
+        OK = 1;
+        FAIL = 2;
+    }
+    Result result = 1;
+    enum Reason {
+        UNKNOWN_REASON = 0;
+        INVALID_USER = 1;
+    }
+    Reason reason = 2;
+    int64 uid = 3 [ebin = true];
+    repeated Post posts = 4;
+}
+
 // IQ
 
 message Iq {
@@ -1132,6 +1151,8 @@ message Iq {
         PostMetricsResult post_metrics_result = 65;
         AiImageRequest ai_image_request = 66;
         AiImageResult ai_image_result = 67;
+        ArchiveRequest archive_request = 68;
+        ArchiveResult archive_result = 69;
     }
     int64 to_uid = 29 [ebin = true];    // only for server use
     int64 from_uid = 30 [ebin = true];    // only for server use

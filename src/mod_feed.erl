@@ -594,7 +594,7 @@ publish_post(Uid, PostId, PayloadBase64, public_moment, PSATag, AudienceList, Ho
     FilteredAudienceList2 = sets:to_list(get_feed_audience_set(Action, Uid, FilteredAudienceList1)),
     LatestNotificationId = model_feed:get_notification_id(Uid),
     ContentType = MomentInfo#pb_moment_info.content_type,
-    FilteredAudienceList3 = case ContentType =:= album_image orelse ContentType =:= album_video of
+    FilteredAudienceList3 = case ContentType =:= album_image of
         true ->
             DevUids = dev_users:get_dev_uids(),
             sets:to_list(sets:intersection(sets:from_list(FilteredAudienceList2), sets:from_list(DevUids)));
