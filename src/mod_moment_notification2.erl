@@ -453,7 +453,6 @@ get_region_by_zone_offset_hr(ZoneOffsetHr) when is_integer(ZoneOffsetHr) andalso
         undefined,
         RegionInfo);
 get_region_by_zone_offset_hr(InvalidZoneOffsetHr) ->
-    ?ERROR("Invalid ZoneOffsetHr: ~p", [InvalidZoneOffsetHr]),
     undefined.
 
 
