@@ -114,7 +114,8 @@ get_props(Uid, ClientVersion, katchup) ->
         background_upload => true,   %% Enables background upload on ios clients.
         relationship_sync_frequency => 1 * ?DAYS, %% how often should clients sync all relationships.
         refresh_public_feed_interval_secs => ?KATCHUP_PUBLIC_FEED_REFRESH_SECS,
-        close_friends_recos => false %% Should invite recommendations be sorted based on number of close friends
+        close_friends_recos => false, %% Should invite recommendations be sorted based on number of close friends
+        ai_generated_images => false  %% Enable AI-generated images for the background of text posts
     },
     ClientType = util_ua:get_client_type(ClientVersion),
     AppType = util_ua:get_app_type(ClientVersion),
@@ -175,8 +176,7 @@ get_props(Uid, ClientVersion, halloapp) ->
         contact_sharing => false,  %% Enables clients to share contacts on chat
         close_friends_recos => false, %% Should invite recommendations be sorted based on number of close friends
         location_sharing => false,
-        moment_external_share => false, %% Enabled external sharing of moments
-        ai_generated_images => false  %% Enable AI-generated images for the background of text posts
+        moment_external_share => false %% Enabled external sharing of moments
     },
     AppType = util_ua:get_app_type(ClientVersion),
     ClientType = util_ua:get_client_type(ClientVersion),
@@ -232,8 +232,7 @@ get_uid_based_props(PropMap, halloapp, Uid) ->
             PropMap21 = maps:update(close_friends_recos, false, PropMap20),
             PropMap22 = maps:update(location_sharing, true, PropMap21),
             PropMap23 = maps:update(moment_external_share, true, PropMap22),
-            PropMap24 = maps:update(ai_generated_images, true, PropMap23),
-            PropMap24
+            PropMap23
     end,
     apply_uid_prop_overrides(Uid, ResPropMap);
 
@@ -243,8 +242,10 @@ get_uid_based_props(PropMap, katchup, Uid) ->
             PropMap;
         true ->
             % Set dev to be true.
-            PropMap1 = maps:update(dev, true, PropMap),
-            PropMap1
+            PropMap#{
+                dev => true,
+                ai_generated_images => true
+            }
     end,
     apply_uid_prop_overrides(Uid, ResPropMap).
 
