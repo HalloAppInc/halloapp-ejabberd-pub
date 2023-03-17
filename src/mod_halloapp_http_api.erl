@@ -332,8 +332,20 @@ process_register_request(#{raw_phone := RawPhone, ua := UserAgent, code := Code,
         CampaignId = maps:get(campaign_id, RequestData, <<"undefined">>),
         check_ua(UserAgent),
         Phone = normalize_by_version(RawPhone, UserAgent),
-        check_sms_code(Phone, AppType, ClientIP, Protocol, Code, RemoteStaticKey),
-        ok = otp_checker:otp_delivered(Phone, ClientIP, Protocol, RemoteStaticKey),
+        case {Phone, model_phone:delete_reg_noise_key(RemoteStaticKey)} of
+            {<<"">>, ok} -> ok;
+            {<<"">>, not_found} -> error(empty_phone, AppType);
+            {_, _} ->
+                check_sms_code(Phone, AppType, ClientIP, Protocol, Code, RemoteStaticKey),
+                ok = otp_checker:otp_delivered(Phone, ClientIP, Protocol, RemoteStaticKey)
+        end,
+        HashcashSolution = maps:get(hashcash_solution, RequestData, <<>>),
+        HashcashSolutionTimeTakenMs = maps:get(hashcash_solution_time_taken_ms, RequestData, 0),
+        case HashcashSolution of
+            <<>> -> ok;
+            undefined -> ok;
+            _ -> check_hashcash_cc(<<>>, UserAgent, HashcashSolution, HashcashSolutionTimeTakenMs)
+        end,
         SEdPubBin = base64:decode(SEdPubB64),
         check_s_ed_pub_size(SEdPubBin),
         SignedPhraseBin = base64:decode(SignedPhraseB64),
@@ -561,7 +573,8 @@ normalize_by_version(RawPhone, UserAgent) ->
         android -> false;
         ios -> util_ua:is_version_greater_than(UserAgent, <<"HalloApp/iOS1.19.0">>)
     end,
-    case {normalize(RawPhone), IsValidUA} of
+    AppType = util_ua:get_app_type(UserAgent),
+    case {normalize(RawPhone, AppType), IsValidUA} of
         {{error, ErrMsg}, true} ->
             error(ErrMsg);
         {{error, _}, false} ->
@@ -571,8 +584,9 @@ normalize_by_version(RawPhone, UserAgent) ->
     end.
 
 
--spec normalize(RawPhone :: binary()) -> binary() | {error, atom()}.
-normalize(RawPhone) ->
+-spec normalize(RawPhone :: binary(), AppType :: app_type()) -> binary() | {error, atom()}.
+normalize(<<"">>, katchup) -> <<"">>;
+normalize(RawPhone, _AppType) ->
     %% We explicitly ask the clients to remove the plus in this case.
     %% So, we try to re-add here before normalizing.
     % RawPhone.

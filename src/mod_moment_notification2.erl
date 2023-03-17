@@ -452,7 +452,7 @@ get_region_by_zone_offset_hr(ZoneOffsetHr) when is_integer(ZoneOffsetHr) andalso
         end,
         undefined,
         RegionInfo);
-get_region_by_zone_offset_hr(InvalidZoneOffsetHr) ->
+get_region_by_zone_offset_hr(_InvalidZoneOffsetHr) ->
     undefined.
 
 

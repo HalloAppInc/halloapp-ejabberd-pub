@@ -1683,6 +1683,7 @@ message HashcashRequest {
 
 message HashcashResponse {
     string hashcash_challenge = 1;
+    bool is_phone_not_needed = 2;  // default is false
 }
 
 message OtpRequest {
@@ -1745,6 +1746,8 @@ message VerifyOtpRequest {
     PushRegister push_register = 10; // Only for ios-appclip
     string user_agent = 11;
     string campaign_id = 12;
+    string hashcash_solution = 13;
+    int64 hashcash_solution_time_taken_ms = 14;
 }
 
 message VerifyOtpResponse {
@@ -1786,6 +1789,7 @@ message VerifyOtpResponse {
         LINE_TYPE_VOIP = 25;
         LINE_TYPE_FIXED = 26;
         LINE_TYPE_OTHER = 27;
+        WRONG_HASHCASH_SOLUTION = 28;
     }
     Reason reason = 5;
     string group_invite_result = 6;

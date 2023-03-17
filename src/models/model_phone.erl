@@ -59,6 +59,8 @@
     add_phone_cc/2,
     get_phone_cc_info/1,
     delete_phone_cc/1,
+    add_reg_noise_key/1,
+    delete_reg_noise_key/1,
     add_hashcash_challenge/1,
     delete_hashcash_challenge/1,
     add_phone_code_attempt/3,
@@ -379,12 +381,16 @@ get_verification_attempt_summary(Phone, AppType, AttemptId) ->
  
 
 -spec add_phone(Phone :: phone(), AppType :: app_type(), Uid :: uid()) -> ok  | {error, any()}.
+add_phone(<<"">>, katchup, _Uid) ->
+    ok;
 add_phone(Phone, AppType, Uid) ->
     {ok, _Res} = q(["SET", phone_key(Phone, AppType), Uid]),
     ok.
 
 
 -spec delete_phone(Phone :: phone(), AppType :: app_type()) -> ok  | {error, any()}.
+delete_phone(<<"">>, katchup) ->
+    ok;
 delete_phone(Phone, AppType) ->
     {ok, _Res} = q(["DEL", phone_key(Phone, AppType)]),
     ok.
@@ -482,6 +488,18 @@ delete_phone_cc(CC) ->
     _Results = q(["DEL", phone_cc_key(CC)]),
     ok.
 
+
+-spec add_reg_noise_key(RemoteKey :: binary()) -> ok  | {error, any()}.
+add_reg_noise_key(RemoteKey) ->
+    _Results = q(["SET", reg_noise_key(RemoteKey), "1", "EX", ?TTL_HASHCASH]),
+    ok.
+
+-spec delete_reg_noise_key(RemoteKey :: binary()) -> ok  | not_found.
+delete_reg_noise_key(RemoteKey) ->
+    case q(["DEL", reg_noise_key(RemoteKey)]) of
+        {ok, <<"0">>} -> not_found;
+        {ok, <<"1">>} -> ok
+    end.
 
 -spec add_hashcash_challenge(Challenge :: binary()) -> ok  | {error, any()}.
 add_hashcash_challenge(Challenge) ->
@@ -612,6 +630,9 @@ remote_static_key(StaticKey) ->
 phone_cc_key(CC) ->
     <<?PHONE_CC_KEY/binary, "{", CC/binary, "}:">>.
 
+-spec reg_noise_key(RemoteKey :: binary()) -> binary().
+reg_noise_key(RemoteKey) ->
+    <<?REG_NOISE_KEY/binary, "{", RemoteKey/binary, "}:">>.
 
 -spec hashcash_key(Challenge :: binary()) -> binary().
 hashcash_key(Challenge) ->

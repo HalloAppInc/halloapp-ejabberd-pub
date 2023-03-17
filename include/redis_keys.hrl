@@ -199,6 +199,7 @@
 -define(PHONE_PATTERN_KEY, <<"pp:">>).
 -define(REMOTE_STATIC_KEY, <<"rs:">>).
 -define(PHONE_CC_KEY, <<"pcc:">>).
+-define(REG_NOISE_KEY, <<"rnk:">>).
 -define(HASHCASH_KEY, <<"hca:">>).
 -define(PHONE_ATTEMPT_KEY, <<"pca:">>).
 -define(PHONE_KATCHUP_ATTEMPT_KEY, <<"pkaa:">>).

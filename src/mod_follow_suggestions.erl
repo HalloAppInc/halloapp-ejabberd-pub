@@ -131,8 +131,12 @@ update_fof(Uid) ->
     ?INFO("Uid: ~p, Time taken to get contact uids: ~p", [Uid, Time3 - Time2]),
 
     %% 2. Find list of reverse contact uids.
-    {ok, RevContactUids} = model_contacts:get_contact_uids(Phone, AppType),
-    RevContactUidSet = sets:from_list(RevContactUids),
+    RevContactUidSet = case Phone of
+        <<"">> -> sets:from_list([]);
+        _ -> 
+            {ok, RevContactUids} = model_contacts:get_contact_uids(Phone, AppType),
+            sets:from_list(RevContactUids)
+    end,
     Time4 = util:now_ms(),
     ?INFO("Uid: ~p, Time taken to get rev contact uids: ~p", [Uid, Time4 - Time3]),
 
@@ -259,8 +263,12 @@ update_follow_suggestions(Uid, Phone) ->
     ?INFO("Uid: ~p, Time taken to get contact uids: ~p", [Uid, Time3 - Time2]),
 
     %% 2. Find list of reverse contact uids.
-    {ok, RevContactUids} = model_contacts:get_contact_uids(Phone, AppType),
-    RevContactUidSet = sets:from_list(RevContactUids),
+    RevContactUidSet = case Phone of
+        <<"">> -> sets:from_list([]);
+        _ ->
+            {ok, RevContactUids} = model_contacts:get_contact_uids(Phone, AppType),
+            sets:from_list(RevContactUids)
+    end,
     Time4 = util:now_ms(),
     ?INFO("Uid: ~p, Time taken to get rev contact uids: ~p", [Uid, Time4 - Time3]),
 

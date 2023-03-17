@@ -393,7 +393,10 @@ notify_key_subscribers(Uid, IdentityKeyB64) ->
     %% Phone reverse index.
     case model_accounts:get_phone(Uid) of
         {ok, Phone} ->
-            {ok, Ouids1} = model_contacts:get_contact_uids(Phone, AppType),
+            {ok, Ouids1} = case Phone of
+                <<"">> -> {ok, []};
+                _ -> model_contacts:get_contact_uids(Phone, AppType)
+            end,
             %% Contact Phones. -- uid may not have any - since we clear contacts on registration.
             {ok, ContactPhones} = model_contacts:get_contacts(Uid),
             PhoneToUidMap = model_phone:get_uids(ContactPhones, AppType),

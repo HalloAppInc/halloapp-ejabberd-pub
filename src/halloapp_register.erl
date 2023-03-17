@@ -274,7 +274,7 @@ terminate(_Reason, State) ->
 
 -spec process_element(stanza(), state()) -> state().
 process_element(#pb_register_request{request = #pb_hashcash_request{} = HashcashRequest},
-        #{ip := ClientIP} = State) ->
+        #{socket := Socket, ip := ClientIP} = State) ->
     check_and_count(ClientIP, "HA/registration", "request_hashcash", 1, [{protocol, "noise"}]),
     CC = HashcashRequest#pb_hashcash_request.country_code,
     RequestData = #{cc => CC, ip => ClientIP, raw_data => HashcashRequest,
@@ -282,7 +282,17 @@ process_element(#pb_register_request{request = #pb_hashcash_request{} = Hashcash
     },
     {ok, HashcashChallenge} = mod_halloapp_http_api:process_hashcash_request(RequestData),
     check_and_count(ClientIP, "HA/registration", "request_hashcash_success", 1, [{protocol, "noise"}]),
-    HashcashResponse = #pb_hashcash_response{hashcash_challenge = HashcashChallenge},
+    %% Don't require phone number for 50% of new users.
+    RemoteStaticKey = get_peer_static_key(Socket),
+    IsPhoneNotNeeded = (crc16_redis:crc16(util:to_list(RemoteStaticKey)) rem 2 =:= 0),
+    case IsPhoneNotNeeded of
+        true -> model_phone:add_reg_noise_key(RemoteStaticKey);
+        false -> ok
+    end,
+    HashcashResponse = #pb_hashcash_response{
+        hashcash_challenge = HashcashChallenge,
+        is_phone_not_needed = IsPhoneNotNeeded
+    },
     send(State, #pb_register_response{response = HashcashResponse});
 process_element(#pb_register_request{request = #pb_otp_request{} = OtpRequest},
         #{socket := Socket, ip := ClientIP} = State) ->
@@ -390,6 +400,8 @@ process_element(#pb_register_request{request = #pb_verify_otp_request{} = Verify
             end;
         _ -> "undefined"
     end,
+    HashcashSolution = VerifyOtpRequest#pb_verify_otp_request.hashcash_solution,
+    HashcashSolutionTimeTakenMs = VerifyOtpRequest#pb_verify_otp_request.hashcash_solution_time_taken_ms,
     StatNamespace = util:get_stat_namespace(UserAgent),
     check_and_count(ClientIP, StatNamespace ++ "/registration", "verify_otp_request", 1, [{protocol, "noise"}]),
     check_and_count(ClientIP, StatNamespace ++ "/registration", "verify_otp_request_by_campaign_id", 1, [{campaign_id, CampaignId}]),
@@ -400,7 +412,9 @@ process_element(#pb_register_request{request = #pb_verify_otp_request{} = Verify
         signed_phrase => SignedPhraseB64, id_key => IdentityKeyB64, sd_key => SignedKeyB64,
         otp_keys => OneTimeKeysB64, push_payload => PushPayload, raw_data => VerifyOtpRequest,
         protocol => noise, remote_static_key => RemoteStaticKey,
-        campaign_id => CampaignId
+        campaign_id => CampaignId,
+        hashcash_solution => HashcashSolution,
+        hashcash_solution_time_taken_ms => HashcashSolutionTimeTakenMs
     },
     VerifyOtpResponse = case mod_halloapp_http_api:process_register_request(RequestData) of
         {ok, Result} ->

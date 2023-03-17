@@ -228,7 +228,10 @@ username_updated(_UserId, _Username, false) ->
 send_new_user_notifications(UserId, Phone) ->
     ?INFO("UserId: ~p Phone: ~p", [UserId, Phone]),
     AppType = util_uid:get_app_type(UserId),
-    {ok, ContactUids} = model_contacts:get_contact_uids(Phone, AppType),
+    {ok, ContactUids} = case Phone of
+        <<"">> -> {ok, []};
+        _ -> model_contacts:get_contact_uids(Phone, AppType)
+    end,
     %% Send only one notification per contact
     lists:foreach(
         fun(ContactId) ->

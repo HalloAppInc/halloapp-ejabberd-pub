@@ -153,7 +153,10 @@ ha_try_register(Phone, Cred, UserAgent, CampaignId) ->
     AppType = util_ua:get_app_type(UserAgent),
     {ok, Uid} = util_uid:generate_uid(UserAgent),
     ok = model_accounts:create_account(Uid, Phone, UserAgent, CampaignId),
-    ok = model_phone:add_phone(Phone, AppType, Uid),
+    case {Phone, AppType} of
+        {<<"">>, katchup} -> ok;
+        _ -> ok = model_phone:add_phone(Phone, AppType, Uid)
+    end,
     case set_spub(Uid, Cred) of
         ok ->{ok, Cred, Uid};
         Err -> Err
@@ -164,8 +167,9 @@ ha_try_register(Phone, Cred, UserAgent, CampaignId) ->
 ha_remove_user(Uid) ->
     ?INFO("Uid:~s", [Uid]),
     AppType = util_uid:get_app_type(Uid),
-    case model_accounts:get_phone(Uid) of
-        {ok, Phone} ->
+    case {AppType, model_accounts:get_phone(Uid)} of
+        {katchup, {ok, <<"">>}} -> ok;
+        {_, {ok, Phone}} ->
             {ok, PhoneUid} = model_phone:get_uid(Phone, AppType),
             case PhoneUid =:= Uid of
                 true ->
@@ -175,7 +179,7 @@ ha_remove_user(Uid) ->
                         [Uid, Phone, PhoneUid]),
                     ok
             end;
-        {error, missing} ->
+        {_, {error, missing}} ->
             ok
     end,
     ok = model_auth:delete_spub(Uid),
