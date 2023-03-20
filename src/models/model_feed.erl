@@ -1155,6 +1155,8 @@ set_moment_time(PostType, WeekDayTimeSecs) ->
     Prompt = mod_prompts:get_prompt(PostType),
     Time = generate_notification_time(WeekDayTimeSecs),
     WeekDate = util:get_date(WeekDayTimeSecs),
+    ?INFO("Date: ~p, NotificationId: ~p, Time: ~p, PostType: ~p, Prompt: ~p",
+        [WeekDate, WeekDayTimeSecs, Time, PostType, Prompt]),
     set_moment_time_to_send(Time, WeekDayTimeSecs, PostType, Prompt, WeekDate).
 
 generate_notification_time(DateTimeSecs) ->
