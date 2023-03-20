@@ -1153,6 +1153,8 @@ message Iq {
         AiImageResult ai_image_result = 67;
         ArchiveRequest archive_request = 68;
         ArchiveResult archive_result = 69;
+        PostSubscriptionRequest post_subscription_request = 70;
+        PostSubscriptionResponse post_subscription_response = 71;
     }
     int64 to_uid = 29 [ebin = true];    // only for server use
     int64 from_uid = 30 [ebin = true];    // only for server use
