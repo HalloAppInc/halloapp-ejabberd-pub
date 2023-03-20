@@ -1537,9 +1537,13 @@ get_user_profile(Uid, Ouid) ->
 
 
 get_blocked_user_profile(Uid, Ouid) ->
-    {ok, Username} = get_username(Ouid),
+    [{ok, Username}, {ok, Name}] = qp([
+        ["HGET", account_key(Ouid), ?FIELD_USERNAME],
+        ["HGET", account_key(Ouid), ?FIELD_NAME]
+    ]),
     #pb_user_profile{
         uid = Ouid,
+        name = Name,
         username = Username,
         following_status = none,
         follower_status = none,
