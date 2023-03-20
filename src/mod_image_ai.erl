@@ -111,22 +111,7 @@ handle_info({http, {Ref, {{_, 200, "OK"}, _Hdrs, Result}}}, #{ref_map := RefMap}
             ?ERROR("Got unexpected response with ref: ~p", [Ref]);
         {Uid, RequestId, StartTimeMs} ->
             ?INFO("Result for ~s (ref = ~p, request_id = ~p) generated in ~w ms", [Uid, Ref, RequestId, util:now_ms() - StartTimeMs]),
-            {[{<<"images">>, RawImages}]} = jiffy:decode(Result),
-            lists:foreach(
-                fun(RawImage) ->
-                    [_, B64Image] = binary:split(RawImage, <<",">>),
-                    Image = base64:decode(B64Image),
-                    Msg = #pb_msg{
-                        id = util_id:new_msg_id(),
-                        to_uid = Uid,
-                        payload = #pb_ai_image{
-                            id = RequestId,
-                            image = Image
-                        }
-                    },
-                    ejabberd_router:route(Msg)
-                end,
-                RawImages)
+            parse_and_send_result(Uid, RequestId, Result)
     end,
     NewRefMap = maps:remove(Ref, RefMap),
     {noreply, State#{ref_map => NewRefMap}};
@@ -193,8 +178,46 @@ request_images(Uid, Prompt, NumImages, RequestId) ->
 get_model_parameters(Prompt, NumImages, ?STABLE_DIFFUSION_1_5) ->
     jiffy:encode({[
         {<<"num_images">>, NumImages},
-        {<<"prompt">>, <<Prompt/binary, " ((realistic))">>},
-        {<<"negative_prompt">>, <<"unrealistic">>},
-        {<<"num_inference_steps">>, 25}
+        {<<"prompt">>, Prompt},
+        {<<"num_inference_steps">>, 40},
+        {<<"width">>, 384},
+        {<<"height">>, 512}
     ]}).
+
+
+parse_and_send_result(Uid, RequestId, RawResult) ->
+    ResultMap = jiffy:decode(RawResult, [return_maps]),
+    RawImages = maps:get(<<"images">>, ResultMap, []),
+    IsFilteredList = maps:get(<<"nsfw_content_detected">>, ResultMap, []),
+    Seed = maps:get(<<"seed">>, ResultMap, -1),
+    lists:foreach(
+        fun({RawImage, IsFiltered}) ->
+            case IsFiltered of
+                true ->
+                    Msg = #pb_msg{
+                        id = util_id:new_msg_id(),
+                        to_uid = Uid,
+                        type = error,
+                        payload = #pb_ai_image{
+                            id = RequestId
+                        }
+                    },
+                    ?INFO("Sending AI image error (filtered) to ~s, seed = ~p", [Uid, Seed]),
+                    ejabberd_router:route(Msg);
+                false ->
+                    [_, B64Image] = binary:split(RawImage, <<",">>),
+                    Image = base64:decode(B64Image),
+                    Msg = #pb_msg{
+                        id = util_id:new_msg_id(),
+                        to_uid = Uid,
+                        payload = #pb_ai_image{
+                            id = RequestId,
+                            image = Image
+                        }
+                    },
+                    ?INFO("Sending AI image to ~s, seed = ~p", [Uid, Seed]),
+                    ejabberd_router:route(Msg)
+            end
+        end,
+        lists:zip(RawImages, IsFilteredList)).
 
