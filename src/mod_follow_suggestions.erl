@@ -32,7 +32,7 @@
 -export([
     process_local_iq/1,
     generate_follow_suggestions/1,
-    remove_deleted/1,
+    remove_neg/2,
     generate_fof_uids/0,
     update_fof/1
 ]).
@@ -255,9 +255,9 @@ generate_follow_suggestions(Uid, Phone) ->
  
     %% Keep only the new ones.
     AllSubtractSet = sets:union(sets:from_list(AllFollowing), sets:from_list(RejectedUids)),
-    ContactSuggestionsSet = remove_deleted(sets:subtract(ContactUidsSet, AllSubtractSet)),
+    ContactSuggestionsSet = remove_neg(Uid, sets:subtract(ContactUidsSet, AllSubtractSet)),
     FoFSuggestions1 = sets:subtract(FoFSet, AllSubtractSet),
-    FoFSuggestionsSet2 = remove_deleted(sets:subtract(FoFSuggestions1, ContactSuggestionsSet)),
+    FoFSuggestionsSet2 = remove_neg(Uid, sets:subtract(FoFSuggestions1, ContactSuggestionsSet)),
 
     NewFoFSuggestionsSet1 = case (sets:size(FoFSuggestionsSet2) + sets:size(ContactSuggestionsSet)) < 5 of
         true ->
@@ -267,7 +267,7 @@ generate_follow_suggestions(Uid, Phone) ->
             sets:from_list([])
     end,
 
-    NewFoFSuggestionsSet2 = remove_deleted(NewFoFSuggestionsSet1),
+    NewFoFSuggestionsSet2 = remove_neg(Uid, NewFoFSuggestionsSet1),
 
     FoFSuggestionsSet = sets:union(NewFoFSuggestionsSet2, FoFSuggestionsSet2),
  
@@ -291,16 +291,16 @@ generate_follow_suggestions(Uid, Phone) ->
         end,
         AllSuggestedProfiles).
 
-remove_deleted(UidsSet) ->
-    %% Get rid of deleted users.
-    Uids = sets:to_list(UidsSet),
-    Phones = model_accounts:get_phones(Uids),
-    lists:foldl(fun({Uid, Phone}, Acc) ->
-        case Phone of
-            undefined -> Acc;
-            _ -> sets:add_element(Uid, Acc)
+remove_neg(Uid, UidsSet) ->
+    %% Get rid of neg users.
+    OUids = sets:to_list(UidsSet),
+    Phones = model_accounts:get_phones(OUids),
+    lists:foldl(fun({OUid, Phone}, Acc) ->
+        case Phone =:= undefined orelse Uid =:= OUid orelse model_follow:is_blocked_any(Uid, OUid) of
+            true -> Acc;
+            false -> sets:add_element(OUid, Acc)
         end
-    end, sets:new(), lists:zip(Uids, Phones)).
+    end, sets:new(), lists:zip(OUids, Phones)).
 
 get_sorted_uids(Uid, SuggestionsSet) ->
     OUidList = sets:to_list(SuggestionsSet),
@@ -308,7 +308,7 @@ get_sorted_uids(Uid, SuggestionsSet) ->
     OList = lists:zip(OUidList, OProfilesList),
     %% fetch followers count.
     Tuples = lists:foldl(fun({Ouid, OProfile}, Acc) ->
-        case model_follow:is_blocked_any(Uid, Ouid) orelse Uid =:= Ouid of
+        case Uid =:= Ouid of
             true -> Acc;
             false ->
                 NumMutualFollowing = OProfile#pb_basic_user_profile.num_mutual_following,
