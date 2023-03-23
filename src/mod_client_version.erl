@@ -118,6 +118,7 @@ extend_version_validity(Version, ExtendTimeSec) ->
 get_time_left(undefined, _CurTimestamp) ->
     0;
 get_time_left(Version, CurTimestamp) ->
+    AppType = util_ua:get_app_type(Version),
     case model_client_version:set_version_ts(Version, CurTimestamp) of
         true -> ?INFO("New version ~s inserted at ~p", [Version, CurTimestamp]);
         false -> ok
@@ -127,14 +128,20 @@ get_time_left(Version, CurTimestamp) ->
         undefined ->
             ?ERROR("Can not find version ~s in Redis", [Version]),
             0;
+        %% All new versions after March 21, 2023 1:37:48 PM will be valid only for 40days.
+        VerTs when VerTs > 1679431068 ->
+            MaxTimeSec = get_version_validity(AppType),
+            MaxTimeSec - (CurTimestamp - VerTs);
         VerTs ->
-            MaxTimeSec = get_version_validity(),
+            MaxTimeSec = get_version_validity(undefined),
             MaxTimeSec - (CurTimestamp - VerTs)
     end.
 
 
--spec get_version_validity() -> integer().
-get_version_validity() ->
+-spec get_version_validity(AppType :: atom()) -> integer().
+get_version_validity(katchup) ->
+    ?KATCHUP_VERSION_VALIDITY;
+get_version_validity(_) ->
     ?VERSION_VALIDITY.
 
 
