@@ -24,6 +24,8 @@
 %% limits for num of fof users.
 -define(FOF_BATCH_LIMIT, 100).
 -define(FOF_TOTAL_LIMIT, 500).
+-define(FOF_SUGGESTIONS_BATCH_LIMIT, 50).
+-define(FOF_SUGGESTIONS_TOTAL_LIMIT, 100).
 
 %% gen_mod callbacks.
 -export([start/2, stop/1, reload/3, mod_options/1, depends/2]).
@@ -272,11 +274,11 @@ update_follow_suggestions(Uid, Phone) ->
 
     %% 4. Find uids followed by all the above - following, contacts, revcontacts, geotagged uids.
     %% We choose at most FOF_BATCH_LIMIT uids and obtain at most FOF_BATCH_LIMIT followers.
-    %% So max number of uids in BroaderFollowingSet is 5 * FOF_BATCH_LIMIT * FOF_BATCH_LIMIT
-    FofollowingSet = sets:from_list(model_follow:get_random_following(lists:sublist(sets:to_list(AllFollowingSet), ?FOF_BATCH_LIMIT), ?FOF_BATCH_LIMIT)),
-    FoContactSet = sets:from_list(model_follow:get_random_following(lists:sublist(sets:to_list(ContactUidSet), ?FOF_BATCH_LIMIT), ?FOF_BATCH_LIMIT)),
-    FoRevContactSet = sets:from_list(model_follow:get_random_following(lists:sublist(sets:to_list(RevContactUidSet), ?FOF_BATCH_LIMIT), ?FOF_BATCH_LIMIT)),
-    FoGeoTagUidSet = sets:from_list(model_follow:get_random_following(lists:sublist(sets:to_list(GeoTagUidSet), ?FOF_BATCH_LIMIT), ?FOF_BATCH_LIMIT)),
+    %% So max number of uids in BroaderFollowingSet is 5 * FOF_SUGGESTIONS_BATCH_LIMIT * FOF_SUGGESTIONS_BATCH_LIMIT
+    FofollowingSet = sets:from_list(model_follow:get_random_following(lists:sublist(sets:to_list(AllFollowingSet), ?FOF_SUGGESTIONS_BATCH_LIMIT), ?FOF_SUGGESTIONS_BATCH_LIMIT)),
+    FoContactSet = sets:from_list(model_follow:get_random_following(lists:sublist(sets:to_list(ContactUidSet), ?FOF_SUGGESTIONS_BATCH_LIMIT), ?FOF_SUGGESTIONS_BATCH_LIMIT)),
+    FoRevContactSet = sets:from_list(model_follow:get_random_following(lists:sublist(sets:to_list(RevContactUidSet), ?FOF_SUGGESTIONS_BATCH_LIMIT), ?FOF_SUGGESTIONS_BATCH_LIMIT)),
+    FoGeoTagUidSet = sets:from_list(model_follow:get_random_following(lists:sublist(sets:to_list(GeoTagUidSet), ?FOF_SUGGESTIONS_BATCH_LIMIT), ?FOF_SUGGESTIONS_BATCH_LIMIT)),
     BroaderFollowingUidSet = sets:union([FofollowingSet, FoContactSet, FoRevContactSet, FoGeoTagUidSet]),
     Time6 = util:now_ms(),
     ?INFO("Uid: ~p, Time taken to get broader following set: ~p", [Uid, Time6 - Time5]),
@@ -317,8 +319,8 @@ update_follow_suggestions(Uid, Phone) ->
     Time12 = util:now_ms(),
     ?INFO("Uid: ~p, Time taken to sort fof suggestions: ~p, size: ~p", [Uid, Time12 - Time11, length(FoFSuggestions)]),
 
-    TrimmedContactSuggestions = lists:sublist(ContactSuggestions, ?FOF_TOTAL_LIMIT),
-    TrimmedFoFSuggestions = lists:sublist(FoFSuggestions, ?FOF_TOTAL_LIMIT),
+    TrimmedContactSuggestions = lists:sublist(ContactSuggestions, ?FOF_SUGGESTIONS_TOTAL_LIMIT),
+    TrimmedFoFSuggestions = lists:sublist(FoFSuggestions, ?FOF_SUGGESTIONS_TOTAL_LIMIT),
     Time13 = util:now_ms(),
     ?INFO("Uid: ~p, Time taken to trim contact and fof suggestions", [Uid, Time13 - Time12]),
 
