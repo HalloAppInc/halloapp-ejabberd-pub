@@ -64,13 +64,17 @@
 
 update_contact_suggestions(_Uid, []) -> ok;
 update_contact_suggestions(Uid, ContactSuggestionsList) ->
-    {ok, _} = q(["RPUSH", contact_suggestions_key(Uid) | ContactSuggestionsList]),
+    [{ok, _}, {ok, _}] = qp([
+        ["DEL", contact_suggestions_key(Uid)],
+        ["RPUSH", contact_suggestions_key(Uid) | ContactSuggestionsList]]),
     ok.
 
 
 update_fof_suggestions(_Uid, []) -> ok;
 update_fof_suggestions(Uid, FoFSuggestionsList) ->
-    {ok, _} = q(["RPUSH", fof_suggestions_key(Uid) | FoFSuggestionsList]),
+    [{ok, _}, {ok, _}] = qp([
+        ["DEL", fof_suggestions_key(Uid)],
+        ["RPUSH", fof_suggestions_key(Uid) | FoFSuggestionsList]]),
     ok.
 
 
@@ -88,7 +92,9 @@ update_fof(Uid, FofWithScores) ->
     case util_redis:flatten_proplist(maps:to_list(FofWithScores)) of
         [] -> ok;
         RevFofScoresList ->
-            {ok, _Res} = q(["ZADD", fof_index_key(Uid) | lists:reverse(RevFofScoresList)]),
+            [{ok, _}, {ok, _Res}] = qp([
+                ["DEL", fof_index_key(Uid)],
+                ["ZADD", fof_index_key(Uid) | lists:reverse(RevFofScoresList)]]),
             ok
     end.
 

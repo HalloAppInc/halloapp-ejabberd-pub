@@ -322,12 +322,12 @@ update_follow_suggestions(Uid, Phone) ->
     TrimmedContactSuggestions = lists:sublist(ContactSuggestions, ?FOF_SUGGESTIONS_TOTAL_LIMIT),
     TrimmedFoFSuggestions = lists:sublist(FoFSuggestions, ?FOF_SUGGESTIONS_TOTAL_LIMIT),
     Time13 = util:now_ms(),
-    ?INFO("Uid: ~p, Time taken to trim contact and fof suggestions", [Uid, Time13 - Time12]),
+    ?INFO("Uid: ~p, Time taken to trim contact and fof suggestions: ~p", [Uid, Time13 - Time12]),
 
     ok = model_follow:update_contact_suggestions(Uid, TrimmedContactSuggestions),
     ok = model_follow:update_fof_suggestions(Uid, TrimmedFoFSuggestions),
     Time14 = util:now_ms(),
-    ?INFO("Uid: ~p, Time taken to store contact and fof suggestions", [Uid, Time14 - Time13]),
+    ?INFO("Uid: ~p, Time taken to store contact and fof suggestions: ~p", [Uid, Time14 - Time13]),
     ?INFO("Uid: ~p, Total time taken: ~p", [Uid, Time14 - Time1]),
     ok.
 
