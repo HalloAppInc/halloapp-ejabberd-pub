@@ -225,7 +225,7 @@ generate_follow_suggestions() ->
     %% TODO: change migration to run for every zoneoffset uids.
     %% that will ensure we do this in batches throughout the day.
     redis_migrate:start_migration("calculate_fof_run", redis_accounts,
-        {migrate_check_accounts, generate_follow_suggestions},
+        {migrate_check_accounts, calculate_follow_suggestions},
         [{execute, sequential}, {scan_count, 500}]).
 
 
