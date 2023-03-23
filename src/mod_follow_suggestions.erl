@@ -324,6 +324,7 @@ update_follow_suggestions(Uid, Phone) ->
     Time13 = util:now_ms(),
     ?INFO("Uid: ~p, Time taken to trim contact and fof suggestions: ~p", [Uid, Time13 - Time12]),
 
+
     ok = model_follow:update_contact_suggestions(Uid, TrimmedContactSuggestions),
     ok = model_follow:update_fof_suggestions(Uid, TrimmedFoFSuggestions),
     Time14 = util:now_ms(),
@@ -382,31 +383,23 @@ filter_and_convert_to_suggestions(Uid, Suggestions, Reason, StartingRank) ->
     UnacceptedUids = sets:union([FollowingSet, BlockedUidSet, BlockedByUidSet, RejectedUidSet]),
     %% Get all profiles as well.
     SuggestedProfiles = model_accounts:get_basic_user_profiles(Uid, Suggestions),
-    %% Filter them out once.
-    FilteredSuggestions = lists:filtermap(
-        fun({Ouid, OuidProfile}) ->
+    %% Filter them out, set a proper rank and return.
+    FinalSuggestedProfiles = lists:filtermap(
+        fun({Ouid, OuidProfile, Rank}) ->
             case sets:is_element(Ouid, UnacceptedUids) of
                 true -> false;
                 false ->
                     case OuidProfile#pb_basic_user_profile.name =/= undefined andalso
                             OuidProfile#pb_basic_user_profile.username =/= undefined of
-                        true -> {true, OuidProfile};
+                        true -> {true, #pb_suggested_profile{
+                                            user_profile = OuidProfile,
+                                            reason = Reason,
+                                            rank = Rank
+                                        }
+                                };
                         false -> false
                     end
             end
-        end, lists:zip(Suggestions, SuggestedProfiles)),
-
-    %% Set a proper rank and reason and return.
-    {FinalSuggestedProfiles, _} = lists:mapfoldl(
-        fun(OuidProfile, Rank) ->
-            {
-                #pb_suggested_profile{
-                    user_profile = OuidProfile,
-                    reason = Reason,
-                    rank = Rank
-                }, 
-                Rank+1
-            }
-        end, StartingRank, FilteredSuggestions),
+        end, lists:zip3(Suggestions, SuggestedProfiles, lists:seq(StartingRank, StartingRank+length(Suggestions)-1))),
     FinalSuggestedProfiles.
  
