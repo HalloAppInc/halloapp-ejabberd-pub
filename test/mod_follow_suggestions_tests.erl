@@ -108,7 +108,9 @@ follow_suggestions_test() ->
     ?assertEqual(0, model_follow:get_following_count(Uid4)),
     ok = model_accounts:set_avatar_id(Uid1, ?AVATAR_ID1),
     ok = model_accounts:set_avatar_id(Uid2, ?AVATAR_ID2),
-    ?assertEqual(ExpectedRes1, mod_follow_suggestions:generate_follow_suggestions(Uid1)),
+    mod_follow_suggestions:update_follow_suggestions(Uid1, ?PHONE1),
+    mod_follow_suggestions:update_follow_suggestions(Uid2, ?PHONE2),
+    ?assertEqual(ExpectedRes1, mod_follow_suggestions:fetch_follow_suggestions(Uid1)),
     ok = model_follow:block(Uid1, Uid3),
-    ?assertEqual(ExpectedRes2, mod_follow_suggestions:generate_follow_suggestions(Uid1)).
+    ?assertEqual(ExpectedRes2, mod_follow_suggestions:fetch_follow_suggestions(Uid1)).
 

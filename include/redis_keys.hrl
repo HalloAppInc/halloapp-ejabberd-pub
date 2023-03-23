@@ -172,7 +172,8 @@
 -define(BLOCKED_KEY, <<"blk">>).
 -define(BLOCKED_BY_KEY, <<"bkb">>).
 -define(FOF_INDEX_KEY, <<"fof">>).
-
+-define(CONTACT_SUGGESTIONS_KEY, <<"cs:">>).
+-define(FOF_SUGGESTIONS_KEY, <<"fs:">>).
 
 %% RedisMessages
 -define(MESSAGE_KEY, <<"msg:">>).

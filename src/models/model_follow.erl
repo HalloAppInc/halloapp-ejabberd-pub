@@ -27,6 +27,7 @@
     is_follower/2,
     get_following/3,
     get_following/2,
+    get_random_following/2,
     get_all_following/1,
     get_following_count/1,
     get_followers/3,
@@ -50,12 +51,38 @@
     get_all_fof/1,
     get_fof/3,
     get_all_fof_list/1,
-    get_fof_list/3
+    get_fof_list/3,
+    update_contact_suggestions/2,
+    update_fof_suggestions/2,
+    get_contact_suggestions/1,
+    get_fof_suggestions/1
 ]).
 
 %%====================================================================
 %% API
 %%====================================================================
+
+update_contact_suggestions(_Uid, []) -> ok;
+update_contact_suggestions(Uid, ContactSuggestionsList) ->
+    {ok, _} = q(["RPUSH", contact_suggestions_key(Uid) | ContactSuggestionsList]),
+    ok.
+
+
+update_fof_suggestions(_Uid, []) -> ok;
+update_fof_suggestions(Uid, FoFSuggestionsList) ->
+    {ok, _} = q(["RPUSH", fof_suggestions_key(Uid) | FoFSuggestionsList]),
+    ok.
+
+
+get_contact_suggestions(Uid) ->
+    {ok, ContactSuggestionsList} = q(["LRANGE", contact_suggestions_key(Uid), "0", "-1"]),
+    ContactSuggestionsList.
+
+
+get_fof_suggestions(Uid) ->
+    {ok, FoFSuggestionsList} = q(["LRANGE", fof_suggestions_key(Uid), "0", "-1"]),
+    FoFSuggestionsList.
+
 
 update_fof(Uid, FofWithScores) ->
     case util_redis:flatten_proplist(maps:to_list(FofWithScores)) of
@@ -158,6 +185,19 @@ get_following(Uid, Limit) ->
     get_following([Uid], Limit).
 
 
+-spec get_random_following(Uids :: [uid()] | uid(), Limit :: integer()) -> [uid()].
+get_random_following(Uids, Limit) when is_list(Uids) ->
+    Commands = lists:map(
+        fun(Uid) ->
+            ["ZRANDMEMBER", following_key(Uid), Limit]
+        end, Uids),
+    Res = qmn(Commands),
+    Result = lists:flatmap(fun({ok, Followers}) -> Followers end, Res),
+    Result;
+get_random_following(Uid, Limit) ->
+    get_random_following([Uid], Limit).
+
+
 %% Get everyone that Uid/Uids is/are following (not paginated)
 -spec get_all_following(Uids :: [uid()] | uid()) -> [uid()].
 get_all_following(Uids) when is_list(Uids) ->
@@ -183,7 +223,16 @@ get_followers(Uid, Cursor, Limit) ->
 get_all_followers(Uid) ->
     get_all_internal(follower_key(Uid)).
 
--spec get_followers_count(Uid :: uid()) -> integer().
+-spec get_followers_count(Uid :: list(uid()) | uid()) -> list(integer()) | integer().
+get_followers_count(Uids) when is_list(Uids) ->
+    Commands = lists:map(
+        fun(Uid) ->
+            ["ZCARD", follower_key(Uid)]
+        end, Uids),
+    lists:map(
+        fun({ok, CountBin}) ->
+            util:to_integer(CountBin)
+        end, qmn(Commands));
 get_followers_count(Uid) ->
     get_count_internal(follower_key(Uid)).
 
@@ -359,4 +408,10 @@ blocked_by_key(Uid) ->
 
 fof_index_key(Uid) ->
     <<?FOF_INDEX_KEY/binary, <<"{">>/binary, Uid/binary, <<"}">>/binary>>.
+
+contact_suggestions_key(Uid) ->
+    <<?CONTACT_SUGGESTIONS_KEY/binary, "{", Uid/binary, "}">>.
+
+fof_suggestions_key(Uid) ->
+    <<?FOF_SUGGESTIONS_KEY/binary, "{", Uid/binary, "}">>.
 

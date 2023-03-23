@@ -31,10 +31,12 @@
 %% hooks and api.
 -export([
     process_local_iq/1,
-    generate_follow_suggestions/1,
-    remove_neg/2,
     generate_fof_uids/0,
-    update_fof/1
+    update_fof/1,
+    generate_follow_suggestions/0,
+    update_follow_suggestions/1,
+    update_follow_suggestions/2,
+    fetch_follow_suggestions/1
 ]).
 
 
@@ -80,19 +82,8 @@ process_local_iq(
         action = get}} = IQ) ->
     ?INFO("Uid: ~p", [Uid]),
     stat:count("KA/suggestions", "follow"),
-    FollowSuggestions = generate_follow_suggestions(Uid),
+    FollowSuggestions = fetch_follow_suggestions(Uid),
     pb:make_iq_result(IQ, #pb_follow_suggestions_response{result = ok, suggested_profiles = FollowSuggestions}).
-
-%% TODO: need to optimize.
--spec generate_follow_suggestions(Uid :: uid()) -> [pb_suggested_profile()].
-generate_follow_suggestions(Uid) ->
-    case model_accounts:get_phone(Uid) of
-        {error, missing} ->
-            ?ERROR("Uid: ~p without phone number", [Uid]),
-            [];
-        {ok, Phone} ->
-            generate_follow_suggestions(Uid, Phone)
-    end.
 
 check_and_schedule() ->
     case util:is_main_stest() of
@@ -101,6 +92,10 @@ check_and_schedule() ->
             erlcron:cron(follow_suggestions, {
                 {daily, {10, 00, am}},
                 {?MODULE, generate_fof_uids, []}
+            }),
+            erlcron:cron(follow_suggestions, {
+                {daily, {10, 00, am}},
+                {?MODULE, generate_follow_suggestions, []}
             }),
             ok;
         false ->
@@ -113,7 +108,7 @@ generate_fof_uids() ->
     %% that will ensure we do this in batches throughout the day.
     redis_migrate:start_migration("calculate_fof_run", redis_accounts,
         {migrate_check_accounts, calculate_fof_run},
-        [{execute, sequential}, {scan_count, 1000}]).
+        [{execute, sequential}, {scan_count, 500}]).
 
 
 update_fof(Uid) ->
@@ -148,10 +143,12 @@ update_fof(Uid) ->
     ?INFO("Uid: ~p, Time taken to get geo-tag uids: ~p", [Uid, Time5 - Time4]),
 
     %% 4. Find uids followed by all the above - following, contacts, revcontacts, geotagged uids.
-    FofollowingSet = sets:from_list(model_follow:get_following(sets:to_list(AllFollowingSet), ?FOF_BATCH_LIMIT)),
-    FoContactSet = sets:from_list(model_follow:get_following(sets:to_list(ContactUidSet), ?FOF_BATCH_LIMIT)),
-    FoRevContactSet = sets:from_list(model_follow:get_following(sets:to_list(RevContactUidSet), ?FOF_BATCH_LIMIT)),
-    FoGeoTagUidSet = sets:from_list(model_follow:get_following(sets:to_list(GeoTagUidSet), ?FOF_BATCH_LIMIT)),
+    %% We choose at most FOF_BATCH_LIMIT uids and obtain at most FOF_BATCH_LIMIT followers.
+    %% So max number of uids in BroaderFollowingSet is 5 * FOF_BATCH_LIMIT * FOF_BATCH_LIMIT
+    FofollowingSet = sets:from_list(model_follow:get_random_following(lists:sublist(sets:to_list(AllFollowingSet), ?FOF_BATCH_LIMIT), ?FOF_BATCH_LIMIT)),
+    FoContactSet = sets:from_list(model_follow:get_random_following(lists:sublist(sets:to_list(ContactUidSet), ?FOF_BATCH_LIMIT), ?FOF_BATCH_LIMIT)),
+    FoRevContactSet = sets:from_list(model_follow:get_random_following(lists:sublist(sets:to_list(RevContactUidSet), ?FOF_BATCH_LIMIT), ?FOF_BATCH_LIMIT)),
+    FoGeoTagUidSet = sets:from_list(model_follow:get_random_following(lists:sublist(sets:to_list(GeoTagUidSet), ?FOF_BATCH_LIMIT), ?FOF_BATCH_LIMIT)),
     BroaderFollowingUidSet = sets:union([FofollowingSet, FoContactSet, FoRevContactSet, FoGeoTagUidSet]),
     Time6 = util:now_ms(),
     ?INFO("Uid: ~p, Time taken to get broader following set: ~p", [Uid, Time6 - Time5]),
@@ -222,114 +219,192 @@ update_fof(Uid) ->
     ok.
 
 
-%%====================================================================
-%% internal functions
-%%====================================================================
+generate_follow_suggestions() ->
+    %% TODO: change migration to run for every zoneoffset uids.
+    %% that will ensure we do this in batches throughout the day.
+    redis_migrate:start_migration("calculate_fof_run", redis_accounts,
+        {migrate_check_accounts, generate_follow_suggestions},
+        [{execute, sequential}, {scan_count, 500}]).
 
-generate_follow_suggestions(Uid, Phone) ->
-    %% 1. Find list of contact uids.
+
+%% TODO: need to optimize.
+-spec update_follow_suggestions(Uid :: uid()) -> [pb_suggested_profile()].
+update_follow_suggestions(Uid) ->
+    case model_accounts:get_phone(Uid) of
+        {error, missing} ->
+            ?ERROR("Uid: ~p without phone number", [Uid]),
+            [];
+        {ok, Phone} ->
+            update_follow_suggestions(Uid, Phone)
+    end.
+
+
+update_follow_suggestions(Uid, Phone) ->
+    Time1 = util:now_ms(),
+    %% Get Uid info:
     AppType = util_uid:get_app_type(Uid),
+    {ok, Phone} = model_accounts:get_phone(Uid),
+    AllFollowingSet = sets:from_list(model_follow:get_all_following(Uid)),
+    GeoTag = model_accounts:get_latest_geo_tag(Uid),
+    Time2 = util:now_ms(),
+    ?INFO("Uid: ~p, Time taken to get user info: ~p", [Uid, Time2 - Time1]),
+
+    %% 1. Find list of contact uids.
     {ok, ContactPhones} = model_contacts:get_contacts(Uid),
     ContactUids = maps:values(model_phone:get_uids(ContactPhones, AppType)),
-    ContactUidsSet = sets:from_list(ContactUids),
- 
-    %% Find list of reverse contact uids.
+    ContactUidSet = sets:from_list(ContactUids),
+    Time3 = util:now_ms(),
+    ?INFO("Uid: ~p, Time taken to get contact uids: ~p", [Uid, Time3 - Time2]),
+
+    %% 2. Find list of reverse contact uids.
     {ok, RevContactUids} = model_contacts:get_contact_uids(Phone, AppType),
-    RevContactConsiderSet = sets:subtract(sets:from_list(RevContactUids), ContactUidsSet),
- 
-    %% 2. Find uids of followed by various follows and contacts
-    AllFollowing = model_follow:get_all_following(Uid),
-    AllFollowingAndContacts = sets:to_list(sets:union(sets:from_list(AllFollowing), ContactUidsSet)),
-    FoFSet1 = sets:from_list(model_follow:get_all_following(AllFollowingAndContacts)),
-    FoFSet2 = sets:union(RevContactConsiderSet, FoFSet1),
+    RevContactUidSet = sets:from_list(RevContactUids),
+    Time4 = util:now_ms(),
+    ?INFO("Uid: ~p, Time taken to get rev contact uids: ~p", [Uid, Time4 - Time3]),
 
-    %% 3. Find uids of geo tagged users.
-    UidGeoTag = model_accounts:get_latest_geo_tag(Uid),
-    GeoTagPopUids = case UidGeoTag of
-        undefined -> [];
-        _ -> model_accounts:get_geotag_uids(UidGeoTag)
+    %% 3. Find list of geo-tagged uids.
+    GeoTagUidSet = case GeoTag of
+        undefined -> sets:from_list([]);
+        _ -> sets:from_list(model_accounts:get_geotag_uids(GeoTag))
     end,
-    FoFSet = sets:union(sets:from_list(GeoTagPopUids), FoFSet2),
- 
+    Time5 = util:now_ms(),
+    ?INFO("Uid: ~p, Time taken to get geo-tag uids: ~p", [Uid, Time5 - Time4]),
+
+    %% 4. Find uids followed by all the above - following, contacts, revcontacts, geotagged uids.
+    %% We choose at most FOF_BATCH_LIMIT uids and obtain at most FOF_BATCH_LIMIT followers.
+    %% So max number of uids in BroaderFollowingSet is 5 * FOF_BATCH_LIMIT * FOF_BATCH_LIMIT
+    FofollowingSet = sets:from_list(model_follow:get_random_following(lists:sublist(sets:to_list(AllFollowingSet), ?FOF_BATCH_LIMIT), ?FOF_BATCH_LIMIT)),
+    FoContactSet = sets:from_list(model_follow:get_random_following(lists:sublist(sets:to_list(ContactUidSet), ?FOF_BATCH_LIMIT), ?FOF_BATCH_LIMIT)),
+    FoRevContactSet = sets:from_list(model_follow:get_random_following(lists:sublist(sets:to_list(RevContactUidSet), ?FOF_BATCH_LIMIT), ?FOF_BATCH_LIMIT)),
+    FoGeoTagUidSet = sets:from_list(model_follow:get_random_following(lists:sublist(sets:to_list(GeoTagUidSet), ?FOF_BATCH_LIMIT), ?FOF_BATCH_LIMIT)),
+    BroaderFollowingUidSet = sets:union([FofollowingSet, FoContactSet, FoRevContactSet, FoGeoTagUidSet]),
+    Time6 = util:now_ms(),
+    ?INFO("Uid: ~p, Time taken to get broader following set: ~p", [Uid, Time6 - Time5]),
+
+    %% BlockedUser set
+    BlockedUidSet = sets:from_list(model_follow:get_blocked_uids(Uid)),
+    BlockedByUidSet = sets:from_list(model_follow:get_blocked_by_uids(Uid)),
+    Time7 = util:now_ms(),
+    ?INFO("Uid: ~p, Time taken to get blocked uid set: ~p", [Uid, Time7 - Time6]),
+
+    %% RejectedUser set
     {ok, RejectedUids} = model_accounts:get_all_rejected_suggestions(Uid),
- 
-    %% Keep only the new ones.
-    AllSubtractSet = sets:union(sets:from_list(AllFollowing), sets:from_list(RejectedUids)),
-    ContactSuggestionsSet = remove_neg(Uid, sets:subtract(ContactUidsSet, AllSubtractSet)),
-    FoFSuggestions1 = sets:subtract(FoFSet, AllSubtractSet),
-    FoFSuggestionsSet2 = remove_neg(Uid, sets:subtract(FoFSuggestions1, ContactSuggestionsSet)),
+    RejectedUidSet = sets:from_list(RejectedUids),
+    Time8 = util:now_ms(),
+    ?INFO("Uid: ~p, Time taken to get rejected uid set: ~p", [Uid, Time8 - Time7]),
 
-    NewFoFSuggestionsSet1 = case (sets:size(FoFSuggestionsSet2) + sets:size(ContactSuggestionsSet)) < 5 of
-        true ->
-            NegSet = sets:union([FoFSuggestionsSet2, ContactSuggestionsSet, AllSubtractSet]),
-            model_feed:get_active_uids(NegSet);
-        false ->
-            sets:from_list([])
-    end,
+    %% Calculate Fof Suggestions
+    FoFSuggestionsSet = sets:subtract(
+        sets:union([BroaderFollowingUidSet, RevContactUidSet, GeoTagUidSet]),
+        sets:union([AllFollowingSet, BlockedByUidSet, BlockedUidSet, RejectedUidSet, ContactUidSet])),
+    Time9 = util:now_ms(),
+    %%TODO: model_feed:get_active_uids --> this code is very bad, talk to vipin.
+    ?INFO("Uid: ~p, Time taken to get fof suggestions: ~p", [Uid, Time9 - Time8]),
 
-    NewFoFSuggestionsSet2 = remove_neg(Uid, NewFoFSuggestionsSet1),
+    %% Calculate Contact Suggestions
+    ContactSuggestionsSet = sets:subtract(
+        ContactUidSet,
+        sets:union([AllFollowingSet, BlockedByUidSet, BlockedUidSet, RejectedUidSet])),
+    Time10 = util:now_ms(),
+    ?INFO("Uid: ~p, Time taken to get contact suggestions: ~p", [Uid, Time10 - Time9]),
 
-    FoFSuggestionsSet = sets:union(NewFoFSuggestionsSet2, FoFSuggestionsSet2),
- 
     %% Reverse sort ContactSuggestionsSet, FoFSuggestionsSet on number of followers
-    ContactSuggestions = get_sorted_uids(Uid, ContactSuggestionsSet),
-    FoFSuggestions = get_sorted_uids(Uid, FoFSuggestionsSet),
- 
-    %% Fetch Profiles
-    ContactSuggestedProfiles =
-        fetch_suggested_profiles(Uid, ContactSuggestions, direct_contact, 1),
-    FoFSuggestedProfiles =
-        fetch_suggested_profiles(Uid, FoFSuggestions, fof, length(ContactSuggestions) + 1),
-    AllSuggestedProfiles = ContactSuggestedProfiles ++ FoFSuggestedProfiles,
+    ContactSuggestions = sort_suggestions(Uid, ContactSuggestionsSet),
+    Time11 = util:now_ms(),
+    ?INFO("Uid: ~p, Time taken to sort contact suggestions: ~p, size: ~p", [Uid, Time11 - Time10, length(ContactSuggestions)]),
 
-    %% Filter out profiles that don't have name or username set
-    lists:filter(
-        fun
-            (#pb_basic_user_profile{name = undefined}) -> false;
-            (#pb_basic_user_profile{username = undefined}) -> false;
-            (_) -> true
-        end,
-        AllSuggestedProfiles).
+    FoFSuggestions = sort_suggestions(Uid, FoFSuggestionsSet),
+    Time12 = util:now_ms(),
+    ?INFO("Uid: ~p, Time taken to sort fof suggestions: ~p, size: ~p", [Uid, Time12 - Time11, length(FoFSuggestions)]),
 
-remove_neg(Uid, UidsSet) ->
-    %% Get rid of neg users.
-    OUids = sets:to_list(UidsSet),
-    Phones = model_accounts:get_phones(OUids),
-    lists:foldl(fun({OUid, Phone}, Acc) ->
-        case Phone =:= undefined orelse Uid =:= OUid orelse model_follow:is_blocked_any(Uid, OUid) of
-            true -> Acc;
-            false -> sets:add_element(OUid, Acc)
-        end
-    end, sets:new(), lists:zip(OUids, Phones)).
+    TrimmedContactSuggestions = lists:sublist(ContactSuggestions, ?FOF_TOTAL_LIMIT),
+    TrimmedFoFSuggestions = lists:sublist(FoFSuggestions, ?FOF_TOTAL_LIMIT),
+    Time13 = util:now_ms(),
+    ?INFO("Uid: ~p, Time taken to trim contact and fof suggestions", [Uid, Time13 - Time12]),
 
-get_sorted_uids(Uid, SuggestionsSet) ->
+    ok = model_follow:update_contact_suggestions(Uid, TrimmedContactSuggestions),
+    ok = model_follow:update_fof_suggestions(Uid, TrimmedFoFSuggestions),
+    Time14 = util:now_ms(),
+    ?INFO("Uid: ~p, Time taken to store contact and fof suggestions", [Uid, Time14 - Time13]),
+    ?INFO("Uid: ~p, Total time taken: ~p", [Uid, Time14 - Time1]),
+    ok.
+
+
+sort_suggestions(Uid, SuggestionsSet) ->
     OUidList = sets:to_list(SuggestionsSet),
     OProfilesList = model_accounts:get_basic_user_profiles(Uid, OUidList),
-    OList = lists:zip(OUidList, OProfilesList),
-    %% fetch followers count.
-    Tuples = lists:foldl(fun({Ouid, OProfile}, Acc) ->
-        case Uid =:= Ouid of
-            true -> Acc;
-            false ->
-                NumMutualFollowing = OProfile#pb_basic_user_profile.num_mutual_following,
-                Acc ++ [{Ouid, NumMutualFollowing, model_follow:get_followers_count(Ouid)}]
-        end
-    end, [], OList),
-    
-    %% Sort and extract uids.
+    OFollowersCountList = model_follow:get_followers_count(OUidList),
+    OList = lists:zip3(OUidList, OProfilesList, OFollowersCountList),
     SortedTuples = lists:sort(
-        fun({_, NumMFollow1, NumFollowers1}, {_, NumMFollow2, NumFollowers2}) ->
-            case NumMFollow1 =:= NumMFollow2 of
-                true -> NumFollowers1 >= NumFollowers2;
-                false -> NumMFollow1 >= NumMFollow2
+        fun({_OUid1, OUidProfile1, OUidFollowerCount1}, {_OUid2, OUidProfile2, OUidFollowerCount2}) ->
+            NumMutualFollow1 = OUidProfile1#pb_basic_user_profile.num_mutual_following,
+            NumMutualFollow2 = OUidProfile2#pb_basic_user_profile.num_mutual_following,
+            case NumMutualFollow1 =:= NumMutualFollow2 of
+                true -> OUidFollowerCount1 >= OUidFollowerCount2;
+                false -> NumMutualFollow1 >= NumMutualFollow2
             end
-        end, Tuples),
-    [Elem || {Elem, _, _} <- SortedTuples].
+        end, OList),
+    [OUid || {OUid, _, _} <- SortedTuples].
 
-fetch_suggested_profiles(Uid, Suggestions, Reason, StartingRank) ->
-    Profiles = model_accounts:get_basic_user_profiles(Uid, Suggestions),
-    ProfilesWithRank =
-        lists:zip(Profiles, lists:seq(StartingRank, StartingRank + length(Profiles) - 1)),
-    [#pb_suggested_profile{user_profile = UserProfile, reason = Reason, rank = Rank} ||
-        {UserProfile, Rank} <- ProfilesWithRank].
+
+fetch_follow_suggestions(Uid) ->
+    Time1 = util:now_ms(),
+    ContactSuggestions = model_follow:get_contact_suggestions(Uid),
+    FoFSuggestions = model_follow:get_fof_suggestions(Uid),
+    Time2 = util:now_ms(),
+    ?INFO("Uid: ~p, Time taken to fetch both contact and fof suggestions: ~p", [Uid, Time2 - Time1]),
+
+    ContactSuggestedProfiles = filter_and_convert_to_suggestions(Uid, ContactSuggestions, direct_contact, 1),
+    Time3 = util:now_ms(),
+    ?INFO("Uid: ~p, Time taken to filter and convert contact suggestions: ~p", [Uid, Time3 - Time2]),
+
+    FoFSuggestedProfiles = filter_and_convert_to_suggestions(Uid, FoFSuggestions, fof, length(ContactSuggestions)+1),
+    Time4 = util:now_ms(),
+    ?INFO("Uid: ~p, Time taken to filter and convert fof suggestions: ~p", [Uid, Time4 - Time3]),
+
+    AllSuggestedProfiles = ContactSuggestedProfiles ++ FoFSuggestedProfiles,
+    %% TODO: handle edgecase of empty fof suggestions.
+    %% model_feed:get_active_uids code is not great.
+    AllSuggestedProfiles.
+
+
+%% Filter out following uids, self uids, blocked-any uids, rejected uids and uids without name/username.
+%% Send in the remaining suggested profiles in ranked order.
+filter_and_convert_to_suggestions(Uid, Suggestions, Reason, StartingRank) ->
+    FollowingSet = sets:from_list(model_follow:get_all_following(Uid) ++ [Uid]),
+    BlockedUidSet = sets:from_list(model_follow:get_blocked_uids(Uid)),
+    BlockedByUidSet = sets:from_list(model_follow:get_blocked_by_uids(Uid)),
+    {ok, RejectedUids} = model_accounts:get_all_rejected_suggestions(Uid),
+    RejectedUidSet = sets:from_list(RejectedUids),
+    %% Combine all into unacceptable list of uids.
+    UnacceptedUids = sets:union([FollowingSet, BlockedUidSet, BlockedByUidSet, RejectedUidSet]),
+    %% Get all profiles as well.
+    SuggestedProfiles = model_accounts:get_basic_user_profiles(Uid, Suggestions),
+    %% Filter them out once.
+    FilteredSuggestions = lists:filtermap(
+        fun({Ouid, OuidProfile}) ->
+            case sets:is_element(Ouid, UnacceptedUids) of
+                true -> false;
+                false ->
+                    case OuidProfile#pb_basic_user_profile.name =/= undefined andalso
+                            OuidProfile#pb_basic_user_profile.username =/= undefined of
+                        true -> {true, OuidProfile};
+                        false -> false
+                    end
+            end
+        end, lists:zip(Suggestions, SuggestedProfiles)),
+
+    %% Set a proper rank and reason and return.
+    {FinalSuggestedProfiles, _} = lists:mapfoldl(
+        fun(OuidProfile, Rank) ->
+            {
+                #pb_suggested_profile{
+                    user_profile = OuidProfile,
+                    reason = Reason,
+                    rank = Rank
+                }, 
+                Rank+1
+            }
+        end, StartingRank, FilteredSuggestions),
+    FinalSuggestedProfiles.
  

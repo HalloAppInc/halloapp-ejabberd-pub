@@ -30,7 +30,8 @@
     % update_zone_offset/2,
     update_name_index/2,
     % sync_latest_notification/2,
-    calculate_fof_run/2
+    calculate_fof_run/2,
+    calculate_follow_suggestions/2
 ]).
 
 
@@ -570,6 +571,23 @@ calculate_fof_run(Key, State) ->
         {match, [[_FullKey, Uid]]} ->
             ?INFO("Uid: ~p update_fof", [Uid]),
             mod_follow_suggestions:update_fof(Uid),
+            ok;
+        _ -> ok
+    end,
+    State.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                             calculate follow suggestions                         %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+calculate_follow_suggestions(Key, State) ->
+    Result = re:run(Key, "^acc:{(1001[0-9]+)}$", [global, {capture, all, binary}]),
+    %% Matches only for katchup uids.
+    case Result of
+        {match, [[_FullKey, Uid]]} ->
+            ?INFO("Uid: ~p update_follow_suggestions", [Uid]),
+            mod_follow_suggestions:update_follow_suggestions(Uid),
             ok;
         _ -> ok
     end,
