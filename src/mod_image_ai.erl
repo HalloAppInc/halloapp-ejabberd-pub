@@ -178,7 +178,8 @@ request_images(Uid, Prompt, NumImages, RequestId) ->
 get_model_parameters(Prompt, NumImages, ?STABLE_DIFFUSION_1_5) ->
     jiffy:encode({[
         {<<"num_images">>, NumImages},
-        {<<"prompt">>, Prompt},
+        {<<"prompt">>, <<"close up photo of ", Prompt/binary, ", the food">>},
+        {<<"negative_prompt">>, <<"drawing, cartoon">>},
         {<<"num_inference_steps">>, 40},
         {<<"width">>, 384},
         {<<"height">>, 512}
