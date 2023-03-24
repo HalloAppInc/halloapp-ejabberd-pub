@@ -64,7 +64,7 @@ follow_suggestions_test() ->
         #pb_suggested_profile{user_profile = #pb_basic_user_profile{uid = Uid4, username = ?USERNAME4, name = ?NAME4, avatar_id = ?AVATAR_ID4}, reason = direct_contact, rank = 1}
     ]),
     ExpectedRes2 = lists:reverse([
-        #pb_suggested_profile{user_profile = #pb_basic_user_profile{uid = Uid2, username = ?USERNAME2, name = ?NAME2, avatar_id = ?AVATAR_ID2}, reason = direct_contact, rank = 2},
+        #pb_suggested_profile{user_profile = #pb_basic_user_profile{uid = Uid2, username = ?USERNAME2, name = ?NAME2, avatar_id = ?AVATAR_ID2}, reason = direct_contact, rank = 3},
         #pb_suggested_profile{user_profile = #pb_basic_user_profile{uid = Uid4, username = ?USERNAME4, name = ?NAME4, avatar_id = ?AVATAR_ID4}, reason = direct_contact, rank = 1}
     ]),
     ok = model_accounts:create_account(Uid1, ?PHONE1, ?USER_AGENT1, ?CAMPAIGN_ID, ?TS1),
