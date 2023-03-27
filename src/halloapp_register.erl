@@ -284,7 +284,7 @@ process_element(#pb_register_request{request = #pb_hashcash_request{} = Hashcash
     check_and_count(ClientIP, "HA/registration", "request_hashcash_success", 1, [{protocol, "noise"}]),
     %% Don't require phone number for 50% of new users.
     RemoteStaticKey = get_peer_static_key(Socket),
-    IsPhoneNotNeeded = (crc16_redis:crc16(util:to_list(RemoteStaticKey)) rem 2 =:= 0),
+    IsPhoneNotNeeded = ((crc16_redis:crc16(util:to_list(RemoteStaticKey)) rem 2 =:= 0) orelse (util:is_main_stest())),
     case IsPhoneNotNeeded of
         true -> model_phone:add_reg_noise_key(RemoteStaticKey);
         false -> ok
