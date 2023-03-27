@@ -1542,13 +1542,13 @@ get_feed_audience_set(Action, Uid, AudienceList) ->
             FollowerUids = model_follow:get_all_followers(Uid),
             AudienceSet = sets:from_list(AudienceList),
 
-            %% Intersect the audience-set with followers.
-            %% post-owner's uid is already included in the audience,
-            %% but it may be removed during intersection.
-            NewAudienceSet = sets:intersection(AudienceSet, sets:from_list(FollowerUids)),
+            %% Union the audience-set with followers.
+            %% There could be other uids here due to public feed subscription etc.
+            %% So we include all uids in the audience + followers - blocked uids (if necessary).
+            NewAudienceSet = sets:union(AudienceSet, sets:from_list(FollowerUids)),
             FinalAudienceSet = case Action of
                 publish -> sets:subtract(NewAudienceSet, sets:from_list(BlockedUids));
-                retract -> sets:union(AudienceSet, sets:from_list(FollowerUids))
+                retract -> NewAudienceSet
             end,
             sets:add_element(Uid, FinalAudienceSet);
         %% HalloApp
