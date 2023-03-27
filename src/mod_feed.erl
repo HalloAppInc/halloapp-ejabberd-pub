@@ -368,7 +368,7 @@ process_local_iq(#pb_iq{from_uid = Uid, payload = #pb_post_subscription_request{
                     {ok, Comments} = model_feed:get_post_comments(PostId),
                     FilteredComments = lists:filter(
                         fun(Comment) ->
-                            model_follow:is_blocked_any(Uid, Comment#comment.publisher_uid)
+                            not model_follow:is_blocked_any(Uid, Comment#comment.publisher_uid)
                         end, Comments),
                     CommentStanzas = lists:map(
                         fun(Comment) -> convert_comments_to_feed_items(Comment, public_update) end,
