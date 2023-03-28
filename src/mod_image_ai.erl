@@ -198,7 +198,8 @@ get_model_parameters(Prompt, NumImages, ?STABLE_DIFFUSION_1_5, PromptHelpersEnab
                 {<<"prompt">>, <<"close up photo of ", Prompt/binary, ", the food">>},
                 {<<"negative_prompt">>, <<"drawing, cartoon">>}
             ];
-        false -> Params
+        false ->
+            Params ++ [{<<"prompt">>, Prompt}]
     end,
     jiffy:encode({Params2}).
 
