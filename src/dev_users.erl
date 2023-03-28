@@ -15,9 +15,11 @@
 
 %% API
 -export([
+    get_katchup_ambassador_phones/0,
     get_dev_uids/0,
     get_dev_phones/0,
     show_on_public_feed/1,
+    is_katchup_ambassador_phone/1,
     is_dev_uid/1,
     is_murali/1,
     is_psa_admin/1
@@ -26,6 +28,34 @@
 %%====================================================================
 %% API
 %%====================================================================
+
+-spec get_katchup_ambassador_phones() -> [phone()].
+get_katchup_ambassador_phones() ->
+    [
+        <<"17142705230">>,  %% Allison Goodwin
+        <<"19498748727">>,  %% Lauryn Stetson
+        <<"14422220891">>,  %% Abi Rosengren
+        <<"14255259318">>,  %% Emily Wu
+        <<"19158385955">>,  %% Amerika
+        <<"12096359188">>,  %% Nandani Patel
+        <<"18056302122">>,  %% Evelyn
+        <<"17144675273">>,  %% Lucas
+        <<"13104902034">>,  %% Ellie H
+        <<"18475134262">>,  %% Paloma
+        <<"17147148125">>,  %% Sean
+        <<"19563017446">>,  %% Jacob Lara
+        <<"19566451330">>,  %% Selina Sanchez
+        <<"18188239049">>,  %% Joseph Hernandez
+        <<"19565189512">>,  %% Abigail Sanchez
+        <<"15613039252">>,  %% Tom Grosjean
+        <<"17176156058">>,  %% Robert Shelton
+        <<"19196169144">>,  %% Cokie Daniel
+        <<"18056896626">>,  %% Marina Fay
+        <<"17146866411">>,  %% Kelly Petersen
+        <<"14356405299">>,  %% Tate Hardy-Polinsky
+        <<"16153648992">>   %% Annalise Mansfield
+    ].
+
 
 -spec get_dev_uids() -> [uid()].
 get_dev_uids() ->
@@ -91,6 +121,7 @@ get_dev_uids() ->
 -spec get_dev_phones() -> [phone()].
 get_dev_phones() ->
     [
+        <<"16503916245">>,   %% Alisa
         <<"13472558058">>,   %% Michelle
         <<"16505125376">>,   %% Josh test phone
         <<"16503530067">>,   %% Nandini android
@@ -108,6 +139,10 @@ get_public_feed_blocked_phones_list() ->
         <<"16504992804">>,  %% Google tester
         <<"16503874384">>   %% Jack test phone
     ].
+
+
+is_katchup_ambassador_phone(Phone) ->
+    lists:member(Phone, get_katchup_ambassador_phones()).
 
 
 -spec is_dev_uid(Uid :: uid()) -> boolean().

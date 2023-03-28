@@ -115,13 +115,20 @@ get_props(Uid, ClientVersion, katchup) ->
         relationship_sync_frequency => 1 * ?DAYS, %% how often should clients sync all relationships.
         refresh_public_feed_interval_secs => ?KATCHUP_PUBLIC_FEED_REFRESH_SECS,
         close_friends_recos => false, %% Should invite recommendations be sorted based on number of close friends
-        ai_generated_images => false  %% Enable AI-generated images for the background of text posts
+        ai_generated_images => false,  %% Enable AI-generated images for the background of text posts
+        ambassador => false
     },
     ClientType = util_ua:get_client_type(ClientVersion),
     AppType = util_ua:get_app_type(ClientVersion),
     PropMap2 = get_uid_based_props(PropMap1, AppType, Uid),
-    PropMap3 = get_client_based_props(PropMap2, AppType, ClientType, ClientVersion),
-    Proplist = maps:to_list(PropMap3),
+    PropMap3 = case model_accounts:get_phone(Uid) of
+        {ok, Phone} ->
+            get_phone_based_props(PropMap2, AppType, Phone);
+        {error, _} ->
+            PropMap2
+    end,
+    PropMap4 = get_client_based_props(PropMap3, AppType, ClientType, ClientVersion),
+    Proplist = maps:to_list(PropMap4),
     lists:keysort(1, Proplist);
 
 get_props(Uid, ClientVersion, halloapp) ->
@@ -248,6 +255,14 @@ get_uid_based_props(PropMap, katchup, Uid) ->
             }
     end,
     apply_uid_prop_overrides(Uid, ResPropMap).
+
+
+get_phone_based_props(PropMap, katchup, Phone) ->
+    PropMap1 = maps:update(ambassador, dev_users:is_katchup_ambassador_phone(Phone), PropMap),
+    PropMap1;
+
+get_phone_based_props(PropMap, _, _Phone) ->
+    PropMap.
 
 
 -spec get_client_based_props(PropMap :: map(), AppType :: atom(),
