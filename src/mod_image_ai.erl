@@ -11,6 +11,7 @@
 -behavior(gen_server).
 -behavior(gen_mod).
 
+-include("account.hrl").
 -include("logger.hrl").
 -include("packets.hrl").
 -include("proc.hrl").
@@ -89,7 +90,16 @@ handle_cast({request_image, Uid, Prompt, NumImages, RequestId, Model},
     Url = ?URL(Model),
     Headers = [{"Authorization", "bearer " ++ AuthToken}],
     Type = "application/json",
-    Body = get_model_parameters(Prompt, util:to_integer(NumImages), Model),
+    PromptHelpersEnabled = case model_accounts:get_client_version(Uid) of
+        {ok, ClientVersion} ->
+            case util_ua:get_client_type(ClientVersion) of
+                ios -> false;
+                _ -> true
+            end;
+        _ ->
+            true
+    end,
+    Body = get_model_parameters(Prompt, util:to_integer(NumImages), Model, PromptHelpersEnabled),
     {ok, Ref} = httpc:request(post, {Url, Headers, Type, Body}, [], [{sync, false}]),
     NewRefMap = RefMap#{Ref => {Uid, RequestId, util:now_ms()}},
     ?INFO("~s requesting ~p images, ref = ~p, request_id = ~p", [Uid, NumImages, Ref, RequestId]),
@@ -174,16 +184,23 @@ request_images(Uid, Prompt, NumImages, RequestId) ->
     gen_server:cast(?PROC(), {request_image, Uid, Prompt, NumImages, RequestId, ?STABLE_DIFFUSION_1_5}).
 
 
--spec get_model_parameters(binary(), pos_integer(), string()) -> jiffy:json_object().
-get_model_parameters(Prompt, NumImages, ?STABLE_DIFFUSION_1_5) ->
-    jiffy:encode({[
+-spec get_model_parameters(binary(), pos_integer(), string(), boolean()) -> jiffy:json_object().
+get_model_parameters(Prompt, NumImages, ?STABLE_DIFFUSION_1_5, PromptHelpersEnabled) ->
+    Params = [
         {<<"num_images">>, NumImages},
-        {<<"prompt">>, <<"close up photo of ", Prompt/binary, ", the food">>},
-        {<<"negative_prompt">>, <<"drawing, cartoon">>},
         {<<"num_inference_steps">>, 40},
         {<<"width">>, 384},
         {<<"height">>, 512}
-    ]}).
+    ],
+    Params2 = case PromptHelpersEnabled of
+        true ->
+            Params ++ [
+                {<<"prompt">>, <<"close up photo of ", Prompt/binary, ", the food">>},
+                {<<"negative_prompt">>, <<"drawing, cartoon">>}
+            ];
+        false -> Params
+    end,
+    jiffy:encode({Params2}).
 
 
 parse_and_send_result(Uid, RequestId, RawResult) ->
