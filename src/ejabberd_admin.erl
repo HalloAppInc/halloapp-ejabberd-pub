@@ -89,6 +89,7 @@
 -include("account.hrl").
 -include("feed.hrl").
 -include("groups.hrl").
+-include("prompts.hrl").
 -include("time.hrl").
 -include("translate.hrl").
 -include("ejabberd_commands.hrl").
@@ -1286,7 +1287,7 @@ get_moment_notif_time(Date) ->
             end,
             io:format("Date: ~p~nTime to send: ~p:~s~nType: ~p~nId: ~p~nPrompt: ~s~n",
                 [Date, Hrs, MinsRemainingStr, MomentNotifInfo#moment_notification.type,
-                    MomentNotifInfo#moment_notification.id, Prompt])
+                    MomentNotifInfo#moment_notification.id, Prompt#prompt.text])
     end,
     ok.
 
