@@ -116,7 +116,8 @@ get_props(Uid, ClientVersion, katchup) ->
         refresh_public_feed_interval_secs => ?KATCHUP_PUBLIC_FEED_REFRESH_SECS,
         close_friends_recos => false, %% Should invite recommendations be sorted based on number of close friends
         ai_generated_images => false,  %% Enable AI-generated images for the background of text posts
-        ambassador => false
+        ambassador => false,
+        feed_comment_notifications => false
     },
     ClientType = util_ua:get_client_type(ClientVersion),
     AppType = util_ua:get_app_type(ClientVersion),
@@ -251,7 +252,8 @@ get_uid_based_props(PropMap, katchup, Uid) ->
             % Set dev to be true.
             PropMap#{
                 dev => true,
-                ai_generated_images => true
+                ai_generated_images => true,
+                feed_comment_notifications => true
             }
     end,
     apply_uid_prop_overrides(Uid, ResPropMap).
