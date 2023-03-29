@@ -38,7 +38,8 @@
     generate_follow_suggestions/0,
     update_follow_suggestions/1,
     update_follow_suggestions/2,
-    fetch_follow_suggestions/1
+    fetch_follow_suggestions/1,
+    remove_follow_relationship/2
 ]).
 
 
@@ -49,12 +50,14 @@
 start(_Host, Opts) ->
     ?INFO("start ~w ~p", [?MODULE, Opts]),
     gen_iq_handler:add_iq_handler(ejabberd_local, katchup, pb_follow_suggestions_request, ?MODULE, process_local_iq),
+    ejabberd_hooks:add(remove_follow_relationship, katchup, ?MODULE, remove_follow_relationship, 50),
     check_and_schedule(),
     ok.
 
 stop(_Host) ->
     ?INFO("stop ~w", [?MODULE]),
     gen_iq_handler:remove_iq_handler(ejabberd_local, katchup, pb_follow_suggestions_request),
+    ejabberd_hooks:delete(remove_follow_relationship, katchup, ?MODULE, remove_follow_relationship, 50),
     ok.
 
 reload(_Host, _NewOpts, _OldOpts) ->
@@ -70,6 +73,11 @@ mod_options(_Host) ->
 %%====================================================================
 %% iq handlers and api
 %%====================================================================
+
+remove_follow_relationship(Uid, _Ouid) ->
+    spawn(?MODULE, update_follow_suggestions, [Uid]),
+    ok.
+
 
 process_local_iq(
     #pb_iq{from_uid = Uid, type = set, payload = #pb_follow_suggestions_request{
