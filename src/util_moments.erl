@@ -24,6 +24,7 @@ to_moment_type(Bin) ->
             live_camera;
         1 -> live_camera;
         2 -> text_post;
+        3 -> album_post;
         _ ->
             ?ERROR("Got invalid type: ~p", [Bin]),
             live_camera
@@ -33,7 +34,8 @@ to_moment_type(Bin) ->
 moment_type_to_bin(MomentType) ->
     case MomentType of
         live_camera -> <<"1">>;
-        text_post -> <<"2">>
+        text_post -> <<"2">>;
+        album_post -> <<"3">>
     end.
 
 
