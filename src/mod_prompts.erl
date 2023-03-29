@@ -103,13 +103,17 @@ get_prompt_from_id(PromptId) ->
 
 
 get_prompt_image_bytes(ImageId) ->
-    FilePath = "/home/ec2-user/prompt_images/" ++ util:to_list(ImageId),
-    case file:read_file(FilePath) of
-        {ok, ImageBytes} ->
-            ImageBytes;
-        {error, Error} ->
-            ?ERROR("Unable to open image ~p: ~p", [FilePath, Error]),
-            <<>>
+    case ImageId of
+        <<>> -> <<>>;
+        _ ->
+            FilePath = "/home/ec2-user/prompt_images/" ++ util:to_list(ImageId),
+            case file:read_file(FilePath) of
+                {ok, ImageBytes} ->
+                    ImageBytes;
+                {error, Error} ->
+                    ?ERROR("Unable to open image ~p: ~p", [FilePath, Error]),
+                    <<>>
+            end
     end.
 
 %%====================================================================
@@ -119,7 +123,7 @@ get_album_prompts() ->
         <<"album.1">> =>
             #prompt{
                 id = <<"album.1">>,
-                text = <<"WYD?">>,
+                text = <<"mirror selfie!">>,
                 reuse_after = 6 * ?MONTHS
             }
     }.
