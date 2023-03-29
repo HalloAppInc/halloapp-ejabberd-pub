@@ -1173,7 +1173,7 @@ send_moment_notification(PhoneOrUid, Timestamp, Id, Type, Prompt, HideBanner) ->
             U
     end,
     ?INFO("Admin Sending moment notification to ~s", [Uid]),
-    mod_moment_notification2:send_moment_notification(Uid, Timestamp, Id, util:to_atom(Type), Prompt, util:to_atom(HideBanner)).
+    mod_moment_notification2:send_moment_notification(Uid, Timestamp, Id, util:to_atom(Type), Prompt, <<>>, util:to_atom(HideBanner)).
 
 
 send_invite(FromUid, ToPhone) ->
@@ -1266,7 +1266,7 @@ get_moment_notif_time(Date) ->
     Tomorrow = util:get_date(CurrentTime + ?DAYS),
     Yesterday = util:get_date(CurrentTime - ?DAYS),
     case Date =/= Today andalso Date =/= Tomorrow andalso Date =/= Yesterday of
-        true -> io:format("Date out of range. Today is ~p", [Today]);
+        true -> io:format("Date out of range. Today is ~p~n", [Today]);
         false ->
             InspectionTime = case Date =:= Today of
                 true -> CurrentTime;
@@ -1276,15 +1276,17 @@ get_moment_notif_time(Date) ->
                         false -> CurrentTime - ?DAYS
                     end
             end,
-            {MinsElapsedOnDateBeforeSend, NotifId, NotifType, NotifPrompt} = model_feed:get_moment_time_to_send(InspectionTime),
-            Hrs = MinsElapsedOnDateBeforeSend div 60,
-            MinsRemaining = MinsElapsedOnDateBeforeSend rem 60,
+            MomentNotifInfo = model_feed:get_moment_info(InspectionTime, false),
+            Hrs = MomentNotifInfo#moment_notification.mins_to_send div 60,
+            MinsRemaining = MomentNotifInfo#moment_notification.mins_to_send rem 60,
+            Prompt = mod_prompts:get_prompt_from_id(MomentNotifInfo#moment_notification.promptId),
             MinsRemainingStr = case MinsRemaining < 10 of
                 true -> "0" ++ util:to_list(MinsRemaining);
                 false -> util:to_list(MinsRemaining)
             end,
             io:format("Date: ~p~nTime to send: ~p:~s~nType: ~p~nId: ~p~nPrompt: ~s~n",
-                [Date, Hrs, MinsRemainingStr, NotifType, NotifId, NotifPrompt])
+                [Date, Hrs, MinsRemainingStr, MomentNotifInfo#moment_notification.type,
+                    MomentNotifInfo#moment_notification.id, Prompt])
     end,
     ok.
 

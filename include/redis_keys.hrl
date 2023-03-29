@@ -122,8 +122,9 @@
 -define(SEEN_POSTS_KEY, <<"spk:">>).
 -define(CURSOR_KEY, <<"ck:">>).
 -define(REPORTED_POSTS_KEY, <<"rpk:">>).
--define(PROMPT_KEY, <<"pmk:">>).
--define(MOMENT_INFO_KEY, <<"mik:">>).
+-define(PROMPT_KEY, <<"pmk:">>).  %% Deprecated
+-define(USED_PROMPTS_KEY, <<"upt:">>).
+-define(MOMENT_INFO_KEY, <<"mik:">>).  %% Deprecated
 -define(NOTIFICATION_ID_KEY, <<"nid:">>).
 -define(POST_SCORE_KEY, <<"psk:">>).
 -define(POST_SCORE_EXPLANATION_KEY, <<"pse:">>).

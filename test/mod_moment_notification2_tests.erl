@@ -6,6 +6,8 @@
 -module(mod_moment_notification2_tests).
 -author(josh).
 
+-include("feed.hrl").
+-include("prompts.hrl").
 -include("time.hrl").
 -include_lib("tutil.hrl").
 
@@ -19,36 +21,75 @@
         mins_to_send => ((15 * ?HOURS) + (34 * ?MINUTES)) div 60,
         notif_id => 1676764800,
         notif_type => live_camera,
-        prompt => <<"P19">>
+        promptId => <<"test.media.19">>
     },
     20 => #{
         date => 20,
         mins_to_send => ((12 * ?HOURS) + (1 * ?MINUTES)) div 60,
         notif_id => 1676851200,
         notif_type => text_post,
-        prompt => <<"P20">>
+        promptId => <<"test.text.20">>
     },
     21 => #{
         date => 21,
         mins_to_send => ((20 * ?HOURS) + (59 * ?MINUTES)) div 60,
         notif_id => 1676937600,
         notif_type => live_camera,
-        prompt => <<"P21">>
+        promptId => <<"test.media.21">>
     },
     22=> #{
         date => 22,
         mins_to_send => ((10 * ?HOURS) + (23 * ?MINUTES)) div 60,
         notif_id => 1677024000,
         notif_type => text_post,
-        prompt => <<"P22">>
+        promptId => <<"test.text.22">>
     },
     23 => #{
         date => 23,
         mins_to_send => ((18 * ?HOURS) + (0 * ?MINUTES)) div 60,
         notif_id => 1677110400,
         notif_type => live_camera,
-        prompt => <<"P23">>
+        promptId => <<"test.media.23">>
     }}).
+
+meck_get_text_prompts() ->
+    #{
+        <<"test.text.20">> =>
+        #prompt{
+            text = <<"What food are you craving right now?">>,
+            reuse_after = 6 * ?MONTHS},
+        <<"test.text.22">> =>
+        #prompt{
+            text = <<"Describe your day in emojis">>,
+            reuse_after = 6 * ?MONTHS}
+    }.
+
+meck_get_media_prompts() ->
+    #{
+        <<"test.media.19">> =>
+        #prompt{
+            text = <<"If you could live in any time period, which one would you choose?">>,
+            reuse_after = 6 * ?MONTHS},
+        <<"test.media.20">> =>
+        #prompt{
+            text = <<"A movie you thought was overrated, but turned out great">>,
+            reuse_after = 6 * ?MONTHS},
+        <<"test.media.21">> =>
+        #prompt{
+            text = <<"If you had to listen to only one artist for a week, who would it be?">>,
+            reuse_after = 6 * ?MONTHS}
+    }.
+
+meck_get_prompt_from_id(PromptId) ->
+    case PromptId of
+        <<"test.text", _/binary>> ->
+            maps:get(PromptId, meck_get_text_prompts(), undefined);
+        <<"test.media", _/binary>> ->
+            maps:get(PromptId, meck_get_media_prompts(), undefined);
+        _ ->
+            undefined
+    end.
+
 
 setup() ->
     CleanupInfo = tutil:setup([
@@ -57,17 +98,22 @@ setup() ->
         {meck, timer, apply_after, fun(_, _, _, _) -> ok end},  % use above line for debugging calls to this
 %%        {meck, util_moments, calculate_notif_timestamp, fun(A, B, C) -> ?debugFmt("~p | ~p | ~p", [A, B, C]), 0 end},  % for debugging
         {meck, util_moments, calculate_notif_timestamp, fun(_, _, _) -> 0 end},  % use above line for debugging calls to this
-        {meck ,util, now, fun() -> 1675209600 end}  %% Feb 1, 2023 | Need this so that the OffsetHrToSend is non-DST hour
+        {meck ,util, now, fun() -> 1675209600 end},  %% Feb 1, 2023 | Need this so that the OffsetHrToSend is non-DST hour
+        {meck, mod_prompts, [
+            {get_text_prompts, fun meck_get_text_prompts/0},
+            {get_media_prompts, fun meck_get_media_prompts/0},
+            {get_prompt_from_id, fun meck_get_prompt_from_id/1}
+        ]}
     ]),
     %% Set moment time to send + info for moment notif info outlined in ?MOMENT_INFO_MAP
     maps:foreach(
         fun(Date, InfoMap) ->
-            model_feed:set_moment_time_to_send(
-                maps:get(mins_to_send, InfoMap),
-                maps:get(notif_id, InfoMap),
-                maps:get(notif_type, InfoMap),
-                maps:get(prompt, InfoMap),
-                Date)
+            model_feed:set_moment_info(Date, #moment_notification{
+                mins_to_send = maps:get(mins_to_send, InfoMap),
+                id = maps:get(notif_id, InfoMap),
+                type = maps:get(notif_type, InfoMap),
+                promptId = maps:get(promptId, InfoMap)
+            })
         end,
         ?MOMENT_INFO_MAP),
     %% Create some uids in different zone offsets
@@ -138,18 +184,21 @@ send_latest_notification_testset(#{uid_neg8 := UidNeg8, uid_gmt := UidGmt}) ->
 
 maybe_schedule_moment_notif_testset(_) ->
     #{20 := ExpectedToday1, 21 := ExpectedYesterday2, 22 := ExpectedToday2} = ?MOMENT_INFO_MAP,
+    Today1PromptRecord = meck_get_prompt_from_id(maps:get(promptId, ExpectedToday1)),
+    YesterdayPromptRecord = meck_get_prompt_from_id(maps:get(promptId, ExpectedYesterday2)),
+    Today2PromptRecord = meck_get_prompt_from_id(maps:get(promptId, ExpectedToday2)),
     [
         %% Time = 20:00 UTC on Feb 20, 2023
         ?_assertOk(mod_moment_notification2:maybe_schedule_moment_notif(1676923200, false)),
         ?_assert(meck:called(timer, apply_after, [1 * ?MINUTES_MS, mod_moment_notification2, check_and_send_moment_notifications,
-            [-8, 20, maps:get(notif_id, ExpectedToday1), maps:get(notif_type, ExpectedToday1), maps:get(prompt, ExpectedToday1)]])),
+            [-8, 20, maps:get(notif_id, ExpectedToday1), maps:get(notif_type, ExpectedToday1), Today1PromptRecord#prompt.text, <<>>]])),
         ?_assertEqual(1, meck:num_calls(timer, apply_after, '_')),
         %% Time = 4:00 UTC on Feb 22, 2023
         ?_assertOk(mod_moment_notification2:maybe_schedule_moment_notif(1677038400, false)),
         ?_assert(meck:called(timer, apply_after, [59 * ?MINUTES_MS, mod_moment_notification2, check_and_send_moment_notifications,
-            [-8, 21, maps:get(notif_id, ExpectedYesterday2), maps:get(notif_type, ExpectedYesterday2), maps:get(prompt, ExpectedYesterday2)]])),
+            [-8, 21, maps:get(notif_id, ExpectedYesterday2), maps:get(notif_type, ExpectedYesterday2), YesterdayPromptRecord#prompt.text, <<>>]])),
         ?_assert(meck:called(timer, apply_after, [23 * ?MINUTES_MS, mod_moment_notification2, check_and_send_moment_notifications,
-            [6, 22, maps:get(notif_id, ExpectedToday2), maps:get(notif_type, ExpectedToday2), maps:get(prompt, ExpectedToday2)]])),
+            [6, 22, maps:get(notif_id, ExpectedToday2), maps:get(notif_type, ExpectedToday2), Today2PromptRecord#prompt.text, <<>>]])),
         ?_assertEqual(3, meck:num_calls(timer, apply_after, '_'))
     ].
 

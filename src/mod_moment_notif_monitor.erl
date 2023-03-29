@@ -13,6 +13,7 @@
 -behaviour(gen_server).
 
 -include("logger.hrl").
+-include("feed.hrl").
 -include("proc.hrl").
 -include("time.hrl").
 -include("ha_types.hrl").
@@ -217,7 +218,9 @@ monitor_all_regions(State) ->
             end,
             Date = util:get_date(TimestampForNotifInfo),
             %% Fetch the appropriate notification info for that region.
-            {LocalMinToSend, NotifId, _NotifType, _NotifPrompt} = model_feed:get_moment_time_to_send(TimestampForNotifInfo),
+            MomentInfo = model_feed:get_moment_info(TimestampForNotifInfo),
+            LocalMinToSend = MomentInfo#moment_notification.mins_to_send,
+            NotifId = MomentInfo#moment_notification.id,
             %% Calculate the time to wait for this notification.
             AdjustedLocalMinNow = if
                 LocalMinNow > (24 * 60) ->

@@ -1055,6 +1055,7 @@ message MomentNotification {
     Type type = 3;
     string prompt = 4;
     bool hide_banner = 5; // default value will be false.
+    bytes prompt_image = 6;
 }
 
 message ArchiveRequest {

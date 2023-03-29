@@ -10,49 +10,68 @@
 -include("logger.hrl").
 -include("redis_keys.hrl").
 
-%% API
 -export([
-    get_text_prompts/0,
-    get_media_prompts/0,
-    get_text_prompt/0,
-    get_media_prompt/0,
-    add_text_prompts/1,
-    add_media_prompts/1
+    get_used_album_prompts/0,
+    get_used_text_prompts/0,
+    get_used_media_prompts/0,
+    update_used_album_prompts/2,
+    update_used_text_prompts/2,
+    update_used_media_prompts/2
 ]).
 
--spec get_text_prompts() -> {ok, [binary()]} | {error, any()}.
-get_text_prompts() ->
-    q(["LRANGE", text_prompt_key(), 0, -1]).
 
--spec get_media_prompts() -> {ok, [binary()]} | {error, any()}.
-get_media_prompts() ->
-    q(["LRANGE", media_prompt_key(), 0, -1]).
+get_used_album_prompts() ->
+    get_used_prompts(used_album_prompts_key()).
 
--spec get_text_prompt() -> {ok, maybe(binary())} | {error, any()}.
-get_text_prompt() ->
-    q(["LPOP", text_prompt_key()]).
+get_used_text_prompts() ->
+    get_used_prompts(used_text_prompts_key()).
 
--spec get_media_prompt() -> {ok, maybe(binary())} | {error, any()}.
-get_media_prompt() ->
-    q(["LPOP", media_prompt_key()]).
+get_used_media_prompts() ->
+    get_used_prompts(used_media_prompts_key()).
 
--spec add_text_prompts(Prompts :: [binary()]) -> ok | {error, any()}.
-add_text_prompts(Prompts) ->
-    q(["RPUSH", text_prompt_key() | Prompts]),
+-spec get_used_prompts(binary()) -> list({PromptId :: binary(), Timestamp :: binary()}).
+get_used_prompts(Key) ->
+    {ok, ResultList} = q(["ZRANGE", Key, 0, -1, "WITHSCORES"]),
+    util_redis:parse_zrange_with_scores(ResultList).
+
+
+update_used_album_prompts(ToAdd, ToRemoveList) ->
+    update_used_prompts(used_album_prompts_key(), ToAdd, ToRemoveList).
+
+update_used_text_prompts(ToAdd, ToRemoveList) ->
+    update_used_prompts(used_text_prompts_key(), ToAdd, ToRemoveList).
+
+update_used_media_prompts(ToAdd, ToRemoveList) ->
+    update_used_prompts(used_media_prompts_key(), ToAdd, ToRemoveList).
+
+-spec update_used_prompts(Key :: binary(), ToAdd :: {PromptId :: binary(), Timestamp :: pos_integer()},
+    ToRemoveList :: list(PromptId :: binary())) -> ok.
+update_used_prompts(Key, {PromptId, Timestamp}, []) ->
+    q(["ZADD", Key, Timestamp, PromptId]),
+    ok;
+
+update_used_prompts(Key, {PromptId, Timestamp}, ToRemoveList) ->
+    Commands = [
+        ["ZADD", Key, Timestamp, PromptId],
+        ["ZREM", Key] ++ ToRemoveList
+    ],
+    qp(Commands),
     ok.
 
--spec add_media_prompts(Prompts :: [binary()]) -> ok | {error, any()}.
-add_media_prompts(Prompts) ->
-    q(["RPUSH", media_prompt_key() | Prompts]),
-    ok.
+
+used_album_prompts_key() ->
+    used_prompts_key(<<"album">>).
+
+used_text_prompts_key() ->
+    used_prompts_key(<<"text">>).
+
+used_media_prompts_key() ->
+    used_prompts_key(<<"media">>).
+
+used_prompts_key(Type) ->
+    <<?USED_PROMPTS_KEY/binary, "{", Type/binary, "}">>.
+
 
 q(Command) -> ecredis:q(ecredis_feed, Command).
-
--spec text_prompt_key() -> binary().
-text_prompt_key() ->
-    <<?PROMPT_KEY/binary, "{text_prompt}">>.
-
--spec media_prompt_key() -> binary().
-media_prompt_key() ->
-    <<?PROMPT_KEY/binary, "{media_prompt}">>.
+qp(Commands) -> ecredis:qp(ecredis_feed, Commands).
 

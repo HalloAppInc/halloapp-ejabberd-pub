@@ -21,6 +21,7 @@
 -include("redis_keys.hrl").
 -include("feed.hrl").
 -include("moments.hrl").
+-include("prompts.hrl").
 -include("util_redis.hrl").
 
 -ifdef(TEST).
@@ -78,9 +79,10 @@
     is_psa_tag_done/1,
     mark_psa_tag_done/1,
     del_psa_tag_done/1,
-    get_moment_time_to_send/1,
-    set_moment_time_to_send/5,
-    overwrite_moment_time_to_send/5, %% dangerous.
+    get_moment_info/1,
+    get_moment_info/2,
+    set_moment_info/2,
+    overwrite_moment_info/5,
     del_moment_time_to_send/1,
     is_moment_tag_done/1,
     mark_moment_tag_done/1,
@@ -112,7 +114,6 @@
     mark_reported_posts/2,
     get_past_reported_posts/1,
     clear_past_reported_posts/1,
-    get_moment_info/1,
     get_post_num_seen/1,
     inc_post_num_seen/1,
     prepend_ranked_feed/3,
@@ -153,7 +154,7 @@
 -define(FIELD_CONTENT_TYPE, <<"cnt">>).
 -define(FIELD_MOMENT_NOTIFICATION_ID, <<"nfi">>).
 -define(FIELD_MOMENT_NOTIFICATION_TYPE, <<"nft">>).
--define(FIELD_MOMENT_NOTIFICATION_PROMPT, <<"nfp">>).
+-define(FIELD_MOMENT_NOTIFICATION_PROMPT_ID, <<"nfp">>).
 -define(FIELD_MOMENT_NOTIFICATION_TIMESTAMP, <<"nts">>).
 
 
@@ -1112,52 +1113,79 @@ del_psa_tag_done(PSATag) ->
     Value =:= <<"1">>.
 
 
--spec get_moment_time_to_send(DateTimeSecs :: integer()) -> {integer(), integer(), moment_type(), binary()}.
-get_moment_time_to_send(DateTimeSecs) ->
+-spec get_moment_info(DateTimeSecs :: pos_integer()) -> moment_notification().
+get_moment_info(DateTimeSecs) ->
+    get_moment_info(DateTimeSecs, true).
+
+-spec get_moment_info(DateTimeSecs :: pos_integer(), GenerateIfNone :: boolean()) -> maybe(moment_notification()).
+get_moment_info(DateTimeSecs, GenerateIfNone) ->
     Date = util:get_date(DateTimeSecs),
-    [{ok, Payload1}, {ok, Payload2}, {ok, Payload3}, {ok, Payload4}] =
+    [{ok, MinsToSendToday}, {ok, NotifId}, {ok, NotifType}, {ok, NotifPromptId}] =
         qp([["GET", moment_time_to_send_key(Date)],
-            ["HGET", moment_time_to_send_key2(Date), ?FIELD_MOMENT_NOTIFICATION_ID],
-            ["HGET", moment_time_to_send_key2(Date), ?FIELD_MOMENT_NOTIFICATION_TYPE],
-            ["HGET", moment_time_to_send_key2(Date), ?FIELD_MOMENT_NOTIFICATION_PROMPT]]),
-    case Payload1 of
-        undefined ->
-            ?INFO("Generating moment time to send now, Tag: ~p, DateTimeSecs: ~p", [Date, DateTimeSecs]),
-            {FullDate, {_,_,_}} = calendar:system_time_to_universal_time(DateTimeSecs, second),
-            DayOfWeek = calendar:day_of_the_week(FullDate),
-            %% live camera on Fri, Sat, Sun, text_post on one of Mon, Tue, Wed, Thu
-            case DayOfWeek >= 5 andalso DayOfWeek =< 7 of
-                true ->
-                    set_moment_time(live_camera, DateTimeSecs);
-                false ->
-                    TextPostDay = rand:uniform(4),
-                    lists:foreach(fun(WeekDay) ->
-                        PostType = case TextPostDay =:= WeekDay of
-                            true -> text_post;
-                            false -> live_camera
-                        end,
-                        ?INFO("Processing: ~p, PostType: ~p", [WeekDay, PostType]),
-                        WeekDayTimeSecs = DateTimeSecs + ((WeekDay - DayOfWeek) * ?DAYS),
-                        set_moment_time(PostType, WeekDayTimeSecs)
-                    end, lists:seq(DayOfWeek, 4))
-              end,
-              get_moment_time_to_send(DateTimeSecs);
+            ["HGET", moment_info_key(Date), ?FIELD_MOMENT_NOTIFICATION_ID],
+            ["HGET", moment_info_key(Date), ?FIELD_MOMENT_NOTIFICATION_TYPE],
+            ["HGET", moment_info_key(Date), ?FIELD_MOMENT_NOTIFICATION_PROMPT_ID]]),
+    case {MinsToSendToday, GenerateIfNone} of
+        {undefined, false} ->
+            undefined;
+        {undefined, true} ->
+            generate_moment_info(DateTimeSecs),
+            get_moment_info(DateTimeSecs, false);
         _ ->
-            case {Payload2, Payload3, Payload4} of
-                {_, _, undefined} ->
-                    {util:to_integer_zero(Payload1), util:to_integer_zero(Payload2), util_moments:to_moment_type(Payload3), <<"WYD?">>};
-                {_, _, _} ->
-                    {util:to_integer_zero(Payload1), util:to_integer_zero(Payload2), util_moments:to_moment_type(Payload3), Payload4}
-            end
+            PromptId = case NotifPromptId of
+                undefined -> <<"WYD?">>;
+                _ -> NotifPromptId
+            end,
+            #moment_notification{
+                mins_to_send = util:to_integer(MinsToSendToday),
+                id = util:to_integer(NotifId),
+                type = util_moments:to_moment_type(NotifType),
+                promptId = PromptId
+            }
     end.
 
-set_moment_time(PostType, WeekDayTimeSecs) ->
-    Prompt = mod_prompts:get_prompt(PostType),
-    Time = generate_notification_time(WeekDayTimeSecs),
-    WeekDate = util:get_date(WeekDayTimeSecs),
-    ?INFO("Date: ~p, NotificationId: ~p, Time: ~p, PostType: ~p, Prompt: ~p",
-        [WeekDate, WeekDayTimeSecs, Time, PostType, Prompt]),
-    set_moment_time_to_send(Time, WeekDayTimeSecs, PostType, Prompt, WeekDate).
+
+generate_moment_info(DateTimeSecs) ->
+    %% Given DateTimeSecs, generate and store moment info
+    %% Might have to generate for multiple days
+    {FullDate, {_,_,_}} = calendar:system_time_to_universal_time(DateTimeSecs, second),
+    DayOfWeek = calendar:day_of_the_week(FullDate),
+    %% live camera on Fri, Sat, Sun,
+    %% Mon-Thurs should have 2 text posts, 1 album post, and 1 live camera post
+    case DayOfWeek >= 5 andalso DayOfWeek =< 7 of
+        true ->
+            generate_moment_info(live_camera, DateTimeSecs);
+        false ->
+            MediaPostDay = rand:uniform(4),
+            AlbumPostDay = lists:nth(rand:uniform(3), lists:seq(1, 4) -- [MediaPostDay]),
+            lists:foreach(
+                fun(WeekDay) ->
+                    PostType = case WeekDay of
+                        MediaPostDay -> live_camera;
+                        AlbumPostDay -> album_post;
+                        _ -> text_post
+                    end,
+                    ?INFO("Processing: ~p, PostType: ~p", [WeekDay, PostType]),
+                    WeekDayTimeSecs = DateTimeSecs + ((WeekDay - DayOfWeek) * ?DAYS),
+                    generate_moment_info(PostType, WeekDayTimeSecs)
+                end,
+                lists:seq(DayOfWeek, 4))
+    end.
+
+
+generate_moment_info(PostType, DateTimeSecs) ->
+    %% Given PostType and DateTimeSecs, generate and store moment info for a single date
+    PromptId = mod_prompts:get_prompt_and_mark_used(PostType),
+    MinsToSend = generate_notification_time(DateTimeSecs),
+    Date = util:get_date(DateTimeSecs),
+    MomentNotification = #moment_notification{
+        mins_to_send = MinsToSend,
+        id = DateTimeSecs,
+        type = PostType,
+        promptId = PromptId
+    },
+    set_moment_info(Date, MomentNotification).
+
 
 generate_notification_time(DateTimeSecs) ->
     {Date, {_,_,_}} = calendar:system_time_to_universal_time(DateTimeSecs, second),
@@ -1174,37 +1202,75 @@ generate_notification_time(DateTimeSecs) ->
                 false -> RandTime
             end
     end.
- 
--spec set_moment_time_to_send(Time :: integer(), Id :: integer(), Type :: moment_type(), Prompt :: binary(), Tag :: integer()) -> boolean().
-set_moment_time_to_send(Time, Id, Type, Prompt, Tag) ->
-    {ok, Payload} = q(["SET", moment_time_to_send_key(Tag), util:to_binary(Time),
-                      "EX", ?MOMENT_TAG_EXPIRATION, "NX"]),
+
+
+-spec set_moment_info(Date :: calendar:day(), MomentNotificationRecord :: moment_notification()) -> ok | {error, term()}.
+set_moment_info(Date, #moment_notification{mins_to_send = MinsToSend, id = Id, type = Type, promptId = PromptId} = MNI) ->
+    ?INFO("Setting moment notification info for ~p: ~p", [Date, MNI]),
+    {ok, Payload} = q(["SET", moment_time_to_send_key(Date), MinsToSend, "EX", ?MOMENT_TAG_EXPIRATION, "NX"]),
     case Payload =:= <<"OK">> of
         true ->
-            qp([["HSET", moment_time_to_send_key2(Tag), ?FIELD_MOMENT_NOTIFICATION_ID, util:to_binary(Id)],
-                ["HSET", moment_time_to_send_key2(Tag), ?FIELD_MOMENT_NOTIFICATION_TYPE, util_moments:moment_type_to_bin(Type)],
-                ["HSET", moment_time_to_send_key2(Tag), ?FIELD_MOMENT_NOTIFICATION_PROMPT, Prompt],
-                ["EXPIRE", moment_time_to_send_key2(Tag), ?MOMENT_TAG_EXPIRATION]]),
-            % Store the type, timestamp and prompt by id.
-            qp([["HSET", moment_info_key(Id), ?FIELD_MOMENT_NOTIFICATION_TYPE, util_moments:moment_type_to_bin(Type)],
-                ["HSET", moment_info_key(Id), ?FIELD_MOMENT_NOTIFICATION_PROMPT, Prompt],
-                ["EXPIRE", moment_info_key(Id), ?MOMENT_TAG_EXPIRATION]]),
-            true;
-        false -> false
+            qp([
+                ["HSET", moment_info_key(Date), ?FIELD_MOMENT_NOTIFICATION_ID, util:to_binary(Id)],
+                ["HSET", moment_info_key(Date), ?FIELD_MOMENT_NOTIFICATION_TYPE, util_moments:moment_type_to_bin(Type)],
+                ["HSET", moment_info_key(Date), ?FIELD_MOMENT_NOTIFICATION_PROMPT_ID, PromptId],
+                ["EXPIRE", moment_info_key(Date), ?MOMENT_TAG_EXPIRATION]
+            ]),
+            ok;
+        false ->
+            ?ERROR("Trying to overwrite existing moment data failed for ~p", [Date]),
+            {error, cannot_overwrite}
     end.
 
 
-overwrite_moment_time_to_send(Time, Id, Type, Prompt, Tag) ->
-    q(["SET", moment_time_to_send_key(Tag), util:to_binary(Time), "EX", ?MOMENT_TAG_EXPIRATION]),
-    qp([["HSET", moment_time_to_send_key2(Tag), ?FIELD_MOMENT_NOTIFICATION_ID, util:to_binary(Id)],
-        ["HSET", moment_time_to_send_key2(Tag), ?FIELD_MOMENT_NOTIFICATION_TYPE, util_moments:moment_type_to_bin(Type)],
-        ["HSET", moment_time_to_send_key2(Tag), ?FIELD_MOMENT_NOTIFICATION_PROMPT, Prompt],
-        ["EXPIRE", moment_time_to_send_key2(Tag), ?MOMENT_TAG_EXPIRATION]]),
-    % Store the type, timestamp and prompt by id.
-    qp([["HSET", moment_info_key(Id), ?FIELD_MOMENT_NOTIFICATION_TYPE, util_moments:moment_type_to_bin(Type)],
-        ["HSET", moment_info_key(Id), ?FIELD_MOMENT_NOTIFICATION_PROMPT, Prompt],
-        ["EXPIRE", moment_info_key(Id), ?MOMENT_TAG_EXPIRATION]]),
-    ok.
+%% This function will overwrite existing moment info, be careful!
+%% Must give Date, but all other fields are optional: passing '_' will keep the current value
+%% Assumes Date is in the future
+-spec overwrite_moment_info(Date :: calendar:day(), NewId :: '_' | pos_integer(), NewMinsToSend :: '_' | pos_integer(),
+    NewType :: '_' | moment_type(), NewPromptId :: '_' | string() | binary()) -> [{ok | error, term()}].
+overwrite_moment_info(Date, NewId, NewMinsToSend, NewType, NewPromptId) ->
+    {{Year,Month,TodayDate}, {_,_,_}} = calendar:system_time_to_universal_time(util:now(), second),
+    DaysDifference = case TodayDate > Date of
+        true ->
+            calendar:last_day_of_the_month(Year, Month) - TodayDate + Date;
+        false ->
+            Date - TodayDate
+    end,
+    case get_moment_info(util:now() + (DaysDifference * ?DAYS), false) of
+        undefined ->
+            io:format("No moment info associated with date: ~p", [Date]);
+        CurrentMomentInfo ->
+            Id = case NewId of
+                '_' -> CurrentMomentInfo#moment_notification.id;
+                _ -> NewId
+            end,
+            MinsToSend = case NewMinsToSend of
+                '_' -> CurrentMomentInfo#moment_notification.mins_to_send;
+                _ -> NewMinsToSend
+            end,
+            Type = case NewType of
+                '_' -> CurrentMomentInfo#moment_notification.type;
+                _ -> NewType
+            end,
+            PromptId = case NewPromptId of
+                '_' -> CurrentMomentInfo#moment_notification.promptId;
+                _ -> util:to_binary(NewPromptId)
+            end,
+            Date = util:get_date(Id),
+            NewMomentInfo = #moment_notification{
+                id = Id,
+                mins_to_send = MinsToSend,
+                type = Type,
+                promptId = PromptId
+            },
+            ?INFO("Date = ~p Replacing old: ~p with new: ~p", [Date, CurrentMomentInfo, NewMomentInfo]),
+            qp([
+                ["HSET", moment_info_key(Date), ?FIELD_MOMENT_NOTIFICATION_ID, util:to_binary(Id)],
+                ["HSET", moment_info_key(Date), ?FIELD_MOMENT_NOTIFICATION_TYPE, util_moments:moment_type_to_bin(Type)],
+                ["HSET", moment_info_key(Date), ?FIELD_MOMENT_NOTIFICATION_PROMPT_ID, PromptId],
+                ["EXPIRE", moment_info_key(Date), ?MOMENT_TAG_EXPIRATION]
+            ])
+    end.
 
 
 -spec get_post_num_seen(PostId :: binary()) -> {ok, integer()} | {error, any()}.
@@ -1219,19 +1285,10 @@ inc_post_num_seen(PostId) ->
         ["EXPIRE", num_seen_key(PostId), ?POST_EXPIRATION]
     ]).
 
--spec get_moment_info(NotificationId :: integer()) -> {maybe(integer()), atom(), binary()}.
-get_moment_info(NotificationId) ->
-    [{ok, Type}, {ok, Prompt}, {ok, NotifTs}] = qp([
-        ["HGET", moment_info_key(NotificationId), ?FIELD_MOMENT_NOTIFICATION_TYPE],
-        ["HGET", moment_info_key(NotificationId), ?FIELD_MOMENT_NOTIFICATION_PROMPT],
-        ["HGET", moment_info_key(NotificationId), ?FIELD_MOMENT_NOTIFICATION_TIMESTAMP]]),
-    {util_redis:decode_ts(NotifTs), util_moments:to_moment_type(Type), Prompt}.
-
-
 -spec del_moment_time_to_send(DateTimeSecs :: integer()) -> ok.
 del_moment_time_to_send(DateTimeSecs) ->
     Date = util:get_date(DateTimeSecs),
-    util_redis:verify_ok(qp([["DEL", moment_time_to_send_key(Date)], ["DEL", moment_time_to_send_key2(Date)]])).
+    util_redis:verify_ok(qp([["DEL", moment_time_to_send_key(Date)], ["DEL", moment_info_key(Date)]])).
 
 -spec is_moment_tag_done(Tag :: binary()) -> boolean().
 is_moment_tag_done(Tag) ->
@@ -1584,12 +1641,6 @@ reverse_post_key(Uid) ->
     <<?REVERSE_POST_KEY/binary, "{", Uid/binary, "}">>.
 
 
--spec moment_info_key(NotificationId :: integer()) -> binary().
-moment_info_key(NotificationId) ->
-    NotificationIdBin = util:to_binary(NotificationId),
-    <<?MOMENT_INFO_KEY/binary, "{", NotificationIdBin/binary, "}">>.
-
-
 -spec notification_id_key(Uid :: uid()) -> binary().
 notification_id_key(Uid) ->
     <<?NOTIFICATION_ID_KEY/binary, "{", Uid/binary, "}">>.
@@ -1613,9 +1664,9 @@ psa_tag_key(PSATag) ->
 reverse_psa_tag_key(PSATag) ->
     <<?REVERSE_PSA_TAG_KEY/binary, "{", PSATag/binary, "}">>.
 
--spec moment_time_to_send_key2(Tag :: integer()) -> binary().
-moment_time_to_send_key2(Tag) ->
-    TagBin = util:to_binary(Tag),
+-spec moment_info_key(Date :: calendar:day()) -> binary().
+moment_info_key(Date) ->
+    TagBin = util:to_binary(Date),
     <<?MOMENT_TIME_TO_SEND_KEY2/binary, "{", TagBin/binary, "}">>.
 
 -spec moment_time_to_send_key(Tag :: integer()) -> binary().

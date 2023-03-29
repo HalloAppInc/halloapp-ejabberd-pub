@@ -26,4 +26,7 @@
 -define(WEEKS, (7 * ?DAYS)).
 -define(WEEKS_MS, (7 * ?DAYS_MS)).
 
+-define(MONTHS, (30 * ?DAYS)).
+-define(MONTHS_MS, (30 * ?DAYS_MS)).
+
 -endif.

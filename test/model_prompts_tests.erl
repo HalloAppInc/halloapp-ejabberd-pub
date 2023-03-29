@@ -10,8 +10,10 @@
 
 -include("tutil.hrl").
 
--define(PROMPT1, <<"prompt1">>).
--define(PROMPT2, <<"prompt2">>).
+-define(TEXT_ID1, <<"text.1">>).
+-define(TEXT_ID2, <<"text.2">>).
+-define(MEDIA_ID1, <<"media.1">>).
+-define(ALBUM_ID1, <<"album.1">>).
 
 setup() ->
     tutil:setup([
@@ -19,23 +21,21 @@ setup() ->
     ]).
 
 
-api_test_() ->
-    [tutil:setup_foreach(fun setup/0, [
-        fun api/1
-    ])].
-
-api(_) ->
+api_testset(_) ->
+    Ts1 = 1,
+    Ts2 = 2,
     [
-    ?_assertEqual({ok, []}, model_prompts:get_text_prompts()),
-    ?_assertEqual({ok, []}, model_prompts:get_media_prompts()),
-    ?_assertOk(model_prompts:add_text_prompts([?PROMPT1, ?PROMPT2])),
-    ?_assertOk(model_prompts:add_media_prompts([?PROMPT1, ?PROMPT2])),
-    ?_assertEqual({ok, [?PROMPT1, ?PROMPT2]}, model_prompts:get_text_prompts()),
-    ?_assertEqual({ok, [?PROMPT1, ?PROMPT2]}, model_prompts:get_media_prompts()),
-    ?_assertEqual({ok, ?PROMPT1}, model_prompts:get_text_prompt()),
-    ?_assertEqual({ok, ?PROMPT1}, model_prompts:get_media_prompt()),
-    ?_assertEqual({ok, [?PROMPT2]}, model_prompts:get_text_prompts()),
-    ?_assertEqual({ok, [?PROMPT2]}, model_prompts:get_media_prompts())
+        ?_assertEqual([], model_prompts:get_used_media_prompts()),
+        ?_assertEqual([], model_prompts:get_used_text_prompts()),
+        ?_assertEqual([], model_prompts:get_used_album_prompts()),
+        ?_assertOk(model_prompts:update_used_text_prompts({?TEXT_ID1, Ts1}, [])),
+        ?_assertEqual([], model_prompts:get_used_media_prompts()),
+        ?_assertEqual([{?TEXT_ID1, util:to_binary(Ts1)}], model_prompts:get_used_text_prompts()),
+        ?_assertEqual([], model_prompts:get_used_album_prompts()),
+        ?_assertOk(model_prompts:update_used_text_prompts({?TEXT_ID2, Ts2}, [?TEXT_ID1])),
+        ?_assertEqual([], model_prompts:get_used_media_prompts()),
+        ?_assertEqual([{?TEXT_ID2, util:to_binary(Ts2)}], model_prompts:get_used_text_prompts()),
+        ?_assertEqual([], model_prompts:get_used_album_prompts())
     ].
 
 

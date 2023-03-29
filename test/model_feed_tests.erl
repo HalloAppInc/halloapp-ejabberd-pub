@@ -523,12 +523,12 @@ moment_tag_test() ->
     false = model_feed:is_moment_tag_done(?MOMENT_TAG),
     ok = model_feed:mark_moment_tag_done(?MOMENT_TAG),
     true = model_feed:is_moment_tag_done(?MOMENT_TAG),
-    {Time, ?MOMENT_ID, Type, Prompt} = model_feed:get_moment_time_to_send(?MOMENT_ID),
-    {Time, ?MOMENT_ID, Type, Prompt} = model_feed:get_moment_time_to_send(?MOMENT_ID + rand:uniform(1000)),
+    MomentInfo = model_feed:get_moment_info(?MOMENT_ID),
+    MomentInfo = model_feed:get_moment_info(?MOMENT_ID + rand:uniform(1000)),
     MomentDay = util:get_date(?MOMENT_ID),
-    false = model_feed:set_moment_time_to_send(Time, ?MOMENT_ID + rand:uniform(1000), Type, ?MOMENT_PROMPT, MomentDay),
+    {error, cannot_overwrite} = model_feed:set_moment_info(MomentDay, MomentInfo),
     ok = model_feed:del_moment_time_to_send(?MOMENT_ID),
-    true = model_feed:set_moment_time_to_send(Time, ?MOMENT_ID + rand:uniform(1000), Type, ?MOMENT_PROMPT, MomentDay),
+    ok = model_feed:set_moment_info(MomentDay, MomentInfo),
     ok.
 
 
@@ -566,24 +566,6 @@ get_public_moments_test() ->
     ok = model_feed:publish_moment(?POST_ID3, Uid2, ?PAYLOAD2, public_moment, all, [Uid1], NowMs,
         #pb_moment_info{notification_timestamp = (NowMs - 2 * ?HOURS_MS)}),
     ?assertEqual([?POST_ID3, ?POST_ID2], model_feed:get_all_public_moments(undefined, NowMs)),
-    ok.
-
-
-get_moment_info_test() ->
-    setup(),
-    Uid1 = tutil:generate_uid(?KATCHUP),
-    TodaySecs = util:now(),
-    NotifId = TodaySecs,
-    {_MinToSendToday, TodayNotificationId, TodayNotificationType, TodayPrompt} =
-        model_feed:get_moment_time_to_send(TodaySecs),
-
-    {_MomentNotifTs, MomentType, MomentPrompt} = model_feed:get_moment_info(TodaySecs),
-
-    ?assertEqual(TodayNotificationId, NotifId),
-    ?assertEqual(MomentType, TodayNotificationType),
-    ?assertEqual(MomentPrompt, TodayPrompt),
-    ?assertEqual(ok, model_feed:set_notification_id(Uid1, NotifId)),
-    ?assertEqual(NotifId, model_feed:get_notification_id(Uid1)),
     ok.
 
 

@@ -8,6 +8,7 @@
 
 
 -include("ha_types.hrl").
+-include("moments.hrl").
 -include("time.hrl").
 -include("server.hrl").
 
@@ -70,6 +71,15 @@
 
 -type action_type() :: publish | retract.
 -type set() :: sets:set().
+
+-record(moment_notification, {
+    mins_to_send :: pos_integer(),
+    id :: pos_integer(),
+    type :: moment_type(),
+    promptId :: binary()
+}).
+
+-type moment_notification() :: #moment_notification{}.
 
 -define(POST_EXPIRATION, (31 * ?DAYS)).
 -define(KATCHUP_MOMENT_EXPIRATION, (2 * ?DAYS)).
