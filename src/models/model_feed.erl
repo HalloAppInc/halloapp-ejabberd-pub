@@ -1133,7 +1133,7 @@ get_moment_info(DateTimeSecs, GenerateIfNone) ->
             get_moment_info(DateTimeSecs, false);
         _ ->
             PromptId = case NotifPromptId of
-                undefined -> <<"WYD?">>;
+                undefined -> <<"media.1">>;
                 _ -> NotifPromptId
             end,
             #moment_notification{
