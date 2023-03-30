@@ -12,9 +12,11 @@
 -behavior(gen_mod).
 
 -include("account.hrl").
+-include("feed.hrl").
 -include("logger.hrl").
 -include("packets.hrl").
 -include("proc.hrl").
+-include("prompts.hrl").
 
 %% gen_mod API
 -export([start/2, stop/1, reload/3, depends/2, mod_options/1]).
@@ -25,8 +27,6 @@
     process_iq/1
 ]).
 
-
--define(STABLE_DIFFUSION_1_5, "runwayml/stable-diffusion-v1-5").
 -define(URL(Model), "https://api.deepinfra.com/v1/inference/" ++ Model).
 
 %%====================================================================
@@ -37,7 +37,19 @@ process_iq(#pb_iq{from_uid = Uid, payload = #pb_ai_image_request{text = Prompt, 
     %% TODO: enforce max number of retries per moment notification
     %% TODO: enforce max time between requests
     RequestId = util_id:new_long_id(),
-    request_images(Uid, Prompt, NumImages, RequestId),
+    NotifId = model_feed:get_notification_id(Uid),
+    MomentNotifInfo = model_feed:get_moment_info(NotifId, false),
+    PromptId = MomentNotifInfo#moment_notification.promptId,
+    PromptHelpersEnabled = case model_accounts:get_client_version(Uid) of
+        {ok, ClientVersion} ->
+            case util_ua:get_client_type(ClientVersion) of
+                ios -> false;
+                _ -> true
+            end;
+        _ ->
+            true
+    end,
+    request_images(Uid, PromptId, Prompt, NumImages, RequestId, {PromptHelpersEnabled}),
     pb:make_iq_result(IQ, #pb_ai_image_result{result = pending, id = RequestId}).
 
 %%====================================================================
@@ -85,21 +97,20 @@ handle_call(Msg, From, State) ->
     {noreply, State}.
 
 
-handle_cast({request_image, Uid, Prompt, NumImages, RequestId, Model},
+handle_cast({request_image, Uid, PromptId, UserText, NumImages, RequestId, PromptHelpersEnabled},
         #{auth_token := AuthToken, ref_map := RefMap} = State) ->
+    PromptRecord = mod_prompts:get_prompt_from_id(PromptId),
+    Model = PromptRecord#prompt.ai_image_model,
     Url = ?URL(Model),
     Headers = [{"Authorization", "bearer " ++ AuthToken}],
     Type = "application/json",
-    PromptHelpersEnabled = case model_accounts:get_client_version(Uid) of
-        {ok, ClientVersion} ->
-            case util_ua:get_client_type(ClientVersion) of
-                ios -> false;
-                _ -> true
-            end;
-        _ ->
-            true
+    {Prompt, NegativePrompt} = case PromptHelpersEnabled of
+        true ->
+            {(PromptRecord#prompt.prompt_wrapper)(UserText), PromptRecord#prompt.negative_prompt};
+        false ->
+            {UserText, <<>>}
     end,
-    Body = get_model_parameters(Prompt, util:to_integer(NumImages), Model, PromptHelpersEnabled),
+    Body = get_model_parameters(Prompt, NegativePrompt, util:to_integer(NumImages), Model),
     {ok, Ref} = httpc:request(post, {Url, Headers, Type, Body}, [], [{sync, false}]),
     NewRefMap = RefMap#{Ref => {Uid, RequestId, util:now_ms()}},
     ?INFO("~s requesting ~p images, ref = ~p, request_id = ~p", [Uid, NumImages, Ref, RequestId]),
@@ -179,29 +190,20 @@ code_change(_OldVsn, State, _Extra) ->
 %% Internal functions
 %%====================================================================
 
-request_images(Uid, Prompt, NumImages, RequestId) ->
-    %% TODO: some logic for choosing different models?
-    gen_server:cast(?PROC(), {request_image, Uid, Prompt, NumImages, RequestId, ?STABLE_DIFFUSION_1_5}).
+request_images(Uid, PromptId, Prompt, NumImages, RequestId, PromptHelpersEnabled) ->
+    gen_server:cast(?PROC(), {request_image, Uid, PromptId, Prompt, NumImages, RequestId, PromptHelpersEnabled}).
 
 
--spec get_model_parameters(binary(), pos_integer(), string(), boolean()) -> jiffy:json_object().
-get_model_parameters(Prompt, NumImages, ?STABLE_DIFFUSION_1_5, PromptHelpersEnabled) ->
-    Params = [
+-spec get_model_parameters(binary(), binary(), pos_integer(), string()) -> jiffy:json_object().
+get_model_parameters(Prompt, NegativePrompt, NumImages, ?STABLE_DIFFUSION_1_5) ->
+    jiffy:encode({[
+        {<<"prompt">>, Prompt},
+        {<<"negative_prompt">>, NegativePrompt},
         {<<"num_images">>, NumImages},
         {<<"num_inference_steps">>, 40},
         {<<"width">>, 384},
         {<<"height">>, 512}
-    ],
-    Params2 = case PromptHelpersEnabled of
-        true ->
-            Params ++ [
-                {<<"prompt">>, <<"close up photo of ", Prompt/binary, ", the food">>},
-                {<<"negative_prompt">>, <<"drawing, cartoon">>}
-            ];
-        false ->
-            Params ++ [{<<"prompt">>, Prompt}]
-    end,
-    jiffy:encode({Params2}).
+    ]}).
 
 
 parse_and_send_result(Uid, RequestId, RawResult) ->

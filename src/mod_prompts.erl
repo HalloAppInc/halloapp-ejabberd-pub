@@ -159,7 +159,23 @@ get_text_prompts() ->
             #prompt{
                 id = <<"text.6">>,
                 text = <<"What food did you hate as a child?">>,
-                reuse_after = 6 * ?MONTHS}
+                reuse_after = 6 * ?MONTHS,
+                ai_image_model = ?STABLE_DIFFUSION_1_5,
+                prompt_wrapper = fun(T) -> <<"close up photo of ", T/binary, ", the food">> end,
+                negative_prompt = <<"drawing, cartoon">>
+                },
+        <<"text.7">> =>
+            #prompt{
+                id = <<"text.7">>,
+                text = <<"Favorite thing to start your day with">>,
+                reuse_after = 6 * ?MONTHS
+            },
+        <<"text.8">> =>
+            #prompt{
+                id = <<"text.8">>,
+                text = <<"What's one superpower you definitely would not want?">>,
+                reuse_after = 6 * ?MONTHS
+            }
     }.
 
 
