@@ -125,6 +125,12 @@ get_album_prompts() ->
                 id = <<"album.1">>,
                 text = <<"mirror selfie!">>,
                 reuse_after = 6 * ?MONTHS
+            },
+        <<"album.2">> =>
+            #prompt{
+                id = <<"album.2">>,
+                text = <<"a nostalgic memory">>,
+                reuse_after = 6 * ?MONTHS
             }
     }.
 
