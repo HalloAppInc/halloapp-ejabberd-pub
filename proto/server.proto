@@ -2087,6 +2087,13 @@ message SetBioResult {
 message AiImageRequest {
     string text = 1;
     int64 num_images = 2;
+    enum PromptMode {
+        UNKNOWN = 0;
+        USER = 1;  // feeds user text directly to AI image model
+        SERVER = 2;  // server will enhance user text before feeding to AI image model
+    }
+    PromptMode prompt_mode = 3;
+    string negative_prompt = 4;
 }
 
 message AiImageResult {

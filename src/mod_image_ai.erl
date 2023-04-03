@@ -33,23 +33,31 @@
 %% API
 %%====================================================================
 
-process_iq(#pb_iq{from_uid = Uid, payload = #pb_ai_image_request{text = Prompt, num_images = NumImages}} = IQ) ->
+process_iq(#pb_iq{from_uid = Uid, payload = #pb_ai_image_request{text = Prompt, num_images = NumImages,
+        prompt_mode = PromptMode, negative_prompt = NegativePrompt}} = IQ) ->
     %% TODO: enforce max number of retries per moment notification
     %% TODO: enforce max time between requests
     RequestId = util_id:new_long_id(),
     NotifId = model_feed:get_notification_id(Uid),
     MomentNotifInfo = model_feed:get_moment_info(NotifId, false),
     PromptId = MomentNotifInfo#moment_notification.promptId,
-    PromptHelpersEnabled = case model_accounts:get_client_version(Uid) of
-        {ok, ClientVersion} ->
-            case util_ua:get_client_type(ClientVersion) of
-                ios -> false;
-                _ -> true
+    PromptHelpersEnabled = case PromptMode of
+        unknown ->
+            case model_accounts:get_client_version(Uid) of
+                {ok, ClientVersion} ->
+                    case util_ua:get_client_type(ClientVersion) of
+                        ios -> false;
+                        _ -> true
+                    end;
+                _ ->
+                    true
             end;
-        _ ->
+        user ->
+            false;
+        server ->
             true
     end,
-    request_images(Uid, PromptId, Prompt, NumImages, RequestId, {PromptHelpersEnabled}),
+    request_images(Uid, PromptId, Prompt, NegativePrompt, NumImages, RequestId, {PromptHelpersEnabled}),
     pb:make_iq_result(IQ, #pb_ai_image_result{result = pending, id = RequestId}).
 
 %%====================================================================
@@ -97,7 +105,7 @@ handle_call(Msg, From, State) ->
     {noreply, State}.
 
 
-handle_cast({request_image, Uid, PromptId, UserText, NumImages, RequestId, PromptHelpersEnabled},
+handle_cast({request_image, Uid, PromptId, UserText, UserNegativePrompt, NumImages, RequestId, PromptHelpersEnabled},
         #{auth_token := AuthToken, ref_map := RefMap} = State) ->
     PromptRecord = mod_prompts:get_prompt_from_id(PromptId),
     Model = PromptRecord#prompt.ai_image_model,
@@ -108,7 +116,7 @@ handle_cast({request_image, Uid, PromptId, UserText, NumImages, RequestId, Promp
         true ->
             {(PromptRecord#prompt.prompt_wrapper)(UserText), PromptRecord#prompt.negative_prompt};
         false ->
-            {UserText, <<>>}
+            {UserText, UserNegativePrompt}
     end,
     Body = get_model_parameters(Prompt, NegativePrompt, util:to_integer(NumImages), Model),
     {ok, Ref} = httpc:request(post, {Url, Headers, Type, Body}, [], [{sync, false}]),
@@ -190,8 +198,8 @@ code_change(_OldVsn, State, _Extra) ->
 %% Internal functions
 %%====================================================================
 
-request_images(Uid, PromptId, Prompt, NumImages, RequestId, PromptHelpersEnabled) ->
-    gen_server:cast(?PROC(), {request_image, Uid, PromptId, Prompt, NumImages, RequestId, PromptHelpersEnabled}).
+request_images(Uid, PromptId, Prompt, NegativePrompt, NumImages, RequestId, PromptHelpersEnabled) ->
+    gen_server:cast(?PROC(), {request_image, Uid, PromptId, Prompt, NegativePrompt, NumImages, RequestId, PromptHelpersEnabled}).
 
 
 -spec get_model_parameters(binary(), binary(), pos_integer(), string()) -> jiffy:json_object().
