@@ -647,6 +647,7 @@ get_post1(Timestamp) ->
         tag = empty,
         audience_type = all,
         audience_list = [?UID1, ?UID2],
+        subscribed_audience_list = [],
         ts_ms = Timestamp
     }.
 
@@ -662,6 +663,7 @@ get_post2(Timestamp) ->
         tag = empty,
         audience_type = except,
         audience_list = [?UID2],
+        subscribed_audience_list = [],
         ts_ms = Timestamp
     }.
 
@@ -677,6 +679,7 @@ get_post3(Timestamp) ->
         tag = empty,
         audience_type = except,
         audience_list = [?UID2],
+        subscribed_audience_list = [],
         ts_ms = Timestamp
     }.
 
@@ -688,6 +691,7 @@ get_post4(Timestamp) ->
         tag = empty,
         audience_type = all,
         audience_list = [],
+        subscribed_audience_list = [],
         ts_ms = Timestamp,
         psa_tag = ?PSA_TAG1
     }.

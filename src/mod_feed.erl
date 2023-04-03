@@ -373,7 +373,7 @@ process_local_iq(#pb_iq{from_uid = Uid, payload = #pb_post_subscription_request{
                     CommentStanzas = lists:map(
                         fun(Comment) -> convert_comments_to_feed_items(Comment, public_update) end,
                         FilteredComments),
-                    model_feed:add_uid_to_audience(Uid, [PostId]),
+                    ok = model_feed:subscribe_uid_to_post(Uid, PostId),
                     #pb_post_subscription_response{
                         result = success,
                         items = CommentStanzas
@@ -492,7 +492,7 @@ is_psa_tag_allowed(PSATag) ->
 -spec send_expiry_notice(Post :: post()) -> ok.
 send_expiry_notice(#post{id = PostId, uid = PostOwnerUid} = Post) ->
     %% get all audience, set action=retract to include everyone.
-    FeedAudienceList = sets:to_list(get_feed_audience_set(retract, PostOwnerUid, Post#post.audience_list)),
+    FeedAudienceList = sets:to_list(get_feed_audience_set(retract, PostOwnerUid, Post#post.audience_list ++ Post#post.subscribed_audience_list)),
     [PostOwnerZoneOffset | AudienceListZoneOffset] = model_accounts:get_zone_offset_secs([PostOwnerUid] ++ FeedAudienceList),
     lists:foreach(
         fun({ToUid, ToUidZoneOffset}) ->
@@ -727,7 +727,7 @@ broadcast_post(Uid, FeedAudienceList, HomeFeedSt, TimestampMs) ->
 
 -spec publish_comment(Uid :: uid(), CommentId :: binary(), PostId :: binary(),
         ParentCommentId :: binary(), PayloadBase64 :: binary(),
-        HomeFeedSt :: pb_feed_item()) -> {ok, integer()} | {error, any()}.
+        HomeFeedSt :: any()) -> {ok, integer()} | {error, any()}.
 publish_comment(PublisherUid, CommentId, PostId, ParentCommentId, PayloadBase64, HomeFeedSt) ->
     ?INFO("Uid: ~s, CommentId: ~s, PostId: ~s", [PublisherUid, CommentId, PostId]),
     AppType = util_uid:get_app_type(PublisherUid),
@@ -743,15 +743,19 @@ publish_comment(PublisherUid, CommentId, PostId, ParentCommentId, PayloadBase64,
             TimestampMs = Comment#comment.ts_ms,
             PostOwnerUid = Post#post.uid,
             FeedAudienceSet = get_feed_audience_set(Action, PostOwnerUid, Post#post.audience_list),
+            PublicUpdateFeedAudienceSet = get_feed_audience_set(Action, PostOwnerUid, Post#post.subscribed_audience_list),
             NewPushList = [PostOwnerUid, PublisherUid | ParentPushList],
-            broadcast_comment(CommentId, PostId, ParentCommentId, PublisherUid, HomeFeedSt,
+            broadcast_comment(Action, CommentId, PostId, ParentCommentId, PublisherUid, HomeFeedSt,
                 TimestampMs, FeedAudienceSet, NewPushList),
+            broadcast_comment(public_update_publish, CommentId, PostId, ParentCommentId, PublisherUid, HomeFeedSt,
+                TimestampMs, PublicUpdateFeedAudienceSet, []),
             {ok, TimestampMs};
         {{ok, Post}, {error, _}, {ok, ParentPushList}} ->
             TimestampMs = util:now_ms(),
             PostOwnerUid = Post#post.uid,
             PostAudienceSet = sets:from_list(Post#post.audience_list),
             FeedAudienceSet = get_feed_audience_set(Action, PostOwnerUid, Post#post.audience_list),
+            PublicUpdateFeedAudienceSet = get_feed_audience_set(Action, PostOwnerUid, Post#post.subscribed_audience_list),
             IsPublisherInFinalAudienceSet = sets:is_element(PublisherUid, FeedAudienceSet),
             IsPublisherInPostAudienceSet = sets:is_element(PublisherUid, PostAudienceSet),
             IsPublicPost = Post#post.tag =:= public_moment orelse Post#post.tag =:= public_post,
@@ -767,8 +771,10 @@ publish_comment(PublisherUid, CommentId, PostId, ParentCommentId, PayloadBase64,
                     ejabberd_hooks:run(feed_item_published, AppType,
                         [PublisherUid, PostOwnerUid, CommentId, CommentType, undefined,
                         Post#post.audience_type, sets:size(FeedAudienceSet), MediaCounters]),
-                    broadcast_comment(CommentId, PostId, ParentCommentId, PublisherUid, HomeFeedSt,
+                    broadcast_comment(Action, CommentId, PostId, ParentCommentId, PublisherUid, HomeFeedSt,
                         TimestampMs, FeedAudienceSet, NewPushList),
+                    broadcast_comment(public_update_publish, CommentId, PostId, ParentCommentId, PublisherUid, HomeFeedSt,
+                        TimestampMs, PublicUpdateFeedAudienceSet, []),
                     {ok, TimestampMs};
 
                 IsPublisherInPostAudienceSet andalso IsPostValid ->
@@ -787,13 +793,15 @@ publish_comment(PublisherUid, CommentId, PostId, ParentCommentId, PayloadBase64,
     end.
 
 
-
-broadcast_comment(CommentId, PostId, ParentCommentId, PublisherUid,
+-spec broadcast_comment(atom(), binary(), binary(), binary(), uid(), pb_feed_item(), integer(), set(), list()) -> ok.
+broadcast_comment(Action, CommentId, PostId, ParentCommentId, PublisherUid,
         HomeFeedSt, TimestampMs, FeedAudienceSet, NewPushList) ->
-    Action = HomeFeedSt#pb_feed_item.action,
+    HomeFeedSt2 = HomeFeedSt#pb_feed_item{
+        action = Action
+    },
     %% send a new api message to all the clients.
     ResultStanza = make_pb_feed_comment(Action, CommentId,
-            PostId, ParentCommentId, PublisherUid, HomeFeedSt, TimestampMs),
+            PostId, ParentCommentId, PublisherUid, HomeFeedSt2, TimestampMs),
     PushSet = sets:from_list(NewPushList),
     broadcast_event(PublisherUid, FeedAudienceSet, PushSet, ResultStanza, []).
 
@@ -817,7 +825,8 @@ retract_post(Uid, PostId) ->
 
                     %% send a new api message to all the clients.
                     ResultStanza = make_pb_feed_post(Action, PostId, Uid, <<>>, <<>>, undefined, TimestampMs),
-                    FeedAudienceSet = get_feed_audience_set(Action, Uid, ExistingPost#post.audience_list),
+                    AudienceList = ExistingPost#post.audience_list ++ ExistingPost#post.subscribed_audience_list,
+                    FeedAudienceSet = get_feed_audience_set(Action, Uid, AudienceList),
                     PushSet = sets:new(),
                     broadcast_event(Uid, FeedAudienceSet, PushSet, ResultStanza, []),
                     ejabberd_hooks:run(feed_item_retracted, AppType, [Uid, PostId, post]),
@@ -844,6 +853,7 @@ retract_comment(PublisherUid, CommentId, PostId, HomeFeedSt) ->
             ParentCommentId = Comment#comment.parent_id,
             PostAudienceSet = sets:from_list(Post#post.audience_list),
             FeedAudienceSet = get_feed_audience_set(Action, PostOwnerUid, Post#post.audience_list),
+            PublicUpdateFeedAudienceSet = get_feed_audience_set(Action, PostOwnerUid, Post#post.subscribed_audience_list),
             IsPublisherInFinalAudienceSet = sets:is_element(PublisherUid, FeedAudienceSet),
             IsPublisherInPostAudienceSet = sets:is_element(PublisherUid, PostAudienceSet),
             IsPublicPost = Post#post.tag =:= public_moment orelse Post#post.tag =:= public_post,
@@ -864,6 +874,11 @@ retract_comment(PublisherUid, CommentId, PostId, HomeFeedSt) ->
                                     ParentCommentId, PublisherUid, HomeFeedSt, TimestampMs),
                             PushSet = sets:new(),
                             broadcast_event(PublisherUid, FeedAudienceSet, PushSet, ResultStanza, []),
+                            %% send public update_retract as well.
+                            %% send a new api message to all the clients.
+                            ResultStanza2 = make_pb_feed_comment(public_update_retract, CommentId, PostId,
+                                    ParentCommentId, PublisherUid, HomeFeedSt, TimestampMs),
+                            broadcast_event(PublisherUid, PublicUpdateFeedAudienceSet, PushSet, ResultStanza2, []),
                             ejabberd_hooks:run(feed_item_retracted, AppType,[PublisherUid, CommentId, comment]),
 
                             {ok, TimestampMs};
@@ -1024,7 +1039,8 @@ get_message_type(#pb_feed_item{action = publish, item = #pb_comment{}}, PushSet,
         true -> headline;
         false -> normal
     end;
-get_message_type(#pb_feed_item{action = retract}, _, _) -> normal.
+get_message_type(#pb_feed_item{action = retract}, _, _) -> normal;
+get_message_type(_, _, _) -> normal.
 
 
 %% This function takes Uid, their GeoTag, timestamp of the request, cursor and limit.

@@ -103,6 +103,7 @@
 %%RedisFeed (model_feed)
 -define(POST_KEY, <<"fp:">>).
 -define(POST_AUDIENCE_KEY, <<"fpa:">>).
+-define(SUBSCRIBED_AUDIENCE_KEY, <<"psa:">>).
 -define(POST_COMMENTS_KEY, <<"fpc:">>).
 -define(COMMENT_KEY, <<"fc:">>).
 -define(REVERSE_POST_KEY, <<"rfp:">>).

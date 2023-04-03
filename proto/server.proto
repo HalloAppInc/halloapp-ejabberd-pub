@@ -232,8 +232,9 @@ message FeedItem {
         PUBLISH = 0;
         RETRACT = 1;
         SHARE = 2;
-        PUBLIC_UPDATE = 3;
+        PUBLIC_UPDATE_PUBLISH = 3;
         EXPIRE = 4;
+        PUBLIC_UPDATE_RETRACT = 5;
     }
     Action action = 1;
     oneof item {

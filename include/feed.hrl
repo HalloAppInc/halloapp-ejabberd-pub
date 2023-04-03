@@ -44,6 +44,7 @@
     tag :: post_tag(),
     audience_type :: atom(),
     audience_list :: [uid()],
+    subscribed_audience_list :: [uid()],
     ts_ms :: integer(),
     gid :: maybe(binary()),
     psa_tag :: maybe(binary()),
@@ -69,7 +70,7 @@
 -type feed_item() :: post() | comment().
 -type feed_items() :: [feed_item()].
 
--type action_type() :: publish | retract.
+-type action_type() :: publish | retract | public_update_publish | public_update_retract.
 -type set() :: sets:set().
 
 -record(moment_notification, {

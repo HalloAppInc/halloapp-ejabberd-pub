@@ -90,6 +90,7 @@
     is_post_owner/2,
     get_post_tag/1,
     add_uid_to_audience/2,
+    subscribe_uid_to_post/2,
     expire_all_user_posts/2,
     set_notification_id/2,
     get_notification_id/1,
@@ -880,13 +881,15 @@ get_post(PostId) ->
         {ok, [Uid, Payload, PostTag, AudienceType, TimestampMs, Gid, PSATag, IsDeletedBin,
             NotificationTimestampBin, NumTakesBin, TimeTakenBin, NumSelfieTakesBin, NotificationIdBin,
             ContentTypeBin, IsExpiredBin]},
-        {ok, AudienceList}] = qp([
+        {ok, AudienceList},
+        {ok, SubscribedAudienceList}] = qp([
             ["HMGET", post_key(PostId),
                 ?FIELD_UID, ?FIELD_PAYLOAD, ?FIELD_TAG, ?FIELD_AUDIENCE_TYPE, ?FIELD_TIMESTAMP_MS,
                 ?FIELD_GROUP_ID, ?FIELD_PSA_TAG, ?FIELD_DELETED, ?FIELD_NOTIFICATION_TIMESTAMP,
                 ?FIELD_NUM_TAKES, ?FIELD_TIME_TAKEN, ?FIELD_NUM_SELFIE_TAKES, ?FIELD_NOTIFICATION_ID,
                 ?FIELD_CONTENT_TYPE, ?FIELD_EXPIRED],
-            ["SMEMBERS", post_audience_key(PostId)]]),
+            ["SMEMBERS", post_audience_key(PostId)],
+            ["SMEMBERS", subscribed_audience_key(PostId)]]),
     IsDeleted = util_redis:decode_boolean(IsDeletedBin, false),
     case Uid =:= undefined orelse IsDeleted =:= true of
         true -> {error, missing};
@@ -897,6 +900,7 @@ get_post(PostId) ->
                 tag = decode_post_tag(PostTag),
                 audience_type = decode_audience_type(AudienceType),
                 audience_list = AudienceList,
+                subscribed_audience_list = SubscribedAudienceList,
                 payload = Payload,
                 ts_ms = util_redis:decode_ts(TimestampMs),
                 gid = Gid,
@@ -969,18 +973,20 @@ get_post_and_its_comments(PostId) when is_binary(PostId) ->
 -spec get_comment_data(PostId :: binary(), CommentId :: binary(),ParentId :: maybe(binary())) ->
     {{ok, feed_item()} | {error, any()}, {ok, feed_item()} | {error, any()}, {ok, [binary()]}} | {error, any()}.
 get_comment_data(PostId, CommentId, ParentId) ->
-    [{ok, Res1}, {ok, Res2}, {ok, Res3}] = qp([
+    [{ok, Res1}, {ok, Res2}, {ok, Res3}, {ok, Res4}] = qp([
         ["HMGET", post_key(PostId), ?FIELD_UID, ?FIELD_PAYLOAD, ?FIELD_TAG,
                 ?FIELD_AUDIENCE_TYPE, ?FIELD_TIMESTAMP_MS, ?FIELD_DELETED, ?FIELD_NOTIFICATION_TIMESTAMP,
                 ?FIELD_NUM_TAKES, ?FIELD_TIME_TAKEN, ?FIELD_NUM_SELFIE_TAKES, ?FIELD_NOTIFICATION_ID,
                 ?FIELD_CONTENT_TYPE, ?FIELD_EXPIRED],
         ["SMEMBERS", post_audience_key(PostId)],
+        ["SMEMBERS", subscribed_audience_key(PostId)],
         ["HMGET", comment_key(CommentId, PostId), ?FIELD_PUBLISHER_UID, ?FIELD_PARENT_COMMENT_ID, ?FIELD_COMMENT_TYPE,
                 ?FIELD_PAYLOAD, ?FIELD_TIMESTAMP_MS, ?FIELD_DELETED]]),
     [PostUid, PostPayload, PostTag, AudienceType, PostTsMs, IsPostDeletedBin,
         NotificationTimestampBin, NumTakesBin, TimeTakenBin, NumSelfieTakesBin, NotificationIdBin, ContentTypeBin, IsExpiredBin] = Res1,
     AudienceList = Res2,
-    [CommentPublisherUid, ParentCommentId, CommentTypeBin, CommentPayload, CommentTsMs, IsCommentDeletedBin] = Res3,
+    SubscribedAudienceList = Res3,
+    [CommentPublisherUid, ParentCommentId, CommentTypeBin, CommentPayload, CommentTsMs, IsCommentDeletedBin] = Res4,
     
     IsPostMissing = PostUid =:= undefined orelse util_redis:decode_boolean(IsPostDeletedBin, false),
     IsCommentMissing = CommentPublisherUid =:= undefined orelse
@@ -994,6 +1000,7 @@ get_comment_data(PostId, CommentId, ParentId) ->
                 uid = PostUid,
                 audience_type = decode_audience_type(AudienceType),
                 audience_list = AudienceList,
+                subscribed_audience_list = SubscribedAudienceList,
                 payload = PostPayload,
                 tag = decode_post_tag(PostTag),
                 ts_ms = util_redis:decode_ts(PostTsMs),
@@ -1065,6 +1072,20 @@ add_uid_to_audience(Uid, PostIds) ->
 -spec add_uid_to_audience_for_post(Uid :: uid(), PostId :: binary()) -> ok | {error, any()}.
 add_uid_to_audience_for_post(Uid, PostId) ->
     {ok, _} = q(["SADD", post_audience_key(PostId), Uid]),
+    ok.
+
+
+
+-spec subscribe_uid_to_post(Uid :: uid(), PostIds :: [binary()] | binary()) -> ok | {error, any()}.
+subscribe_uid_to_post(Uid, PostIds) when is_list(PostIds) ->
+    Commands = lists:map(
+        fun(PostId) ->
+            ["SADD", subscribed_audience_key(PostId), Uid]
+        end, PostIds),
+    qmn(Commands),
+    ok;
+subscribe_uid_to_post(Uid, PostId) ->
+    subscribe_uid_to_post(Uid, [PostId]),
     ok.
 
 
@@ -1624,6 +1645,11 @@ post_key(PostId) ->
 -spec post_audience_key(PostId :: binary()) -> binary().
 post_audience_key(PostId) ->
     <<?POST_AUDIENCE_KEY/binary, "{", PostId/binary, "}">>.
+
+
+-spec subscribed_audience_key(PostId :: binary()) -> binary().
+subscribed_audience_key(PostId) ->
+    <<?SUBSCRIBED_AUDIENCE_KEY/binary, "{", PostId/binary, "}">>.
 
 
 -spec comment_key(CommentId :: binary(), PostId :: binary()) -> binary().
