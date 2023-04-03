@@ -1261,23 +1261,35 @@ friend_recos(Uid) ->
 
 get_moment_notif_time(Date) ->
     %% Date must be an integer representing the day of the (current or nearest) month.
-    %% Date cannot be more than 1 day in the future or 1 day in the past
     CurrentTime = util:now(),
-    Today = util:get_date(CurrentTime),
-    Tomorrow = util:get_date(CurrentTime + ?DAYS),
-    Yesterday = util:get_date(CurrentTime - ?DAYS),
-    case Date =/= Today andalso Date =/= Tomorrow andalso Date =/= Yesterday of
-        true -> io:format("Date out of range. Today is ~p~n", [Today]);
-        false ->
-            InspectionTime = case Date =:= Today of
-                true -> CurrentTime;
-                false ->
-                    case Date =:= Tomorrow of
-                        true -> CurrentTime + ?DAYS;
-                        false -> CurrentTime - ?DAYS
-                    end
+    {{Year,Month,TodayDate}, {_,_,_}} = calendar:system_time_to_universal_time(CurrentTime, second),
+    %% Find the easiest timestamp where Date is true – doesn't have to be correct month, as it is indexed solely by Date
+    LastDayOfMonth = calendar:last_day_of_the_month(Year, Month),
+    InspectionTime = case Date > LastDayOfMonth of
+        true ->
+            %% Use day from previous month
+            PrevMonth = case Month of
+                1 -> 12;
+                _ -> Month - 1
             end,
-            MomentNotifInfo = model_feed:get_moment_info(InspectionTime, false),
+            LastDayOfPrevMonth = calendar:last_day_of_the_month(Year, PrevMonth),
+            DaysDifference = (LastDayOfPrevMonth - Date) + TodayDate,
+            CurrentTime - (DaysDifference * ?DAYS);
+        false ->
+            if
+                Date =:= TodayDate ->
+                    CurrentTime;
+                Date < TodayDate ->
+                    CurrentTime - ((TodayDate - Date) * ?DAYS);
+                Date > TodayDate ->
+                    CurrentTime + ((Date + TodayDate) * ?DAYS)
+            end
+    end,
+    %% Get moment info
+    case model_feed:get_moment_info(InspectionTime, false) of
+        undefined ->
+            io:format("No moment info for date: ~p (inspection time = ~p)~n", [Date, InspectionTime]);
+        MomentNotifInfo ->
             Hrs = MomentNotifInfo#moment_notification.mins_to_send div 60,
             MinsRemaining = MomentNotifInfo#moment_notification.mins_to_send rem 60,
             Prompt = mod_prompts:get_prompt_from_id(MomentNotifInfo#moment_notification.promptId),
@@ -1285,9 +1297,9 @@ get_moment_notif_time(Date) ->
                 true -> "0" ++ util:to_list(MinsRemaining);
                 false -> util:to_list(MinsRemaining)
             end,
-            io:format("Date: ~p~nTime to send: ~p:~s~nType: ~p~nId: ~p~nPrompt: ~s~n",
+            io:format("Date: ~p~nTime to send: ~p:~s~nType: ~p~nId: ~p~nPromptId: ~p~nPrompt: ~s~n",
                 [Date, Hrs, MinsRemainingStr, MomentNotifInfo#moment_notification.type,
-                    MomentNotifInfo#moment_notification.id, Prompt#prompt.text])
+                    MomentNotifInfo#moment_notification.id, MomentNotifInfo#moment_notification.promptId, Prompt#prompt.text])
     end,
     ok.
 
