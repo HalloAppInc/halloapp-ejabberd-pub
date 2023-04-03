@@ -1282,7 +1282,7 @@ get_moment_notif_time(Date) ->
                 Date < TodayDate ->
                     CurrentTime - ((TodayDate - Date) * ?DAYS);
                 Date > TodayDate ->
-                    CurrentTime + ((Date + TodayDate) * ?DAYS)
+                    CurrentTime + ((Date - TodayDate) * ?DAYS)
             end
     end,
     %% Get moment info
