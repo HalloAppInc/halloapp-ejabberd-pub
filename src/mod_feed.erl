@@ -594,7 +594,6 @@ publish_post(Uid, PostId, PayloadBase64, public_moment, PSATag, AudienceList, Ho
     end,
     FilteredAudienceList2 = sets:to_list(get_feed_audience_set(Action, Uid, FilteredAudienceList1)),
     LatestNotificationId = model_feed:get_notification_id(Uid),
-    ContentType = MomentInfo#pb_moment_info.content_type,
     case LatestNotificationId =:= undefined orelse MomentInfo#pb_moment_info.notification_id >= LatestNotificationId of
         false ->
             ?ERROR("Uid: ~p tried to publish using old notif id", [Uid]),
@@ -824,11 +823,14 @@ retract_post(Uid, PostId) ->
                     ok = model_feed:retract_post(PostId, Uid),
 
                     %% send a new api message to all the clients.
-                    ResultStanza = make_pb_feed_post(Action, PostId, Uid, <<>>, <<>>, undefined, TimestampMs),
-                    AudienceList = ExistingPost#post.audience_list ++ ExistingPost#post.subscribed_audience_list,
-                    FeedAudienceSet = get_feed_audience_set(Action, Uid, AudienceList),
+                    ResultStanza1 = make_pb_feed_post(Action, PostId, Uid, <<>>, <<>>, undefined, TimestampMs),
+                    FeedAudienceSet = get_feed_audience_set(Action, Uid, ExistingPost#post.audience_list),
+                    ResultStanza2 = make_pb_feed_post(public_update_retract, PostId, Uid, <<>>, <<>>, undefined, TimestampMs),
+                    PublicUpdateFeedAudienceSet = get_feed_audience_set(Action, Uid, ExistingPost#post.subscribed_audience_list),
+
                     PushSet = sets:new(),
-                    broadcast_event(Uid, FeedAudienceSet, PushSet, ResultStanza, []),
+                    broadcast_event(Uid, FeedAudienceSet, PushSet, ResultStanza1, []),
+                    broadcast_event(Uid, PublicUpdateFeedAudienceSet, PushSet, ResultStanza2, []),
                     ejabberd_hooks:run(feed_item_retracted, AppType, [Uid, PostId, post]),
 
                     {ok, TimestampMs}
@@ -1347,6 +1349,7 @@ send_old_moment(FromUid, ToUid) ->
             %% Add the touid to the audience list so that they can comment on these posts.
             FilteredPostIds = [LatestMoment#post.id],
             ok = model_feed:add_uid_to_audience(ToUid, FilteredPostIds),
+            ok = model_feed:unsubscribe_uid_to_post(ToUid, FilteredPostIds),
 
             ?INFO("sending FromUid: ~s ToUid: ~s ~p posts and ~p comments",
                 [FromUid, ToUid, length(PostStanzas), length(CommentStanzas)]),

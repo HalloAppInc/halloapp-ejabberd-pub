@@ -91,6 +91,7 @@
     get_post_tag/1,
     add_uid_to_audience/2,
     subscribe_uid_to_post/2,
+    unsubscribe_uid_to_post/2,
     expire_all_user_posts/2,
     set_notification_id/2,
     get_notification_id/1,
@@ -1086,6 +1087,19 @@ subscribe_uid_to_post(Uid, PostIds) when is_list(PostIds) ->
     ok;
 subscribe_uid_to_post(Uid, PostId) ->
     subscribe_uid_to_post(Uid, [PostId]),
+    ok.
+
+
+-spec unsubscribe_uid_to_post(Uid :: uid(), PostIds :: [binary()] | binary()) -> ok | {error, any()}.
+unsubscribe_uid_to_post(Uid, PostIds) when is_list(PostIds) ->
+    Commands = lists:map(
+        fun(PostId) ->
+            ["SREM", subscribed_audience_key(PostId), Uid]
+        end, PostIds),
+    qmn(Commands),
+    ok;
+unsubscribe_uid_to_post(Uid, PostId) ->
+    unsubscribe_uid_to_post(Uid, [PostId]),
     ok.
 
 
