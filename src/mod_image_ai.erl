@@ -57,7 +57,7 @@ process_iq(#pb_iq{from_uid = Uid, payload = #pb_ai_image_request{text = Prompt, 
         server ->
             true
     end,
-    request_images(Uid, PromptId, Prompt, NegativePrompt, NumImages, RequestId, {PromptHelpersEnabled}),
+    request_images(Uid, PromptId, Prompt, NegativePrompt, NumImages, RequestId, PromptHelpersEnabled),
     pb:make_iq_result(IQ, #pb_ai_image_result{result = pending, id = RequestId}).
 
 %%====================================================================
