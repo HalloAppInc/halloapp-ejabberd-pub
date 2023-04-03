@@ -64,6 +64,7 @@
         true -> 50;  % ms             % shorter timeout so tests run faster
         false -> (5 * ?SECONDS_MS)      % prod timeout
     end).
+-define(MOD_IMAGE_AI_PING_TIMEOUT_MS, (1 * ?SECONDS_MS)).
 -define(NOISE_PING_TIMEOUT_MS, (10 * ?SECONDS_MS)).
 
 % if a process goes down, attempt to remonitor it after REMONITOR_DELAY_MS

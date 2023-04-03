@@ -222,10 +222,14 @@ handle_info({ack, Id, Ts, From}, #state{active_pings = PingMap} = State) ->
             ?WARNING("Got late ack (~ps) from: ~p", [Secs, From]),
             NewPingMap = PingMap;
         {Mod, NewPingMap} ->
-            case util:now_ms() - Ts > ?PING_TIMEOUT_MS of
+            PingTimeoutMs = case Mod of
+                mod_image_ai_global -> ?MOD_IMAGE_AI_PING_TIMEOUT_MS;
+                _ -> ?PING_TIMEOUT_MS
+            end,
+            case util:now_ms() - Ts > PingTimeoutMs of
                 true ->
                     Secs = (util:now_ms() - Ts) / 1000,
-                    ?WARNING("Got late ack (~ps) from: ~p", [Secs, From]),
+                    ?WARNING("Got late ack (~ps) from: ~p (~p)", [Secs, From, Mod]),
                     record_state(Mod, ?FAIL_STATE);
                 false -> record_state(Mod, ?ALIVE_STATE)
             end

@@ -121,7 +121,7 @@ handle_cast({request_image, Uid, PromptId, UserText, UserNegativePrompt, NumImag
     Body = get_model_parameters(Prompt, NegativePrompt, util:to_integer(NumImages), Model),
     {ok, Ref} = httpc:request(post, {Url, Headers, Type, Body}, [], [{sync, false}]),
     NewRefMap = RefMap#{Ref => {Uid, RequestId, util:now_ms()}},
-    ?INFO("~s requesting ~p images, ref = ~p, request_id = ~p", [Uid, NumImages, Ref, RequestId]),
+    ?INFO("~s requesting ~p images, ref = ~p, request_id = ~p, model params: ~p", [Uid, NumImages, Ref, RequestId, Body]),
     {noreply, State#{ref_map => NewRefMap}};
 
 handle_cast({ping, Id, Ts, From}, State) ->
