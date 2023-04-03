@@ -83,9 +83,27 @@ get_prompt_and_mark_used(Type) ->
         {[], []},
         UsedPrompts),
     PromptIdsToChooseFrom = maps:keys(AllPrompts) -- UnusablePrompts,
-    ChosenPromptId = lists:nth(rand:uniform(length(PromptIdsToChooseFrom)), PromptIdsToChooseFrom),
-    UpdateUsedPromptsFun({ChosenPromptId, util:now()}, PromptsThatCanBeUsedAgain),
-    ChosenPromptId.
+    case PromptIdsToChooseFrom of
+        [] ->
+            %% Choose prompt that was used most amount of time ago
+            ChosenPromptId = lists:foldl(
+                fun({PromptId, BinTimestamp}, {OldestPrompt, OldestPromptTimestamp}) ->
+                    Timestamp = util_redis:decode_int(BinTimestamp),
+                    case Timestamp < OldestPromptTimestamp of
+                        true -> PromptId;
+                        false -> OldestPrompt
+                    end
+                end,
+                {<<"WYD?">>, 9223372036854775807},  %% 64-bit max int – Timestamp should always be less
+                UsedPrompts),
+            ?ERROR("No usable ~p prompts, chose oldest promptId: ~p", [Type]),
+            alerts:send_no_prompts_alert(util:to_binary(Type), ChosenPromptId),
+            ChosenPromptId;
+        _ ->
+            ChosenPromptId = lists:nth(rand:uniform(length(PromptIdsToChooseFrom)), PromptIdsToChooseFrom),
+            UpdateUsedPromptsFun({ChosenPromptId, util:now()}, PromptsThatCanBeUsedAgain),
+            ChosenPromptId
+    end.
 
 
 -spec get_prompt_from_id(PromptId :: binary()) -> maybe(prompt_record()).

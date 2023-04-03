@@ -11,6 +11,7 @@
 
 %% API
 -export([
+    send_no_prompts_alert/2,
     send_iam_role_change_alert/2,
     send_noise_slow_alert/3,
     send_noise_unreachable_alert/3,
@@ -31,6 +32,11 @@
 %% API
 %%====================================================================
 %% TODO@murali: add counters here
+
+-spec send_no_prompts_alert(binary(), binary()) -> ok.
+send_no_prompts_alert(PromptType, Chosen) ->
+    send_alert(<<"Out of ", PromptType/binary, " prompts">>, <<"mod_prompts">>, <<"critical">>,
+        <<"No more ", PromptType/binary, " prompts – chose ", Chosen/binary, " for now">>).
 
 -spec send_iam_role_change_alert(Host :: binary(), Message :: binary()) -> ok.
 send_iam_role_change_alert(Host, Message) ->
