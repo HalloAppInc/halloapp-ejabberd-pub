@@ -158,12 +158,12 @@ get_text_prompts() ->
             #prompt{
                 id = <<"text.1">>,
                 text = <<"What food are you craving right now?">>,
-                reuse_after = 6 * ?MONTHS},
+                reuse_after = 3 * ?MONTHS},
         <<"text.2">> =>
             #prompt{
                 id = <<"text.2">>,
                 text = <<"Describe your day in emojis">>,
-                reuse_after = 6 * ?MONTHS},
+                reuse_after = 3 * ?MONTHS},
         <<"text.3">> =>
             #prompt{
                 id = <<"text.3">>,
@@ -198,7 +198,10 @@ get_text_prompts() ->
             #prompt{
                 id = <<"text.8">>,
                 text = <<"What's one superpower you definitely would not want?">>,
-                reuse_after = 6 * ?MONTHS
+                reuse_after = 6 * ?MONTHS,
+                ai_image_model = ?STABLE_DIFFUSION_1_5,
+                prompt_wrapper = fun(T) -> <<T/binary, " superpower, in the style of roy lichtenstein, 8K, hyper-detailed and intricate, realistic shaded">> end,
+                negative_prompt = <<"disfigured faces, bad eyes, extra fingers">>
             }
     }.
 

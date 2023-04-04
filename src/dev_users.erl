@@ -124,6 +124,7 @@ get_dev_phones() ->
         <<"16503916245">>,   %% Alisa
         <<"13472558058">>,   %% Michelle
         <<"16505125376">>,   %% Josh test phone
+        <<"17143529211">>,   %% Kayla
         <<"16503530067">>,   %% Nandini android
         <<"16504508196">>,   %% Neeraj test phone
         <<"359884199917">>,  %% Vasil
