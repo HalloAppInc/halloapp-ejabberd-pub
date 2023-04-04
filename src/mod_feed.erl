@@ -455,7 +455,7 @@ remove_follow_relationship(Uid, Ouid) ->
             case Post#post.expired of
                 true -> ok;
                 false ->
-                    ok = model_feed:remove_uid_from_audience(Uid, Post#pb_post.id)
+                    ok = model_feed:remove_uid_from_audience(Uid, Post#post.id)
             end
     end,
     ok.
