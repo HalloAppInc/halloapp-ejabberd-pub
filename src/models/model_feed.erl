@@ -90,6 +90,7 @@
     is_post_owner/2,
     get_post_tag/1,
     add_uid_to_audience/2,
+    remove_uid_from_audience/2,
     subscribe_uid_to_post/2,
     unsubscribe_uid_to_post/2,
     expire_all_user_posts/2,
@@ -1073,6 +1074,18 @@ add_uid_to_audience(Uid, PostIds) ->
 -spec add_uid_to_audience_for_post(Uid :: uid(), PostId :: binary()) -> ok | {error, any()}.
 add_uid_to_audience_for_post(Uid, PostId) ->
     {ok, _} = q(["SADD", post_audience_key(PostId), Uid]),
+    ok.
+
+
+-spec remove_uid_from_audience(Uid :: uid(), PostIds :: [binary()]) -> ok | {error, any()}.
+remove_uid_from_audience(Uid, PostIds) ->
+    lists:foreach(fun(PostId) -> remove_uid_from_audience_for_post(Uid, PostId) end, PostIds),
+    ok.
+
+
+-spec remove_uid_from_audience_for_post(Uid :: uid(), PostId :: binary()) -> ok | {error, any()}.
+remove_uid_from_audience_for_post(Uid, PostId) ->
+    {ok, _} = q(["SREM", post_audience_key(PostId), Uid]),
     ok.
 
 

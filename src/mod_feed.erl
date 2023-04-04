@@ -64,6 +64,7 @@
     send_old_moment/2,
     send_moment_notification/7,
     new_follow_relationship/2,
+    remove_follow_relationship/2,
     get_ranked_public_moments/7,
     re_register_user/4,
     convert_moments_to_public_feed_items/3,
@@ -89,6 +90,7 @@ start(_Host, _Opts) ->
     ejabberd_hooks:add(user_send_packet, katchup, ?MODULE, user_send_packet, 50),
     ejabberd_hooks:add(send_moment_notification, katchup, ?MODULE, send_moment_notification, 50),
     ejabberd_hooks:add(new_follow_relationship, katchup, ?MODULE, new_follow_relationship, 50),
+    ejabberd_hooks:add(remove_follow_relationship, katchup, ?MODULE, remove_follow_relationship, 50),
     ejabberd_hooks:add(re_register_user, katchup, ?MODULE, re_register_user, 50),
     %% We must run the sm_register_connection_hook early on - so that we have access to their their previous login time.
     ejabberd_hooks:add(sm_register_connection_hook, katchup, ?MODULE, sm_register_connection_hook, 10),
@@ -107,6 +109,7 @@ stop(_Host) ->
     ejabberd_hooks:delete(user_send_packet, katchup, ?MODULE, user_send_packet, 50),
     ejabberd_hooks:delete(send_moment_notification, katchup, ?MODULE, send_moment_notification, 50),
     ejabberd_hooks:delete(new_follow_relationship, katchup, ?MODULE, new_follow_relationship, 50),
+    ejabberd_hooks:delete(remove_follow_relationship, katchup, ?MODULE, remove_follow_relationship, 50),
     ejabberd_hooks:delete(re_register_user, katchup, ?MODULE, re_register_user, 50),
     ejabberd_hooks:delete(sm_register_connection_hook, katchup, ?MODULE, sm_register_connection_hook, 10),
     ok.
@@ -444,6 +447,18 @@ new_follow_relationship(Uid, Ouid) ->
     send_old_moment(Ouid, Uid),
     ok.
 
+remove_follow_relationship(Uid, Ouid) ->
+    ?INFO("removed follow relationship, send old moment fromUid: ~p, ToUid: ~p", [Ouid, Uid]),
+    case model_feed:get_user_latest_post(Ouid) of
+        undefined -> ok;
+        Post ->
+            case Post#post.expired of
+                true -> ok;
+                false ->
+                    ok = model_feed:remove_uid_from_audience(Uid, Post#pb_post.id)
+            end
+    end,
+    ok.
 
 -spec re_register_user(Uid :: binary(), Server :: binary(), Phone :: binary(), CampaignId :: binary()) -> ok.
 re_register_user(Uid, _Server, _Phone, _CampaignId) ->
