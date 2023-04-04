@@ -191,13 +191,12 @@ sm_register_connection_hook(_SID, #jid{luser = Uid, lresource = Resource} = _JID
                 undefined -> ?KATCHUP_PUBLIC_FEED_REFRESH_SECS;
                 LastConnectionTimeMs -> util:now_ms() - LastConnectionTimeMs
             end,
-            %% Michelle is testing something, will turn off once she is done.
-            IsMichelleUid = Uid =:= <<"1001000000272613628">>,
-            case OldCursor =:= NewCursor andalso TimeDiffMs < ?KATCHUP_PUBLIC_FEED_REFRESH_SECS andalso not IsMichelleUid of
+            case OldCursor =:= NewCursor andalso TimeDiffMs < ?KATCHUP_PUBLIC_FEED_REFRESH_SECS of
                 true ->
                     ?INFO("Uid: ~p, GeoTag: ~p Cursor: ~p no new posts to send to the clients", [Uid, GeoTag, Cursor]);
                 false ->
-                    case filter_seen_moments(Uid, PublicMoments) =/= [] orelse IsMichelleUid of
+                    ?INFO("Uid: ~p, OldCursor: ~p, NewCursor: ~p, TimeDiffMs: ~p", [Uid, OldCursor, NewCursor, TimeDiffMs]),
+                    case filter_seen_moments(Uid, PublicMoments) =/= [] of
                         false ->
                             ?INFO("Uid: ~p, GeoTag: ~p no unseen posts to send on public feed, so skip", [Uid, GeoTag]);
                         true ->
