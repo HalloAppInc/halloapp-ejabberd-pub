@@ -913,6 +913,13 @@ uid_info_katchup(Uid, Options) ->
     Tags = model_accounts:get_all_geo_tags(Uid),
     io:format("ZoneOffset = ~p GeoTags: ~p~n", [ZoneOffset, Tags]),
 
+    ContactsPerms = model_accounts:is_permission_enabled(Uid, contacts),
+    LocationPerms = model_accounts:is_permission_enabled(Uid, location),
+    NotificationsPerms = model_accounts:is_permission_enabled(Uid, notifications),
+
+    io:format("Permissions: contacts = ~p, location = ~p, notifications = ~p~n",
+        [ContactsPerms, LocationPerms, NotificationsPerms]),
+
     Bio = model_accounts:get_bio(Uid),
     LinksMap = model_accounts:get_links(Uid),
     io:format("Bio: ~p~n", [Bio]),

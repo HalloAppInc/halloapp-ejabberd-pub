@@ -160,6 +160,12 @@ process_events(Uid, Events) ->
 -spec process_event(Uid :: maybe(uid()), Event :: pb_event_data()) -> ok.
 process_event(Uid, #pb_event_data{edata = Edata} = Event) ->
     try
+        if
+            is_record(Edata, pb_permissions) ->
+                model_accounts:update_permissions(Uid, Edata);
+            true ->
+                ok
+        end,
         Namespace = get_namespace(Edata),
         FullNamespace = full_namespace(Namespace),
         validate_namespace(FullNamespace),

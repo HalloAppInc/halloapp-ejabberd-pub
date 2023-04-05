@@ -198,6 +198,8 @@
     delete_old_username/1,
     get_geotag_uids/1,
     update_geo_tag_index/2,
+    update_permissions/2,
+    is_permission_enabled/2,
     inc_num_posts/1,
     inc_num_comments/1,
     inc_num_seen/1,
@@ -246,6 +248,9 @@
 -define(FIELD_USERNAME_UID, <<"unu">>).
 -define(FIELD_BIO, <<"bio">>).
 -define(FIELD_LINKS, <<"lnk">>).
+-define(FIELD_CONTACTS_PERMISSION, <<"con">>).
+-define(FIELD_LOCATION_PERMISSION, <<"loc">>).
+-define(FIELD_NOTIFICATIONS_PERMISSION, <<"not">>).
 
 %% Field to capture creation of list with inactive uids and their deletion.
 -define(FIELD_INACTIVE_UIDS_STATUS, <<"ius">>).
@@ -2041,6 +2046,33 @@ get_user_activity_info(Usernames) ->
         end,
         InfoMap,
         Usernames -- maps:keys(InfoMap)).
+
+
+-spec update_permissions(Uid :: uid(), Permission :: pb_permissions()) -> ok.
+update_permissions(Uid, #pb_permissions{type = Type, status = Status}) ->
+    Field = case Type of
+        contacts -> ?FIELD_CONTACTS_PERMISSION;
+        location -> ?FIELD_LOCATION_PERMISSION;
+        notifications -> ?FIELD_NOTIFICATIONS_PERMISSION
+    end,
+    Value = case Status of
+        allowed -> true;
+        denied -> false
+    end,
+    {ok, _} = q(["HSET", account_key(Uid), Field, Value]),
+    ok.
+
+
+-spec is_permission_enabled(Uid :: uid(), Permission :: contacts | location | notifications) -> boolean().
+is_permission_enabled(Uid, Permission) ->
+    Field = case Permission of
+        contacts -> ?FIELD_CONTACTS_PERMISSION;
+        location -> ?FIELD_LOCATION_PERMISSION;
+        notifications -> ?FIELD_NOTIFICATIONS_PERMISSION
+    end,
+    {ok, Res} = q(["HGET", account_key(Uid), Field]),
+    util_redis:decode_boolean(Res).
+
 
 inc_num_posts(Uid) ->
     q(["INCR", num_posts_key(Uid)]).

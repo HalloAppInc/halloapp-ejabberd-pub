@@ -244,6 +244,7 @@ message Permissions {
   enum Type {
     CONTACTS = 0;
     NOTIFICATIONS = 1;
+    LOCATION = 2;
   }
   enum Status {
     ALLOWED = 0;
