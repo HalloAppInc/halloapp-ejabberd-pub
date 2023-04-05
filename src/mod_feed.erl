@@ -191,10 +191,10 @@ sm_register_connection_hook(_SID, #jid{luser = Uid, lresource = Resource} = _JID
             OldCursor = model_feed:get_last_cursor(Uid),
             %% Get LastConnection time.
             TimeDiffMs = case model_accounts:get_last_connection_time(Uid) of
-                undefined -> ?KATCHUP_PUBLIC_FEED_REFRESH_SECS;
+                undefined -> ?KATCHUP_PUBLIC_FEED_REFRESH_MSECS;
                 LastConnectionTimeMs -> util:now_ms() - LastConnectionTimeMs
             end,
-            case OldCursor =:= NewCursor andalso TimeDiffMs < ?KATCHUP_PUBLIC_FEED_REFRESH_SECS of
+            case OldCursor =:= NewCursor andalso TimeDiffMs < ?KATCHUP_PUBLIC_FEED_REFRESH_MSECS of
                 true ->
                     ?INFO("Uid: ~p, GeoTag: ~p Cursor: ~p no new posts to send to the clients", [Uid, GeoTag, Cursor]);
                 false ->
