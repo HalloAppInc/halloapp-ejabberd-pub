@@ -456,7 +456,7 @@ remove_follow_relationship(Uid, Ouid) ->
                 true -> ok;
                 false ->
                     ok = model_feed:remove_uid_from_audience(Uid, [Post#post.id]),
-                    ok = model_feed:unsubscribe_uid_to_post(ToUid, [Post#post.id])
+                    ok = model_feed:unsubscribe_uid_to_post(Uid, [Post#post.id])
             end
     end,
     ok.
