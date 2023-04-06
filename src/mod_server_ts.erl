@@ -56,7 +56,7 @@ user_send_packet({#pb_msg{id = MsgId, from_uid = FromUid, to_uid = ToUid} = Pack
     PayloadType = util:get_payload_type(Packet),
     Timestamp = util:now(),
     Packet1 = util:set_timestamp(Packet, Timestamp),
-    ?INFO("setting timestamp MsgId: ~p Ts: ~p", [MsgId, PayloadType, Timestamp]),
+    ?INFO("setting timestamp MsgId: ~p PayloadType: ~p Ts: ~p", [MsgId, PayloadType, Timestamp]),
     ?INFO("FromUid: ~p PayloadType: ~p ToUid: ~p, MsgId: ~p", [FromUid, PayloadType, ToUid, MsgId]),
     {Packet1, State};
 
