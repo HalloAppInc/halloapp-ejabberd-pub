@@ -36,7 +36,7 @@
 -define(REJECTED_SUGGESTION_EXPIRATION, 90 * ?DAYS).
 
 %% Thresholds for defining an active user for purposes of campus ambassador recruitment
--define(ACTIVE_USER_MIN_FOLLOWERS, 5).
+-define(ACTIVE_USER_MIN_FOLLOWING, 5).
 -define(ACTIVE_USER_MIN_POSTS, 1).
 
 -ifdef(TEST).
@@ -2032,9 +2032,20 @@ get_user_activity_info(Usernames) ->
                 end,
                 {#{}, true},
                 #{
-                    num_followers => {fun model_follow:get_followers_count/1, fun(N) -> N >= ?ACTIVE_USER_MIN_FOLLOWERS end},
-                    num_posts => {fun model_feed:get_num_posts/1, fun(N) -> N >= ?ACTIVE_USER_MIN_POSTS end},
-                    geotag => {fun get_latest_geo_tag/1, fun(T) -> T =/= undefined end}
+                    contacts_perm => {fun(U) -> model_accounts:is_permission_enabled(U, contacts) end, fun(Bool) -> Bool end},
+                    notifs_perm => {fun(U) -> model_accounts:is_permission_enabled(U, notifications) end, fun(Bool) -> Bool end},
+                    location_perm => {
+                        fun(U) ->
+                            LocationEnabled = model_accounts:is_permission_enabled(U, location),
+                            Geotagged = undefined =/= get_latest_geo_tag(U),
+                            LocationEnabled orelse Geotagged
+                        end,
+                        fun(Bool) -> Bool end
+                    },
+                    num_following => {fun model_follow:get_following_count/1, fun(N) -> N >= ?ACTIVE_USER_MIN_FOLLOWING end},
+                    avatar => {fun(U) -> get_avatar_id_binary(U) =/= <<>> end, fun(Bool) -> Bool end},
+                    ig => {fun(U) -> maps:get(instagram, get_links(U), <<>>) end, fun(IG) -> IG =/= <<>> end},
+                    num_posts => {fun model_feed:get_num_posts/1, fun(N) -> N >= ?ACTIVE_USER_MIN_POSTS end}
                 }),
             DataMap#{uid => Uid, active => IsActive}
         end,

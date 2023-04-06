@@ -2117,8 +2117,10 @@ process_username_query(Query) ->
 		end,
 		re:split(RawUsernames, <<"\s+">>)),
 	InfoMap = model_accounts:get_user_activity_info(Usernames),
+	Hdr = fun(T) -> ?XTH(util:to_binary(T)) end,
 	Headers = [
-		?XTR([?XTHA(?CLASS(<<"head">>), ?T("Username")), ?XTH(?T("Uid")), ?XTH(?T("# Followers")), ?XTH(?T("# Posts")), ?XTH(?T("Geotag")), ?XTH(?T("Active"))])
+		?XTR([?XTHA(?CLASS(<<"head">>), ?T("Username")), Hdr("Uid"), Hdr("Enabled Contacts"), Hdr("Enabled Location"),
+			Hdr("Enabled Notifications"), Hdr("# Following"), Hdr("Profile Pic"), Hdr("IG Handle"), Hdr("# Posts"), Hdr("Active")])
 	],
 	{Table, _} = lists:mapfoldl(
 		fun({Username, #{active := IsActive} = Map}, Index) ->
@@ -2129,9 +2131,13 @@ process_username_query(Query) ->
 			{?XTRA(RowAttr, [
 				?XTD(Username),
 				format_column(uid, Map, <<"none">>),
-				format_column(num_followers, Map),
+				format_column(contacts_perm, Map),
+				format_column(location_perm, Map),
+				format_column(notifs_perm, Map),
+				format_column(num_following, Map),
+				format_column(avatar, Map),
+				format_column(ig, Map),
 				format_column(num_posts, Map),
-				format_column(geotag, Map),
 				?XTD(util:to_binary(IsActive))
 			]), Index + 1}
 		end,
