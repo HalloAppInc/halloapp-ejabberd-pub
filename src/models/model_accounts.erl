@@ -2082,7 +2082,7 @@ is_permission_enabled(Uid, Permission) ->
         notifications -> ?FIELD_NOTIFICATIONS_PERMISSION
     end,
     {ok, Res} = q(["HGET", account_key(Uid), Field]),
-    util_redis:decode_boolean(Res).
+    util_redis:decode_boolean(Res, false).
 
 
 inc_num_posts(Uid) ->

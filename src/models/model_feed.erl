@@ -1406,8 +1406,8 @@ get_recent_user_posts(Uid) ->
 
 -spec get_num_posts_in_last_7_days(uid()) -> non_neg_integer().
 get_num_posts_in_last_7_days(Uid) ->
-    SevenDaysAgo = util:now() - (7 * ?DAYS),
-    {ok, AllPostIds} = q(["ZRANGE", reverse_post_key(Uid), SevenDaysAgo, "+inf", "BYSCORE"]),
+    SevenDaysAgoMs = util:now_ms() - (7 * ?DAYS_MS),
+    {ok, AllPostIds} = q(["ZRANGE", reverse_post_key(Uid), SevenDaysAgoMs, "+inf", "BYSCORE"]),
     length(AllPostIds).
 
 
