@@ -566,6 +566,21 @@ process_admin(Host, #request{path = [<<"user_activity">> | _Rest], q = Query, la
 		), ?BR
 	],
 	make_xhtml(Html ++ Info, Host, Lang, AJID);
+
+process_admin(Host, #request{path = [<<"ambassadors">> | _Rest], q = Query, lang = Lang}, AJID) ->
+	Info = process_ambassador_query(Query),
+	Html = [
+		?XCT(<<"h1">>, ?T("Ambassaors")), ?BR,
+		?XAE(<<"form">>, [{<<"method">>, <<"get">>}],
+			[?XAC(<<"label">>, [{<<"for">>, <<"username">>}],
+				"Enter a list of usernames each separated by whitespace"),
+				?BR,
+				?INPUT(<<"text">>, <<"username">>, <<>>),
+				?INPUT(<<"submit">>, <<>>, <<"Submit usernames">>)]
+		), ?BR
+	],
+	make_xhtml(Html ++ Info, Host, Lang, AJID);
+
 %%%==================================
 %%%% process_admin default case
 process_admin(Host, #request{path = _Path, lang = Lang} = Request, AJID) ->
@@ -2146,15 +2161,67 @@ process_username_query(Query) ->
 	[?TABLE(<<>>, ?CLASS(<<"user_activity_table">>), Headers ++ Table)].
 
 
+process_ambassador_query([{nokey, _}]) -> [];
+process_ambassador_query(Query) ->
+	[{<<"username">>, RawUsernames} | _] = Query,
+	Usernames = lists:filtermap(
+		fun(U) ->
+			case U of
+				<<>> -> false;
+				_ -> {true, string:lowercase(U)}
+			end
+		end,
+		re:split(RawUsernames, <<"\s+">>)),
+	Hdr = fun(T) -> ?XTH(util:to_binary(T)) end,
+	Headers = [
+		?XTR([?XTHA(?CLASS(<<"head">>), ?T("Username")), Hdr("Uid"), Hdr("# Posts in Last 7 Days"), Hdr("Meets Requirements")])
+	],
+	UsernameToUidMap = model_accounts:get_username_uids(Usernames),
+	{Table1, _} = lists:mapfoldl(
+		fun({Username, Uid}, Index) ->
+			NumRecentPosts = model_feed:get_num_posts_in_last_7_days(Uid),
+			TableRow = case NumRecentPosts >= 6 of
+				true ->
+					?XTRA(?NTH_ROW_CLASS(Index), [
+						?XTD(Username),
+						?XTD(Uid),
+						?XTD(util:to_binary(NumRecentPosts)),
+						?XTD(<<"true">>)
+					]);
+				false ->
+					?XTRA(?CLASS(<<"redrow">>), [
+						?XTD(Username),
+						?XTD(Uid),
+						?XTDA(?BOLD_YELLOW_ATTR, util:to_binary(NumRecentPosts)),
+						?XTD(<<"false">>)
+					])
+			end,
+			{TableRow, Index + 1}
+		end,
+		1,
+		maps:to_list(UsernameToUidMap)),
+	%% Add usernames that didn't match to a uid
+	Table2 = lists:map(
+		fun(BadUsername) ->
+			?XTRA(?CLASS(<<"redrow">>), [
+				?XTD(BadUsername),
+				?XTDA(?BOLD_YELLOW_ATTR, <<"none">>),
+				?XTD(<<>>),
+				?XTD(<<"false">>)
+			])
+		end,
+		Usernames -- maps:keys(UsernameToUidMap)),
+	[?TABLE(<<>>, ?CLASS(<<"ambassadors_table">>), Headers ++ Table1 ++ Table2)].
+
+
 format_column(Key, Map) ->
 	format_column(Key, Map, <<>>).
 
 format_column(Key, Map, NoneRes) ->
-	BoldYellowAttr = ?ATTR(<<"style">>, <<"font-weight:bold;color:#ffff00">>),
 	case maps:get(Key, Map, undefined) of
 		{ok, Res} -> ?XTD(Res);
-		{fail, Res} -> ?XTDA(BoldYellowAttr, Res);
-		undefined -> ?XTDA(BoldYellowAttr, NoneRes);
+		{fail, Res} -> ?XTDA(?BOLD_YELLOW_ATTR, Res);
+		undefined -> ?XTDA(?BOLD_YELLOW_ATTR, NoneRes);
 		Uid -> ?XTD(Uid)
 	end.
 

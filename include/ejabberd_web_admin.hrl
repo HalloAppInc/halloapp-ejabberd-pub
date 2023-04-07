@@ -131,3 +131,7 @@
 % td with a link inside
 -define(XTDL(Link, Text), ?XE(<<"td">>, [?A(Link, [?C(Text)])])).
 
+%% Styles
+
+-define(BOLD_YELLOW_ATTR, ?ATTR(<<"style">>, <<"font-weight:bold;color:#ffff00">>)).
+

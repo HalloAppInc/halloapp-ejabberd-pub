@@ -73,6 +73,7 @@
     get_7day_group_feed/1,
     get_entire_group_feed/1,
     get_recent_user_posts/1,
+    get_num_posts_in_last_7_days/1,
     get_user_latest_post/1,
     get_latest_posts/1,
     get_psa_tag_posts/1,
@@ -1401,6 +1402,13 @@ get_recent_user_posts(Uid) ->
             ?ERROR("Unexpected recent post history for ~s: ~p | partitioned: ~p", [Uid, FinalPosts, Res]),
             lists:sublist(FinalPosts, 4)
     end.
+
+
+-spec get_num_posts_in_last_7_days(uid()) -> non_neg_integer().
+get_num_posts_in_last_7_days(Uid) ->
+    SevenDaysAgo = util:now() - (7 * ?DAYS),
+    {ok, AllPostIds} = q(["ZRANGE", reverse_post_key(Uid), SevenDaysAgo, "+inf", "BYSCORE"]),
+    length(AllPostIds).
 
 
 -spec get_user_latest_post(Uid :: uid()) -> maybe(post()).
