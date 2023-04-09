@@ -90,14 +90,15 @@ get_prompt_and_mark_used(Type) ->
                 fun({PromptId, BinTimestamp}, {OldestPrompt, OldestPromptTimestamp}) ->
                     Timestamp = util_redis:decode_int(BinTimestamp),
                     case Timestamp < OldestPromptTimestamp of
-                        true -> PromptId;
-                        false -> OldestPrompt
+                        true -> {PromptId, Timestamp};
+                        false -> {OldestPrompt, OldestPromptTimestamp}
                     end
                 end,
                 {<<"WYD?">>, 9223372036854775807},  %% 64-bit max int – Timestamp should always be less
                 UsedPrompts),
             ?ERROR("No usable ~p prompts, chose oldest promptId: ~p", [Type]),
-            alerts:send_no_prompts_alert(util:to_binary(Type), ChosenPromptId),
+            %% some crash in the following line. todo: fix it separately.
+            %% alerts:send_no_prompts_alert(util:to_binary(Type), ChosenPromptId),
             ChosenPromptId;
         _ ->
             ChosenPromptId = lists:nth(rand:uniform(length(PromptIdsToChooseFrom)), PromptIdsToChooseFrom),
