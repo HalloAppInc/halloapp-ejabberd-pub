@@ -96,7 +96,7 @@ get_prompt_and_mark_used(Type) ->
                 end,
                 {<<"WYD?">>, 9223372036854775807},  %% 64-bit max int – Timestamp should always be less
                 UsedPrompts),
-            ?ERROR("No usable ~p prompts, chose oldest promptId: ~p", [Type]),
+            ?ERROR("No usable ~p prompts, chose oldest promptId: ~p", [Type, ChosenPromptId]),
             %% some crash in the following line. todo: fix it separately.
             %% alerts:send_no_prompts_alert(util:to_binary(Type), ChosenPromptId),
             ChosenPromptId;
