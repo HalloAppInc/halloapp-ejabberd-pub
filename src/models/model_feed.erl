@@ -1285,6 +1285,7 @@ overwrite_moment_info(Date, NewId, NewMinsToSend, NewType, NewPromptId) ->
         false ->
             Date - TodayDate
     end,
+    ?INFO("TodayDate: ~p, Date: ~p, DaysDifference: ~p", [TodayDate, Date, DaysDifference]),
     case get_moment_info(util:now() + (DaysDifference * ?DAYS), false) of
         undefined ->
             io:format("No moment info associated with date: ~p", [Date]);

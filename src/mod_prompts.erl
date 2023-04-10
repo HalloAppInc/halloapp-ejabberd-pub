@@ -86,7 +86,7 @@ get_prompt_and_mark_used(Type) ->
     case PromptIdsToChooseFrom of
         [] ->
             %% Choose prompt that was used most amount of time ago
-            ChosenPromptId = lists:foldl(
+            {ChosenPromptId, _} = lists:foldl(
                 fun({PromptId, BinTimestamp}, {OldestPrompt, OldestPromptTimestamp}) ->
                     Timestamp = util_redis:decode_int(BinTimestamp),
                     case Timestamp < OldestPromptTimestamp of
@@ -150,6 +150,12 @@ get_album_prompts() ->
                 id = <<"album.2">>,
                 text = <<"a nostalgic memory">>,
                 reuse_after = 6 * ?MONTHS
+            },
+        <<"album.3">> =>
+            #prompt{
+                id = <<"album.3">>,
+                text = <<" 🐶 🐱 🦎 🐥 🐿 ❓">>,
+                reuse_after = 6 * ?MONTHS
             }
     }.
 
@@ -203,6 +209,22 @@ get_text_prompts() ->
                 ai_image_model = ?STABLE_DIFFUSION_1_5,
                 prompt_wrapper = fun(T) -> <<T/binary, " superpower, in the style of roy lichtenstein, 8K, hyper-detailed and intricate, realistic shaded">> end,
                 negative_prompt = <<"disfigured faces, bad eyes, extra fingers">>
+            },
+        <<"text.9">> =>
+            #prompt{
+                id = <<"text.9">>,
+                text = <<"what pokemon would make a bad roommate?">>,
+                reuse_after = 6 * ?MONTHS,
+                ai_image_model = ?STABLE_DIFFUSION_1_5,
+                prompt_wrapper = fun(T) -> <<T/binary, " pokemon, hyper detailed and intricate, 8K">> end,
+                negative_prompt = <<"disfigured faces">>
+            },
+        <<"text.10">> =>
+            #prompt{
+                id = <<"text.10">>,
+                text = <<"favorite home remedy for a cold?">>,
+                reuse_after = 6 * ?MONTHS,
+                ai_image_model = ?STABLE_DIFFUSION_1_5
             }
     }.
 
