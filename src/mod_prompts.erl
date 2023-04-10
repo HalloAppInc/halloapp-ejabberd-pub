@@ -216,8 +216,8 @@ get_text_prompts() ->
                 text = <<"what pokemon would make a bad roommate?">>,
                 reuse_after = 6 * ?MONTHS,
                 ai_image_model = ?STABLE_DIFFUSION_1_5,
-                prompt_wrapper = fun(T) -> <<T/binary, " pokemon, hyper detailed and intricate, 8K">> end,
-                negative_prompt = <<"disfigured faces">>
+                prompt_wrapper = fun(T) -> <<T/binary, " pokemon, 8K">> end,
+                negative_prompt = <<"disfigured faces, faces">>
             },
         <<"text.10">> =>
             #prompt{
