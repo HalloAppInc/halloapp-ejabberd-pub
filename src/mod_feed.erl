@@ -324,7 +324,7 @@ process_local_iq(#pb_iq{from_uid = Uid, payload = #pb_public_feed_request{cursor
     GeoTag = model_accounts:get_latest_geo_tag(Uid),
     GeoTags = case GeoTag of
         undefined -> [];
-        _ -> [GeoTag]
+        _ -> [util:to_binary(GeoTag)]
     end,
     {ReloadFeed, NewCursor, PublicMoments, MomentScoresMap} = get_ranked_public_moments(Uid, GeoTag, util:now_ms(), Cursor, ?NUM_PUBLIC_FEED_ITEMS_PER_REQUEST, ShowDevContent, false),
     model_feed:set_last_cursor(Uid, NewCursor),
@@ -336,7 +336,8 @@ process_local_iq(#pb_iq{from_uid = Uid, payload = #pb_public_feed_request{cursor
         public_feed_content_type = moments,
         cursor_restarted = ReloadFeed,
         items = PublicFeedItems,
-        geo_tags = GeoTags
+        % geo_tags = GeoTags
+        %% todo: clients may have old proto - so dont send this field for now.
     },
     ?INFO("Successful public feed response: Uid ~s, NewCursor ~p, Tag ~p NumItems ~p",
         [Uid, NewCursor, GeoTag, length(PublicFeedItems)]),

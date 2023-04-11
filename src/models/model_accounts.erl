@@ -1345,7 +1345,7 @@ get_basic_user_profiles(Uids, Ouid) when is_list(Uids) ->
     %% TODO: Get the latest geo_tag only for now.
     GeoTags = case model_accounts:get_latest_geo_tag(Ouid) of
         undefined -> [];
-        Res -> [Res]
+        Res -> [util:to_binary(Res)]
     end,
     OFollowersSet = sets:from_list(model_follow:get_all_followers(Ouid) -- [Ouid]),
     Commands = lists:flatmap(
@@ -1429,7 +1429,7 @@ get_basic_user_profile(Uid, Ouid) ->
     ]),
     GeoTags = case model_accounts:get_latest_geo_tag(Ouid) of
         undefined -> [];
-        Res -> [Res]
+        Res -> [util:to_binary(Res)]
     end,
     FollowerStatus = case util_redis:decode_int(IsFollower) of
         undefined -> none;
@@ -1505,7 +1505,7 @@ get_user_profile(Uid, Ouid) ->
     ]),
     GeoTags = case model_accounts:get_latest_geo_tag(Ouid) of
         undefined -> [];
-        Res -> [Res]
+        Res -> [util:to_binary(Res)]
     end,
     FollowerStatus = case util_redis:decode_int(IsFollower) of
         undefined -> none;

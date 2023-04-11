@@ -244,7 +244,7 @@ process_geo_tag_request(Uid, Action, GpsLocation, GeoTag, Iq) ->
                 undefined -> [];
                 GeoTag ->
                     model_accounts:add_geo_tag(Uid, GeoTag, util:now()),
-                    [GeoTag]
+                    [util:to_binary(GeoTag)]
             end,
             {
                 #pb_geo_tag_response{
@@ -278,7 +278,7 @@ process_geo_tag_request(Uid, Action, GpsLocation, GeoTag, Iq) ->
                 undefined -> [];
                 GeoTag ->
                     model_accounts:add_geo_tag(Uid, GeoTag, util:now()),
-                    [GeoTag]
+                    [util:to_binary(GeoTag)]
             end,
             {
                 #pb_geo_tag_response{
