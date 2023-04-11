@@ -335,7 +335,7 @@ process_local_iq(#pb_iq{from_uid = Uid, payload = #pb_public_feed_request{cursor
         cursor = NewCursor,
         public_feed_content_type = moments,
         cursor_restarted = ReloadFeed,
-        items = PublicFeedItems,
+        items = PublicFeedItems
         % geo_tags = GeoTags
         %% todo: clients may have old proto - so dont send this field for now.
     },
