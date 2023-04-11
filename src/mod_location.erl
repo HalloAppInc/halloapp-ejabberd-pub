@@ -19,7 +19,9 @@
 
 %% Hooks and API.
 -export([
-    get_geo_tag/2
+    get_geo_tag/2,
+    get_geo_tag/3,
+    map_geo_tags/2
 ]).
 
 
@@ -45,9 +47,12 @@ mod_options(_Host) ->
 %% feed: IQs
 %%====================================================================
 
--spec get_geo_tag(Uid :: binary(), GpsLocation :: pb_gps_location()) -> atom().
-get_geo_tag(_Uid, GpsLocation) when GpsLocation =:= undefined -> undefined;
-get_geo_tag(Uid, GpsLocation = #pb_gps_location{latitude = Latitude, longitude = Longitude}) ->
+get_geo_tag(Uid, GpsLocation) ->
+    get_geo_tag(Uid, GpsLocation, true).
+
+-spec get_geo_tag(Uid :: binary(), GpsLocation :: pb_gps_location(), FilterBlocked :: boolean()) -> atom().
+get_geo_tag(_Uid, GpsLocation, _FilterBlocked) when GpsLocation =:= undefined -> undefined;
+get_geo_tag(Uid, GpsLocation = #pb_gps_location{latitude = Latitude, longitude = Longitude}, FilterBlocked) ->
     GpsCoordinates = {Latitude, Longitude},
     TaggedLocations = get_tagged_locations(),
     GeoTag = lists:foldl(
@@ -63,8 +68,16 @@ get_geo_tag(Uid, GpsLocation = #pb_gps_location{latitude = Latitude, longitude =
             end,
             undefined,
             TaggedLocations),
-    ?INFO("Uid: ~p, GpsLocation: ~p, GeoTag assigned: ~p", [Uid, GpsLocation, GeoTag]),
-    GeoTag.
+    FinalGeoTag = case FilterBlocked of
+        false -> GeoTag;
+        true ->
+            case sets:is_element(GeoTag, sets:from_list(model_accounts:get_blocked_geo_tags(Uid))) of
+                true -> undefined;
+                false -> GeoTag
+            end
+    end,
+    ?INFO("Uid: ~p, GpsLocation: ~p, GeoTag assigned: ~p", [Uid, GpsLocation, FinalGeoTag]),
+    FinalGeoTag.
 
 
 %% Currently, our shapes must be convex polygons to satisfy the is_location_interior algo.
@@ -82,12 +95,12 @@ get_tagged_locations() ->
          {34.056059, -118.419916},
          {34.079122, -118.433941},
          {34.078689, -118.453409}]},
-    {pepperd,
+    {pepperdine,
         [{34.032596, -118.719939},
          {34.033628, -118.700112},
          {34.050839, -118.700670},
          {34.049915, -118.724660}]},
-    {pepperd,
+    {pepperdine,
         [{33.973472, -118.394384},
          {33.973971, -118.388364},
          {33.978413, -118.388470},
@@ -102,12 +115,12 @@ get_tagged_locations() ->
          {33.743926, -118.093462},
          {33.793045, -118.088869},
          {33.792736, -118.130826}]},
-    {ucdav,
+    {ucdavis,
         [{38.530611, -121.795374},
          {38.525800, -121.703687},
          {38.555099, -121.701078},
          {38.557285, -121.811774}]},
-    {ucbkly,
+    {ucberkeley,
         [{37.852175, -122.276108},
          {37.861299, -122.225091},
          {37.885667, -122.233477},
@@ -132,12 +145,22 @@ get_tagged_locations() ->
          {33.984794, -118.403582},
          {33.957656, -118.402818},
          {33.956849, -118.433179}]},
-    {askokau,
+    {ashokau,
         [{28.943083, 77.099534},
          {28.943766, 77.104514},
          {28.951757, 77.104743},
          {28.950994, 77.097699}]}
     ].
+
+
+%% Function to manually run for pepperdine, ucdavis, ucberkeley, ashokau
+map_geo_tags(OldGeoTag, NewGeoTag) ->
+    AllUids = model_accounts:get_geotag_uids(OldGeoTag),
+    lists:foreach(
+        fun(Uid) ->
+            model_accounts:add_geo_tag(Uid, NewGeoTag, util:now())
+        end, AllUids),
+    ok.
 
 
 %% Checks if the point is on the left side of each line.

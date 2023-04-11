@@ -322,6 +322,10 @@ process_local_iq(#pb_iq{from_uid = Uid, payload = #pb_public_feed_request{cursor
     end,
     %% Fetch latest geotag, public moments (convert them to pb feed items) and calculate cursor
     GeoTag = model_accounts:get_latest_geo_tag(Uid),
+    GeoTags = case GeoTag of
+        undefined -> [];
+        _ -> [GeoTag]
+    end,
     {ReloadFeed, NewCursor, PublicMoments, MomentScoresMap} = get_ranked_public_moments(Uid, GeoTag, util:now_ms(), Cursor, ?NUM_PUBLIC_FEED_ITEMS_PER_REQUEST, ShowDevContent, false),
     model_feed:set_last_cursor(Uid, NewCursor),
     PublicFeedItems = lists:map(fun(PublicMoment) -> convert_moments_to_public_feed_items(Uid, PublicMoment, MomentScoresMap) end, PublicMoments),
@@ -332,7 +336,7 @@ process_local_iq(#pb_iq{from_uid = Uid, payload = #pb_public_feed_request{cursor
         public_feed_content_type = moments,
         cursor_restarted = ReloadFeed,
         items = PublicFeedItems,
-        geo_tag = util:to_binary(GeoTag)
+        geo_tags = GeoTags
     },
     ?INFO("Successful public feed response: Uid ~s, NewCursor ~p, Tag ~p NumItems ~p",
         [Uid, NewCursor, GeoTag, length(PublicFeedItems)]),

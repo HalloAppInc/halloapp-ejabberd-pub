@@ -39,6 +39,7 @@ start(_Host, _Opts) ->
     gen_iq_handler:add_iq_handler(ejabberd_local, ?KATCHUP, pb_set_link_request, ?MODULE, process_local_iq),
     gen_iq_handler:add_iq_handler(ejabberd_local, ?KATCHUP, pb_user_profile_request, ?MODULE, process_local_iq),
     gen_iq_handler:add_iq_handler(ejabberd_local, ?KATCHUP, pb_archive_request, ?MODULE, process_local_iq),
+    gen_iq_handler:add_iq_handler(ejabberd_local, ?KATCHUP, pb_geo_tag_request, ?MODULE, process_local_iq),
     ejabberd_hooks:add(account_name_updated, katchup, ?MODULE, account_name_updated, 50),
     ejabberd_hooks:add(user_avatar_published, katchup, ?MODULE, user_avatar_published, 50),
     ejabberd_hooks:add(username_updated, katchup, ?MODULE, username_updated, 50),
@@ -49,6 +50,7 @@ stop(_Host) ->
     gen_iq_handler:remove_iq_handler(ejabberd_local, ?KATCHUP, pb_set_link_request),
     gen_iq_handler:remove_iq_handler(ejabberd_local, ?KATCHUP, pb_user_profile_request),
     gen_iq_handler:remove_iq_handler(ejabberd_local, ?KATCHUP, pb_archive_request),
+    gen_iq_handler:remove_iq_handler(ejabberd_local, ?KATCHUP, pb_geo_tag_request),
     ejabberd_hooks:delete(account_name_updated, katchup, ?MODULE, account_name_updated, 50),
     ejabberd_hooks:delete(user_avatar_published, katchup, ?MODULE, user_avatar_published, 50),
     ejabberd_hooks:delete(username_updated, katchup, ?MODULE, username_updated, 50),
@@ -137,7 +139,13 @@ process_local_iq(#pb_iq{payload = #pb_archive_request{}} = Iq) ->
         result = fail,
         reason = invalid_user
     },
-    pb:make_iq_result(Iq, Ret).
+    pb:make_iq_result(Iq, Ret);
+
+
+%% UserProfileRequest (invalid)
+process_local_iq(#pb_iq{from_uid = Uid,
+        payload = #pb_geo_tag_request{action = Action, gps_location = GpsLocation, geo_tag = GeoTag}} = Iq) ->
+    process_geo_tag_request(Uid, Action, GpsLocation, GeoTag, Iq).
 
 %%====================================================================
 %% Hooks
@@ -225,6 +233,67 @@ compose_user_archive_result(_Uid, Ouid) ->
         uid = Ouid,
         posts = ArchivePostStanzas
     }.
+
+
+process_geo_tag_request(Uid, Action, GpsLocation, GeoTag, Iq) ->
+    CurrentGeoTag = model_accounts:get_latest_geo_tag(Uid),
+    {Ret, SendBroadcast} = case Action of
+        get ->
+            GeoTag = mod_location:get_geo_tag(Uid, GpsLocation),
+            GeoTags = case GeoTag of
+                undefined -> [];
+                GeoTag ->
+                    model_accounts:add_geo_tag(Uid, GeoTag, util:now()),
+                    [GeoTag]
+            end,
+            {
+                #pb_geo_tag_response{
+                    result = ok,
+                    geo_tags = GeoTags
+                },
+                CurrentGeoTag =/= GeoTag
+            };
+        block ->
+            case GeoTag of
+                undefined ->
+                    {
+                        #pb_geo_tag_response{
+                            result = fail,
+                            reason = invalid_request
+                        },
+                        false
+                    };
+                _ ->
+                    ok = model_accounts:block_geo_tag(Uid, GeoTag),
+                    {
+                        #pb_geo_tag_response{
+                            result = ok
+                        },
+                        true
+                    }
+            end;
+        force_add ->
+            GeoTag = mod_location:get_geo_tag(Uid, GpsLocation, false),
+            GeoTags = case GeoTag of
+                undefined -> [];
+                GeoTag ->
+                    model_accounts:add_geo_tag(Uid, GeoTag, util:now()),
+                    [GeoTag]
+            end,
+            {
+                #pb_geo_tag_response{
+                    result = ok,
+                    geo_tags = GeoTags
+                },
+                CurrentGeoTag =/= GeoTag
+            }
+
+    end,
+    case SendBroadcast of
+        true -> broadcast_profile_update(Uid);
+        _ -> ok
+    end,
+    pb:make_iq_result(Iq, Ret).
 
 
 %% Broadcasts profile update to followers.

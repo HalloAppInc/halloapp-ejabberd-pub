@@ -288,7 +288,7 @@ message PublicFeedResponse {
     PublicFeedContentType public_feed_content_type = 4;
     bool cursor_restarted = 5;
     repeated PublicFeedItem items = 6; // items are ordered and should be presented in that order.
-    string geo_tag = 7; // Server will include the geo-tag here for counters on client.
+    repeated string geo_tags = 7; // Server will include the updated geo-tags here for client.
 }
 
 
@@ -1157,6 +1157,8 @@ message Iq {
         ArchiveResult archive_result = 69;
         PostSubscriptionRequest post_subscription_request = 70;
         PostSubscriptionResponse post_subscription_response = 71;
+        GeoTagRequest geo_tag_request = 72;
+        GeoTagResponse geo_tag_response = 73;
     }
     int64 to_uid = 29 [ebin = true];    // only for server use
     int64 from_uid = 30 [ebin = true];    // only for server use
@@ -1861,6 +1863,7 @@ message BasicUserProfile {
     FollowStatus following_status = 6;  // am I following uid
     int32 num_mutual_following = 7;
     bool blocked = 8;  // true if I blocked this user
+    repeated string geo_tags = 9;
 }
 
 message UserProfile {
@@ -1878,6 +1881,7 @@ message UserProfile {
     int32 total_post_impressions = 12;
     int32 total_post_reactions = 13;
     int32 total_num_posts = 14;
+    repeated string geo_tags = 15;
 }
 
 message PostMetrics {
@@ -1993,6 +1997,31 @@ message UsernameResponse {
       NOTUNIQ = 3;
   }
   Reason reason = 2;
+}
+
+message GeoTagRequest {
+    enum Action {
+        GET = 0;
+        BLOCK = 1;
+        FORCE_ADD = 2;
+    }
+    Action action = 1;
+    GpsLocation gps_location = 2;
+    string geo_tag = 3;
+}
+
+message GeoTagResponse {
+    enum Result {
+        OK = 0;
+        FAIL = 1;
+    }
+    Result result = 1;
+    enum Reason {
+        UNKNOWN = 0;
+        INVALID_REQUEST = 1;
+    }
+    Reason reason = 2;
+    repeated string geo_tags = 3;
 }
 
 message SearchRequest {

@@ -163,6 +163,10 @@
     start_export/2,
     test_set_export_time/2, % For tests only
     add_geo_tag/3,
+    remove_geo_tag/2,
+    block_geo_tag/2,
+    unblock_geo_tag/2,
+    get_blocked_geo_tags/1,
     get_latest_geo_tag/1,
     get_all_geo_tags/1,
     add_marketing_tag/2,
@@ -1338,6 +1342,11 @@ get_basic_user_profiles(Uids, Ouid) when is_list(Uids) ->
         ["HGET", account_key(Ouid), ?FIELD_NAME],
         ["HGET", account_key(Ouid), ?FIELD_AVATAR_ID]
     ]),
+    %% TODO: Get the latest geo_tag only for now.
+    GeoTags = case model_accounts:get_latest_geo_tag(Ouid) of
+        undefined -> [];
+        Res -> [Res]
+    end,
     OFollowersSet = sets:from_list(model_follow:get_all_followers(Ouid) -- [Ouid]),
     Commands = lists:flatmap(
         fun(Uid) ->
@@ -1370,7 +1379,8 @@ get_basic_user_profiles(Uids, Ouid) when is_list(Uids) ->
                         username = Username,
                         following_status = none,
                         follower_status = none,
-                        blocked = IsBlocked
+                        blocked = IsBlocked,
+                        geo_tags = GeoTags
                     };
                 false ->
                     FollowingSet = sets:from_list(model_follow:get_all_following(Uid) -- [Uid]),
@@ -1417,6 +1427,10 @@ get_basic_user_profile(Uid, Ouid) ->
         ["ZSCORE", model_follow:following_key(Uid), Ouid],
         ["SISMEMBER", model_follow:blocked_key(Uid), Ouid]
     ]),
+    GeoTags = case model_accounts:get_latest_geo_tag(Ouid) of
+        undefined -> [];
+        Res -> [Res]
+    end,
     FollowerStatus = case util_redis:decode_int(IsFollower) of
         undefined -> none;
         0 -> none;
@@ -1440,7 +1454,8 @@ get_basic_user_profile(Uid, Ouid) ->
         following_status = FollowingStatus,
         %% mutuals for B as seen by A is the number of followers of B whom A follows.
         num_mutual_following = sets:size(RelevantFollowerSet),
-        blocked = util_redis:decode_boolean(IsBlocked)
+        blocked = util_redis:decode_boolean(IsBlocked),
+        geo_tags = GeoTags
     }.
 
 
@@ -1488,6 +1503,10 @@ get_user_profile(Uid, Ouid) ->
         ["GET", num_comments_key(Uid)],
         ["GET", num_posts_key(Uid)]
     ]),
+    GeoTags = case model_accounts:get_latest_geo_tag(Ouid) of
+        undefined -> [];
+        Res -> [Res]
+    end,
     FollowerStatus = case util_redis:decode_int(IsFollower) of
         undefined -> none;
         0 -> none;
@@ -1537,7 +1556,8 @@ get_user_profile(Uid, Ouid) ->
         blocked = util_redis:decode_boolean(IsBlocked),
         total_post_impressions = util:to_integer_zero(TotalPostImpressions),
         total_post_reactions = util:to_integer_zero(TotalPostReactions),
-        total_num_posts = util:to_integer_zero(TotalNumPosts)
+        total_num_posts = util:to_integer_zero(TotalNumPosts),
+        geo_tags = GeoTags
     }.
 
 
@@ -1926,13 +1946,46 @@ remove_geo_tags(Uid) ->
 
 
 -spec add_geo_tag(Uid :: uid(), Tag :: atom(), Timestamp :: integer()) -> ok.
+add_geo_tag(_, undefined, _) -> ok;
 add_geo_tag(Uid, Tag, Timestamp) ->
     ExpiredTs = util:now() - ?GEO_TAG_EXPIRATION,
     Key = geo_tag_key(Uid),
+    unblock_geo_tag(Uid, Tag),
     qp([["ZADD", Key, Timestamp, Tag],
         ["ZREMRANGEBYSCORE", Key, "-inf", ExpiredTs]]),
     update_geo_tag_index(Uid, Tag),
     ok.
+
+
+-spec remove_geo_tag(Uid :: uid(), Tag :: atom()) -> ok.
+remove_geo_tag(Uid, Tag) ->
+    HashSlot = util_redis:eredis_hash(binary_to_list(Uid)),
+    UidSlot = HashSlot rem ?NUM_SLOTS,
+    [{ok, _}, {ok, _}] = qp([
+            ["ZREM", geo_tag_key(Uid), Tag],
+            ["ZREM", geotag_index_key(UidSlot, Tag), Uid]]),
+    ok.
+
+
+-spec block_geo_tag(Uid :: uid(), Tag :: atom()) -> ok.
+block_geo_tag(Uid, Tag) ->
+    Timestamp = util:now(),
+    {ok, _} = q(["ZADD", blocked_geo_tag_key(Uid), Timestamp, Tag]),
+    remove_geo_tag(Uid, Tag),
+    ok.
+
+
+-spec unblock_geo_tag(Uid :: uid(), Tag :: atom()) -> ok.
+unblock_geo_tag(Uid, Tag) ->
+    {ok, _} = q(["ZREM", blocked_geo_tag_key(Uid), Tag]),
+    ok.
+
+
+-spec get_blocked_geo_tags(Uid :: uid()) -> [atom()].
+get_blocked_geo_tags(Uid) ->
+    {ok, Tags} = q(["ZRANGE", blocked_geo_tag_key(Uid), "0", "-1"]),
+    lists:map(fun util:to_atom/1, Tags).
+
 
 -spec get_latest_geo_tag(Uid :: uid() | [uid()]) -> maybe(atom()) | #{}.
 get_latest_geo_tag([]) -> #{};
@@ -2211,6 +2264,10 @@ marketing_tag_key(Uid) ->
 
 geo_tag_key(Uid) ->
     <<?GEO_TAG_KEY/binary, "{", Uid/binary, "}">>.
+
+
+blocked_geo_tag_key(Uid) ->
+    <<?BLOCKED_GEO_TAG_KEY/binary, "{", Uid/binary, "}">>.
 
 
 rejected_suggestion_key(Uid) ->

@@ -94,6 +94,7 @@
 -define(REVERSE_STATIC_KEY_KEY, <<"rskk:">>).
 
 -define(GEO_TAG_KEY, <<"geo:">>).
+-define(BLOCKED_GEO_TAG_KEY, <<"bgeo:">>).
 -define(REJECTED_SUGGESTIONS_KEY, <<"rjs:">>).
 
 % old deleted/deprecated keys
