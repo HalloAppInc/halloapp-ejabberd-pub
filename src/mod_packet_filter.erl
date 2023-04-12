@@ -146,7 +146,7 @@ check_content_version_rules(Platform, ClientVersion, PayloadType, Message) ->
             end;
         #pb_packet{stanza = #pb_msg{payload = #pb_moment_notification{prompt = Prompt}}} ->
             %% Filter out problematic messages from peoples offline queues.
-            case Prompt =:= <<32,240,159,144,182,32,240,159,144,177,32,240,159,166,142,32,240,159,144,165,32,240,159,144,191,32,226,157,147>> of
+            case Prompt =:= <<32,54,32,49,32,142,32,37,32,63,32,83>> of
                 true -> false;
                 false -> true
             end;
