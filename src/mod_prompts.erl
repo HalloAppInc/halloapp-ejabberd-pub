@@ -154,7 +154,7 @@ get_album_prompts() ->
         <<"album.3">> =>
             #prompt{
                 id = <<"album.3">>,
-                text = <<" 🐶 🐱 🦎 🐥 🐿 ❓">>,
+                text = <<" 🐶 🐱 🦎 🐥 🐿 ❓"/utf8>>,
                 reuse_after = 6 * ?MONTHS
             }
     }.
