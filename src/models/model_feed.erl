@@ -1241,11 +1241,11 @@ generate_notification_time(DateTimeSecs) ->
     DayOfWeek = calendar:day_of_the_week(Date),
     case DayOfWeek =:= 6 orelse DayOfWeek =:= 7 of
         true ->
-            %% Weekend 9am to 9pm
-            9*60 + rand:uniform(12*60);
+            %% Weekend 9am to 7pm
+            9*60 + rand:uniform(10*60);
         false ->
-            %% from 12 to 1pm or from 3pm to 9pm local time.
-            RandTime = 14*60 + rand:uniform(7*60),
+            %% from 12 to 1pm or from 3pm to 7pm local time.
+            RandTime = 14*60 + rand:uniform(5*60),
             case RandTime < 15*60 of
                 true -> RandTime - 2 * 60;
                 false -> RandTime
@@ -1315,6 +1315,7 @@ overwrite_moment_info(Date, NewId, NewMinsToSend, NewType, NewPromptId) ->
             },
             ?INFO("Date = ~p Replacing old: ~p with new: ~p", [Date, CurrentMomentInfo, NewMomentInfo]),
             qp([
+                ["SET", moment_time_to_send_key(Date), MinsToSend, "EX", ?MOMENT_TAG_EXPIRATION],
                 ["HSET", moment_info_key(Date), ?FIELD_MOMENT_NOTIFICATION_ID, util:to_binary(Id)],
                 ["HSET", moment_info_key(Date), ?FIELD_MOMENT_NOTIFICATION_TYPE, util_moments:moment_type_to_bin(Type)],
                 ["HSET", moment_info_key(Date), ?FIELD_MOMENT_NOTIFICATION_PROMPT_ID, PromptId],
