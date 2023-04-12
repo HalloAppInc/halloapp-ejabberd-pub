@@ -34,7 +34,7 @@
 %%====================================================================
 
 process_iq(#pb_iq{from_uid = Uid, payload = #pb_ai_image_request{text = Prompt, num_images = NumImages,
-        prompt_mode = PromptMode, negative_prompt = NegativePrompt}} = IQ) ->
+        prompt_mode = PromptMode, negative_prompt = RawNegativePrompt}} = IQ) ->
     %% TODO: enforce max number of retries per moment notification
     %% TODO: enforce max time between requests
     RequestId = util_id:new_long_id(),
@@ -56,6 +56,10 @@ process_iq(#pb_iq{from_uid = Uid, payload = #pb_ai_image_request{text = Prompt, 
             false;
         server ->
             true
+    end,
+    NegativePrompt = case RawNegativePrompt of
+        undefined -> <<>>;
+        _ -> RawNegativePrompt
     end,
     request_images(Uid, PromptId, Prompt, NegativePrompt, NumImages, RequestId, PromptHelpersEnabled),
     pb:make_iq_result(IQ, #pb_ai_image_result{result = pending, id = RequestId}).
