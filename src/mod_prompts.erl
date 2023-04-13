@@ -222,9 +222,11 @@ get_text_prompts() ->
         <<"text.10">> =>
             #prompt{
                 id = <<"text.10">>,
-                text = <<"favorite home remedy for a cold?">>,
+                text = <<"If you could ✨magically✨ learn any language, which one would you choose?">>,
                 reuse_after = 6 * ?MONTHS,
-                ai_image_model = ?STABLE_DIFFUSION_1_5
+                ai_image_model = ?STABLE_DIFFUSION_1_5,
+                prompt_wrapper = fun(T) -> <<T/binary, " dialect, landmark, 8k">> end,
+                negative_prompt = <<"disfigured faces, text">>
             }
     }.
 
