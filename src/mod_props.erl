@@ -306,6 +306,11 @@ get_client_based_props(PropMap, halloapp, ios, ClientVersion) ->
 get_client_based_props(PropMap, halloapp, undefined, _) ->
     maps:update(groups, false, PropMap);
 
+get_client_based_props(PropMap, katchup, android, ClientVersion) ->
+    Result1 = util_ua:is_version_greater_than(ClientVersion, <<"Katchup/Android1.10.5">>),
+    PropMap1 = maps:update(ai_generated_images, Result1, PropMap),
+    PropMap1;
+
 get_client_based_props(PropMap, katchup, _, _) ->
     PropMap.
 
