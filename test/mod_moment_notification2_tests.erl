@@ -166,7 +166,7 @@ send_latest_notification_testset(#{uid_neg8 := UidNeg8, uid_gmt := UidGmt}) ->
     %% It is challenging to mock functions being called within their own module
     %% So test util_moment:calculate_notif_timestamp call instead, which has enough
     %% info for us to verify that the correct code was reached
-    #{19 := ExpectedYesterday1, 20 := Expected2DaysAgo, 21 := ExpectedYesterday2} = ?MOMENT_INFO_MAP,
+    #{19 := ExpectedYesterday1, 20 := Expected2DaysAgo, 21 := ExpectedYesterday2, 22 := ExpectedToday} = ?MOMENT_INFO_MAP,
     [
         %% Time = 20:00 UTC on Feb 20, 2023
         ?_assertOk(mod_moment_notification2:send_latest_notification(UidNeg8, 1676923200, false)),
@@ -178,7 +178,11 @@ send_latest_notification_testset(#{uid_neg8 := UidNeg8, uid_gmt := UidGmt}) ->
         ?_assertEqual(2, meck:num_calls(util_moments, calculate_notif_timestamp, '_')),
         ?_assertOk(mod_moment_notification2:send_latest_notification(UidNeg8, 1677038400, false)),
         ?_assert(meck:called(util_moments, calculate_notif_timestamp, [-2, maps:get(mins_to_send, Expected2DaysAgo), -8])),
-        ?_assertEqual(3, meck:num_calls(util_moments, calculate_notif_timestamp, '_'))
+        ?_assertEqual(3, meck:num_calls(util_moments, calculate_notif_timestamp, '_')),
+        %% Time = 18:30 UTC on Feb 22, 2023
+        ?_assertOk(mod_moment_notification2:send_latest_notification(UidNeg8, 1677090600, false)),
+        ?_assert(meck:called(util_moments, calculate_notif_timestamp, [0, maps:get(mins_to_send, ExpectedToday), -8])),
+        ?_assertEqual(4, meck:num_calls(util_moments, calculate_notif_timestamp, '_'))
     ].
 
 

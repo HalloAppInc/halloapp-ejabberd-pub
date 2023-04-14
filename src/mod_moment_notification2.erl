@@ -201,40 +201,52 @@ send_latest_notification(Uid, CurrentTime, HideBanner) ->
     TodayOffsetHr = maps:get(current_offset_hr, TodayInfoMap),
     YesterdayOffsetHr = maps:get(current_offset_hr, YesterdayInfoMap),
 
+    {{_,_,_}, {Hours, Minutes,_}} = calendar:system_time_to_universal_time(CurrentTime, second),
+    CurrentMins = (Hours * 60) + Minutes,
+    CurrentLocalMins = CurrentMins + (OffsetHr * 60),
+
     ?INFO("Sending latest moment notification to ~s with region offset ~p", [Uid, OffsetHr]),
 
+    SendFun = fun(InfoMap, DayOffset) ->
+        PromptRecord = mod_prompts:get_prompt_from_id(maps:get(promptId, InfoMap)),
+        Prompt = PromptRecord#prompt.text,
+        Image = mod_prompts:get_prompt_image_bytes(PromptRecord#prompt.image_id),
+        check_and_send_moment_notification(Uid, Region, maps:get(date, InfoMap), maps:get(notif_id, InfoMap),
+            util_moments:calculate_notif_timestamp(DayOffset, maps:get(mins_to_send, InfoMap), OffsetHr),
+            maps:get(notif_type, InfoMap), Prompt, Image, HideBanner)
+    end,
+
     if
-    %% if Uid is ahead of a certain offset, need to send that moment notif
+    %% if Uid is ahead of a certain offset, need to send that moment notification
+    %% if OffsetHr is equal to the offset for tomorrow, today, or yesterday, check the minutes to
+    %% determine which day's notification needs to be sent
         OffsetHr > TomorrowOffsetHr ->
-            PromptRecord = mod_prompts:get_prompt_from_id(maps:get(promptId, TomorrowInfoMap)),
-            Prompt = PromptRecord#prompt.text,
-            Image = mod_prompts:get_prompt_image_bytes(PromptRecord#prompt.image_id),
-            check_and_send_moment_notification(Uid, Region, maps:get(date, TomorrowInfoMap), maps:get(notif_id, TomorrowInfoMap),
-                util_moments:calculate_notif_timestamp(1, maps:get(mins_to_send, TomorrowInfoMap), OffsetHr),
-                maps:get(notif_type, TomorrowInfoMap), Prompt, Image, HideBanner);
+            SendFun(TomorrowInfoMap, 1);
+        OffsetHr =:= TomorrowOffsetHr ->
+            case CurrentLocalMins > maps:get(mins_to_send, TomorrowInfoMap) of
+                true -> SendFun(TomorrowInfoMap, 1);
+                false -> SendFun(TodayInfoMap, 0)
+            end;
         OffsetHr > TodayOffsetHr ->
-            PromptRecord = mod_prompts:get_prompt_from_id(maps:get(promptId, TodayInfoMap)),
-            Prompt = PromptRecord#prompt.text,
-            Image = mod_prompts:get_prompt_image_bytes(PromptRecord#prompt.image_id),
-            check_and_send_moment_notification(Uid, Region, maps:get(date, TodayInfoMap), maps:get(notif_id, TodayInfoMap),
-                util_moments:calculate_notif_timestamp(0, maps:get(mins_to_send, TodayInfoMap), OffsetHr),
-                maps:get(notif_type, TodayInfoMap), Prompt, Image, HideBanner);
+            SendFun(TodayInfoMap, 0);
+        OffsetHr =:= TodayOffsetHr ->
+            case CurrentLocalMins > maps:get(mins_to_send, TodayInfoMap) of
+                true -> SendFun(TodayInfoMap, 0);
+                false -> SendFun(YesterdayInfoMap, -1)
+            end;
         OffsetHr > YesterdayOffsetHr ->
-            PromptRecord = mod_prompts:get_prompt_from_id(maps:get(promptId, YesterdayInfoMap)),
-            Prompt = PromptRecord#prompt.text,
-            Image = mod_prompts:get_prompt_image_bytes(PromptRecord#prompt.image_id),
-            check_and_send_moment_notification(Uid, Region, maps:get(date, YesterdayInfoMap), maps:get(notif_id, YesterdayInfoMap),
-                util_moments:calculate_notif_timestamp(-1, maps:get(mins_to_send, YesterdayInfoMap), OffsetHr),
-                maps:get(notif_type, YesterdayInfoMap), Prompt, Image, HideBanner);
+            SendFun(YesterdayInfoMap, -1);
+        OffsetHr =:= YesterdayOffsetHr ->
+            case CurrentLocalMins > maps:get(mins_to_send, YesterdayInfoMap) of
+                true -> SendFun(YesterdayInfoMap, -1);
+                false ->
+                    [DayBeforeYesterdayInfoMap, _, _] = get_current_offsets(CurrentTime - ?DAYS),
+                    SendFun(DayBeforeYesterdayInfoMap, -2)
+            end;
         true ->
             %% if Uid isn't ahead of any of the current offsets, the moment notif is from day before yesterday
             [DayBeforeYesterdayInfoMap, _, _] = get_current_offsets(CurrentTime - ?DAYS),
-            PromptRecord = mod_prompts:get_prompt_from_id(maps:get(promptId, DayBeforeYesterdayInfoMap)),
-            Prompt = PromptRecord#prompt.text,
-            Image = mod_prompts:get_prompt_image_bytes(PromptRecord#prompt.image_id),
-            check_and_send_moment_notification(Uid, Region, maps:get(date, DayBeforeYesterdayInfoMap), maps:get(notif_id, DayBeforeYesterdayInfoMap),
-                util_moments:calculate_notif_timestamp(-2, maps:get(mins_to_send, DayBeforeYesterdayInfoMap), OffsetHr),
-                maps:get(notif_type, DayBeforeYesterdayInfoMap), Prompt, Image, HideBanner)
+            SendFun(DayBeforeYesterdayInfoMap, -2)
     end.
 
 
