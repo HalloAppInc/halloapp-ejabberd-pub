@@ -156,6 +156,12 @@ get_album_prompts() ->
                 id = <<"album.3">>,
                 text = <<" 🐶 🐱 🦎 🐥 🐿 ❓"/utf8>>,
                 reuse_after = 6 * ?MONTHS
+            },
+        <<"album.4">> =>
+            #prompt{
+                id = <<"album.4">>,
+                text = <<"spring break selfie 🌴"/utf8>>,
+                reuse_after = 6 * ?MONTHS
             }
     }.
 
@@ -227,6 +233,24 @@ get_text_prompts() ->
                 ai_image_model = ?STABLE_DIFFUSION_1_5,
                 prompt_wrapper = fun(T) -> <<T/binary, " dialect, landmark, 8k">> end,
                 negative_prompt = <<"disfigured faces, text">>
+            },
+        <<"text.11">> =>
+            #prompt{
+                id = <<"text.11">>,
+                text = <<"worst Tinder opener? 🤡"/utf8>>,
+                reuse_after = 6 * ?MONTHS,
+                ai_image_model = ?STABLE_DIFFUSION_1_5,
+                prompt_wrapper = fun(T) -> <<T/binary, ", clown, smiling, friendly">> end,
+                negative_prompt = <<"disfigured faces, text, scary">>
+            },
+        <<"text.12">> =>
+            #prompt{
+                id = <<"text.12">>,
+                text = <<"24 hours to live, what's your final meal?⏱"/utf8>>,
+                reuse_after = 6 * ?MONTHS,
+                ai_image_model = ?STABLE_DIFFUSION_1_5,
+                prompt_wrapper = <<", food, meal">>,
+                negative_prompt = <<"disfigured faces, text, high saturation">>
             }
     }.
 
