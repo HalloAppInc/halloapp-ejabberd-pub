@@ -64,6 +64,7 @@
     add_hashcash_challenge/1,
     delete_hashcash_challenge/1,
     add_phone_code_attempt/3,
+    delete_phone_key_attempt/3,
     get_phone_code_attempts/3,
     phone_attempt_key/3
 ]).
@@ -532,6 +533,13 @@ get_phone_code_attempts(Phone, AppType, Timestamp) ->
         undefined -> 0;
         Res -> util:to_integer(Res)
     end.
+
+
+delete_phone_key_attempt(Phone, AppType, Timestamp) ->
+    Key = phone_attempt_key(Phone, AppType, Timestamp),
+    {ok, _} = q(["DEL", Key]),
+    ok.
+
 
 truncate_static_key(StaticKey) ->
     <<Trunc:?TRUNC_STATIC_KEY_LENGTH/binary, _Rem/binary>> = StaticKey,
