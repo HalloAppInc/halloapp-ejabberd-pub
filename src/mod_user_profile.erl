@@ -235,7 +235,7 @@ compose_user_archive_result(_Uid, Ouid) ->
     }.
 
 
-process_geo_tag_request(Uid, Action, GpsLocation, GeoTag, Iq) ->
+process_geo_tag_request(Uid, Action, GpsLocation, UserInputGeoTag, Iq) ->
     CurrentGeoTag = model_accounts:get_latest_geo_tag(Uid),
     {Ret, SendBroadcast} = case Action of
         get ->
@@ -254,7 +254,7 @@ process_geo_tag_request(Uid, Action, GpsLocation, GeoTag, Iq) ->
                 CurrentGeoTag =/= GeoTag
             };
         block ->
-            case GeoTag of
+            case UserInputGeoTag of
                 undefined ->
                     {
                         #pb_geo_tag_response{
@@ -264,7 +264,7 @@ process_geo_tag_request(Uid, Action, GpsLocation, GeoTag, Iq) ->
                         false
                     };
                 _ ->
-                    ok = model_accounts:block_geo_tag(Uid, GeoTag),
+                    ok = model_accounts:block_geo_tag(Uid, UserInputGeoTag),
                     {
                         #pb_geo_tag_response{
                             result = ok
