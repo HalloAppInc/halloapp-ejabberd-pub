@@ -156,7 +156,7 @@ verify_sms(Phone, AppType, Code) ->
 -spec add_verification_success(Phone :: phone(), AppType :: app_type(), FetchedInfo :: verification_info(),
         AllVerifyInfo :: [verification_info()]) -> match.
 add_verification_success(Phone, AppType, FetchedInfo, AllVerifyInfo) ->
-    case util:is_monitor_phone(Phone) of
+    case util:is_monitor_phone(Phone) orelse util:is_test_number(Phone) of
         true -> match;
         false ->
             #verification_info{attempt_id = AttemptId, gateway = Gateway} = FetchedInfo,
