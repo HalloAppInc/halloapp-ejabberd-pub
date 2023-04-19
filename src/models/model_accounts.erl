@@ -2123,7 +2123,7 @@ update_permissions(Uid, #pb_permissions{type = Type, status = Status}) ->
         allowed -> true;
         denied -> false
     end,
-    {ok, _} = q(["HSET", account_key(Uid), Field, Value]),
+    {ok, _} = q(["HSET", account_key(Uid), Field, util_redis:encode_boolean(Value)]),
     ok.
 
 
