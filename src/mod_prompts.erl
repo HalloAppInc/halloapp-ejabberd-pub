@@ -249,7 +249,7 @@ get_text_prompts() ->
                 text = <<"24 hours to live, what's your final meal?⏱"/utf8>>,
                 reuse_after = 6 * ?MONTHS,
                 ai_image_model = ?STABLE_DIFFUSION_1_5,
-                prompt_wrapper = <<", food, meal">>,
+                prompt_wrapper = fun(T) -> <<T/binary, ", food, meal">> end,
                 negative_prompt = <<"disfigured faces, text, high saturation">>
             }
     }.
