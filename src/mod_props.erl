@@ -121,14 +121,14 @@ get_props(Uid, ClientVersion, katchup) ->
     },
     ClientType = util_ua:get_client_type(ClientVersion),
     AppType = util_ua:get_app_type(ClientVersion),
-    PropMap2 = get_uid_based_props(PropMap1, AppType, Uid),
-    PropMap3 = case model_accounts:get_phone(Uid) of
+    PropMap2 = case model_accounts:get_phone(Uid) of
         {ok, Phone} ->
-            get_phone_based_props(PropMap2, AppType, Phone);
+            get_phone_based_props(PropMap1, AppType, Phone);
         {error, _} ->
-            PropMap2
+            PropMap1
     end,
-    PropMap4 = get_client_based_props(PropMap3, AppType, ClientType, ClientVersion),
+    PropMap3 = get_client_based_props(PropMap2, AppType, ClientType, ClientVersion),
+    PropMap4 = get_uid_based_props(PropMap3, AppType, Uid),
     Proplist = maps:to_list(PropMap4),
     lists:keysort(1, Proplist);
 
