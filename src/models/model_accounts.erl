@@ -1961,7 +1961,7 @@ add_geo_tag(Uid, Tag, Timestamp) ->
 remove_geo_tag(Uid, Tag) ->
     HashSlot = util_redis:eredis_hash(binary_to_list(Uid)),
     UidSlot = HashSlot rem ?NUM_SLOTS,
-    [{ok, _}, {ok, _}] = qp([
+    [{ok, _}, {ok, _}] = qmn([
             ["ZREM", geo_tag_key(Uid), Tag],
             ["ZREM", geotag_index_key(UidSlot, Tag), Uid]]),
     ok.
