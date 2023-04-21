@@ -162,6 +162,12 @@ get_album_prompts() ->
                 id = <<"album.4">>,
                 text = <<"spring break selfie 🌴"/utf8>>,
                 reuse_after = 6 * ?MONTHS
+            },
+        <<"album.5">> =>
+            #prompt{
+                id = <<"album.5">>,
+                text = <<"coachella or couch-ella? 🛋✨"/utf8>>,
+                reuse_after = 6 * ?MONTHS
             }
     }.
 
@@ -250,6 +256,24 @@ get_text_prompts() ->
                 reuse_after = 6 * ?MONTHS,
                 ai_image_model = ?STABLE_DIFFUSION_1_5,
                 prompt_wrapper = fun(T) -> <<T/binary, ", food, meal">> end,
+                negative_prompt = <<"disfigured faces, text, high saturation">>
+            },
+        <<"text.13">> =>
+            #prompt{
+                id = <<"text.13">>,
+                text = <<"what are you listening to? 🎧"/utf8>>,
+                reuse_after = 6 * ?MONTHS,
+                ai_image_model = ?STABLE_DIFFUSION_1_5,
+                prompt_wrapper = fun(T) -> <<T/binary, ", music, headphones, listening">> end,
+                negative_prompt = <<"disfigured faces, text, high saturation">>
+            },
+        <<"text.14">> =>
+            #prompt{
+                id = <<"text.14">>,
+                text = <<"which tv show character do you think would definitely have an onlyfans? 🫣"/utf8>>,
+                reuse_after = 6 * ?MONTHS,
+                ai_image_model = ?STABLE_DIFFUSION_1_5,
+                prompt_wrapper = fun(T) -> <<T/binary, ", tv show, popcorn">> end,
                 negative_prompt = <<"disfigured faces, text, high saturation">>
             }
     }.
