@@ -112,7 +112,9 @@ normalize(Number, RegionId) ->
     end.
 
 
--spec normalized_number(Number :: binary(), RegionId :: binary()) -> binary() | undefined.
+-spec normalized_number(Number :: maybe(binary()), RegionId :: binary()) -> maybe(binary()).
+normalized_number(undefined, _RegionId) ->
+    undefined;
 normalized_number(Number, RegionId) ->
     NormResult = normalize(Number, RegionId),
     case NormResult of

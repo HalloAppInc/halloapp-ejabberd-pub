@@ -59,7 +59,7 @@ mod_options(_Host) ->
 -spec process_local_iq(IQ :: iq()) -> iq().
 %% This phone must be sent with the country code.
 process_local_iq(#pb_iq{from_uid = Uid, type = set,
-        payload = #pb_delete_account{phone = RawPhone, reason = Reason, feedback = Feedback}} = IQ) when RawPhone =/= undefined ->
+        payload = #pb_delete_account{phone = RawPhone, reason = Reason, feedback = Feedback, username = Username}} = IQ) when RawPhone =/= undefined orelse Username =/= undefined ->
     Server = util:get_host(),
     Feedback2 = case Feedback of
         undefined -> Feedback;
@@ -72,8 +72,8 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
         true ->
             ok
     end,
-    ?INFO("delete_account Uid: ~s, raw_phone: ~p, reason: ~p, feedback: ~s",
-        [Uid, RawPhone, Reason, Feedback2]),
+    ?INFO("delete_account Uid: ~s, raw_phone: ~p, username ~p, reason: ~p, feedback: ~s",
+        [Uid, RawPhone, Username, Reason, Feedback2]),
     case model_accounts:get_account(Uid) of
         {ok, Account} ->
             %% We now normalize against the user's own region.
@@ -82,10 +82,11 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
             CountryCode = mod_libphonenumber:get_cc(UidPhone),
             NormPhone = mod_libphonenumber:normalized_number(RawPhone, CountryCode),
             NormPhoneBin = util:to_binary(NormPhone),
-            case UidPhone =:= NormPhoneBin of
+            UidUsername = Account#account.username,
+            case UidPhone =:= NormPhoneBin orelse UidUsername =:= Username of
                 false ->
                     ?INFO("delete_account failed Uid: ~s", [Uid]),
-                    pb:make_error(IQ, util:err(invalid_phone));
+                    pb:make_error(IQ, util:err(invalid_phone_and_username));
                 true ->
                     log_delete_account(Account, Reason, Feedback2),
                     ok = ejabberd_auth:remove_user(Uid, Server),
@@ -97,13 +98,13 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
             end;
         _ ->
             ?INFO("delete_account failed Uid: ~s", [Uid]),
-            pb:make_error(IQ, util:err(invalid_phone))
+            pb:make_error(IQ, util:err(invalid_phone_and_username))
     end;
 
 process_local_iq(#pb_iq{from_uid = Uid, type = set,
-        payload = #pb_delete_account{phone = undefined}} = IQ) ->
-    ?INFO("delete_account, Uid: ~s, raw_phone is undefined", [Uid]),
-    pb:make_error(IQ, util:err(invalid_phone));
+        payload = #pb_delete_account{phone = undefined, username = undefined}} = IQ) ->
+    ?INFO("delete_account, Uid: ~s, raw_phone and username is undefined", [Uid]),
+    pb:make_error(IQ, util:err(invalid_phone_and_username));
 
 process_local_iq(#pb_iq{} = IQ) ->
     pb:make_error(IQ, util:err(invalid_request)).

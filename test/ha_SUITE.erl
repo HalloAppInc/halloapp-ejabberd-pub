@@ -24,7 +24,8 @@
 -export([
     dummy_test/1,
     ping_test/1,
-    delete_account_test/1,
+    delete_account_phone_test/1,
+    delete_account_username_test/1,
     run_eunit/1
 ]).
 
@@ -84,7 +85,8 @@ all() -> [
     {group, monitor},
     dummy_test,
     ping_test,
-    delete_account_test,
+    delete_account_phone_test,
+    delete_account_username_test,
     run_eunit
 ].
 
@@ -202,7 +204,7 @@ ping_test(_Conf) ->
     ok.
 
 
-delete_account_test(_Conf) ->
+delete_account_phone_test(_Conf) ->
     Phone = <<"14703381473">>,
     AppType = util_ua:get_app_type(?UA),
     ok = model_accounts:create_account(?UID7, Phone, ?UA, ?CAMPAIGN_ID, ?TS1),
@@ -211,6 +213,18 @@ delete_account_test(_Conf) ->
     ok = ejabberd_auth:set_spub(?UID7, ?SPUB1),
     {ok, C} = ha_client:connect_and_login(?UID7, ?KEYPAIR1),
     Payload = #pb_delete_account{phone = <<"+14703381473">>},
+    Result = ha_client:send_iq(C, set, Payload),
+    ?assertEqual(result, Result#pb_packet.stanza#pb_iq.type),
+    ?assertEqual(#pb_delete_account{}, Result#pb_packet.stanza#pb_iq.payload),
+    ok.
+
+delete_account_username_test(_Conf) ->
+    ok = model_accounts:create_account(?UID6, <<"">>, ?UA, ?CAMPAIGN_ID, ?TS1),
+    ok = model_accounts:set_name(?UID6, ?NAME3),
+    true = model_accounts:set_username(?UID6, ?USERNAME1),
+    ok = ejabberd_auth:set_spub(?UID6, ?SPUB1),
+    {ok, C} = ha_client:connect_and_login(?UID6, ?KEYPAIR1),
+    Payload = #pb_delete_account{username = ?USERNAME1},
     Result = ha_client:send_iq(C, set, Payload),
     ?assertEqual(result, Result#pb_packet.stanza#pb_iq.type),
     ?assertEqual(#pb_delete_account{}, Result#pb_packet.stanza#pb_iq.payload),

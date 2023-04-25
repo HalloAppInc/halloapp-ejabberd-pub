@@ -1616,6 +1616,7 @@ message DeleteAccount {
     }
     Reason reason = 2;
     string feedback = 3;
+    string username = 4;
 }
 
 // User Data Export
