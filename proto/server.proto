@@ -150,6 +150,7 @@ message MomentInfo {
         ALBUM_IMAGE = 3;
     }
     ContentType content_type = 6; // Actual content type based on moment notification info.
+    string date = 7; // Date received with the notification in the format: DD/MM/YYYY.
 }
 
 message MediaCounters {
@@ -1057,6 +1058,7 @@ message MomentNotification {
     string prompt = 4;
     bool hide_banner = 5; // default value will be false.
     bytes prompt_image = 6;
+    string date = 7; // Local date of the notification in the format: DD/MM/YYYY.
 }
 
 message ArchiveRequest {
@@ -1077,6 +1079,7 @@ message ArchiveResult {
     Reason reason = 2;
     int64 uid = 3 [ebin = true];
     repeated Post posts = 4;
+    string start_date = 5; // Starting date of archive (may be earlier than any posts) in DD/MM/YYYY format
 }
 
 // IQ
