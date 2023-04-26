@@ -17,35 +17,40 @@
 
 -define(MOMENT_INFO_MAP, #{
     19 => #{
-        date => 19,
+        day_of_month => 19,
+        date => "19/02/2023",
         mins_to_send => ((15 * ?HOURS) + (34 * ?MINUTES)) div 60,
         notif_id => 1676764800,
         notif_type => live_camera,
         promptId => <<"test.media.19">>
     },
     20 => #{
-        date => 20,
+        day_of_month => 20,
+        date => "20/02/2023",
         mins_to_send => ((12 * ?HOURS) + (1 * ?MINUTES)) div 60,
         notif_id => 1676851200,
         notif_type => text_post,
         promptId => <<"test.text.20">>
     },
     21 => #{
-        date => 21,
+        day_of_month => 21,
+        date => "21/02/2023",
         mins_to_send => ((20 * ?HOURS) + (59 * ?MINUTES)) div 60,
         notif_id => 1676937600,
         notif_type => live_camera,
         promptId => <<"test.media.21">>
     },
     22=> #{
-        date => 22,
+        day_of_month => 22,
+        date => "22/02/2023",
         mins_to_send => ((10 * ?HOURS) + (23 * ?MINUTES)) div 60,
         notif_id => 1677024000,
         notif_type => text_post,
         promptId => <<"test.text.22">>
     },
     23 => #{
-        date => 23,
+        day_of_month => 23,
+        date => "23/02/2023",
         mins_to_send => ((18 * ?HOURS) + (0 * ?MINUTES)) div 60,
         notif_id => 1677110400,
         notif_type => live_camera,
@@ -195,14 +200,14 @@ maybe_schedule_moment_notif_testset(_) ->
         %% Time = 20:00 UTC on Feb 20, 2023
         ?_assertOk(mod_moment_notification2:maybe_schedule_moment_notif(1676923200, false)),
         ?_assert(meck:called(timer, apply_after, [1 * ?MINUTES_MS, mod_moment_notification2, check_and_send_moment_notifications,
-            [-8, 20, maps:get(notif_id, ExpectedToday1), maps:get(notif_type, ExpectedToday1), Today1PromptRecord#prompt.text, <<>>]])),
+            [-8, maps:get(date, ExpectedToday1), 20, maps:get(notif_id, ExpectedToday1), maps:get(notif_type, ExpectedToday1), Today1PromptRecord#prompt.text, <<>>]])),
         ?_assertEqual(1, meck:num_calls(timer, apply_after, '_')),
         %% Time = 4:00 UTC on Feb 22, 2023
         ?_assertOk(mod_moment_notification2:maybe_schedule_moment_notif(1677038400, false)),
         ?_assert(meck:called(timer, apply_after, [59 * ?MINUTES_MS, mod_moment_notification2, check_and_send_moment_notifications,
-            [-8, 21, maps:get(notif_id, ExpectedYesterday2), maps:get(notif_type, ExpectedYesterday2), YesterdayPromptRecord#prompt.text, <<>>]])),
+            [-8, maps:get(date, ExpectedYesterday2), 21, maps:get(notif_id, ExpectedYesterday2), maps:get(notif_type, ExpectedYesterday2), YesterdayPromptRecord#prompt.text, <<>>]])),
         ?_assert(meck:called(timer, apply_after, [23 * ?MINUTES_MS, mod_moment_notification2, check_and_send_moment_notifications,
-            [6, 22, maps:get(notif_id, ExpectedToday2), maps:get(notif_type, ExpectedToday2), Today2PromptRecord#prompt.text, <<>>]])),
+            [6, maps:get(date, ExpectedToday2), 22, maps:get(notif_id, ExpectedToday2), maps:get(notif_type, ExpectedToday2), Today2PromptRecord#prompt.text, <<>>]])),
         ?_assertEqual(3, meck:num_calls(timer, apply_after, '_'))
     ].
 

@@ -34,11 +34,12 @@
     get_upload_server/0,
     get_noise_key_material/0,
     get_noise_static_pubkey/0,
-    get_date/1,
+    get_day/1,
     now_ms/0,
     now/0,
     now_binary/0,
     now_prettystring/0,
+    time_to_prettydatestring/1,
     tsms_to_date/1,
     round_to_minute/1,
     random_str/1,
@@ -182,8 +183,8 @@ get_noise_static_pubkey() ->
     ServerStaticPubKey.
 
 
--spec get_date(TimeInSec :: integer()) -> integer().
-get_date(TimeInSec) ->
+-spec get_day(TimeInSec :: integer()) -> integer().
+get_day(TimeInSec) ->
     {{_,_,Day}, {_,_,_}} = calendar:system_time_to_universal_time(TimeInSec, second),
     Day.
 
@@ -213,6 +214,16 @@ now_prettystring() ->
         binary_to_list(iolist_to_binary(io_lib:format("~2..0w", [Second])))
     ], "-").
 
+
+%% returns string in "DD/MM/YYYY" format.
+-spec time_to_prettydatestring(Timestamp :: integer()) -> string().
+time_to_prettydatestring(Timestamp) ->
+    {{Year, Month, Day}, _} = calendar:system_time_to_universal_time(Timestamp, second),
+    join_strings([
+        binary_to_list(iolist_to_binary(io_lib:format("~2..0w", [Day]))),
+        binary_to_list(iolist_to_binary(io_lib:format("~2..0w", [Month]))),
+        integer_to_list(Year)
+    ], "/").
 
 
 -spec tsms_to_date(TsMs :: integer()) -> {integer(), integer(), integer()}.

@@ -111,13 +111,13 @@ reassign_jobs() ->
     ok.
 
 
-start_timer_moment_notification(Region, MinsUntilSend, OffsetHr, Date, NotifId, _NotifType, _Prompt) ->
-    gen_server:cast(?PROC(), {timer_started, Region, MinsUntilSend, OffsetHr, Date, NotifId}),
+start_timer_moment_notification(Region, MinsUntilSend, OffsetHr, Day, NotifId, _NotifType, _Prompt) ->
+    gen_server:cast(?PROC(), {timer_started, Region, MinsUntilSend, OffsetHr, Day, NotifId}),
     ok.
 
 
-check_and_send_moment_notifications(Region, NumUids, OffsetHr, Date, NotifId, _NotifType, _Prompt) ->
-    gen_server:cast(?PROC(), {check_and_send_moment_notifs, Region, NumUids, OffsetHr, Date, NotifId}),
+check_and_send_moment_notifications(Region, NumUids, OffsetHr, Day, NotifId, _NotifType, _Prompt) ->
+    gen_server:cast(?PROC(), {check_and_send_moment_notifs, Region, NumUids, OffsetHr, Day, NotifId}),
     ok.
 
 
@@ -157,12 +157,12 @@ handle_cast({ping, Id, Ts, From}, State) ->
     util_monitor:send_ack(self(), From, {ack, Id, Ts, self()}),
     {noreply, State};
 
-handle_cast({timer_started, Region, _MinsUntilSend, _OffsetHr, _Date, _NotifId}, State) ->
+handle_cast({timer_started, Region, _MinsUntilSend, _OffsetHr, _Day, _NotifId}, State) ->
     State1 = moment_notif_timer_started(Region, State),
     {noreply, State1};
 
-handle_cast({check_and_send_moment_notifs, Region, NumUids, _OffsetHr, Date, NotifId}, State) ->
-    State1 = count_send_moment_notifs(Region, NumUids, Date, NotifId, State),
+handle_cast({check_and_send_moment_notifs, Region, NumUids, _OffsetHr, Day, NotifId}, State) ->
+    State1 = count_send_moment_notifs(Region, NumUids, Day, NotifId, State),
     {noreply, State1};
 
 handle_cast({send_moment_notification, Uid, Region, NotificationId}, State) ->
@@ -178,12 +178,12 @@ handle_cast(_Request, State) ->
     {noreply, State}.
 
 
-handle_info({moment_notif_timer_alert, Region, Date, NotifId}, State) ->
-    State1 = moment_notif_timer_alert(Region, Date, NotifId, State),
+handle_info({moment_notif_timer_alert, Region, Day, NotifId}, State) ->
+    State1 = moment_notif_timer_alert(Region, Day, NotifId, State),
     {noreply, State1};
 
-handle_info({uid_count_timer_alert, Region, NumUids, Date, NotifId}, State) ->
-    State1 = uid_count_timer_alert(Region, NumUids, Date, NotifId, State),
+handle_info({uid_count_timer_alert, Region, NumUids, Day, NotifId}, State) ->
+    State1 = uid_count_timer_alert(Region, NumUids, Day, NotifId, State),
     {noreply, State1};
 
 handle_info(Request, State) ->
@@ -216,7 +216,7 @@ monitor_all_regions(State) ->
                 true ->
                     CurrentTimestamp
             end,
-            Date = util:get_date(TimestampForNotifInfo),
+            Day = util:get_day(TimestampForNotifInfo),
             %% Fetch the appropriate notification info for that region.
             MomentInfo = model_feed:get_moment_info(TimestampForNotifInfo),
             LocalMinToSend = MomentInfo#moment_notification.mins_to_send,
@@ -241,11 +241,11 @@ monitor_all_regions(State) ->
                     MomentTimers = maps:get(moment_timers, AccState, #{}),
                     TRef = case maps:get(Region, MomentTimers, undefined) of
                         undefined ->
-                            ?INFO("Setting moment_notif_timer_alert for Region: ~p, Date: ~p, NotifId: ~p, MinsUntilSend: ~p", [Region, Date, NotifId, MinsUntilSend]),
-                            {ok, NewTRef} = timer:send_after((MinsUntilSend + 1) * ?MINUTES_MS, self(), {moment_notif_timer_alert, Region, Date, NotifId}),
+                            ?INFO("Setting moment_notif_timer_alert for Region: ~p, Day: ~p, NotifId: ~p, MinsUntilSend: ~p", [Region, Day, NotifId, MinsUntilSend]),
+                            {ok, NewTRef} = timer:send_after((MinsUntilSend + 1) * ?MINUTES_MS, self(), {moment_notif_timer_alert, Region, Day, NotifId}),
                             NewTRef;
                         CurrentTRef ->
-                            ?DEBUG("Already exists, moment_notif_timer_alert for Region: ~p, Date: ~p, NotifId: ~p, MinsUntilSend: ~p", [Region, Date, NotifId, MinsUntilSend]),
+                            ?DEBUG("Already exists, moment_notif_timer_alert for Region: ~p, Day: ~p, NotifId: ~p, MinsUntilSend: ~p", [Region, Day, NotifId, MinsUntilSend]),
                             CurrentTRef
                     end,
                     AccState#{
@@ -254,7 +254,7 @@ monitor_all_regions(State) ->
                         }
                     };
                 MinsUntilSend ->
-                    ?DEBUG("Skip setting moment_notif_timer_alert for Region: ~p, Date: ~p, NotifId: ~p, MinsUntilSend: ~p", [Region, Date, NotifId, MinsUntilSend]),
+                    ?DEBUG("Skip setting moment_notif_timer_alert for Region: ~p, Day: ~p, NotifId: ~p, MinsUntilSend: ~p", [Region, Day, NotifId, MinsUntilSend]),
                     AccState#{
                         moment_timers => MomentTimers#{
                             Region => undefined
@@ -265,22 +265,22 @@ monitor_all_regions(State) ->
     State1.
 
 
-moment_notif_timer_alert(Region, Date, NotifId, State) ->
+moment_notif_timer_alert(Region, Day, NotifId, State) ->
     MomentTimers = maps:get(moment_timers, State),
     case maps:get(Region, maps:get(moment_timers, State, #{}), undefined) of
         undefined ->
-            ?ERROR("Invalid state to end up in: ~p, Region: ~p, Date: ~p, NotifId: ~p", [State, Region, Date, NotifId]);
+            ?ERROR("Invalid state to end up in: ~p, Region: ~p, Day: ~p, NotifId: ~p", [State, Region, Day, NotifId]);
         _ ->
             Host = util:get_machine_name(),
             RegionBin = util:to_binary(Region),
-            DateBin = util:to_binary(Date),
+            DayBin = util:to_binary(Day),
             NotifIdBin = util:to_binary(NotifId),
             alerts:send_alert(
-                <<"Missed daily moment notification for ", RegionBin/binary, " on ", DateBin/binary>>,
+                <<"Missed daily moment notification for ", RegionBin/binary, " on ", DayBin/binary>>,
                 Host,
                 <<"critical">>,
-                <<"Region: ", RegionBin/binary, " Date: ", DateBin/binary, " NotifId: ", NotifIdBin/binary>>),
-            ?ERROR("No Notification timer was started for Region: ~p, Date: ~p, NotifId: ~p", [Region, Date, NotifId])
+                <<"Region: ", RegionBin/binary, " Day: ", DayBin/binary, " NotifId: ", NotifIdBin/binary>>),
+            ?ERROR("No Notification timer was started for Region: ~p, Day: ~p, NotifId: ~p", [Region, Day, NotifId])
     end,
     State#{
         moment_timers => MomentTimers#{
@@ -306,10 +306,10 @@ moment_notif_timer_started(Region, State) ->
     }.
 
 
-count_send_moment_notifs(Region, NumUids, Date, NotifId, State) ->
-    ?INFO("Region: ~p, NumUids: ~p, Date: ~p, NotifId: ~p", [Region, NumUids, Date, NotifId]),
+count_send_moment_notifs(Region, NumUids, Day, NotifId, State) ->
+    ?INFO("Region: ~p, NumUids: ~p, Day: ~p, NotifId: ~p", [Region, NumUids, Day, NotifId]),
     UidCountTimers = maps:get(uid_count_timers, State, #{}),
-    {ok, TRef} = timer:send_after(2 * ?MINUTES_MS, self(), {uid_count_timer_alert, Region, NumUids, Date, NotifId}),
+    {ok, TRef} = timer:send_after(2 * ?MINUTES_MS, self(), {uid_count_timer_alert, Region, NumUids, Day, NotifId}),
     State#{
         uid_count_timers => UidCountTimers#{
             Region => {NumUids, TRef}
@@ -333,11 +333,11 @@ sent_moment_notification(_Uid, Region, _NotificationId, State) ->
     }.
 
 
-uid_count_timer_alert(Region, NumUids, Date, NotifId, State) ->
+uid_count_timer_alert(Region, NumUids, Day, NotifId, State) ->
     UidCountTimers = maps:get(uid_count_timers, State),
     case maps:get(Region, maps:get(uid_count_timers, State, #{}), {undefined, undefined}) of
         {_, undefined} ->
-            ?ERROR("Invalid state to end up in: ~p, Region: ~p, Date: ~p, NotifId: ~p", [State, Region, Date, NotifId]);
+            ?ERROR("Invalid state to end up in: ~p, Region: ~p, Day: ~p, NotifId: ~p", [State, Region, Day, NotifId]);
         {CurrentNumUids, _TRef} ->
             %% Difference of about 2% on either side is fine.
             SentNumUids = NumUids - CurrentNumUids,
@@ -345,19 +345,19 @@ uid_count_timer_alert(Region, NumUids, Date, NotifId, State) ->
                 true ->
                     Host = util:get_machine_name(),
                     
-                    DateBin = util:to_binary(Date),
+                    DayBin = util:to_binary(Day),
                     RegionBin = util:to_binary(Region),
                     NumUidsBin = util:to_binary(NumUids),
                     CurrentNumUidsBin = util:to_binary(CurrentNumUids),
                     NotifIdBin = util:to_binary(NotifId),
                     alerts:send_alert(
-                        <<"Some users in ", RegionBin/binary, " missed daily moment notification on ", DateBin/binary>>,
+                        <<"Some users in ", RegionBin/binary, " missed daily moment notification on ", DayBin/binary>>,
                         Host,
                         <<"critical">>,
                         <<"Region: ", RegionBin/binary, " ExpectedNumUidsBin: ", NumUidsBin/binary, " CurrentNumUids: ", CurrentNumUidsBin/binary, " NotifId: ", NotifIdBin/binary>>),
-                    ?ERROR("Some users in Region: ~p missed daily moment notification on Date: ~p, NotifId: ~p, TotalNumUids: ~p, SentNumUids: ~p", [Region, Date, NotifId, NumUids, SentNumUids]);
+                    ?ERROR("Some users in Region: ~p missed daily moment notification on Day: ~p, NotifId: ~p, TotalNumUids: ~p, SentNumUids: ~p", [Region, Day, NotifId, NumUids, SentNumUids]);
                 false ->
-                    ?INFO("Sent daily notification to SentNumUids/TotalNumUids: ~p/~p in Region: ~p on Date: ~p, NotifId: ~p", [SentNumUids, NumUids, Region, Date, NotifId]),
+                    ?INFO("Sent daily notification to SentNumUids/TotalNumUids: ~p/~p in Region: ~p on Day: ~p, NotifId: ~p", [SentNumUids, NumUids, Region, Day, NotifId]),
                     ok
             end
     end,

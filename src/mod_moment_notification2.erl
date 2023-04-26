@@ -28,9 +28,9 @@
     send_latest_notification/2,
     maybe_schedule_notifications/0,
     maybe_schedule_moment_notif/2,
-    check_and_send_moment_notifications/6,
-    send_moment_notification/7,
-    send_moment_notification_async/7,
+    check_and_send_moment_notifications/7,
+    send_moment_notification/8,
+    send_moment_notification_async/8,
     get_region_offset_hr_by_sec/1,
     get_region_offset_hr/1,
     get_region_offset_hr/2,
@@ -140,11 +140,11 @@ re_register_user(Uid, _Server, _Phone, _CampaignId) ->
     ?INFO("Uid: ~s", [Uid]),
     %% Clear out any recent moment notifications sent.
     %% This will enable us to send another again if necessary.
-    Today = util:get_date(util:now()),
-    Yesterday = util:get_date(util:now() - ?DAYS),
-    DayBeforeYesterday = util:get_date(util:now() - (2 * ?DAYS)),
-    Tomorrow = util:get_date(util:now() + ?DAYS),
-    DayAfterTomorrow = util:get_date(util:now() + (2 * ?DAYS)),
+    Today = util:get_day(util:now()),
+    Yesterday = util:get_day(util:now() - ?DAYS),
+    DayBeforeYesterday = util:get_day(util:now() - (2 * ?DAYS)),
+    Tomorrow = util:get_day(util:now() + ?DAYS),
+    DayAfterTomorrow = util:get_day(util:now() + (2 * ?DAYS)),
     model_accounts:delete_moment_notification_sent(Uid, util:to_binary(DayBeforeYesterday)),
     model_accounts:delete_moment_notification_sent(Uid, util:to_binary(Yesterday)),
     model_accounts:delete_moment_notification_sent(Uid, util:to_binary(Today)),
@@ -211,7 +211,7 @@ send_latest_notification(Uid, CurrentTime, HideBanner) ->
         PromptRecord = mod_prompts:get_prompt_from_id(maps:get(promptId, InfoMap)),
         Prompt = PromptRecord#prompt.text,
         Image = mod_prompts:get_prompt_image_bytes(PromptRecord#prompt.image_id),
-        check_and_send_moment_notification(Uid, Region, maps:get(date, InfoMap), maps:get(notif_id, InfoMap),
+        check_and_send_moment_notification(Uid, Region, maps:get(date, InfoMap), maps:get(day_of_month, InfoMap), maps:get(notif_id, InfoMap),
             util_moments:calculate_notif_timestamp(DayOffset, maps:get(mins_to_send, InfoMap), OffsetHr),
             maps:get(notif_type, InfoMap), Prompt, Image, HideBanner)
     end,
@@ -272,7 +272,7 @@ maybe_schedule_moment_notif(TodaySecs, IsImmediateNotification) ->
     {{_,_, _}, {CurrentHrGMT, CurrentMinGMT, _}} =
         calendar:system_time_to_universal_time(TodaySecs, second),
     lists:foreach(
-        fun(#{date := Date, current_offset_hr := OffsetHr, mins_to_send := LocalMinToSend,
+        fun(#{day_of_month := DayOfMonth, date := Date, current_offset_hr := OffsetHr, mins_to_send := LocalMinToSend,
             notif_id := NotifId, notif_type := NotifType, promptId := PromptId}) ->
             case check_for_region_offset_hr(OffsetHr) of
                 false -> ok;
@@ -297,28 +297,28 @@ maybe_schedule_moment_notif(TodaySecs, IsImmediateNotification) ->
                     PromptRecord = mod_prompts:get_prompt_from_id(PromptId),
                     Prompt = PromptRecord#prompt.text,
                     Image = mod_prompts:get_prompt_image_bytes(PromptRecord#prompt.image_id),
-                    ?INFO("Scheduling moment notification to send in ~p minutes for OffsetHr ~p, Date: ~p",
-                        [MinsUntilSend, OffsetHr, Date]),
-                    ejabberd_hooks:run(start_timer_moment_notification, ?KATCHUP, [Region, MinsUntilSend, OffsetHr, Date, NotifId, NotifType, Prompt]),
+                    ?INFO("Scheduling moment notification to send in ~p minutes for OffsetHr ~p, Date: ~p, DayOfMonth: ~p",
+                        [MinsUntilSend, OffsetHr, Date, DayOfMonth]),
+                    ejabberd_hooks:run(start_timer_moment_notification, ?KATCHUP, [Region, MinsUntilSend, OffsetHr, Date, DayOfMonth, NotifId, NotifType, Prompt]),
                     timer:apply_after(MinsUntilSend * ?MINUTES_MS, ?MODULE, check_and_send_moment_notifications,
-                        [OffsetHr, Date, NotifId, NotifType, Prompt, Image])
+                        [OffsetHr, Date, DayOfMonth, NotifId, NotifType, Prompt, Image])
             end
         end,
         [YesterdayInfoMap, TodayInfoMap, TomorrowInfoMap]).
 
 
--spec check_and_send_moment_notifications(OffsetHr :: integer(), Date :: integer(), NotifId :: integer(),
+-spec check_and_send_moment_notifications(OffsetHr :: integer(), Date :: string(), DayOfMonth :: integer(), NotifId :: integer(),
     NotifType :: moment_type(), Prompt :: binary(), Image :: binary()) -> ok.
-check_and_send_moment_notifications(OffsetHr, Date, NotificationId, NotificationType, Prompt, Image) ->
+check_and_send_moment_notifications(OffsetHr, Date, DayOfMonth, NotificationId, NotificationType, Prompt, Image) ->
     StartTime = util:now_ms(),
     {Region, Predicate, OffsetHr} = lists:keyfind(OffsetHr, 3, get_regions()),
     Uids = get_uids_by_region(Predicate),
-    ejabberd_hooks:run(check_and_send_moment_notifications, ?KATCHUP, [Region, length(Uids), OffsetHr, Date, NotificationId, NotificationType, Prompt]),
+    ejabberd_hooks:run(check_and_send_moment_notifications, ?KATCHUP, [Region, length(Uids), OffsetHr, Date, DayOfMonth, NotificationId, NotificationType, Prompt]),
     %% Spawn some worker processes
     NumWorkers = ?NUM_MOMENT_NOTIF_SENDER_PROCS,
     WorkerPids = lists:map(
         fun(N) ->
-            spawn(?MODULE, send_moment_notification_async, [Region, Date, NotificationId, NotificationType, Prompt, Image, N])
+            spawn(?MODULE, send_moment_notification_async, [Region, Date, DayOfMonth, NotificationId, NotificationType, Prompt, Image, N])
         end,
         lists:seq(1, NumWorkers)),
     %% Send Uids to the worker processes for moment notifications to be sent
@@ -337,32 +337,32 @@ check_and_send_moment_notifications(OffsetHr, Date, NotificationId, Notification
     ok.
 
 
-send_moment_notification_async(Region, Date, NotificationId, NotificationType, Prompt, Image, Name) ->
+send_moment_notification_async(Region, Date, DayOfMonth, NotificationId, NotificationType, Prompt, Image, Name) ->
     receive
         done ->
             ok;
         Uid ->
-            check_and_send_moment_notification(Uid, Region, Date, NotificationId, util:now(), NotificationType, Prompt, Image, false),
-            send_moment_notification_async(Region, Date, NotificationId, NotificationType, Prompt, Image, Name)
+            check_and_send_moment_notification(Uid, Region, Date, DayOfMonth, NotificationId, util:now(), NotificationType, Prompt, Image, false),
+            send_moment_notification_async(Region, Date, DayOfMonth, NotificationId, NotificationType, Prompt, Image, Name)
     end.
 
 
 %% Before sending, check to ensure a notification has not been sent to this user on this date
-check_and_send_moment_notification(Uid, Region, Date, NotificationId, NotificationTimestamp, NotificationType, Prompt, Image, HideBanner) ->
-    case model_accounts:mark_moment_notification_sent(Uid, util:to_binary(Date)) of
+check_and_send_moment_notification(Uid, Region, Date, DayOfMonth, NotificationId, NotificationTimestamp, NotificationType, Prompt, Image, HideBanner) ->
+    case model_accounts:mark_moment_notification_sent(Uid, util:to_binary(DayOfMonth)) of
         true ->
             AppType = util_uid:get_app_type(Uid),
             stat:count(util:get_stat_namespace(AppType) ++ "/moment_notif", "send"),
-            send_moment_notification(Uid, NotificationTimestamp, NotificationId, NotificationType, Prompt, Image, HideBanner),
+            send_moment_notification(Uid, Date, NotificationTimestamp, NotificationId, NotificationType, Prompt, Image, HideBanner),
             ejabberd_hooks:run(send_moment_notification, AppType,
                 [Uid, Region, NotificationId, NotificationTimestamp, NotificationType, Prompt, HideBanner]);
         NeverSent ->
-            ?INFO("NOT Sending moment notification to ~s, already_sent = ~p, date = ~p", [Uid, not NeverSent, Date])
+            ?INFO("NOT Sending moment notification to ~s, already_sent = ~p, date = ~p, dayOfMonth = ~p", [Uid, not NeverSent, Date, DayOfMonth])
     end.
 
 
 %% This is the function that actually sends the notification to the client
-send_moment_notification(Uid, Timestamp, Id, Type, Prompt, Image, HideBanner) ->
+send_moment_notification(Uid, Date, Timestamp, Id, Type, Prompt, Image, HideBanner) ->
     Packet = #pb_msg{
         id = util_id:new_msg_id(),
         to_uid = Uid,
@@ -373,11 +373,12 @@ send_moment_notification(Uid, Timestamp, Id, Type, Prompt, Image, HideBanner) ->
             type = Type,
             prompt = Prompt,
             prompt_image = Image,
-            hide_banner = HideBanner
+            hide_banner = HideBanner,
+            date = Date
         }
     },
-    ?INFO("Sending moment notification to ~s | notif_id = ~p, notif_ts = ~p, notif_type = ~p, prompt = ~p, hide_banner = ~p",
-        [Uid, Id, Timestamp, Type, Prompt, HideBanner]),
+    ?INFO("Sending moment notification to ~s | date = ~p, notif_id = ~p, notif_ts = ~p, notif_type = ~p, prompt = ~p, hide_banner = ~p",
+        [Uid, Date, Id, Timestamp, Type, Prompt, HideBanner]),
     ejabberd_router:route(Packet).
 
 %%====================================================================
@@ -385,7 +386,7 @@ send_moment_notification(Uid, Timestamp, Id, Type, Prompt, Image, HideBanner) ->
 %%====================================================================
 
 %% Returns [YesterdayMomentInfoMap, TodayMomentInfoMap, TomorrowMomentInfoMap]
-%% Each map has keys: date, current_offset_hr, mins_to_send, notif_id, notif_type, prompt
+%% Each map has keys: dayOfMonth, date, current_offset_hr, mins_to_send, notif_id, notif_type, prompt
 -spec get_current_offsets(TodayTimestamp :: non_neg_integer()) -> [map()].
 get_current_offsets(TodayTimestamp) ->
     %% Based on Timestamp, fetch the zone offset hrs that would send during this hour
@@ -393,12 +394,14 @@ get_current_offsets(TodayTimestamp) ->
         calendar:system_time_to_universal_time(TodayTimestamp, second),
     lists:map(
         fun({Timestamp, GmtOffsetModifierFun}) ->
-            {{_,_, Date}, {_, _,_}} =
+            {{_, _, DayOfMonth}, {_, _,_}} =
                 calendar:system_time_to_universal_time(Timestamp, second),
+            Date = util:time_to_prettydatestring(Timestamp),
             MomentInfo = model_feed:get_moment_info(Timestamp),
             MinToSend = MomentInfo#moment_notification.mins_to_send,
             OffsetHr = GmtOffsetModifierFun((MinToSend div 60)),
             #{
+                day_of_month => DayOfMonth,
                 date => Date,
                 current_offset_hr => OffsetHr,
                 mins_to_send => MinToSend,

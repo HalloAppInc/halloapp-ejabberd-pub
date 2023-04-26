@@ -525,7 +525,7 @@ moment_tag_test() ->
     true = model_feed:is_moment_tag_done(?MOMENT_TAG),
     MomentInfo = model_feed:get_moment_info(?MOMENT_ID),
     MomentInfo = model_feed:get_moment_info(?MOMENT_ID + rand:uniform(1000)),
-    MomentDay = util:get_date(?MOMENT_ID),
+    MomentDay = util:get_day(?MOMENT_ID),
     {error, cannot_overwrite} = model_feed:set_moment_info(MomentDay, MomentInfo),
     ok = model_feed:del_moment_time_to_send(?MOMENT_ID),
     ok = model_feed:set_moment_info(MomentDay, MomentInfo),

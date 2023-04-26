@@ -63,7 +63,7 @@
     session_info/1,
     spub_info/1,
     get_sms_codes/1,
-    send_moment_notification/6,
+    send_moment_notification/7,
     send_invite/2,
     reset_sms_backoff/1,
     delete_account/1,
@@ -443,8 +443,8 @@ get_commands_spec() ->
         desc = "Send Moment Notification",
         module = ?MODULE, function = send_moment_notification,
         %% PhoneOrUid, Timestamp, Id, Type, Prompt, HideBanner
-        args_desc = ["Phone number or Uid", "Timestamp", "NotificationId", "NotificationType", "Prompt", "HideBanner"],
-        args_example = [<<"12065555586">>, 1677115217, 1677115000, <<"live_camera">>, <<"WYD?">>, <<"false">>],
+        args_desc = ["Phone number or Uid", "Date", "Timestamp", "NotificationId", "NotificationType", "Prompt", "HideBanner"],
+        args_example = [<<"12065555586">>, <<"19/02/2023">>, 1677115217, 1677115000, <<"live_camera">>, <<"WYD?">>, <<"false">>],
         args=[{phone_or_uid, binary}, {timestamp, integer}, {id, integer}, {type, binary}, {prompt, binary}, {hide_banner, binary}],
         result = {res, rescode}},
      #ejabberd_commands{name = get_invite_string, tags = [server],
@@ -1172,7 +1172,7 @@ get_sms_codes(PhoneRaw, AppType) ->
     ok.
 
 
-send_moment_notification(PhoneOrUid, Timestamp, Id, Type, Prompt, HideBanner) ->
+send_moment_notification(PhoneOrUid, Date, Timestamp, Id, Type, Prompt, HideBanner) ->
     Uid = case util_uid:looks_like_uid(PhoneOrUid) of
         true ->
             PhoneOrUid;
@@ -1181,7 +1181,7 @@ send_moment_notification(PhoneOrUid, Timestamp, Id, Type, Prompt, HideBanner) ->
             U
     end,
     ?INFO("Admin Sending moment notification to ~s", [Uid]),
-    mod_moment_notification2:send_moment_notification(Uid, Timestamp, Id, util:to_atom(Type), Prompt, <<>>, util:to_atom(HideBanner)).
+    mod_moment_notification2:send_moment_notification(Uid, Date, Timestamp, Id, util:to_atom(Type), Prompt, <<>>, util:to_atom(HideBanner)).
 
 
 send_invite(FromUid, ToPhone) ->
