@@ -228,10 +228,12 @@ compose_user_archive_result(_Uid, Ouid) ->
     {Posts, _Comments} = lists:partition(fun(Item) -> is_record(Item, post) end, Items),
     ArchiveFeedItems = lists:map(fun mod_feed:convert_posts_to_feed_items/1, Posts),
     ArchivePostStanzas = lists:map(fun(FeedItem) -> FeedItem#pb_feed_item.item end, ArchiveFeedItems),
+    StartDate = util:time_to_prettydatestring(util:now_ms() - ?POST_TTL_MS),
     #pb_archive_result{
         result = ok,
         uid = Ouid,
-        posts = ArchivePostStanzas
+        posts = ArchivePostStanzas,
+        start_date = StartDate
     }.
 
 
