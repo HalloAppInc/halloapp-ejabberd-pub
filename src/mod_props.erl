@@ -17,6 +17,9 @@
 -include("groups.hrl").
 -include("time.hrl").
 
+
+-define(DAILY_NOTIF_STRINGS_FILE, "daily_katchup_body_strings.json").
+
 -ifdef(TEST).
 -export([
     generate_hash/1,
@@ -32,7 +35,8 @@
 -export([
     get_hash/2,
     get_props/2,    %% debug only
-    get_invite_strings_to_rm_by_cc/2
+    get_invite_strings_to_rm_by_cc/2,
+    get_daily_notif_strings_bin/0
 ]).
 
 %%====================================================================
@@ -117,7 +121,8 @@ get_props(Uid, ClientVersion, katchup) ->
         close_friends_recos => false, %% Should invite recommendations be sorted based on number of close friends
         ai_generated_images => false,  %% Enable AI-generated images for the background of text posts
         ambassador => false,
-        feed_comment_notifications => false
+        feed_comment_notifications => false,
+        daily_katchup_notif_template => <<>>
     },
     ClientType = util_ua:get_client_type(ClientVersion),
     AppType = util_ua:get_app_type(ClientVersion),
@@ -253,7 +258,8 @@ get_uid_based_props(PropMap, katchup, Uid) ->
             PropMap#{
                 dev => true,
                 ai_generated_images => true,
-                feed_comment_notifications => true
+                feed_comment_notifications => true,
+                daily_katchup_notif_template => get_daily_notif_strings_bin()
             }
     end,
     apply_uid_prop_overrides(Uid, ResPropMap).
@@ -352,4 +358,21 @@ make_response(IQ, SortedProplist, Hash) ->
             {Key, Val} <- SortedProplist],
     Prop = #pb_props{hash = Hash, props = Props},
     pb:make_iq_result(IQ, Prop).
+
+
+get_daily_notif_strings_bin() ->
+    try
+        Filename = filename:join(misc:data_dir(), ?DAILY_NOTIF_STRINGS_FILE),
+        {ok, Bin} = file:read_file(Filename),
+        InviteStringsMap = jiffy:decode(Bin, [return_maps]),
+        %% en localization strings dont appear with other languages in ios repo for some reason.
+        InviteStringsMap1 = InviteStringsMap#{
+            <<"en">> => <<"%1$@"/utf8>>
+        },
+        jiffy:encode(InviteStringsMap1)
+    catch
+        Class: Reason: Stacktrace  ->
+            ?ERROR("Failed to get invite strings", [lager:pr_stacktrace(Stacktrace, {Class, Reason})]),
+            <<>>
+    end.
 

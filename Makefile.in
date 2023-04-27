@@ -388,14 +388,17 @@ fetchpb:
 	rm -rf deps/schemas
 
 
+daily-katchup-strings:
+	$(MAKE) PATTERN='%s: %s\n' STRING_NAME='notification.katchup.daily.moment.body' RESULT_FILE=daily_katchup_body_strings.json copy-translations-internal
+
 pre-invite-strings:
-	$(MAKE) STRING_NAME='invite.contact.count' RESULT_FILE=pre_invite_strings.json copy-lang-strings-internal
+	$(MAKE) PATTERN='%s: [\n%s\n],\n' STRING_NAME='invite.contact.count' RESULT_FILE=pre_invite_strings.json copy-translations-internal
 
 invite-strings:
 	@echo "currently disabled – doesn't work for both apps."
-	# $(MAKE) STRING_NAME='\"invite.text*' RESULT_FILE=invite_strings.json copy-lang-strings-internal
+	# $(MAKE) PATTERN='%s: [\n%s\n],\n' STRING_NAME='\"invite.text*' RESULT_FILE=invite_strings.json copy-lang-strings-internal
 
-copy-lang-strings-internal:
+copy-translations-internal:
 	rm -rf temp
 	mkdir -p temp/msgs
 	mkdir -p priv/data
@@ -422,7 +425,7 @@ copy-lang-strings-internal:
 		while read -r line; do \
 			printf '  "%s",\n' "$$line" >> `echo $${file}2` ; done < $${file}; \
 		truncate -s-2 $${file}2; \
-		printf '%s: [\n%s\n],\n' "\"`echo $${file//.txt.strings}`\"" "`cat $${file}2`" >> ../$(RESULT_FILE); done;
+		printf '$(PATTERN)' "\"`echo $${file//.txt.strings}`\"" "`cat $${file}2`" >> ../$(RESULT_FILE); done;
 	# truncate last comma character from file
 	truncate -s-2 temp/$(RESULT_FILE)
 	echo "\n}" >> temp/$(RESULT_FILE)
