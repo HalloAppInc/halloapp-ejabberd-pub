@@ -31,8 +31,8 @@
     schedule/0,
     monitor_all_regions/0,
 
-    check_and_send_moment_notifications/7,
-    start_timer_moment_notification/7,
+    check_and_send_moment_notifications/8,
+    start_timer_moment_notification/8,
     send_moment_notification/7,
 
     monitor_all_regions/1,
@@ -111,13 +111,13 @@ reassign_jobs() ->
     ok.
 
 
-start_timer_moment_notification(Region, MinsUntilSend, OffsetHr, Day, NotifId, _NotifType, _Prompt) ->
-    gen_server:cast(?PROC(), {timer_started, Region, MinsUntilSend, OffsetHr, Day, NotifId}),
+start_timer_moment_notification(Region, MinsUntilSend, OffsetHr, _Date, DayOfMonth, NotifId, _NotifType, _Prompt) ->
+    gen_server:cast(?PROC(), {timer_started, Region, MinsUntilSend, OffsetHr, DayOfMonth, NotifId}),
     ok.
 
 
-check_and_send_moment_notifications(Region, NumUids, OffsetHr, Day, NotifId, _NotifType, _Prompt) ->
-    gen_server:cast(?PROC(), {check_and_send_moment_notifs, Region, NumUids, OffsetHr, Day, NotifId}),
+check_and_send_moment_notifications(Region, NumUids, OffsetHr, _Date, DayOfMonth, NotifId, _NotifType, _Prompt) ->
+    gen_server:cast(?PROC(), {check_and_send_moment_notifs, Region, NumUids, OffsetHr, DayOfMonth, NotifId}),
     ok.
 
 
