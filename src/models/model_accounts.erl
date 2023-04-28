@@ -202,6 +202,7 @@
     delete_old_username/1,
     get_geotag_uids/1,
     update_geo_tag_index/2,
+    remove_from_geo_tag_index/2,
     update_permissions/2,
     is_permission_enabled/2,
     inc_num_posts/1,
@@ -1926,6 +1927,13 @@ update_geo_tag_index(Uid, GeoTag) ->
     [{ok, _}] = qp([["ZADD", geotag_index_key(UidSlot, GeoTag), Timestamp, Uid]]),
     ok.
 
+-spec remove_from_geo_tag_index(Uid :: binary(), GeoTag :: atom()) -> ok.
+remove_from_geo_tag_index(Uid, GeoTag) ->
+    HashSlot = util_redis:eredis_hash(binary_to_list(Uid)),
+    UidSlot = HashSlot rem ?NUM_SLOTS,
+    Timestamp = util:now(),
+    [{ok, _}] = qp([["ZREM", geotag_index_key(UidSlot, GeoTag), Uid]]),
+    ok.
 
 -spec remove_geo_tags(Uid :: binary()) -> ok.
 remove_geo_tags(Uid) ->
@@ -1964,6 +1972,7 @@ remove_geo_tag(Uid, Tag) ->
     [{ok, _}, {ok, _}] = qmn([
             ["ZREM", geo_tag_key(Uid), Tag],
             ["ZREM", geotag_index_key(UidSlot, Tag), Uid]]),
+    remove_from_geo_tag_index(Uid, Tag),
     ok.
 
 

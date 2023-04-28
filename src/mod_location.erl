@@ -85,7 +85,7 @@ get_geo_tag(Uid, GpsLocation = #pb_gps_location{latitude = Latitude, longitude =
 %% and any two points next to each other (incl. first and last point) form an edge of the polygon.
 -spec get_tagged_locations() -> list().
 get_tagged_locations() ->
-    [{cal_ave,
+    [{katchup_hq,
         [{37.4256235, -122.1462536},
          {37.4251790, -122.1456645},
          {37.4290103, -122.1426232},
