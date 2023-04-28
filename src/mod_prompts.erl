@@ -168,6 +168,12 @@ get_album_prompts() ->
                 id = <<"album.5">>,
                 text = <<"coachella or couch-ella? 🛋✨"/utf8>>,
                 reuse_after = 6 * ?MONTHS
+            },
+        <<"album.6">> =>
+            #prompt{
+                id = <<"album.6">>,
+                text = <<"work-out selfie 🏋🏾‍♀️🏋🏼‍♂️🏋🏿"/utf8>>,
+                reuse_after = 6 * ?MONTHS
             }
     }.
 
@@ -274,6 +280,24 @@ get_text_prompts() ->
                 reuse_after = 6 * ?MONTHS,
                 ai_image_model = ?STABLE_DIFFUSION_1_5,
                 prompt_wrapper = fun(T) -> <<T/binary, ", tv show, popcorn">> end,
+                negative_prompt = <<"disfigured faces, text, high saturation">>
+            },
+        <<"text.15">> =>
+            #prompt{
+                id = <<"text.15">>,
+                text = <<"you're out with friends and stumble into a karaoke bar, what's your song? 🎤👩🏾‍🎤"/utf8>>,
+                reuse_after = 6 * ?MONTHS,
+                ai_image_model = ?STABLE_DIFFUSION_1_5,
+                prompt_wrapper = fun(T) -> <<T/binary, ", karaoke, bar, 8k, hyper detailed and intricate">> end,
+                negative_prompt = <<"disfigured faces, text, high saturation">>
+            },
+        <<"text.16">> =>
+            #prompt{
+                id = <<"text.16">>,
+                text = <<"latest netflix binge? 🍿"/utf8>>,
+                reuse_after = 6 * ?MONTHS,
+                ai_image_model = ?STABLE_DIFFUSION_1_5,
+                prompt_wrapper = fun(T) -> <<T/binary, ", movie, popcorn, theatre">> end,
                 negative_prompt = <<"disfigured faces, text, high saturation">>
             }
     }.
