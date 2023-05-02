@@ -94,7 +94,7 @@ get_prompt_and_mark_used(Type) ->
                         false -> {OldestPrompt, OldestPromptTimestamp}
                     end
                 end,
-                {<<"WYD?">>, 9223372036854775807},  %% 64-bit max int – Timestamp should always be less
+                {<<"">>, 9223372036854775807},  %% 64-bit max int – Timestamp should always be less
                 UsedPrompts),
             ?ERROR("No usable ~p prompts, chose oldest promptId: ~p", [Type, ChosenPromptId]),
             %% some crash in the following line. todo: fix it separately.
@@ -308,7 +308,7 @@ get_media_prompts() ->
         <<"media.1">> =>
             #prompt{
                 id = <<"media.1">>,
-                text = <<"WYD?">>,
+                text = <<"">>,
                 reuse_after = 0}
     }.
 
