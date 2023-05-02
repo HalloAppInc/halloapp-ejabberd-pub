@@ -332,10 +332,11 @@ process_register_request(#{raw_phone := RawPhone, ua := UserAgent, code := Code,
         CampaignId = maps:get(campaign_id, RequestData, <<"undefined">>),
         check_ua(UserAgent),
         Phone = normalize_by_version(RawPhone, UserAgent),
-        case {Phone, model_phone:delete_reg_noise_key(RemoteStaticKey)} of
-            {<<"">>, ok} -> ok;
-            {<<"">>, not_found} -> error(empty_phone, AppType);
-            {_, _} ->
+        case Phone of
+            <<>> ->
+                ?INFO("phoneless registration, RemoteStaticKey: ~p", [RemoteStaticKey]),
+                ok;
+            _ ->
                 check_sms_code(Phone, AppType, ClientIP, Protocol, Code, RemoteStaticKey),
                 ok = otp_checker:otp_delivered(Phone, ClientIP, Protocol, RemoteStaticKey)
         end,
