@@ -1238,21 +1238,22 @@ generate_moment_info(PostType, DateTimeSecs) ->
     set_moment_info(Day, MomentNotification).
 
 
-generate_notification_time(DateTimeSecs) ->
-    {Date, {_,_,_}} = calendar:system_time_to_universal_time(DateTimeSecs, second),
-    DayOfWeek = calendar:day_of_the_week(Date),
-    case DayOfWeek =:= 6 orelse DayOfWeek =:= 7 of
-        true ->
-            %% Weekend 9am to 7pm
-            9*60 + rand:uniform(10*60);
-        false ->
-            %% from 12 to 1pm or from 3pm to 7pm local time.
-            RandTime = 14*60 + rand:uniform(5*60),
-            case RandTime < 15*60 of
-                true -> RandTime - 2 * 60;
-                false -> RandTime
-            end
-    end.
+generate_notification_time(_DateTimeSecs) ->
+%%    {Date, {_,_,_}} = calendar:system_time_to_universal_time(DateTimeSecs, second),
+%%    DayOfWeek = calendar:day_of_the_week(Date),
+%%    case DayOfWeek =:= 6 orelse DayOfWeek =:= 7 of
+%%        true ->
+%%            %% Weekend 9am to 7pm
+%%            9*60 + rand:uniform(10*60);
+%%        false ->
+%%            %% from 12 to 1pm or from 3pm to 7pm local time.
+%%            RandTime = 14*60 + rand:uniform(5*60),
+%%            case RandTime < 15*60 of
+%%                true -> RandTime - 2 * 60;
+%%                false -> RandTime
+%%            end
+%%    end.
+    (8 * 60) + rand:uniform(2 * 60).  %% 8am + (0-2 hours); 8am-10am
 
 
 -spec set_moment_info(Day :: calendar:day(), MomentNotificationRecord :: moment_notification()) -> ok | {error, term()}.
