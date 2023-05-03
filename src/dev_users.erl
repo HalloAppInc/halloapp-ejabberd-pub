@@ -32,28 +32,8 @@
 -spec get_katchup_ambassador_phones() -> [phone()].
 get_katchup_ambassador_phones() ->
     [
-        <<"17142705230">>,  %% Allison Goodwin
-        <<"19498748727">>,  %% Lauryn Stetson
-        <<"14422220891">>,  %% Abi Rosengren
-        <<"14255259318">>,  %% Emily Wu
-        <<"19158385955">>,  %% Amerika
-        <<"12096359188">>,  %% Nandani Patel
-        <<"18056302122">>,  %% Evelyn
-        <<"17144675273">>,  %% Lucas
-        <<"13104902034">>,  %% Ellie H
-        <<"18475134262">>,  %% Paloma
-        <<"17147148125">>,  %% Sean
-        <<"19563017446">>,  %% Jacob Lara
-        <<"19566451330">>,  %% Selina Sanchez
-        <<"18188239049">>,  %% Joseph Hernandez
-        <<"19565189512">>,  %% Abigail Sanchez
-        <<"15613039252">>,  %% Tom Grosjean
-        <<"17176156058">>,  %% Robert Shelton
-        <<"19196169144">>,  %% Cokie Daniel
-        <<"18056896626">>,  %% Marina Fay
-        <<"17146866411">>,  %% Kelly Petersen
-        <<"14356405299">>,  %% Tate Hardy-Polinsky
-        <<"16153648992">>   %% Annalise Mansfield
+        <<"918766261787">>,  %% Jhanvee (ashoka)
+        <<"917508360359">>   %% Saher (ashoka)
     ].
 
 
