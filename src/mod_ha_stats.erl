@@ -31,6 +31,7 @@
     group_feed_item_retracted/4,
     register_user/4,
     re_register_user/4,
+    add_phone_user/4,
     add_friend/4,
     remove_friend/3,
     user_send_packet/1,
@@ -81,6 +82,8 @@ start(Host, Opts) ->
     %% Katchup
     ejabberd_hooks:add(feed_item_published, katchup, ?MODULE, feed_item_published, 50),
     ejabberd_hooks:add(register_user, katchup, ?MODULE, register_user, 50),
+    ejabberd_hooks:add(re_register_user, katchup, ?MODULE, re_register_user, 50),
+    ejabberd_hooks:add(add_phone_user, katchup, ?MODULE, add_phone_user, 50),
     ejabberd_hooks:add(user_send_packet, katchup, ?MODULE, user_send_packet, 50),
     ejabberd_hooks:add(user_receive_packet, katchup, ?MODULE, user_receive_packet, 50),
     gen_mod:start_child(?MODULE, Host, Opts, ?PROC()),
@@ -105,6 +108,8 @@ stop(_Host) ->
     %% Katchup
     ejabberd_hooks:delete(feed_item_published, katchup, ?MODULE, feed_item_published, 50),
     ejabberd_hooks:delete(register_user, katchup, ?MODULE, register_user, 50),
+    ejabberd_hooks:delete(re_register_user, katchup, ?MODULE, re_register_user, 50),
+    ejabberd_hooks:delete(add_phone_user, katchup, ?MODULE, add_phone_user, 50),
     ejabberd_hooks:delete(user_send_packet, katchup, ?MODULE, user_send_packet, 50),
     ejabberd_hooks:delete(user_receive_packet, katchup, ?MODULE, user_receive_packet, 50),
     gen_mod:stop_child(?PROC()),
@@ -407,15 +412,35 @@ register_user(Uid, _Server, Phone, CampaignId) ->
 -spec re_register_user(Uid :: binary(), Server :: binary(), Phone :: binary(), CampaignId :: binary()) -> ok.
 re_register_user(Uid, _Server, Phone, CampaignId) ->
     ?INFO("counting uid:~s", [Uid]),
+    AppType = util_uid:get_app_type(Uid),
+    StatNamespace = util:get_stat_namespace(AppType),
     case util:is_test_number(Phone) of
         false ->
-            stat:count("HA/account", "re_register"),
+            stat:count(StatNamespace ++ "/account", "re_register"),
             CC = mod_libphonenumber:get_region_id(Phone),
-            stat:count("HA/account", "re_registration_by_cc", 1, [{cc, CC}]),
-            stat:count("HA/account", "re_registration_by_cc_and_campaign_id", 1, [{cc, CC}, {campaign_id, CampaignId}]),
+            stat:count(StatNamespace ++ "/account", "re_registration_by_cc", 1, [{cc, CC}]),
+            stat:count(StatNamespace ++ "/account", "re_registration_by_cc_and_campaign_id", 1, [{cc, CC}, {campaign_id, CampaignId}]),
             ok;
         true ->
-            stat:count("HA/account", "re_register_test_account")
+            stat:count(StatNamespace ++ "/account", "re_register_test_account")
+    end,
+    ok.
+
+
+-spec add_phone_user(Uid :: binary(), Server :: binary(), Phone :: binary(), CampaignId :: binary()) -> ok.
+add_phone_user(Uid, _Server, Phone, CampaignId) ->
+    ?INFO("counting uid:~s", [Uid]),
+    AppType = util_uid:get_app_type(Uid),
+    StatNamespace = util:get_stat_namespace(AppType),
+    case util:is_test_number(Phone) of
+        false ->
+            stat:count(StatNamespace ++ "/account", "add_phone"),
+            CC = mod_libphonenumber:get_region_id(Phone),
+            stat:count(StatNamespace ++ "/account", "add_phone_by_cc", 1, [{cc, CC}]),
+            stat:count(StatNamespace ++ "/account", "add_phone_by_cc_and_campaign_id", 1, [{cc, CC}, {campaign_id, CampaignId}]),
+            ok;
+        true ->
+            stat:count(StatNamespace ++ "/account", "add_phone_test_account")
     end,
     ok.
 

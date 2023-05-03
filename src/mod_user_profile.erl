@@ -13,6 +13,7 @@
 -include("feed.hrl").
 -include("account.hrl").
 -include("packets.hrl").
+-include("password.hrl").
 
 %% gen_mod API
 -export([start/2, stop/1, reload/3, depends/2, mod_options/1]).
@@ -40,6 +41,7 @@ start(_Host, _Opts) ->
     gen_iq_handler:add_iq_handler(ejabberd_local, ?KATCHUP, pb_user_profile_request, ?MODULE, process_local_iq),
     gen_iq_handler:add_iq_handler(ejabberd_local, ?KATCHUP, pb_archive_request, ?MODULE, process_local_iq),
     gen_iq_handler:add_iq_handler(ejabberd_local, ?KATCHUP, pb_geo_tag_request, ?MODULE, process_local_iq),
+    gen_iq_handler:add_iq_handler(ejabberd_local, ?KATCHUP, pb_register_request, ?MODULE, process_local_iq),
     ejabberd_hooks:add(account_name_updated, katchup, ?MODULE, account_name_updated, 50),
     ejabberd_hooks:add(user_avatar_published, katchup, ?MODULE, user_avatar_published, 50),
     ejabberd_hooks:add(username_updated, katchup, ?MODULE, username_updated, 50),
@@ -51,6 +53,7 @@ stop(_Host) ->
     gen_iq_handler:remove_iq_handler(ejabberd_local, ?KATCHUP, pb_user_profile_request),
     gen_iq_handler:remove_iq_handler(ejabberd_local, ?KATCHUP, pb_archive_request),
     gen_iq_handler:remove_iq_handler(ejabberd_local, ?KATCHUP, pb_geo_tag_request),
+    gen_iq_handler:remove_iq_handler(ejabberd_local, ?KATCHUP, pb_register_request),
     ejabberd_hooks:delete(account_name_updated, katchup, ?MODULE, account_name_updated, 50),
     ejabberd_hooks:delete(user_avatar_published, katchup, ?MODULE, user_avatar_published, 50),
     ejabberd_hooks:delete(username_updated, katchup, ?MODULE, username_updated, 50),
@@ -145,7 +148,13 @@ process_local_iq(#pb_iq{payload = #pb_archive_request{}} = Iq) ->
 %% UserProfileRequest (invalid)
 process_local_iq(#pb_iq{from_uid = Uid,
         payload = #pb_geo_tag_request{action = Action, gps_location = GpsLocation, geo_tag = GeoTag}} = Iq) ->
-    process_geo_tag_request(Uid, Action, GpsLocation, GeoTag, Iq).
+    process_geo_tag_request(Uid, Action, GpsLocation, GeoTag, Iq);
+
+
+%% RegisterRequest
+process_local_iq(#pb_iq{from_uid = Uid, payload = #pb_register_request{} = Payload} = Iq) ->
+    process_register_request(Uid, Payload, Iq).
+
 
 %%====================================================================
 %% Hooks
@@ -306,4 +315,188 @@ broadcast_profile_update(Uid) ->
     Followers = model_follow:get_all_followers(Uid),
     mod_follow:notify_profile_update(Uid, Followers),
     ok.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%% Register request
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+process_register_request(Uid, #pb_register_request{request = #pb_hashcash_request{} = HashcashRequest}, Iq) ->
+    AppType = util_uid:get_app_type(Uid),
+    StatNamespace = util:get_stat_namespace(AppType),
+    stat:count(StatNamespace++"/registration", "request_hashcash", 1, [{protocol, "noise"}]),
+    CC = HashcashRequest#pb_hashcash_request.country_code,
+    %% TODO: Need to add ip in the future, currently it is not used.
+    RequestData = #{
+        cc => CC,
+        ip => <<>>,
+        raw_data => HashcashRequest,
+        protocol => noise
+    },
+    {ok, HashcashChallenge} = mod_halloapp_http_api:process_hashcash_request(RequestData),
+    stat:count(StatNamespace++"/registration", "request_hashcash_success", 1, [{protocol, "noise"}]),
+    HashcashResponse = #pb_hashcash_response{
+        hashcash_challenge = HashcashChallenge
+    },
+    pb:make_iq_result(Iq, #pb_register_response{response = HashcashResponse});
+
+process_register_request(Uid, #pb_register_request{request = #pb_otp_request{} = OtpRequest}, Iq) ->
+    AppType = util_uid:get_app_type(Uid),
+    StatNamespace = util:get_stat_namespace(AppType),
+    stat:count(StatNamespace ++ "/registration", "request_otp_request", 1, [{protocol, "noise"}]),
+    RawPhone = OtpRequest#pb_otp_request.phone,
+    MethodBin = util:to_binary(OtpRequest#pb_otp_request.method),
+    LangId = OtpRequest#pb_otp_request.lang_id,
+    GroupInviteToken = OtpRequest#pb_otp_request.group_invite_token,
+    UserAgent = OtpRequest#pb_otp_request.user_agent,
+    HashcashSolution = OtpRequest#pb_otp_request.hashcash_solution,
+    HashcashSolutionTimeTakenMs = OtpRequest#pb_otp_request.hashcash_solution_time_taken_ms,
+    CampaignId = OtpRequest#pb_otp_request.campaign_id,
+    {ok, SPubRecord} = model_auth:get_spub(Uid),
+    RemoteStaticKey = SPubRecord#s_pub.s_pub,
+    RequestData = #{raw_phone => RawPhone, lang_id => LangId, ua => UserAgent, method => MethodBin,
+        ip => <<>>, group_invite_token => GroupInviteToken, raw_data => OtpRequest,
+        protocol => noise, remote_static_key => RemoteStaticKey,
+        hashcash_solution => HashcashSolution,
+        hashcash_solution_time_taken_ms => HashcashSolutionTimeTakenMs,
+        campaign_id => CampaignId
+    },
+    OtpResponse = case mod_halloapp_http_api:process_otp_request(RequestData) of
+        {ok, Phone, RetryAfterSecs, IsPastUndelivered} ->
+            stat:count(StatNamespace ++"/registration", "request_otp_success", 1, [{protocol, "noise"}]),
+            #pb_otp_response{
+                phone = Phone,
+                result = success,
+                retry_after_secs = RetryAfterSecs,
+                should_verify_number = IsPastUndelivered
+            };
+        {error, retried_too_soon, Phone, RetryAfterSecs} ->
+            #pb_otp_response{
+                phone = Phone,
+                result = failure,
+                reason = retried_too_soon,
+                retry_after_secs = RetryAfterSecs
+            };
+        {error, dropped, Phone, RetryAfterSecs} ->
+            #pb_otp_response{
+                phone = Phone,
+                result = success,
+                retry_after_secs = RetryAfterSecs
+            };
+        {error, internal_server_error} ->
+            #pb_otp_response{
+                result = failure,
+                reason = internal_server_error
+            };
+        {error, ip_blocked} ->
+            #pb_otp_response{
+                result = failure,
+                reason = bad_request
+            };
+        {error, bad_user_agent} ->
+            #pb_otp_response{
+                result = failure,
+                reason = bad_request
+            };
+        {error, Reason} ->
+            #pb_otp_response{
+                result = failure,
+                reason = Reason
+            }
+    end,
+    pb:make_iq_result(Iq, #pb_register_response{response = OtpResponse});
+
+process_register_request(Uid, #pb_register_request{request = #pb_verify_otp_request{} = VerifyOtpRequest}, Iq) ->
+    RawPhone = VerifyOtpRequest#pb_verify_otp_request.phone,
+    Name = VerifyOtpRequest#pb_verify_otp_request.name,
+    Code = VerifyOtpRequest#pb_verify_otp_request.code,
+    SEdPubB64 = base64:encode(VerifyOtpRequest#pb_verify_otp_request.static_key),
+    SignedPhraseB64 = base64:encode(VerifyOtpRequest#pb_verify_otp_request.signed_phrase),
+    IdentityKeyB64 = base64:encode(VerifyOtpRequest#pb_verify_otp_request.identity_key),
+    SignedKeyB64 = base64:encode(VerifyOtpRequest#pb_verify_otp_request.signed_key),
+    OneTimeKeysB64 = lists:map(fun base64:encode/1, VerifyOtpRequest#pb_verify_otp_request.one_time_keys),
+    PushPayload = case VerifyOtpRequest#pb_verify_otp_request.push_register of
+        undefined -> #{};
+        #pb_push_register{push_token = #pb_push_token{} = PbPushToken, lang_id = LangId} ->
+            #{
+                <<"lang_id">> => LangId,
+                <<"push_token">> => PbPushToken#pb_push_token.token,
+                <<"push_os">> => PbPushToken#pb_push_token.token_type
+            }
+    end,
+    GroupInviteToken = VerifyOtpRequest#pb_verify_otp_request.group_invite_token,
+    UserAgent = VerifyOtpRequest#pb_verify_otp_request.user_agent,
+    CampaignId = case VerifyOtpRequest#pb_verify_otp_request.campaign_id of
+        undefined -> "undefined";
+        [] -> "undefined";
+        <<>> -> "undefined";
+        SomeList when is_list(SomeList) ->
+            case SomeList of
+                [] ->
+                    ?INFO("Weird campaign_id is empty-list"),
+                    "undefined";
+                SomethingElse -> SomethingElse
+            end;
+        SomeBin when is_binary(SomeBin) ->
+            case util:to_list(SomeBin) of
+                [] ->
+                    ?INFO("Weird campaign_id is empty-bin"),
+                    "undefined";
+                SomethingElse -> SomethingElse
+            end;
+        _ -> "undefined"
+    end,
+    HashcashSolution = VerifyOtpRequest#pb_verify_otp_request.hashcash_solution,
+    HashcashSolutionTimeTakenMs = VerifyOtpRequest#pb_verify_otp_request.hashcash_solution_time_taken_ms,
+    StatNamespace = util:get_stat_namespace(UserAgent),
+    stat:count(StatNamespace ++ "/registration", "verify_otp_request", 1, [{protocol, "noise"}]),
+    stat:count(StatNamespace ++ "/registration", "verify_otp_request_by_campaign_id", 1, [{campaign_id, CampaignId}]),
+    {ok, SPubRecord} = model_auth:get_spub(Uid),
+    RemoteStaticKey = SPubRecord#s_pub.s_pub,
+    RequestData = #{
+        raw_phone => RawPhone, name => Name, ua => UserAgent, code => Code,
+        ip => <<>>, group_invite_token => GroupInviteToken, s_ed_pub => SEdPubB64,
+        signed_phrase => SignedPhraseB64, id_key => IdentityKeyB64, sd_key => SignedKeyB64,
+        otp_keys => OneTimeKeysB64, push_payload => PushPayload, raw_data => VerifyOtpRequest,
+        protocol => noise, remote_static_key => RemoteStaticKey,
+        campaign_id => CampaignId,
+        hashcash_solution => HashcashSolution,
+        hashcash_solution_time_taken_ms => HashcashSolutionTimeTakenMs,
+        client_uid => VerifyOtpRequest#pb_verify_otp_request.uid
+    },
+    VerifyOtpResponse = case mod_halloapp_http_api:process_register_request(RequestData) of
+        {ok, Result} ->
+            stat:count(util:get_stat_namespace(UserAgent) ++ "/registration",
+                "verify_otp_success", 1, [{protocol, "noise"}]),
+            #pb_verify_otp_response{
+                uid = maps:get(uid, Result),
+                phone = maps:get(phone, Result),
+                name = maps:get(name, Result),
+                username = maps:get(username, Result),
+                result = success,
+                group_invite_result = util:to_binary(maps:get(group_invite_result, Result, ''))
+            };
+        {error, internal_server_error} ->
+            #pb_verify_otp_response{
+                result = failure,
+                reason = internal_server_error
+            };
+        {error, bad_user_agent} ->
+            #pb_verify_otp_response{
+                result = failure,
+                reason = bad_request
+            };
+        {error, Reason} ->
+            #pb_verify_otp_response{
+                result = failure,
+                reason = Reason
+            }
+    end,
+    pb:make_iq_result(Iq, #pb_register_response{response = VerifyOtpResponse});
+
+process_register_request(Uid, _, Iq) ->
+    ?ERROR("Invalid packet received, Uid: ~p Iq: ~p", [Uid, Iq]),
+    pb:make_error(Iq, util:err(invalid_packet)).
+
 

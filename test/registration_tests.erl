@@ -456,6 +456,46 @@ verify_otp_fail_noise_test(_Conf) ->
     ?assertEqual(unable_to_open_signed_phrase, Response3#pb_verify_otp_response.reason),
     ok.
 
+%% register without phone.
+phoneless_reg_noise_test(_Conf) ->
+    Phone = <<>>,
+    Name = ?NAME11,
+
+    %% Compose RequestOtp
+    RequestOtpOptions = #{},
+    {ok, RegisterRequestPkt} = registration_client:compose_otp_noise_request(Phone, RequestOtpOptions),
+
+    %% Generate NoiseKeys.
+    KeyPair = ha_enoise:generate_signature_keypair(),
+    {SEdSecret, SEdPub} = {maps:get(secret, KeyPair), maps:get(public, KeyPair)},
+    %% Convert these signing keys to curve keys.
+    {CurveSecret, CurvePub} = {enacl:crypto_sign_ed25519_secret_to_curve25519(maps:get(secret, KeyPair)),
+     enacl:crypto_sign_ed25519_public_to_curve25519(maps:get(public, KeyPair))},
+    %% TODO: move this code to have an api for these keys.
+    ClientKeyPair = #kp{type = ?CURVE_KEY_TYPE, sec = CurveSecret, pub = CurvePub},
+    SignedMessage = enacl:sign("HALLO", SEdSecret),
+    % SEdPubEncoded = base64:encode(SEdPub),
+    % SignedMessageEncoded = base64:encode(SignedMessage),
+
+    %% Connect and register without phone.
+    ConnectOptions = #{host => "localhost", port => 5208, state => register},
+
+    %% Compose VerifyOtpRequest
+    OtpCode = undefined,
+    VerifyOtpOptions = #{name => Name, static_key => SEdPub, signed_phrase => SignedMessage},
+    {ok, VerifyOtpRequestPkt} = registration_client:compose_verify_otp_noise_request(Phone, OtpCode, VerifyOtpOptions),
+
+    %% Send verify_otp request on a different connection.
+    {ok, _Client2, ActualResponse2} = ha_client:connect_and_send(VerifyOtpRequestPkt, ClientKeyPair, ConnectOptions),
+
+    %% Check result.
+    % ?debugFmt("response2: ~p", [ActualResponse2]),
+    Response2 = ActualResponse2#pb_register_response.response,
+    ?assertEqual(Phone, Response2#pb_verify_otp_response.phone),
+    ?assertEqual(success, Response2#pb_verify_otp_response.result),
+    ?assertEqual(<<>>, Response2#pb_verify_otp_response.name),
+    ok.
+
 full_test(_Conf) ->
     ok = registration_client:hashcash_register(?NAME10, ?PHONE10, #{}).
 

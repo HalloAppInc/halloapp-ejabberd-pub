@@ -10,7 +10,7 @@
   0},
  {<<"cowboy">>,
   {git,"https://github.com/ninenines/cowboy",
-       {ref,"326939c8a8cf1e4a441601fe557ba97d11ccea3c"}},
+       {ref,"22adc4de517bf54661795f6e18b6b2e62aec4140"}},
   0},
  {<<"cowlib">>,
   {git,"https://github.com/ninenines/cowlib",

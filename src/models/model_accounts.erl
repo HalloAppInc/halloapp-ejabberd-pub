@@ -208,7 +208,8 @@
     inc_num_posts/1,
     inc_num_comments/1,
     inc_num_seen/1,
-    remove_geo_tags/1
+    remove_geo_tags/1,
+    add_phone_to_uid/2
 ]).
 
 %%====================================================================
@@ -308,6 +309,11 @@ create_account(Uid, Phone, UserAgent, CampaignId, CreationTsMs) ->
                     {error, exists}
             end
     end.
+
+
+add_phone_to_uid(Uid, Phone) ->
+    {ok, _} = q(["HSET", account_key(Uid), ?FIELD_PHONE, Phone]),
+    ok.
 
 
 %% We copy unidentifiable information to a new key.

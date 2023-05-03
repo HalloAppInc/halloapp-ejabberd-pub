@@ -10,7 +10,7 @@
 -author('josh').
 
 -ifdef(TEST).
--export([ha_try_register/4]).
+-export([ha_try_register/5]).
 -endif.
 
 %% External exports
@@ -19,6 +19,7 @@
     check_spub/2,
     try_enroll/4,
     check_and_register/5,
+    check_and_register/6,
     get_users/0,
     count_users/0,
     user_exists/1,
@@ -60,8 +61,12 @@ set_spub(Uid, SPub) ->
 
 
 check_and_register(Phone, Host, SPub, UserAgent, CampaignId) ->
+    check_and_register(Phone, <<>>, Host, SPub, UserAgent, CampaignId).
+
+
+check_and_register(Phone, ClientUid, Host, SPub, UserAgent, CampaignId) ->
     ?assert(byte_size(SPub) > 0),
-    Result = check_and_register_internal(Phone, Host, SPub, UserAgent, CampaignId),
+    Result = check_and_register_internal(Phone, ClientUid, Host, SPub, UserAgent, CampaignId),
     case Result of
         {ok, Uid, login} ->
             ?INFO("Login into existing account uid:~p for phone:~p", [Uid, Phone]),
@@ -69,6 +74,9 @@ check_and_register(Phone, Host, SPub, UserAgent, CampaignId) ->
         {ok, Uid, register} ->
             ?INFO("Registering new account uid:~p for phone:~p", [Uid, Phone]),
             {ok, Uid, register};
+        {ok, Uid, add_phone} ->
+            ?INFO("Adding phone to account uid:~p phone:~p", [Uid, Phone]),
+            {ok, Uid, add_phone};
         {error, Reason} ->
             ?INFO("Login/Registration for phone:~p failed. ~p", [Phone, Reason]),
             {error, Reason}
@@ -104,12 +112,6 @@ user_exists(User) ->
     model_accounts:account_exists(User).
 
 
--spec re_register_user(User :: binary(), Server :: binary(), Phone :: binary(), CampaignId :: binary()) -> ok.
-re_register_user(User, Server, Phone, CampaignId) ->
-    AppType = util_uid:get_app_type(User),
-    ejabberd_hooks:run(re_register_user, AppType, [User, Server, Phone, CampaignId]).
-
-
 -spec remove_user(binary(), binary()) -> ok.
 remove_user(User, Server) ->
     AppType = util_uid:get_app_type(User),
@@ -121,44 +123,77 @@ remove_user(User, Server) ->
 %%% Internal functions
 %%%----------------------------------------------------------------------
 
--spec check_and_register_internal(binary(), binary(), binary(), binary(), binary()) ->
-    {ok, binary(), register | login} |
+-spec check_and_register_internal(binary(), maybe(binary()), binary(), binary(), binary(), binary()) ->
+    {ok, binary(), register | login | add_phone} |
     {error, db_failure | not_allowed | exists | invalid_jid}.
-check_and_register_internal(Phone, Server, Cred, UserAgent, CampaignId) ->
+check_and_register_internal(Phone, ClientUid, Server, Cred, UserAgent, CampaignId) ->
     AppType = util_ua:get_app_type(UserAgent),
     case model_phone:get_uid(Phone, AppType) of
         {ok, undefined} ->
-            case ha_try_register(Phone, Cred, UserAgent, CampaignId) of
-                {ok, _, UserId} ->
+            case ha_try_register(Phone, ClientUid, Cred, UserAgent, CampaignId) of
+                {ok, _, UserId, register} ->
                     ejabberd_hooks:run(register_user, AppType, [UserId, Server, Phone, CampaignId]),
                     {ok, UserId, register};
+                {ok, _, UserId, add_phone} ->
+                    ejabberd_hooks:run(add_phone_user, AppType, [UserId, Server, Phone, CampaignId]),
+                    {ok, UserId, add_phone};
                 Err -> Err
             end;
-        {ok, UserId} ->
-            re_register_user(UserId, Server, Phone, CampaignId),
-            case set_spub(UserId, Cred) of
-                ok ->
-                    ok = model_accounts:set_user_agent(UserId, UserAgent),
-                    ok = model_accounts:set_last_registration_ts_ms(UserId, util:now_ms()),
-                    SessionCount = ejabberd_sm:kick_user(UserId, Server),
-                    ?INFO("~p removed from ~p sessions", [UserId, SessionCount]),
+        {ok, ExistingUserId} ->
+            case ha_try_re_register(Phone, ClientUid, ExistingUserId, Cred, UserAgent, CampaignId) of
+                {ok, _, UserId, re_register} ->
+                    ejabberd_hooks:run(re_register_user, AppType, [UserId, Server, Phone, CampaignId]),
                     {ok, UserId, login};
+                {ok, _, UserId, add_phone} ->
+                    ejabberd_hooks:run(add_phone_user, AppType, [UserId, Server, Phone, CampaignId]),
+                    {ok, UserId, add_phone};
                 Err -> Err
             end
     end.
 
 
-ha_try_register(Phone, Cred, UserAgent, CampaignId) ->
-    ?INFO("phone:~s", [Phone]),
+ha_try_register(Phone, ClientUid, Cred, UserAgent, CampaignId) ->
+    ?INFO("Phone:~s, ClientUid: ~p", [Phone, ClientUid]),
     AppType = util_ua:get_app_type(UserAgent),
-    {ok, Uid} = util_uid:generate_uid(UserAgent),
-    ok = model_accounts:create_account(Uid, Phone, UserAgent, CampaignId),
+    {Uid, Action} = case ClientUid =:= <<>> orelse ClientUid =:= undefined of
+        true ->
+            {ok, NewUid} = util_uid:generate_uid(UserAgent),
+            ok = model_accounts:create_account(NewUid, Phone, UserAgent, CampaignId),
+            {NewUid, register};
+        false ->
+            ok = model_accounts:add_phone_to_uid(ClientUid, Phone),
+            {ClientUid, add_phone}
+    end,
     case {Phone, AppType} of
         {<<"">>, katchup} -> ok;
         _ -> ok = model_phone:add_phone(Phone, AppType, Uid)
     end,
     case set_spub(Uid, Cred) of
-        ok ->{ok, Cred, Uid};
+        ok -> {ok, Cred, Uid, Action};
+        Err -> Err
+    end.
+
+
+ha_try_re_register(Phone, ClientUid, ExistingUserId, Cred, UserAgent, _CampaignId) ->
+    ?INFO("Phone:~s, ClientUid: ~p", [Phone, ClientUid]),
+    Server = util:get_host(),
+    AppType = util_ua:get_app_type(UserAgent),
+    {UserId, Action} = case ClientUid =/= ExistingUserId andalso ClientUid =/= <<>> andalso ClientUid =/= undefined of
+        true ->
+            remove_user(ExistingUserId, Server),
+            ok = model_accounts:add_phone_to_uid(ClientUid, Phone),
+            ok = model_phone:add_phone(Phone, AppType, ClientUid),
+            {ClientUid, add_phone};
+        false ->
+            {ExistingUserId, re_register}
+    end,
+    case set_spub(UserId, Cred) of
+        ok ->
+            ok = model_accounts:set_user_agent(UserId, UserAgent),
+            ok = model_accounts:set_last_registration_ts_ms(UserId, util:now_ms()),
+            SessionCount = ejabberd_sm:kick_user(UserId, Server),
+            ?INFO("~p removed from ~p sessions", [UserId, SessionCount]),
+            {ok, Cred, UserId, Action};
         Err -> Err
     end.
 

@@ -1756,6 +1756,7 @@ message VerifyOtpRequest {
     string campaign_id = 12;
     string hashcash_solution = 13;
     int64 hashcash_solution_time_taken_ms = 14;
+    int64 uid = 15 [ebin = true]; // If the client already received a uid via phoneless registration.
 }
 
 message VerifyOtpResponse {

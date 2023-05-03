@@ -325,7 +325,7 @@ process_register_request(#{raw_phone := RawPhone, ua := UserAgent, code := Code,
         ip := ClientIP, group_invite_token := GroupInviteToken, s_ed_pub := SEdPubB64,
         signed_phrase := SignedPhraseB64, id_key := IdentityKeyB64, sd_key := SignedKeyB64,
         otp_keys := OneTimeKeysB64, push_payload := PushPayload, raw_data := RawData,
-        protocol := Protocol} = RequestData) ->
+        protocol := Protocol, client_uid := ClientUid} = RequestData) ->
     AppType = util_ua:get_app_type(UserAgent),
     try
         RemoteStaticKey = maps:get(remote_static_key, RequestData, undefined),
@@ -352,7 +352,7 @@ process_register_request(#{raw_phone := RawPhone, ua := UserAgent, code := Code,
         SignedPhraseBin = base64:decode(SignedPhraseB64),
         check_signed_phrase(SignedPhraseBin, SEdPubBin),
         SPub = base64:encode(enacl:crypto_sign_ed25519_public_to_curve25519(SEdPubBin)),
-        {ok, Phone, Uid} = finish_registration_spub(Phone, UserAgent, SPub, CampaignId),
+        {ok, Phone, Uid} = finish_registration_spub(Phone, ClientUid, UserAgent, SPub, CampaignId),
         process_whisper_keys(Uid, IdentityKeyB64, SignedKeyB64, OneTimeKeysB64),
         process_push_token(Uid, Phone, PushPayload),
         CC = mod_libphonenumber:get_region_id(Phone),
@@ -684,14 +684,15 @@ process_push_token(Uid, Phone, PushPayload) ->
     end.
 
 
--spec finish_registration_spub(phone(), binary(), binary(), binary()) -> {ok, phone(), binary()}.
-finish_registration_spub(Phone, UserAgent, SPub, CampaignId) ->
+-spec finish_registration_spub(phone(), maybe(binary()), binary(), binary(), binary()) -> {ok, phone(), binary()}.
+finish_registration_spub(Phone, ClientUid, UserAgent, SPub, CampaignId) ->
     Host = util:get_host(),
     {ok, Uid, Action} = ejabberd_auth:check_and_register(
-        Phone, Host, SPub, UserAgent, CampaignId),
+        Phone, ClientUid, Host, SPub, UserAgent, CampaignId),
     ?INFO("Phone: ~s, UserAgent: ~s, Campaign Id: ~s", [Phone, UserAgent, CampaignId]),
     %% Action = login, updates the spub.
     %% Action = register, creates a new user id and registers the user for the first time.
+    %% Action = add_phone, adds the phone number to the user id.
     log_registration(Phone, Action, UserAgent),
     {ok, Phone, Uid}.
 
@@ -703,6 +704,12 @@ log_registration(Phone, Action, UserAgent) ->
                 [{client_type, util_ua:get_client_type(UserAgent)}]);
         {register, false} ->
             stat:count(StatNamespace ++ "/account", "registration_by_client_type", 1,
+                [{client_type, util_ua:get_client_type(UserAgent)}]),
+            IsPhoneEmpty = Phone =:= <<>>,
+            stat:count(StatNamespace ++ "/account", "registration_by_client_phone", 1,
+                [{client_type, util_ua:get_client_type(UserAgent)}, {is_phone_empty, IsPhoneEmpty}]);
+        {add_phone, false} ->
+            stat:count(StatNamespace ++ "/account", "add_phone_by_client_type", 1,
                 [{client_type, util_ua:get_client_type(UserAgent)}]);
         {_, true} ->
             ok

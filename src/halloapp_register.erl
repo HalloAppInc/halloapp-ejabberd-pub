@@ -274,7 +274,7 @@ terminate(_Reason, State) ->
 
 -spec process_element(stanza(), state()) -> state().
 process_element(#pb_register_request{request = #pb_hashcash_request{} = HashcashRequest},
-        #{socket := Socket, ip := ClientIP} = State) ->
+        #{socket := _Socket, ip := ClientIP} = State) ->
     check_and_count(ClientIP, "HA/registration", "request_hashcash", 1, [{protocol, "noise"}]),
     CC = HashcashRequest#pb_hashcash_request.country_code,
     RequestData = #{cc => CC, ip => ClientIP, raw_data => HashcashRequest,
@@ -406,7 +406,8 @@ process_element(#pb_register_request{request = #pb_verify_otp_request{} = Verify
         protocol => noise, remote_static_key => RemoteStaticKey,
         campaign_id => CampaignId,
         hashcash_solution => HashcashSolution,
-        hashcash_solution_time_taken_ms => HashcashSolutionTimeTakenMs
+        hashcash_solution_time_taken_ms => HashcashSolutionTimeTakenMs,
+        client_uid => VerifyOtpRequest#pb_verify_otp_request.uid
     },
     VerifyOtpResponse = case mod_halloapp_http_api:process_register_request(RequestData) of
         {ok, Result} ->

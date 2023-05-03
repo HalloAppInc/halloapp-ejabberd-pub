@@ -44,7 +44,7 @@ check_and_register(_) ->
 
 
 ha_try_register(_) ->
-    {ok, SPub, Uid} = ejabberd_auth:ha_try_register(?PHONE, ?SPUB, ?UA, <<>>),
+    {ok, SPub, Uid, register} = ejabberd_auth:ha_try_register(?PHONE, <<>>, ?SPUB, ?UA, <<>>),
     [?_assertEqual(?SPUB, SPub),
     ?_assert(model_accounts:account_exists(Uid)),
     ?_assert(ejabberd_auth:check_spub(Uid, ?SPUB)),
@@ -54,7 +54,7 @@ ha_try_register(_) ->
     ?_assertEqual(?HALLOAPP, util_uid:get_app_type(Uid))].
 
 ka_try_register(_) ->
-    {ok, SPub, Uid} = ejabberd_auth:ha_try_register(?PHONE, ?SPUB, <<"Katchup/iOS1.2.93">>, <<>>),
+    {ok, SPub, Uid, register} = ejabberd_auth:ha_try_register(?PHONE, <<>>, ?SPUB, <<"Katchup/iOS1.2.93">>, <<>>),
     [?_assertEqual(?SPUB, SPub),
     ?_assert(model_accounts:account_exists(Uid)),
     ?_assert(ejabberd_auth:check_spub(Uid, ?SPUB)),
