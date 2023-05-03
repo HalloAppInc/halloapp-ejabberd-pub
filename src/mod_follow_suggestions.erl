@@ -99,11 +99,11 @@ check_and_schedule() ->
     case util:is_main_stest() of
         true ->
             ?INFO("Scheduling fof run", []),
-            erlcron:cron(follow_suggestions, {
+            erlcron:cron(generate_fof_uids, {
                 {daily, {10, 00, am}},
                 {?MODULE, generate_fof_uids, []}
             }),
-            erlcron:cron(follow_suggestions, {
+            erlcron:cron(generate_follow_suggestions, {
                 {daily, {10, 00, am}},
                 {?MODULE, generate_follow_suggestions, []}
             }),
@@ -236,7 +236,7 @@ update_fof(Uid) ->
 generate_follow_suggestions() ->
     %% TODO: change migration to run for every zoneoffset uids.
     %% that will ensure we do this in batches throughout the day.
-    redis_migrate:start_migration("calculate_fof_run", redis_accounts,
+    redis_migrate:start_migration("calculate_follow_suggestions", redis_accounts,
         {migrate_check_accounts, calculate_follow_suggestions},
         [{execute, sequential}, {scan_count, 500}]).
 
