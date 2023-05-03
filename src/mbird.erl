@@ -67,6 +67,8 @@ is_cc_supported(CC) ->
         <<"RS">> -> false;     %% Serbia
         <<"UZ">> -> false;     %% Uzbekistan
         <<"VN">> -> false;     %% Vietnam
+        <<"GB">> -> false;     %% Great Britain
+        <<"IE">> -> false;     %% Ireland
         _ -> true
     end.
 

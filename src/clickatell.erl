@@ -61,6 +61,8 @@ can_send_sms(_, CC) ->
         <<"AE">> -> false;     %% UAE
         <<"US">> -> false;     %% USA
         <<"VN">> -> false;     %% Vietnam
+        <<"GB">> -> false;     %% Great Britain
+        <<"IE">> -> false;     %% Ireland
         _ -> true
     end.
 

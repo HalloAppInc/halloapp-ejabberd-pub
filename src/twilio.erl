@@ -70,6 +70,8 @@ is_cc_supported(CC) ->
         <<"RU">> -> false;     %% Russia
         <<"TZ">> -> false;     %% Tanzania
         <<"VN">> -> false;     %% Vietnam
+        <<"GB">> -> false;     %% Great Britain
+        <<"IE">> -> false;     %% Ireland
         _ -> true
     end.
 
