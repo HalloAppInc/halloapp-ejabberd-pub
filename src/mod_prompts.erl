@@ -174,6 +174,12 @@ get_album_prompts() ->
                 id = <<"album.6">>,
                 text = <<"work-out selfie 🏋🏾‍♀️🏋🏼‍♂️🏋🏿"/utf8>>,
                 reuse_after = 6 * ?MONTHS
+            },
+        <<"album.7">> =>
+            #prompt{
+                id = <<"album.7">>,
+                text = <<"Drop the spiciest screenshot you have on your phone? 👀 🌶"/utf8>>,
+                reuse_after = 6 * ?MONTHS
             }
     }.
 
@@ -299,6 +305,24 @@ get_text_prompts() ->
                 ai_image_model = ?STABLE_DIFFUSION_1_5,
                 prompt_wrapper = fun(T) -> <<T/binary, ", movie, popcorn, theatre">> end,
                 negative_prompt = <<"disfigured faces, text, high saturation">>
+            },
+        <<"text.17">> =>
+            #prompt{
+                id = <<"text.17">>,
+                text = <<"Spring's in full bloom, if you could plant any flower, which one would you choose? 🌷🌷"/utf8>>,
+                reuse_after = 6 * ?MONTHS,
+                ai_image_model = ?STABLE_DIFFUSION_1_5,
+                prompt_wrapper = fun(T) -> <<T/binary, ", flowers, low saturation">> end,
+                negative_prompt = <<"disfigured faces">>
+            },
+        <<"text.18">> =>
+            #prompt{
+                id = <<"text.18">>,
+                text = <<"We don't gatekeep, share a ✨tip✨ that gets you through life on the daily"/utf8>>,
+                reuse_after = 6 * ?MONTHS,
+                ai_image_model = ?STABLE_DIFFUSION_1_5,
+                prompt_wrapper = fun(T) -> <<T/binary, ", journal, tips, how to">> end,
+                negative_prompt = <<"disfigured faces">>
             }
     }.
 
