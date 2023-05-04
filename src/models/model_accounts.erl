@@ -1937,7 +1937,6 @@ update_geo_tag_index(Uid, GeoTag) ->
 remove_from_geo_tag_index(Uid, GeoTag) ->
     HashSlot = util_redis:eredis_hash(binary_to_list(Uid)),
     UidSlot = HashSlot rem ?NUM_SLOTS,
-    Timestamp = util:now(),
     [{ok, _}] = qp([["ZREM", geotag_index_key(UidSlot, GeoTag), Uid]]),
     ok.
 

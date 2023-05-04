@@ -81,12 +81,12 @@ mod_options(_Host) ->
 %%====================================================================
 
 -spec re_register_user(UserId :: binary(), Server :: binary(), Phone :: binary(), CampaignId :: binary()) -> ok.
-re_register_user(UserId, _Server, Phone, _CampaignId) ->
+re_register_user(UserId, _Server, _Phone, _CampaignId) ->
     spawn(?MODULE, update_follow_suggestions, [UserId]),
     ok.
 
 -spec register_user(UserId :: binary(), Server :: binary(), Phone :: binary(), CampaignId :: binary()) -> ok.
-register_user(UserId, _Server, Phone, _CampaignId) ->
+register_user(UserId, _Server, _Phone, _CampaignId) ->
     spawn(?MODULE, update_follow_suggestions, [UserId]),
     ok.
 
