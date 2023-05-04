@@ -31,7 +31,8 @@
     update_name_index/2,
     % sync_latest_notification/2,
     calculate_fof_run/2,
-    calculate_follow_suggestions/2
+    calculate_follow_suggestions/2,
+    update_geotag_index/2
 ]).
 
 
@@ -589,6 +590,37 @@ calculate_follow_suggestions(Key, State) ->
             ?INFO("Uid: ~p update_follow_suggestions", [Uid]),
             mod_follow_suggestions:update_follow_suggestions(Uid),
             ok;
+        _ -> ok
+    end,
+    State.
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                         Update geo tag index                     %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+update_geotag_index(Key, State) ->
+    DryRun = maps:get(dry_run, State, false),
+    Result = re:run(Key, "^acc:{(1001[0-9]+)}$", [global, {capture, all, binary}]),
+    case Result of
+        {match, [[_FullKey, Uid]]} ->
+            case util_uid:get_app_type(Uid) of
+                katchup ->
+                    case model_accounts:get_latest_geo_tag(Uid) of
+                        undefined -> ok;
+                        GeoTag ->
+                            case DryRun of
+                                false ->
+                                    model_accounts:add_geo_tag(Uid, GeoTag, util:now()),
+                                    ?INFO("Uid: ~p, updated index for GeoTag: ~p", [Uid, GeoTag]);
+                                true ->
+                                    ?INFO("Uid: ~p, will update index for GeoTag: ~p", [Uid, GeoTag])
+                            end
+                    end;
+                halloapp ->
+                    ok
+            end;
         _ -> ok
     end,
     State.
