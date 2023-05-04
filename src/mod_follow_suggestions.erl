@@ -39,7 +39,9 @@
     update_follow_suggestions/1,
     update_follow_suggestions/2,
     fetch_follow_suggestions/1,
-    remove_follow_relationship/2
+    remove_follow_relationship/2,
+    register_user/4,
+    re_register_user/4
 ]).
 
 
@@ -49,6 +51,8 @@
 
 start(_Host, Opts) ->
     ?INFO("start ~w ~p", [?MODULE, Opts]),
+    ejabberd_hooks:add(re_register_user, katchup, ?MODULE, re_register_user, 100),
+    ejabberd_hooks:add(register_user, katchup, ?MODULE, register_user, 100),
     gen_iq_handler:add_iq_handler(ejabberd_local, katchup, pb_follow_suggestions_request, ?MODULE, process_local_iq),
     ejabberd_hooks:add(remove_follow_relationship, katchup, ?MODULE, remove_follow_relationship, 50),
     check_and_schedule(),
@@ -57,6 +61,8 @@ start(_Host, Opts) ->
 stop(_Host) ->
     ?INFO("stop ~w", [?MODULE]),
     gen_iq_handler:remove_iq_handler(ejabberd_local, katchup, pb_follow_suggestions_request),
+    ejabberd_hooks:delete(re_register_user, katchup, ?MODULE, re_register_user, 100),
+    ejabberd_hooks:delete(register_user, katchup, ?MODULE, register_user, 100),
     ejabberd_hooks:delete(remove_follow_relationship, katchup, ?MODULE, remove_follow_relationship, 50),
     ok.
 
@@ -73,6 +79,16 @@ mod_options(_Host) ->
 %%====================================================================
 %% iq handlers and api
 %%====================================================================
+
+-spec re_register_user(UserId :: binary(), Server :: binary(), Phone :: binary(), CampaignId :: binary()) -> ok.
+re_register_user(UserId, _Server, Phone, _CampaignId) ->
+    spawn(?MODULE, update_follow_suggestions, [UserId]),
+    ok.
+
+-spec register_user(UserId :: binary(), Server :: binary(), Phone :: binary(), CampaignId :: binary()) -> ok.
+register_user(UserId, _Server, Phone, _CampaignId) ->
+    spawn(?MODULE, update_follow_suggestions, [UserId]),
+    ok.
 
 remove_follow_relationship(Uid, _Ouid) ->
     spawn(?MODULE, update_follow_suggestions, [Uid]),

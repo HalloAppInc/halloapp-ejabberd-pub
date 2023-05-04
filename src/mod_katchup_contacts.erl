@@ -364,6 +364,7 @@ count_first_syncs(UserId, IsFirstSync, NumNewContacts) ->
     IsEmpty = NumNewContacts =:= 0,
     case IsFirstSync of
         true ->
+            spawn(mod_follow_suggestions, update_follow_suggestions, [UserId]),
             stat:count("KA/contacts", "first_contact_sync", 1, [{is_empty, IsEmpty}]);
         false ->
             ok
