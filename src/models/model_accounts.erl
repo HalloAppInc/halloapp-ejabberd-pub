@@ -188,6 +188,7 @@
     is_username_available/1,
     set_username/2,
     get_username/1,
+    get_username_binary/1,
     get_username_uid/1,
     get_username_uids/1,
     search_username_prefix/2,
@@ -523,6 +524,20 @@ set_username(Uid, Username) ->
 get_username(Uid) ->
     {ok, Res} = q(["HGET", account_key(Uid), ?FIELD_USERNAME]),
     {ok, Res}.
+
+
+-spec get_username_binary(Uid :: uid()) -> binary().
+get_username_binary(Uid) ->
+    case util_uid:get_app_type(Uid) of
+        katchup ->
+            {ok, Username} = get_username(Uid),
+            case Username of
+                undefined ->  <<>>;
+                _ -> Username
+            end;
+        _ ->
+            get_name_binary(Uid)
+    end.
 
 -spec get_username_uid(Username :: binary()) -> {ok, maybe(binary())} | {error, any()}.
 get_username_uid(Username) ->

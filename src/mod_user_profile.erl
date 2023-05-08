@@ -200,12 +200,14 @@ compose_user_profile_result(Uid, Ouid) ->
     UserProfile = model_accounts:get_user_profiles(Uid, Ouid),
     RawRecentPosts = model_feed:get_recent_user_posts(Ouid),
     AccountName = model_accounts:get_name_binary(Ouid),
+    AccountUsername = model_accounts:get_username_binary(Ouid),
     RecentPosts = lists:map(
         fun(#post{id = PostId, payload = PayloadBase64, ts_ms = TimestampMs, tag = PostTag, moment_info = MomentInfo} = Post) ->
             #pb_post{
                 id = PostId,
                 publisher_uid = Ouid,
                 publisher_name = AccountName,
+                publisher_username = AccountUsername,
                 payload = base64:decode(PayloadBase64),
                 timestamp = util:ms_to_sec(TimestampMs),
                 moment_info = MomentInfo,

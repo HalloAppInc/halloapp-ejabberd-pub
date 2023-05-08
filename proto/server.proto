@@ -198,6 +198,7 @@ message Post {
 
     // Set by the server.
     bool is_expired = 14;
+    string publisher_username = 15;
 }
 
 message Comment {
@@ -217,6 +218,7 @@ message Comment {
         POST_REACTION = 2;
     }
     CommentType comment_type = 10;
+    string publisher_username = 11;
 }
 
 
@@ -1162,6 +1164,8 @@ message Iq {
         PostSubscriptionResponse post_subscription_response = 71;
         GeoTagRequest geo_tag_request = 72;
         GeoTagResponse geo_tag_response = 73;
+        RegisterRequest register_request = 74;
+        RegisterResponse register_response = 75;
     }
     int64 to_uid = 29 [ebin = true];    // only for server use
     int64 from_uid = 30 [ebin = true];    // only for server use

@@ -236,9 +236,10 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
     AudienceList = Post#pb_post.audience,
     PSATag = Post#pb_post.psa_tag,
     PublisherName = model_accounts:get_name_binary(Uid),
+    PublisherUsername = model_accounts:get_username_binary(Uid),
     case publish_post(Uid, PostId, PayloadBase64, PostTag, PSATag, AudienceList, HomeFeedSt) of
         {ok, ResultTsMs} ->
-            SubEl = update_feed_post_st(Uid, PublisherName, HomeFeedSt, Uid, ResultTsMs),
+            SubEl = update_feed_post_st(Uid, PublisherName, PublisherUsername, HomeFeedSt, Uid, ResultTsMs),
             pb:make_iq_result(IQ, SubEl);
         {error, Reason} ->
             pb:make_error(IQ, util:err(Reason))
@@ -541,17 +542,17 @@ send_expiry_notice(#post{id = PostId, uid = PostOwnerUid} = Post) ->
 
 -spec set_sender_info(Message :: message()) -> message().
 set_sender_info(#pb_msg{id = MsgId, payload = #pb_feed_items{items = Items} = FeedItems} = Message) ->
-    NewItems = [set_ts_and_publisher_name(MsgId, Item) || Item <- Items],
+    NewItems = [set_ts_and_publisher_username(MsgId, Item) || Item <- Items],
     NewFeedItems = FeedItems#pb_feed_items{
         items = NewItems
     },
     Message#pb_msg{payload = NewFeedItems};
     
 set_sender_info(#pb_msg{id = MsgId, payload = #pb_feed_item{} = FeedItem} = Message) ->
-    NewFeedItem = set_ts_and_publisher_name(MsgId, FeedItem),
+    NewFeedItem = set_ts_and_publisher_username(MsgId, FeedItem),
     Message#pb_msg{payload = NewFeedItem}.
 
-set_ts_and_publisher_name(MsgId, #pb_feed_item{item = Item} = FeedItem) ->
+set_ts_and_publisher_username(MsgId, #pb_feed_item{item = Item} = FeedItem) ->
     %% TODO: remove code to get, set the timestamp after both clients implement it properly.
     {Timestamp, PublisherUid} = case Item of
         #pb_post{timestamp = undefined} ->
@@ -563,12 +564,14 @@ set_ts_and_publisher_name(MsgId, #pb_feed_item{item = Item} = FeedItem) ->
         #pb_post{timestamp = T} -> {T, Item#pb_post.publisher_uid};
         #pb_comment{timestamp = T} -> {T, Item#pb_comment.publisher_uid}
     end,
-    {ok, SenderName} = model_accounts:get_name(PublisherUid),
+    SenderName = model_accounts:get_name_binary(PublisherUid),
+    SenderUsername = model_accounts:get_username_binary(PublisherUid),
     case Item of
         #pb_post{} -> 
             Item2 = Item#pb_post{
                 timestamp = Timestamp,
-                publisher_name = SenderName
+                publisher_name = SenderName,
+                publisher_username = SenderUsername
             },
             FeedItem#pb_feed_item{
                 item = Item2
@@ -576,7 +579,8 @@ set_ts_and_publisher_name(MsgId, #pb_feed_item{item = Item} = FeedItem) ->
         #pb_comment{} ->
             Item2 = Item#pb_comment{
                 timestamp = Timestamp,
-                publisher_name = SenderName
+                publisher_name = SenderName,
+                publisher_username = SenderUsername
             },
             FeedItem#pb_feed_item{
                 item = Item2
@@ -712,6 +716,7 @@ publish_psa_post(Uid, PostId, PayloadBase64, PostTag, PSATag, HomeFeedSt) ->
 broadcast_post(Uid, FeedAudienceList, HomeFeedSt, TimestampMs) ->
     PublisherUid = Uid,
     PublisherName = model_accounts:get_name_binary(Uid),
+    PublisherUsername = model_accounts:get_username_binary(Uid),
     FeedAudienceSet = sets:from_list(FeedAudienceList),
     BroadcastUids = sets:to_list(sets:del_element(Uid, FeedAudienceSet)),
     PushSet = FeedAudienceSet,
@@ -727,7 +732,7 @@ broadcast_post(Uid, FeedAudienceList, HomeFeedSt, TimestampMs) ->
     end,
     lists:foreach(
         fun(ToUid) ->
-            ResultStanza = update_feed_post_st(PublisherUid, PublisherName, HomeFeedSt, ToUid, TimestampMs),
+            ResultStanza = update_feed_post_st(PublisherUid, PublisherName, PublisherUsername, HomeFeedSt, ToUid, TimestampMs),
             MsgType = get_message_type(ResultStanza, PushSet, ToUid),
             SenderState = maps:get(ToUid, StateBundlesMap, undefined),
             ResultStanza2 = ResultStanza#pb_feed_item{
@@ -952,13 +957,14 @@ make_pb_feed_post(Action, PostId, Uid, PayloadBase64, EncPayload, FeedAudienceTy
             publisher_uid = Uid,
             payload = base64:decode(PayloadBase64),
             publisher_name = model_accounts:get_name_binary(Uid),
+            publisher_username = model_accounts:get_username_binary(Uid),
             timestamp = util:ms_to_sec(TimestampMs),
             enc_payload = EncPayload,
             audience = PbAudience
     }}.
 
 
-update_feed_post_st(PublisherUid, PublisherName, HomeFeedSt, ToUid, TimestampMs) ->
+update_feed_post_st(PublisherUid, PublisherName, PublisherUsername, HomeFeedSt, ToUid, TimestampMs) ->
     Post = HomeFeedSt#pb_feed_item.item,
     FeedAudienceType = HomeFeedSt#pb_feed_item.item#pb_post.audience#pb_audience.type,
     PbAudience = case FeedAudienceType of
@@ -973,6 +979,7 @@ update_feed_post_st(PublisherUid, PublisherName, HomeFeedSt, ToUid, TimestampMs)
                 item = Post#pb_post{
                     publisher_uid = PublisherUid,
                     publisher_name = PublisherName,
+                    publisher_username = PublisherUsername,
                     timestamp = util:ms_to_sec(TimestampMs),
                     moment_unlock_uid = MomentUnlockUid,
                     audience = PbAudience,
@@ -985,6 +992,7 @@ update_feed_post_st(PublisherUid, PublisherName, HomeFeedSt, ToUid, TimestampMs)
                 item = Post#pb_post{
                     publisher_uid = PublisherUid,
                     publisher_name = PublisherName,
+                    publisher_username = PublisherUsername,
                     timestamp = util:ms_to_sec(TimestampMs),
                     moment_unlock_uid = undefined,
                     audience = PbAudience
@@ -1008,6 +1016,7 @@ make_pb_feed_comment(Action, CommentId, PostId, ParentCommentId, PublisherUid, H
             parent_comment_id = ParentCommentId,
             publisher_uid = PublisherUid,
             publisher_name = model_accounts:get_name_binary(PublisherUid),
+            publisher_username = model_accounts:get_username_binary(PublisherUid),
             timestamp = util:ms_to_sec(TimestampMs)
         }
     }.
@@ -1610,6 +1619,7 @@ convert_moments_to_public_feed_items(Uid, #post{id = PostId, uid = OUid, payload
         id = PostId,
         publisher_uid = OUid,
         publisher_name = model_accounts:get_name_binary(OUid),
+        publisher_username = model_accounts:get_username_binary(OUid),
         payload = base64:decode(PayloadBase64),
         timestamp = util:ms_to_sec(TimestampMs),
         moment_info = MomentInfo,
@@ -1638,6 +1648,7 @@ convert_posts_to_feed_items(#post{id = PostId, uid = Uid, payload = PayloadBase6
         id = PostId,
         publisher_uid = Uid,
         publisher_name = model_accounts:get_name_binary(Uid),
+        publisher_username = model_accounts:get_username_binary(Uid),
         payload = base64:decode(PayloadBase64),
         timestamp = util:ms_to_sec(TimestampMs),
         moment_info = MomentInfo,
@@ -1661,6 +1672,7 @@ convert_comments_to_feed_items(#comment{id = CommentId, post_id = PostId, publis
         post_id = PostId,
         publisher_uid = PublisherUid,
         publisher_name = model_accounts:get_name_binary(PublisherUid),
+        publisher_username = model_accounts:get_username_binary(PublisherUid),
         parent_comment_id = ParentId,
         payload = base64:decode(PayloadBase64),
         timestamp = util:ms_to_sec(TimestampMs),
@@ -1679,6 +1691,7 @@ convert_comments_to_pb_comments(#comment{id = CommentId, post_id = PostId, publi
         post_id = PostId,
         publisher_uid = PublisherUid,
         publisher_name = model_accounts:get_name_binary(PublisherUid),
+        publisher_username = model_accounts:get_username_binary(PublisherUid),
         parent_comment_id = ParentId,
         payload = base64:decode(PayloadBase64),
         timestamp = util:ms_to_sec(TimestampMs),
