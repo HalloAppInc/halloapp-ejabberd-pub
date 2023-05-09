@@ -252,19 +252,20 @@ process_geo_tag_request(Uid, Action, GpsLocation, UserInputGeoTag, Iq) ->
     CurrentGeoTag = model_accounts:get_latest_geo_tag(Uid),
     {Ret, SendBroadcast} = case Action of
         get ->
-            GeoTag = mod_location:get_geo_tag(Uid, GpsLocation),
-            GeoTags = case GeoTag of
+            LocationGeoTag = mod_location:get_geo_tag(Uid, GpsLocation),
+            ok = model_accounts:add_geo_tag(Uid, LocationGeoTag, util:now()),
+            LatestGeoTag = model_accounts:get_latest_geo_tag(Uid),
+            GeoTags = case LatestGeoTag of
                 undefined -> [];
-                GeoTag ->
-                    model_accounts:add_geo_tag(Uid, GeoTag, util:now()),
-                    [util:to_binary(GeoTag)]
+                _ ->
+                    [util:to_binary(LatestGeoTag)]
             end,
             {
                 #pb_geo_tag_response{
                     result = ok,
                     geo_tags = GeoTags
                 },
-                CurrentGeoTag =/= GeoTag
+                CurrentGeoTag =/= LatestGeoTag
             };
         block ->
             case UserInputGeoTag of
@@ -286,21 +287,21 @@ process_geo_tag_request(Uid, Action, GpsLocation, UserInputGeoTag, Iq) ->
                     }
             end;
         force_add ->
-            GeoTag = mod_location:get_geo_tag(Uid, GpsLocation, false),
-            GeoTags = case GeoTag of
+            LocationGeoTag = mod_location:get_geo_tag(Uid, GpsLocation, false),
+            ok = model_accounts:add_geo_tag(Uid, LocationGeoTag, util:now()),
+            LatestGeoTag = model_accounts:get_latest_geo_tag(Uid),
+            GeoTags = case LatestGeoTag of
                 undefined -> [];
-                GeoTag ->
-                    model_accounts:add_geo_tag(Uid, GeoTag, util:now()),
-                    [util:to_binary(GeoTag)]
+                _ ->
+                    [util:to_binary(LatestGeoTag)]
             end,
             {
                 #pb_geo_tag_response{
                     result = ok,
                     geo_tags = GeoTags
                 },
-                CurrentGeoTag =/= GeoTag
+                CurrentGeoTag =/= LatestGeoTag
             }
-
     end,
     case SendBroadcast of
         true -> broadcast_profile_update(Uid);
