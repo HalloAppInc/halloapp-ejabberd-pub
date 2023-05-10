@@ -415,6 +415,20 @@ add_friend(_Uid, _Server, _Ouid, true) ->
 
 -spec remove_user(Uid :: uid(), Server :: binary()) -> ok.
 remove_user(Uid, _Server) ->
+    case util_uid:get_app_type(Uid) of
+        katchup ->
+            case model_feed:get_user_latest_post(Uid) of
+                undefined -> ok;
+                Post ->
+                    case Post#post.expired of
+                        true -> ok;
+                        false ->
+                            retract_post(Uid, Post#post.id)
+                    end
+            end,
+            ok;
+        _ -> ok
+    end,
     ok = model_feed:remove_user(Uid),
     ok.
 
