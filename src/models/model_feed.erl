@@ -1196,31 +1196,37 @@ get_moment_info(DateTimeSecs, GenerateIfNone) ->
     end.
 
 
-generate_moment_info(DateTimeSecs) ->
+generate_moment_info(TodayDateTimeSecs) ->
     %% Given DateTimeSecs, generate and store moment info
-    %% Might have to generate for multiple days
-    {FullDate, {_,_,_}} = calendar:system_time_to_universal_time(DateTimeSecs, second),
+    %% Generate for a week at a time
+    {FullDate, {_,_,_}} = calendar:system_time_to_universal_time(TodayDateTimeSecs, second),
     DayOfWeek = calendar:day_of_the_week(FullDate),
-    %% live camera on Fri, Sat, Sun,
-    %% Mon-Thurs should have 2 text posts, 1 album post, and 1 live camera post
-    case DayOfWeek >= 5 andalso DayOfWeek =< 7 of
-        true ->
-            generate_moment_info(live_camera, DateTimeSecs);
-        false ->
-            MediaPostDay = rand:uniform(4),
-            AlbumPostDay = lists:nth(rand:uniform(3), lists:seq(1, 4) -- [MediaPostDay]),
-            lists:foreach(
-                fun(WeekDay) ->
-                    PostType = case WeekDay of
-                        MediaPostDay -> live_camera;
-                        AlbumPostDay -> album_post;
-                        _ -> text_post
-                    end,
-                    ?INFO("Processing: ~p, PostType: ~p", [WeekDay, PostType]),
-                    WeekDayTimeSecs = DateTimeSecs + ((WeekDay - DayOfWeek) * ?DAYS),
-                    generate_moment_info(PostType, WeekDayTimeSecs)
+    %% 3 text posts per week
+    %% 2 album posts
+    %% 1 album dump (always on Sunday)
+    %% 1 camera
+    case DayOfWeek of
+        7 ->
+            %% TODO: will eventually be album_dump
+            generate_moment_info(album_post, TodayDateTimeSecs);
+        _ ->
+            %% Loop through each post type for the next week and assign
+            %% it to a random day N: today + N
+            Next7Days = [TodayDateTimeSecs + (N * ?DAYS) || N <- lists:seq(0, 6)],
+            DaysUntilNextSunday = 7 - DayOfWeek,
+            NextWeekMinusSunday = lists:delete(TodayDateTimeSecs + (DaysUntilNextSunday * ?DAYS), Next7Days),
+            lists:foldl(
+                fun(DateTimeSecs, RemainingPossiblePostTypes) ->
+                    PostType = lists:nth(rand:uniform(length(RemainingPossiblePostTypes)), RemainingPossiblePostTypes),
+                    generate_moment_info(PostType, DateTimeSecs),
+                    lists:delete(PostType, RemainingPossiblePostTypes)
                 end,
-                lists:seq(DayOfWeek, 4))
+                [
+                    text_post, text_post, text_post,
+                    album_post, album_post,
+                    live_camera
+                ],
+                NextWeekMinusSunday)
     end.
 
 
