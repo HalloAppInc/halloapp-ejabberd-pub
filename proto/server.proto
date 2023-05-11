@@ -1061,6 +1061,7 @@ message MomentNotification {
     bool hide_banner = 5; // default value will be false.
     bytes prompt_image = 6;
     string date = 7; // Local date of the notification in the format: DD/MM/YYYY.
+    bool reminder = 8; // reminder of the daily moment notification.
 }
 
 message ArchiveRequest {

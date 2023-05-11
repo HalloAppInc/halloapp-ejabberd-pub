@@ -1181,7 +1181,7 @@ send_moment_notification(PhoneOrUid, Date, Timestamp, Id, Type, Prompt, HideBann
             U
     end,
     ?INFO("Admin Sending moment notification to ~s", [Uid]),
-    mod_moment_notification2:send_moment_notification(Uid, Date, Timestamp, Id, util:to_atom(Type), Prompt, <<>>, util:to_atom(HideBanner)).
+    mod_moment_notification2:send_moment_notification(Uid, Date, Timestamp, Id, util:to_atom(Type), Prompt, <<>>, util:to_atom(HideBanner), false).
 
 
 send_invite(FromUid, ToPhone) ->
