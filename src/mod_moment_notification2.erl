@@ -210,11 +210,10 @@ send_latest_notification(Uid, CurrentTime, HideBanner) ->
 
     SendFun = fun(InfoMap, DayOffset) ->
         PromptRecord = mod_prompts:get_prompt_from_id(maps:get(promptId, InfoMap)),
-        Prompt = PromptRecord#prompt.text,
         Image = mod_prompts:get_prompt_image_bytes(PromptRecord#prompt.image_id),
         check_and_send_moment_notification(Uid, Region, maps:get(date, InfoMap), maps:get(day_of_month, InfoMap), maps:get(notif_id, InfoMap),
             util_moments:calculate_notif_timestamp(DayOffset, maps:get(mins_to_send, InfoMap), OffsetHr),
-            maps:get(notif_type, InfoMap), Prompt, Image, HideBanner, false)
+            maps:get(notif_type, InfoMap), PromptRecord, Image, HideBanner, false)
     end,
 
     if
@@ -305,30 +304,31 @@ maybe_schedule_moment_notif(TodaySecs, IsImmediateNotification) ->
                             max(0, LocalMinToSend - AdjustedLocalMinNow)
                     end,
                     PromptRecord = mod_prompts:get_prompt_from_id(PromptId),
-                    Prompt = PromptRecord#prompt.text,
                     Image = mod_prompts:get_prompt_image_bytes(PromptRecord#prompt.image_id),
                     ?INFO("Scheduling moment notification to send in ~p minutes for OffsetHr ~p, Date: ~p, DayOfMonth: ~p",
                         [MinsUntilSend, OffsetHr, Date, DayOfMonth]),
-                    ejabberd_hooks:run(start_timer_moment_notification, ?KATCHUP, [Region, MinsUntilSend, OffsetHr, Date, DayOfMonth, NotifId, NotifType, Prompt, Reminder]),
+                    ejabberd_hooks:run(start_timer_moment_notification, ?KATCHUP,
+                        [Region, MinsUntilSend, OffsetHr, Date, DayOfMonth, NotifId, NotifType, PromptRecord, Reminder]),
                     timer:apply_after(MinsUntilSend * ?MINUTES_MS, ?MODULE, check_and_send_moment_notifications,
-                        [OffsetHr, Date, DayOfMonth, NotifId, NotifType, Prompt, Image, Reminder])
+                        [OffsetHr, Date, DayOfMonth, NotifId, NotifType, PromptRecord, Image, Reminder])
             end
         end,
         [YesterdayInfoMap, TodayInfoMap, TomorrowInfoMap, YesterdayReminderInfoMap, TodayReminderInfoMap, TomorrowReminderInfoMap]).
 
 
 -spec check_and_send_moment_notifications(OffsetHr :: integer(), Date :: string(), DayOfMonth :: integer(), NotifId :: integer(),
-    NotifType :: moment_type(), Prompt :: binary(), Image :: binary(), Reminder :: boolean()) -> ok.
-check_and_send_moment_notifications(OffsetHr, Date, DayOfMonth, NotificationId, NotificationType, Prompt, Image, Reminder) ->
+    NotifType :: moment_type(), PromptRecord :: prompt_record(), Image :: binary(), Reminder :: boolean()) -> ok.
+check_and_send_moment_notifications(OffsetHr, Date, DayOfMonth, NotificationId, NotificationType, PromptRecord, Image, Reminder) ->
     StartTime = util:now_ms(),
     {Region, Predicate, OffsetHr} = lists:keyfind(OffsetHr, 3, get_regions()),
     Uids = get_uids_by_region(Predicate),
-    ejabberd_hooks:run(check_and_send_moment_notifications, ?KATCHUP, [Region, length(Uids), OffsetHr, Date, DayOfMonth, NotificationId, NotificationType, Prompt, Reminder]),
+    ejabberd_hooks:run(check_and_send_moment_notifications, ?KATCHUP,
+        [Region, length(Uids), OffsetHr, Date, DayOfMonth, NotificationId, NotificationType, PromptRecord, Reminder]),
     %% Spawn some worker processes
     NumWorkers = ?NUM_MOMENT_NOTIF_SENDER_PROCS,
     WorkerPids = lists:map(
         fun(N) ->
-            spawn(?MODULE, send_moment_notification_async, [Region, Date, DayOfMonth, NotificationId, NotificationType, Prompt, Image, N, Reminder])
+            spawn(?MODULE, send_moment_notification_async, [Region, Date, DayOfMonth, NotificationId, NotificationType, PromptRecord, Image, N, Reminder])
         end,
         lists:seq(1, NumWorkers)),
     %% Send Uids to the worker processes for moment notifications to be sent
@@ -347,23 +347,24 @@ check_and_send_moment_notifications(OffsetHr, Date, DayOfMonth, NotificationId, 
     ok.
 
 
-send_moment_notification_async(Region, Date, DayOfMonth, NotificationId, NotificationType, Prompt, Image, Name, Reminder) ->
+send_moment_notification_async(Region, Date, DayOfMonth, NotificationId, NotificationType, PromptRecord, Image, Name, Reminder) ->
     receive
         done ->
             ok;
         Uid ->
-            check_and_send_moment_notification(Uid, Region, Date, DayOfMonth, NotificationId, util:now(), NotificationType, Prompt, Image, false, Reminder),
-            send_moment_notification_async(Region, Date, DayOfMonth, NotificationId, NotificationType, Prompt, Image, Name, Reminder)
+            check_and_send_moment_notification(Uid, Region, Date, DayOfMonth, NotificationId, util:now(), NotificationType, PromptRecord, Image, false, Reminder),
+            send_moment_notification_async(Region, Date, DayOfMonth, NotificationId, NotificationType, PromptRecord, Image, Name, Reminder)
     end.
 
 
 %% Before sending, check to ensure a notification has not been sent to this user on this date
-check_and_send_moment_notification(Uid, Region, Date, DayOfMonth, NotificationId, NotificationTimestamp, NotificationType, Prompt, Image, HideBanner, Reminder) ->
+check_and_send_moment_notification(Uid, Region, Date, DayOfMonth, NotificationId, NotificationTimestamp, NotificationType, PromptRecord, Image, HideBanner, Reminder) ->
     %% Check if it is a reminder or if it can be sent the first time.
     case (Reminder andalso dev_users:is_dev_uid(Uid)) orelse model_accounts:mark_moment_notification_sent(Uid, util:to_binary(DayOfMonth)) of
         true ->
             AppType = util_uid:get_app_type(Uid),
             stat:count(util:get_stat_namespace(AppType) ++ "/moment_notif", "send"),
+            Prompt = mod_prompts:get_prompt_text(Uid, PromptRecord),
             send_moment_notification(Uid, Date, NotificationTimestamp, NotificationId, NotificationType, Prompt, Image, HideBanner, Reminder),
             ejabberd_hooks:run(send_moment_notification, AppType,
                 [Uid, Region, NotificationId, NotificationTimestamp, NotificationType, Prompt, HideBanner, Reminder]);

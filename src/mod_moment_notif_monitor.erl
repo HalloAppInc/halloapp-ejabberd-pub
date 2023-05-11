@@ -111,12 +111,12 @@ reassign_jobs() ->
     ok.
 
 
-start_timer_moment_notification(Region, MinsUntilSend, OffsetHr, _Date, DayOfMonth, NotifId, _NotifType, _Prompt, _Reminder) ->
+start_timer_moment_notification(Region, MinsUntilSend, OffsetHr, _Date, DayOfMonth, NotifId, _NotifType, _PromptRecord, _Reminder) ->
     gen_server:cast(?PROC(), {timer_started, Region, MinsUntilSend, OffsetHr, DayOfMonth, NotifId}),
     ok.
 
 
-check_and_send_moment_notifications(Region, NumUids, OffsetHr, _Date, DayOfMonth, NotifId, _NotifType, _Prompt, _Reminder) ->
+check_and_send_moment_notifications(Region, NumUids, OffsetHr, _Date, DayOfMonth, NotifId, _NotifType, _PromptRecord, _Reminder) ->
     gen_server:cast(?PROC(), {check_and_send_moment_notifs, Region, NumUids, OffsetHr, DayOfMonth, NotifId}),
     ok.
 

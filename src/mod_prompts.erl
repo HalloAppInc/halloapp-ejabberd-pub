@@ -30,7 +30,8 @@
     mod_options/1,
     get_prompt_and_mark_used/1,
     get_prompt_from_id/1,
-    get_prompt_image_bytes/1
+    get_prompt_image_bytes/1,
+    get_prompt_text/2
 ]).
 
 %%====================================================================
@@ -132,6 +133,22 @@ get_prompt_image_bytes(ImageId) ->
                 {error, Error} ->
                     ?ERROR("Unable to open image ~p: ~p", [FilePath, Error]),
                     <<>>
+            end
+    end.
+
+
+-spec get_prompt_text(uid(), prompt_record()) -> binary().
+get_prompt_text(Uid, PromptRecord) ->
+    %% Overrides for dev users
+    case dev_users:is_dev_uid(Uid) of
+        false ->
+            PromptRecord#prompt.text;
+        true ->
+            case PromptRecord#prompt.id of
+                <<"camera.1">> ->
+                    <<"WYD?"/utf8>>;
+                _ ->
+                    PromptRecord#prompt.text
             end
     end.
 

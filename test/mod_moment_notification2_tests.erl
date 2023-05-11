@@ -205,14 +205,17 @@ maybe_schedule_moment_notif_testset(_) ->
         %% Time = 20:00 UTC on Feb 20, 2023
         ?_assertOk(mod_moment_notification2:maybe_schedule_moment_notif(1676923200, false)),
         ?_assert(meck:called(timer, apply_after, [1 * ?MINUTES_MS, mod_moment_notification2, check_and_send_moment_notifications,
-            [-8, maps:get(date, ExpectedToday1), 20, maps:get(notif_id, ExpectedToday1), maps:get(notif_type, ExpectedToday1), Today1PromptRecord#prompt.text, <<>>, false]])),
+            [-8, maps:get(date, ExpectedToday1), 20, maps:get(notif_id, ExpectedToday1), maps:get(notif_type, ExpectedToday1),
+                Today1PromptRecord, <<>>, false]])),
         ?_assertEqual(1, meck:num_calls(timer, apply_after, '_')),
         %% Time = 4:00 UTC on Feb 22, 2023
         ?_assertOk(mod_moment_notification2:maybe_schedule_moment_notif(1677038400, false)),
         ?_assert(meck:called(timer, apply_after, [59 * ?MINUTES_MS, mod_moment_notification2, check_and_send_moment_notifications,
-            [-8, maps:get(date, ExpectedYesterday2), 21, maps:get(notif_id, ExpectedYesterday2), maps:get(notif_type, ExpectedYesterday2), YesterdayPromptRecord#prompt.text, <<>>, false]])),
+            [-8, maps:get(date, ExpectedYesterday2), 21, maps:get(notif_id, ExpectedYesterday2), maps:get(notif_type, ExpectedYesterday2),
+                YesterdayPromptRecord, <<>>, false]])),
         ?_assert(meck:called(timer, apply_after, [23 * ?MINUTES_MS, mod_moment_notification2, check_and_send_moment_notifications,
-            [6, maps:get(date, ExpectedToday2), 22, maps:get(notif_id, ExpectedToday2), maps:get(notif_type, ExpectedToday2), Today2PromptRecord#prompt.text, <<>>, false]])),
+            [6, maps:get(date, ExpectedToday2), 22, maps:get(notif_id, ExpectedToday2), maps:get(notif_type, ExpectedToday2),
+                Today2PromptRecord, <<>>, false]])),
         ?_assertEqual(3, meck:num_calls(timer, apply_after, '_'))
     ].
 
