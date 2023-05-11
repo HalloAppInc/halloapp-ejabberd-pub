@@ -1203,12 +1203,12 @@ generate_moment_info(TodayDateTimeSecs) ->
     DayOfWeek = calendar:day_of_the_week(FullDate),
     %% 3 text posts per week
     %% 2 album posts
-    %% 1 album dump (always on Sunday)
+    %% 1 album dump (always on Sunday) – for now this will be camera, until clients are ready
     %% 1 camera
     case DayOfWeek of
         7 ->
             %% TODO: will eventually be album_dump
-            generate_moment_info(album_post, TodayDateTimeSecs);
+            generate_moment_info(live_camera, TodayDateTimeSecs);
         _ ->
             %% Loop through each post type for the next week and assign
             %% it to a random day N: today + N

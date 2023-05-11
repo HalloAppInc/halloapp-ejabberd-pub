@@ -197,6 +197,18 @@ get_album_prompts() ->
                 id = <<"album.7">>,
                 text = <<"Drop the spiciest screenshot you have on your phone? 👀 🌶"/utf8>>,
                 reuse_after = 6 * ?MONTHS
+            },
+        <<"album.8">> =>
+            #prompt{
+                id = <<"album.8">>,
+                text = <<"share a photo from your last vacation 🛬"/utf8>>,
+                reuse_after = 6 * ?MONTHS
+            },
+        <<"album.9">> =>
+            #prompt{
+                id = <<"album.9">>,
+                text = <<"pics or it didn't happen 😎"/utf8>>,
+                reuse_after = 6 * ?MONTHS
             }
     }.
 
@@ -340,6 +352,33 @@ get_text_prompts() ->
                 ai_image_model = ?STABLE_DIFFUSION_1_5,
                 prompt_wrapper = fun(T) -> <<T/binary, ", journal, tips, how to">> end,
                 negative_prompt = <<"disfigured faces">>
+            },
+        <<"text.19">> =>
+            #prompt{
+                id = <<"text.19">>,
+                text = <<"Free meals for life at 1 fast food chain, who's your pick?!? 🍟🌮🍔"/utf8>>,
+                reuse_after = 6 * ?MONTHS,
+                ai_image_model = ?STABLE_DIFFUSION_1_5,
+                prompt_wrapper = fun(T) -> <<T/binary, ", food, delicious ">> end,
+                negative_prompt = <<"text, disfigured faces, low saturation, people">>
+            },
+        <<"text.20">> =>
+            #prompt{
+                id = <<"text.20">>,
+                text = <<"if you were paid for your ✨bad habits✨, which one would make you a millionaire?"/utf8>>,
+                reuse_after = 6 * ?MONTHS,
+                ai_image_model = ?STABLE_DIFFUSION_1_5,
+                prompt_wrapper = fun(T) -> <<T/binary, ", money">> end,
+                negative_prompt = <<"text, disfigured faces">>
+            },
+        <<"text.21">> =>
+            #prompt{
+                id = <<"text.21">>,
+                text = <<"what are some 🚩🚩🚩 on a first date?"/utf8>>,
+                reuse_after = 6 * ?MONTHS,
+                ai_image_model = ?STABLE_DIFFUSION_1_5,
+                prompt_wrapper = fun(T) -> <<T/binary, ", picture of a red flag, vibrant"/utf8>> end,
+                negative_prompt = <<"text, disfigured faces, low saturation, people">>
             }
     }.
 
@@ -350,6 +389,19 @@ get_media_prompts() ->
             #prompt{
                 id = <<"media.1">>,
                 text = <<"">>,
-                reuse_after = 0}
+                reuse_after = 0
+            },
+        <<"media.2">> =>
+            #prompt{
+                id = <<"media.2">>,
+                text = <<"Show us your best 😡 face"/utf8>>,
+                reuse_after = 6 * ?MONTHS
+            },
+        <<"media.3">> =>
+            #prompt{
+                id = <<"media.3">>,
+                text = <<"ootd 👗👕👟🧢"/utf8>>,
+                reuse_after = 6 * ?MONTHS
+            }
     }.
 
