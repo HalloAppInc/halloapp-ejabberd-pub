@@ -145,7 +145,7 @@ get_prompt_text(Uid, PromptRecord) ->
             PromptRecord#prompt.text;
         true ->
             case PromptRecord#prompt.id of
-                <<"camera.1">> ->
+                <<"media.1">> ->
                     <<"WYD?"/utf8>>;
                 _ ->
                     PromptRecord#prompt.text
