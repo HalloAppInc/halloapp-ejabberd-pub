@@ -445,7 +445,7 @@ get_commands_spec() ->
         %% PhoneOrUid, Timestamp, Id, Type, Prompt, HideBanner
         args_desc = ["Phone number or Uid", "Date", "Timestamp", "NotificationId", "NotificationType", "Prompt", "HideBanner"],
         args_example = [<<"12065555586">>, <<"19/02/2023">>, 1677115217, 1677115000, <<"live_camera">>, <<"WYD?">>, <<"false">>],
-        args=[{phone_or_uid, binary}, {timestamp, integer}, {id, integer}, {type, binary}, {prompt, binary}, {hide_banner, binary}],
+        args=[{phone_or_uid, binary}, {date, binary}, {timestamp, integer}, {id, integer}, {type, binary}, {prompt, binary}, {hide_banner, binary}],
         result = {res, rescode}},
      #ejabberd_commands{name = get_invite_string, tags = [server],
         desc = "Get invite string from its hash ID",
