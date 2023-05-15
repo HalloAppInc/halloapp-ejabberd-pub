@@ -18,7 +18,7 @@
 -ifdef(TEST).
 -export([
     get_text_prompts/0,
-    get_media_prompts/0
+    get_camera_prompts/0
 ]).
 -endif.
 
@@ -61,12 +61,12 @@ get_prompt_and_mark_used(Type) ->
         text_post ->
             {fun model_prompts:get_used_text_prompts/0, fun model_prompts:update_used_text_prompts/2, get_text_prompts()};
         live_camera ->
-            {fun model_prompts:get_used_media_prompts/0, fun model_prompts:update_used_media_prompts/2, get_media_prompts()};
+            {fun model_prompts:get_used_camera_prompts/0, fun model_prompts:update_used_camera_prompts/2, get_camera_prompts()};
         album_post ->
             {fun model_prompts:get_used_album_prompts/0, fun model_prompts:update_used_album_prompts/2, get_album_prompts()};
         _ ->
-            ?ERROR("Unexpected type, defaulting to media prompt: ~p", [Type]),
-            {fun model_prompts:get_used_media_prompts/0, fun model_prompts:update_used_media_prompts/2, get_media_prompts()}
+            ?ERROR("Unexpected type, defaulting to camera prompt: ~p", [Type]),
+            {fun model_prompts:get_used_camera_prompts/0, fun model_prompts:update_used_camera_prompts/2, get_camera_prompts()}
     end,
     UsedPrompts = GetUsedPromptsFun(),
     %% Here we will check and separate prompts that can be reused again
@@ -113,8 +113,8 @@ get_prompt_from_id(PromptId) ->
     case PromptId of
         <<"text", _/binary>> ->
             maps:get(PromptId, get_text_prompts(), undefined);
-        <<"media", _/binary>> ->
-            maps:get(PromptId, get_media_prompts(), undefined);
+        <<"camera", _/binary>> ->
+            maps:get(PromptId, get_camera_prompts(), undefined);
         <<"album", _/binary>> ->
             maps:get(PromptId, get_album_prompts(), undefined);
         _ ->
@@ -145,7 +145,7 @@ get_prompt_text(Uid, PromptRecord) ->
             PromptRecord#prompt.text;
         true ->
             case PromptRecord#prompt.id of
-                <<"media.1">> ->
+                <<"camera.1">> ->
                     <<"WYD?"/utf8>>;
                 _ ->
                     PromptRecord#prompt.text
@@ -383,21 +383,21 @@ get_text_prompts() ->
     }.
 
 
-get_media_prompts() ->
+get_camera_prompts() ->
     #{
-        <<"media.1">> =>
+        <<"camera.1">> =>
             #prompt{
                 id = <<"media.1">>,
                 text = <<"">>,
                 reuse_after = 0
             },
-        <<"media.2">> =>
+        <<"camera.2">> =>
             #prompt{
                 id = <<"media.2">>,
                 text = <<"Show us your best 😡 face"/utf8>>,
                 reuse_after = 6 * ?MONTHS
             },
-        <<"media.3">> =>
+        <<"camera.3">> =>
             #prompt{
                 id = <<"media.3">>,
                 text = <<"ootd 👗👕👟🧢"/utf8>>,

@@ -25,15 +25,15 @@ api_testset(_) ->
     Ts1 = 1,
     Ts2 = 2,
     [
-        ?_assertEqual([], model_prompts:get_used_media_prompts()),
+        ?_assertEqual([], model_prompts:get_used_camera_prompts()),
         ?_assertEqual([], model_prompts:get_used_text_prompts()),
         ?_assertEqual([], model_prompts:get_used_album_prompts()),
         ?_assertOk(model_prompts:update_used_text_prompts({?TEXT_ID1, Ts1}, [])),
-        ?_assertEqual([], model_prompts:get_used_media_prompts()),
+        ?_assertEqual([], model_prompts:get_used_camera_prompts()),
         ?_assertEqual([{?TEXT_ID1, util:to_binary(Ts1)}], model_prompts:get_used_text_prompts()),
         ?_assertEqual([], model_prompts:get_used_album_prompts()),
         ?_assertOk(model_prompts:update_used_text_prompts({?TEXT_ID2, Ts2}, [?TEXT_ID1])),
-        ?_assertEqual([], model_prompts:get_used_media_prompts()),
+        ?_assertEqual([], model_prompts:get_used_camera_prompts()),
         ?_assertEqual([{?TEXT_ID2, util:to_binary(Ts2)}], model_prompts:get_used_text_prompts()),
         ?_assertEqual([], model_prompts:get_used_album_prompts())
     ].

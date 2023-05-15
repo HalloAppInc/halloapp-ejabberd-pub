@@ -22,7 +22,7 @@
         mins_to_send => ((15 * ?HOURS) + (34 * ?MINUTES)) div 60,
         notif_id => 1676764800,
         notif_type => live_camera,
-        promptId => <<"test.media.19">>,
+        promptId => <<"test.camera.19">>,
         reminder => false
     },
     20 => #{
@@ -40,7 +40,7 @@
         mins_to_send => ((20 * ?HOURS) + (59 * ?MINUTES)) div 60,
         notif_id => 1676937600,
         notif_type => live_camera,
-        promptId => <<"test.media.21">>,
+        promptId => <<"test.camera.21">>,
         reminder => false
     },
     22=> #{
@@ -58,7 +58,7 @@
         mins_to_send => ((18 * ?HOURS) + (0 * ?MINUTES)) div 60,
         notif_id => 1677110400,
         notif_type => live_camera,
-        promptId => <<"test.media.23">>,
+        promptId => <<"test.camera.23">>,
         reminder => false
     }}).
 
@@ -74,17 +74,17 @@ meck_get_text_prompts() ->
             reuse_after = 6 * ?MONTHS}
     }.
 
-meck_get_media_prompts() ->
+meck_get_camera_prompts() ->
     #{
-        <<"test.media.19">> =>
+        <<"test.camera.19">> =>
         #prompt{
             text = <<"If you could live in any time period, which one would you choose?">>,
             reuse_after = 6 * ?MONTHS},
-        <<"test.media.20">> =>
+        <<"test.camera.20">> =>
         #prompt{
             text = <<"A movie you thought was overrated, but turned out great">>,
             reuse_after = 6 * ?MONTHS},
-        <<"test.media.21">> =>
+        <<"test.camera.21">> =>
         #prompt{
             text = <<"If you had to listen to only one artist for a week, who would it be?">>,
             reuse_after = 6 * ?MONTHS}
@@ -94,8 +94,8 @@ meck_get_prompt_from_id(PromptId) ->
     case PromptId of
         <<"test.text", _/binary>> ->
             maps:get(PromptId, meck_get_text_prompts(), undefined);
-        <<"test.media", _/binary>> ->
-            maps:get(PromptId, meck_get_media_prompts(), undefined);
+        <<"test.camera", _/binary>> ->
+            maps:get(PromptId, meck_get_camera_prompts(), undefined);
         _ ->
             undefined
     end.
@@ -111,7 +111,7 @@ setup() ->
         {meck ,util, now, fun() -> 1675209600 end},  %% Feb 1, 2023 | Need this so that the OffsetHrToSend is non-DST hour
         {meck, mod_prompts, [
             {get_text_prompts, fun meck_get_text_prompts/0},
-            {get_media_prompts, fun meck_get_media_prompts/0},
+            {get_camera_prompts, fun meck_get_camera_prompts/0},
             {get_prompt_from_id, fun meck_get_prompt_from_id/1}
         ]}
     ]),
