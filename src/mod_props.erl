@@ -260,7 +260,7 @@ get_uid_based_props(PropMap, katchup, Uid) ->
                 dev => true,
                 ai_generated_images => true,
                 feed_comment_notifications => true,
-                feed_following_comment_notifications => true,
+                feed_following_comment_notifications => false,
                 daily_katchup_notif_template => get_daily_notif_strings_bin()
             }
     end,
