@@ -121,7 +121,7 @@ get_props(Uid, ClientVersion, katchup) ->
         close_friends_recos => false, %% Should invite recommendations be sorted based on number of close friends
         ai_generated_images => false,  %% Enable AI-generated images for the background of text posts
         ambassador => false,
-        feed_comment_notifications => false,
+        feed_comment_notifications => true,
         feed_following_comment_notifications => false,
         daily_katchup_notif_template => <<>>
     },
@@ -260,7 +260,7 @@ get_uid_based_props(PropMap, katchup, Uid) ->
                 dev => true,
                 ai_generated_images => true,
                 feed_comment_notifications => true,
-                feed_following_comment_notifications => false,
+                feed_following_comment_notifications => true,
                 daily_katchup_notif_template => get_daily_notif_strings_bin()
             }
     end,
