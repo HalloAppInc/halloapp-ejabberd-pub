@@ -387,19 +387,19 @@ get_camera_prompts() ->
     #{
         <<"camera.1">> =>
             #prompt{
-                id = <<"media.1">>,
+                id = <<"camera.1">>,
                 text = <<"">>,
                 reuse_after = 0
             },
         <<"camera.2">> =>
             #prompt{
-                id = <<"media.2">>,
+                id = <<"camera.2">>,
                 text = <<"Show us your best 😡 face"/utf8>>,
                 reuse_after = 6 * ?MONTHS
             },
         <<"camera.3">> =>
             #prompt{
-                id = <<"media.3">>,
+                id = <<"camera.3">>,
                 text = <<"ootd 👗👕👟🧢"/utf8>>,
                 reuse_after = 6 * ?MONTHS
             }
