@@ -631,6 +631,20 @@ latest_post_test() ->
     ok.
 
 
+generate_moment_info_test() ->
+    setup(),
+    Timestamp = util:now(),
+    model_feed:get_moment_info(Timestamp, true),
+    %% Check that today and the next 6 days have been scheduled
+    ?assertNotEqual(undefined, model_feed:get_moment_info(Timestamp, false)),
+    ?assertNotEqual(undefined, model_feed:get_moment_info(Timestamp + (1 * ?DAYS), false)),
+    ?assertNotEqual(undefined, model_feed:get_moment_info(Timestamp + (2 * ?DAYS), false)),
+    ?assertNotEqual(undefined, model_feed:get_moment_info(Timestamp + (3 * ?DAYS), false)),
+    ?assertNotEqual(undefined, model_feed:get_moment_info(Timestamp + (4 * ?DAYS), false)),
+    ?assertNotEqual(undefined, model_feed:get_moment_info(Timestamp + (5 * ?DAYS), false)),
+    ?assertNotEqual(undefined, model_feed:get_moment_info(Timestamp + (6 * ?DAYS), false)),
+    ok.
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%                      Helper functions                                  %%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

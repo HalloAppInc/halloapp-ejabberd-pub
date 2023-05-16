@@ -1201,33 +1201,26 @@ generate_moment_info(TodayDateTimeSecs) ->
     %% Generate for a week at a time
     {FullDate, {_,_,_}} = calendar:system_time_to_universal_time(TodayDateTimeSecs, second),
     DayOfWeek = calendar:day_of_the_week(FullDate),
-    %% 3 text posts per week
-    %% 2 album posts
-    %% 1 album dump (always on Sunday) – for now this will be camera, until clients are ready
-    %% 1 camera
-    case DayOfWeek of
-        7 ->
-            %% TODO: will eventually be album_dump
-            generate_moment_info(live_camera, TodayDateTimeSecs);
-        _ ->
-            %% Loop through each post type for the next week and assign
-            %% it to a random day N: today + N
-            Next7Days = [TodayDateTimeSecs + (N * ?DAYS) || N <- lists:seq(0, 6)],
-            DaysUntilNextSunday = 7 - DayOfWeek,
-            NextWeekMinusSunday = lists:delete(TodayDateTimeSecs + (DaysUntilNextSunday * ?DAYS), Next7Days),
-            lists:foldl(
-                fun(DateTimeSecs, RemainingPossiblePostTypes) ->
-                    PostType = lists:nth(rand:uniform(length(RemainingPossiblePostTypes)), RemainingPossiblePostTypes),
-                    generate_moment_info(PostType, DateTimeSecs),
-                    lists:delete(PostType, RemainingPossiblePostTypes)
-                end,
-                [
-                    text_post, text_post, text_post,
-                    album_post, album_post,
-                    live_camera
-                ],
-                NextWeekMinusSunday)
-    end.
+    Next7DaysDateTimeSecs = [TodayDateTimeSecs + (N * ?DAYS) || N <- lists:seq(0, 6)],
+    DaysUntilNextSunday = 7 - DayOfWeek,
+    NextWeekMinusSundayDateTimeSecs = lists:delete(TodayDateTimeSecs + (DaysUntilNextSunday * ?DAYS), Next7DaysDateTimeSecs),
+    %% Sunday is always album dump
+    %% TODO: update this to album dump when we are ready
+    generate_moment_info(live_camera, TodayDateTimeSecs + (DaysUntilNextSunday * ?DAYS)),
+    %% Set moment info for next 7 days (except Sunday, which was just set in the line above)
+    lists:foldl(
+        fun(DateTimeSecs, RemainingPossiblePostTypes) ->
+            PostType = lists:nth(rand:uniform(length(RemainingPossiblePostTypes)), RemainingPossiblePostTypes),
+            generate_moment_info(PostType, DateTimeSecs),
+            lists:delete(PostType, RemainingPossiblePostTypes)
+        end,
+        [                                     %% Each week, in addition to Sunday's album dump:
+            text_post, text_post, text_post,  %% 3 text posts
+            album_post, album_post,           %% 2 album posts
+            live_camera                       %% 1 camera post
+        ],
+        NextWeekMinusSundayDateTimeSecs),
+    ok.
 
 
 generate_moment_info(PostType, DateTimeSecs) ->
@@ -1297,7 +1290,7 @@ overwrite_moment_info(Day, NewId, NewMinsToSend, NewType, NewPromptId) ->
     ?INFO("TodayDay: ~p, Day: ~p, DaysDifference: ~p", [TodayDay, Day, DaysDifference]),
     case get_moment_info(util:now() + (DaysDifference * ?DAYS), false) of
         undefined ->
-            io:format("No moment info associated with Day: ~p", [Day]);
+            io:format("No moment info associated with Day: ~p~n", [Day]);
         CurrentMomentInfo ->
             Id = case NewId of
                 '_' -> CurrentMomentInfo#moment_notification.id;
