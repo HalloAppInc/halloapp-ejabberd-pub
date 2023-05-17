@@ -29,6 +29,15 @@
 
 -define(URL(Model), "https://api.deepinfra.com/v1/inference/" ++ Model).
 
+-define(MONITOR_TABLE, mod_image_ai_monitor).
+-define(MONITOR_TIME_TAKEN_KEY, time_taken).
+%% check every 60 seconds
+-define(MONITOR_CHECK_INTERVAL_MS, (60 * ?SECONDS_MS)).
+%% send alert if avg time taken to generate images exceeds 5 seconds
+-define(MONITOR_TIME_TAKEN_THRESHOLD_MS, (5 * ?SECONDS_MS)).
+%% log a warning if a single image generation request takes longer than 10 seconds
+-define(TIME_TAKEN_WARNING_THRESHOLD_MS, (10 * ?SECONDS_MS)).
+
 %%====================================================================
 %% API
 %%====================================================================
@@ -94,10 +103,13 @@ mod_options(_Host) ->
 %%====================================================================
 
 init(_) ->
+    %% Start timer to run monitor tasks
+    erlang:start_timer(?MONITOR_CHECK_INTERVAL_MS, ?PROC(), monitor_check),
     %% auth_token is the auth token for the DeepInfra service
-    %% ref_map is a map of Ref => {Uid, StartTimestampMs}
+    %% models_used is a set of strings
+    %% ref_map is a map of Ref => {Uid, RequestId, StartTimestampMs, Model}
     AuthToken = mod_aws:get_secret(<<"DeepInfra_Auth_Token">>),
-    {ok, #{auth_token => AuthToken, ref_map => #{}}}.
+    {ok, #{auth_token => AuthToken, models_used => sets:new(), ref_map => #{}}}.
 
 
 terminate(_Reason, _State) ->
@@ -110,7 +122,7 @@ handle_call(Msg, From, State) ->
 
 
 handle_cast({request_image, Uid, PromptId, UserText, UserNegativePrompt, NumImages, RequestId, PromptHelpersEnabled},
-        #{auth_token := AuthToken, ref_map := RefMap} = State) ->
+        #{auth_token := AuthToken, models_used := ModelsUsed, ref_map := RefMap} = State) ->
     PromptRecord = mod_prompts:get_prompt_from_id(PromptId),
     Model = PromptRecord#prompt.ai_image_model,
     Url = ?URL(Model),
@@ -124,9 +136,9 @@ handle_cast({request_image, Uid, PromptId, UserText, UserNegativePrompt, NumImag
     end,
     Body = get_model_parameters(Prompt, NegativePrompt, util:to_integer(NumImages), Model),
     {ok, Ref} = httpc:request(post, {Url, Headers, Type, Body}, [], [{sync, false}]),
-    NewRefMap = RefMap#{Ref => {Uid, RequestId, util:now_ms()}},
+    NewRefMap = RefMap#{Ref => {Uid, RequestId, util:now_ms(), Model}},
     ?INFO("~s requesting ~p images, ref = ~p, request_id = ~p, model params: ~p", [Uid, NumImages, Ref, RequestId, Body]),
-    {noreply, State#{ref_map => NewRefMap}};
+    {noreply, State#{models_used => sets:add_element(Model, ModelsUsed), ref_map => NewRefMap}};
 
 handle_cast({ping, Id, Ts, From}, State) ->
     util_monitor:send_ack(self(), From, {ack, Id, Ts, self()}),
@@ -142,8 +154,12 @@ handle_info({http, {Ref, {{_, 200, "OK"}, _Hdrs, Result}}}, #{ref_map := RefMap}
     case maps:get(Ref, RefMap, undefined) of
         undefined ->
             ?ERROR("Got unexpected response with ref: ~p", [Ref]);
-        {Uid, RequestId, StartTimeMs} ->
-            ?INFO("Result for ~s (ref = ~p, request_id = ~p) generated in ~w ms", [Uid, Ref, RequestId, util:now_ms() - StartTimeMs]),
+        {Uid, RequestId, StartTimeMs, Model} ->
+            TimeTakenMs = util:now_ms() - StartTimeMs,
+            ?INFO("Result for ~s (ref = ~p, request_id = ~p) generated in ~w ms", [Uid, Ref, RequestId, TimeTakenMs]),
+            check_time_taken(Uid, TimeTakenMs),
+            record_time(TimeTakenMs),
+            record_request_success(Model, ok),
             parse_and_send_result(Uid, RequestId, Result)
     end,
     NewRefMap = maps:remove(Ref, RefMap),
@@ -153,9 +169,13 @@ handle_info({http, {Ref, {{_, Code, HttpMsg}, _Hdrs, _Res}}}, #{ref_map := RefMa
     case maps:get(Ref, RefMap, undefined) of
         undefined ->
             ?ERROR("Got unexpected response with ref: ~p", [Ref]);
-        {Uid, RequestId, StartTimeMs} ->
+        {Uid, RequestId, StartTimeMs, Model} ->
+            TimeTakenMs = util:now_ms() - StartTimeMs,
             ?ERROR("Unexpected result from ~s image request (ref = ~p, request_id = ~p, took ~w ms): ~p ~p",
-                [Uid, Ref, RequestId, util:now_ms() - StartTimeMs, Code, HttpMsg]),
+                [Uid, Ref, RequestId, TimeTakenMs, Code, HttpMsg]),
+            check_time_taken(Uid, TimeTakenMs),
+            record_time(TimeTakenMs),
+            record_request_success(Model, fail),
             Msg = #pb_msg{
                 id = util_id:new_msg_id(),
                 to_uid = Uid,
@@ -174,9 +194,12 @@ handle_info({http, {Ref, {error, Reason}}}, #{ref_map := RefMap} = State) ->
     case maps:get(Ref, RefMap, undefined) of
         undefined ->
             ?ERROR("Got unexpected response with ref: ~p", [Ref]);
-        {Uid, RequestId, StartTimeMs} ->
+        {Uid, RequestId, StartTimeMs, Model} ->
+            TimeTakenMs = util:now_ms() - StartTimeMs,
             ?ERROR("HTTP error during ~s image request (ref = ~p, request_id = ~p, took ~w ms): ~p",
-                [Uid, Ref, RequestId, util:now_ms() - StartTimeMs, Reason]),
+                [Uid, Ref, RequestId, TimeTakenMs, Reason]),
+            check_time_taken(Uid, TimeTakenMs),
+            record_request_success(Model, fail),
             Msg = #pb_msg{
                 id = util_id:new_msg_id(),
                 to_uid = Uid,
@@ -190,6 +213,36 @@ handle_info({http, {Ref, {error, Reason}}}, #{ref_map := RefMap} = State) ->
     NewRefMap = maps:remove(Ref, RefMap),
     {noreply, State#{ref_map => NewRefMap}};
 
+handle_info({timeout, _TRef, monitor_check}, #{models_used := ModelsUsed} = State) ->
+    %% Check average image generation time for past 100 posts
+    TimeTakenMsHistory = util_monitor:get_state_history(?MONITOR_TABLE, ?MONITOR_TIME_TAKEN_KEY),
+    case TimeTakenMsHistory of
+        [] -> ok;
+        _ ->
+            AvgTimeTakenMs = lists:sum(TimeTakenMsHistory) div length(TimeTakenMsHistory),
+            case AvgTimeTakenMs > ?MONITOR_TIME_TAKEN_THRESHOLD_MS of
+                true ->
+                    ?ERROR("Image generation taking too long: ", [AvgTimeTakenMs]),
+                    alerts:send_alert(<<"AI Images Taking Too Long">>, util:to_binary(node()), <<"critical">>,
+                        <<"Average AI image generation time is too long: ", AvgTimeTakenMs/integer>>);
+                false ->
+                    ?INFO("Average image generation time: ~p ms", [AvgTimeTakenMs])
+            end
+    end,
+    %% Check that the service is not down (receiving non-200 HTTP responses)
+    lists:foreach(
+        fun(Model) ->
+            StateHistory = util_monitor:get_state_history(?MONITOR_TABLE, Model),
+            case util_monitor:check_consecutive_fails(StateHistory) of
+                true ->
+                    alerts:send_alert(<<"Image generation requests failing">>, util:to_binary(node()), <<"critical">>,
+                        <<"Requests to DeepInfra are returning non-200 codes for model: ", (util:to_binary(Model))/binary>>);
+                false -> ok
+            end
+        end,
+        sets:to_list(ModelsUsed)),
+    {noreply, State};
+
 handle_info(Info, State) ->
     ?WARNING("Unexpected info: ~p", [Info]),
     {noreply, State}.
@@ -197,6 +250,24 @@ handle_info(Info, State) ->
 
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
+
+%%====================================================================
+%% Monitor functions
+%%====================================================================
+
+record_time(TimeTakenMs) ->
+    Opts = [
+        {state_history_length_ms, (100 * ?SECONDS_MS)},
+        {ping_interval_ms, (1 * ?SECONDS_MS)}
+    ],
+    util_monitor:record_state(?MONITOR_TABLE, ?MONITOR_TIME_TAKEN_KEY, TimeTakenMs, Opts).
+
+record_request_success(Model, State) ->
+    Opts = [
+        {state_history_length_ms, (50 * ?SECONDS_MS)},
+        {ping_interval_ms, (1 * ?SECONDS_MS)}
+    ],
+    util_monitor:record_state(?MONITOR_TABLE, Model, State, Opts).
 
 %%====================================================================
 %% Internal functions
@@ -253,4 +324,12 @@ parse_and_send_result(Uid, RequestId, RawResult) ->
             end
         end,
         lists:zip(RawImages, IsFilteredList)).
+
+
+check_time_taken(Uid, TimeTakenMs) ->
+    case TimeTakenMs > ?TIME_TAKEN_WARNING_THRESHOLD_MS of
+        false -> ok;
+        true ->
+            ?WARNING("Time taken to generate image for ~s was greater than 10s (~pms)", [Uid, TimeTakenMs])
+    end.
 
