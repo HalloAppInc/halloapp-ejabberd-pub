@@ -59,9 +59,12 @@
     join_with_invite_link/2,
     check_audience_hash/5,
     is_chat_enabled_uid/1,
-    is_chat_enabled_client_version/1
+    is_chat_enabled_client_version/1,
+    print_post/2,
+    print_comments/2
 ]).
 
+-include("clients.hrl").
 -include("logger.hrl").
 -include("packets.hrl").
 -include("groups.hrl").
@@ -1454,5 +1457,43 @@ is_chat_enabled_client_version(ClientVersion) ->
         android -> util_ua:is_version_greater_than(ClientVersion, <<"HalloApp/Android1.5.5">>);
         ios -> util_ua:is_version_greater_than(ClientVersion, <<"HalloApp/iOS1.24.298">>);
         _ -> false
+    end.
+
+
+print_post(Gid, Number) ->
+    %% FeedItems will be list of #post and #comment records
+    {ok, FeedItems} = model_feed:get_entire_group_feed(Gid),
+    Posts = lists:filter(
+        fun
+            (#post{}) -> true;
+            (_) -> false
+        end,
+        FeedItems),
+    Post = lists:nth(Number, Posts),
+    Container = enif_protobuf:decode(base64:decode(Post#post.payload), pb_client_container),
+    io:format("~s (~s): ~s~n", [Post#post.uid, Post#post.id,
+        binary_to_list(Container#pb_client_container.post_container#pb_client_post_container.post#pb_client_text.text)]).
+
+
+print_comments(Gid, PostId) ->
+    %% FeedItems will be list of #post and #comment records
+    {ok, FeedItems} = model_feed:get_entire_group_feed(Gid),
+    Comments = lists:filter(
+        fun
+            (#comment{post_id = CommentPostId}) -> CommentPostId =:= PostId;
+            (_) -> false
+        end,
+        FeedItems),
+    case Comments of
+        [] ->
+            io:format("No comments for PostId: ~s", [PostId]);
+        _ ->
+            lists:foreach(
+                fun(Comment) ->
+                    Container = enif_protobuf:decode(base64:decode(Comment#comment.payload), pb_client_container),
+                    io:format("~s (~s): ~s~n", [Comment#comment.publisher_uid, Comment#comment.id,
+                        binary_to_list(Container#pb_client_container.comment_container#pb_client_comment_container.comment#pb_client_text.text)])
+                end,
+                Comments)
     end.
 
