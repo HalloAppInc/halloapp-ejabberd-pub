@@ -1065,8 +1065,8 @@ group_info(Gid) ->
                 FeedItems),
             io:format("~s (~s)~n", [GName, Gid]),
             io:format("Created on ~s at ~s:~n", [CreateDate, CreateTime]),
-            io:format("Last 30 days: ~s posts, ~s comments~n", [length(Posts), length(Comments)]),
-            io:format("~s members:~n", [length(Members)]),
+            io:format("Last 30 days: ~p posts, ~p comments~n", [length(Posts), length(Comments)]),
+            io:format("~p members:~n", [length(Members)]),
             [io:format("    ~s (~s) | ~s | joined on ~s at ~s, Num Contacts: ~p, Num Friends: ~p~n",
                 [Name, Uid, Type, Date, Time, length(ContactList), NumFriends])
                 || {Uid, Type, {Date, Time}, Name, {ok, ContactList, NumFriends}} <- Members]
