@@ -770,7 +770,7 @@ format_contact_list(Uid) ->
             NewAcc3 = maps:put(K, LastActiveDate, Acc3),
             {NewAcc1, NewAcc2, NewAcc3}
         end, {#{}, #{}, #{}}, PhoneToUidMap),
-    PhoneToNameMap = maps:map(fun(_P, U) -> maps:get(U, UidToNameMap) end, PhoneToUidMap),
+    PhoneToNameMap = maps:map(fun(_P, U) -> maps:get(U, UidToNameMap, undefined) end, PhoneToUidMap),
     ContactList = [{
         case maps:get(CPhone, PhoneToUidMap, undefined) of      % Friend or Contact
             undefined -> "C";

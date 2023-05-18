@@ -1471,8 +1471,17 @@ print_post(Gid, Number) ->
         FeedItems),
     Post = lists:nth(Number, Posts),
     Container = enif_protobuf:decode(base64:decode(Post#post.payload), pb_client_container),
-    io:format("~s (~s): ~s~n", [Post#post.uid, Post#post.id,
-        binary_to_list(Container#pb_client_container.post_container#pb_client_post_container.post#pb_client_text.text)]).
+    PostContainer = Container#pb_client_container.post_container#pb_client_post_container.post,
+    {PostType, PostText} = case PostContainer of
+        #pb_client_text{text = Text} -> {"text", Text};
+        #pb_client_album{} when PostContainer#pb_client_album.text =/= undefined ->
+            {"media", PostContainer#pb_client_album.text#pb_client_text.text};
+        #pb_client_album{} when PostContainer#pb_client_album.text =:= undefined ->
+            {"media", ""};
+        #pb_client_voice_note{} ->
+            {"voice note", ""}
+        end,
+    io:format("~s (~s) ~s: ~ts~n", [Post#post.uid, Post#post.id, PostType, PostText]).
 
 
 print_comments(Gid, PostId) ->
