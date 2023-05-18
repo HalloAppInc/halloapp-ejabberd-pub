@@ -103,6 +103,7 @@ mod_options(_Host) ->
 %%====================================================================
 
 init(_) ->
+    ets:new(?MONITOR_TABLE, [named_table, public]),
     %% Start timer to run monitor tasks
     erlang:start_timer(?MONITOR_CHECK_INTERVAL_MS, ?PROC(), monitor_check),
     %% auth_token is the auth token for the DeepInfra service
@@ -223,8 +224,12 @@ handle_info({timeout, _TRef, monitor_check}, #{models_used := ModelsUsed} = Stat
             case AvgTimeTakenMs > ?MONITOR_TIME_TAKEN_THRESHOLD_MS of
                 true ->
                     ?ERROR("Image generation taking too long: ", [AvgTimeTakenMs]),
-                    alerts:send_alert(<<"AI Images Taking Too Long">>, util:to_binary(node()), <<"critical">>,
-                        <<"Average AI image generation time is too long: ", AvgTimeTakenMs/integer>>);
+                    case length(TimeTakenMsHistory) >= 100 of
+                        true ->
+                            alerts:send_alert(<<"AI Images Taking Too Long">>, util:to_binary(node()), <<"critical">>,
+                                <<"Average AI image generation time is too long: ", AvgTimeTakenMs/integer>>);
+                        false -> ok
+                    end;
                 false ->
                     ?INFO("Average image generation time: ~p ms", [AvgTimeTakenMs])
             end
