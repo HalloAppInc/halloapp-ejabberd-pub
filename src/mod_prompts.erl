@@ -209,6 +209,18 @@ get_album_prompts() ->
                 id = <<"album.9">>,
                 text = <<"pics or it didn't happen 😎"/utf8>>,
                 reuse_after = 6 * ?MONTHS
+            },
+        <<"album.10">> =>
+            #prompt{
+                id = <<"album.10">>,
+                text = <<"Congrats, grads! 🎓 share a moment that had you rolling on the floor... laughing, crying or both!">>,
+                reuse_after = 6 * ?MONTHS
+            },
+        <<"album.11">> =>
+            #prompt{
+                id = <<"album.11">>,
+                text = <<"the waves are calling, when was the last time you were by the water?  🌊">>,
+                reuse_after = 6 * ?MONTHS
             }
     }.
 
@@ -379,6 +391,33 @@ get_text_prompts() ->
                 ai_image_model = ?STABLE_DIFFUSION_1_5,
                 prompt_wrapper = fun(T) -> <<T/binary, ", picture of a red flag, vibrant"/utf8>> end,
                 negative_prompt = <<"text, disfigured faces, low saturation, people">>
+            },
+        <<"text.22">> =>
+            #prompt{
+                id = <<"text.22">>,
+                text = <<"You're escaping the police on a high speed pursuit, what song are you blasting?🚓🚨"/utf8>>,
+                reuse_after = 6 * ?MONTHS,
+                ai_image_model = ?STABLE_DIFFUSION_1_5,
+                prompt_wrapper = fun(T) -> <<T/binary, ", high speed chase, funny">> end,
+                negative_prompt = <<"text">>
+            },
+        <<"text.23">> =>
+            #prompt{
+                id = <<"text.23">>,
+                text = <<"POOF 🪄 today's responsibilities are gone, what do you do with the day?"/utf8>>,
+                reuse_after = 6 * ?MONTHS,
+                ai_image_model = ?STABLE_DIFFUSION_1_5,
+                prompt_wrapper = fun(T) -> <<T/binary, ", a relaxing location,vacation">> end,
+                negative_prompt = <<"text, disfigured faces, low saturation, people">>
+            },
+        <<"text.24">> =>
+            #prompt{
+                id = <<"text.24">>,
+                text = <<"You can only communicate using emojis for an entire day, choose your top 3!"/utf8>>,
+                reuse_after = 6 * ?MONTHS,
+                ai_image_model = ?STABLE_DIFFUSION_1_5,
+                prompt_wrapper = fun(T) -> <<T/binary, ", emoji faces">> end,
+                negative_prompt = <<>>
             }
     }.
 
