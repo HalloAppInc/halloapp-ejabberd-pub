@@ -213,13 +213,13 @@ get_album_prompts() ->
         <<"album.10">> =>
             #prompt{
                 id = <<"album.10">>,
-                text = <<"Congrats, grads! 🎓 share a moment that had you rolling on the floor... laughing, crying or both!">>,
+                text = <<"Congrats, grads! 🎓 share a moment that had you rolling on the floor... laughing, crying or both!"/utf8>>,
                 reuse_after = 6 * ?MONTHS
             },
         <<"album.11">> =>
             #prompt{
                 id = <<"album.11">>,
-                text = <<"the waves are calling, when was the last time you were by the water?  🌊">>,
+                text = <<"the waves are calling, when was the last time you were by the water?  🌊"/utf8>>,
                 reuse_after = 6 * ?MONTHS
             }
     }.
