@@ -90,7 +90,7 @@
 -define(KATCHUP_ACTIVE_USER_EXPIRATION, (7 * ?DAYS)).
 -define(ACTIVE_UIDS_LIMIT, 10).
 -define(POST_TTL_MS, (31 * ?DAYS_MS)).
--define(MOMENT_TAG_EXPIRATION, (7 * ?DAYS)).
+-define(MOMENT_TAG_EXPIRATION, (14 * ?DAYS)). %% keep it 14 days, since we schedule everything a week ahead.
 -define(GEO_TAG_EXPIRATION, (4 * ?WEEKS)).
 -define(MAX_DAILY_MOMENT_LIMIT, 2).
 -define(KATCHUP_PUBLIC_FEED_REFRESH_SECS, 180 * ?MINUTES).
