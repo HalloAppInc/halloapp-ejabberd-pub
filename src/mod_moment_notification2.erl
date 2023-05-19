@@ -360,7 +360,7 @@ send_moment_notification_async(Region, Date, DayOfMonth, NotificationId, Notific
 %% Before sending, check to ensure a notification has not been sent to this user on this date
 check_and_send_moment_notification(Uid, Region, Date, DayOfMonth, NotificationId, NotificationTimestamp, NotificationType, PromptRecord, Image, HideBanner, Reminder) ->
     %% Check if it is a reminder or if it can be sent the first time.
-    case (Reminder andalso dev_users:is_dev_uid(Uid)) orelse model_accounts:mark_moment_notification_sent(Uid, util:to_binary(DayOfMonth)) of
+    case Reminder orelse model_accounts:mark_moment_notification_sent(Uid, util:to_binary(DayOfMonth)) of
         true ->
             AppType = util_uid:get_app_type(Uid),
             stat:count(util:get_stat_namespace(AppType) ++ "/moment_notif", "send"),
