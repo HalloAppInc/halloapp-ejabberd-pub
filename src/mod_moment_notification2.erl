@@ -28,9 +28,9 @@
     send_latest_notification/2,
     maybe_schedule_notifications/0,
     maybe_schedule_moment_notif/2,
-    check_and_send_moment_notifications/8,
+    check_and_send_moment_notifications/9,
     send_moment_notification/9,
-    send_moment_notification_async/9,
+    send_moment_notification_async/11,
     get_region_offset_hr_by_sec/1,
     get_region_offset_hr/1,
     get_region_offset_hr/2,
@@ -310,15 +310,15 @@ maybe_schedule_moment_notif(TodaySecs, IsImmediateNotification) ->
                     ejabberd_hooks:run(start_timer_moment_notification, ?KATCHUP,
                         [Region, MinsUntilSend, OffsetHr, Date, DayOfMonth, NotifId, NotifType, PromptRecord, Reminder]),
                     timer:apply_after(MinsUntilSend * ?MINUTES_MS, ?MODULE, check_and_send_moment_notifications,
-                        [OffsetHr, Date, DayOfMonth, NotifId, NotifType, PromptRecord, Image, Reminder])
+                        [OffsetHr, LocalMinToSend, Date, DayOfMonth, NotifId, NotifType, PromptRecord, Image, Reminder])
             end
         end,
         [YesterdayInfoMap, TodayInfoMap, TomorrowInfoMap, YesterdayReminderInfoMap, TodayReminderInfoMap, TomorrowReminderInfoMap]).
 
 
--spec check_and_send_moment_notifications(OffsetHr :: integer(), Date :: string(), DayOfMonth :: integer(), NotifId :: integer(),
+-spec check_and_send_moment_notifications(OffsetHr :: integer(), LocalMinToSend :: integer(), Date :: string(), DayOfMonth :: integer(), NotifId :: integer(),
     NotifType :: moment_type(), PromptRecord :: prompt_record(), Image :: binary(), Reminder :: boolean()) -> ok.
-check_and_send_moment_notifications(OffsetHr, Date, DayOfMonth, NotificationId, NotificationType, PromptRecord, Image, Reminder) ->
+check_and_send_moment_notifications(OffsetHr, LocalMinToSend, Date, DayOfMonth, NotificationId, NotificationType, PromptRecord, Image, Reminder) ->
     StartTime = util:now_ms(),
     {Region, Predicate, OffsetHr} = lists:keyfind(OffsetHr, 3, get_regions()),
     Uids = get_uids_by_region(Predicate),
@@ -328,7 +328,7 @@ check_and_send_moment_notifications(OffsetHr, Date, DayOfMonth, NotificationId, 
     NumWorkers = ?NUM_MOMENT_NOTIF_SENDER_PROCS,
     WorkerPids = lists:map(
         fun(N) ->
-            spawn(?MODULE, send_moment_notification_async, [Region, Date, DayOfMonth, NotificationId, NotificationType, PromptRecord, Image, N, Reminder])
+            spawn(?MODULE, send_moment_notification_async, [OffsetHr, LocalMinToSend, Region, Date, DayOfMonth, NotificationId, NotificationType, PromptRecord, Image, N, Reminder])
         end,
         lists:seq(1, NumWorkers)),
     %% Send Uids to the worker processes for moment notifications to be sent
@@ -347,13 +347,17 @@ check_and_send_moment_notifications(OffsetHr, Date, DayOfMonth, NotificationId, 
     ok.
 
 
-send_moment_notification_async(Region, Date, DayOfMonth, NotificationId, NotificationType, PromptRecord, Image, Name, Reminder) ->
+send_moment_notification_async(OffsetHr, LocalMinToSend, Region, Date, DayOfMonth, NotificationId, NotificationType, PromptRecord, Image, Name, Reminder) ->
     receive
         done ->
             ok;
         Uid ->
-            check_and_send_moment_notification(Uid, Region, Date, DayOfMonth, NotificationId, util:now(), NotificationType, PromptRecord, Image, false, Reminder),
-            send_moment_notification_async(Region, Date, DayOfMonth, NotificationId, NotificationType, PromptRecord, Image, Name, Reminder)
+            NotificationTimestamp = case Reminder of
+                true -> util_moments:calculate_notif_timestamp(0, LocalMinToSend, OffsetHr);
+                false -> util:now()
+            end,
+            check_and_send_moment_notification(Uid, Region, Date, DayOfMonth, NotificationId, NotificationTimestamp, NotificationType, PromptRecord, Image, false, Reminder),
+            send_moment_notification_async(OffsetHr, LocalMinToSend, Region, Date, DayOfMonth, NotificationId, NotificationType, PromptRecord, Image, Name, Reminder)
     end.
 
 
