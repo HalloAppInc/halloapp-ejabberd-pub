@@ -1326,10 +1326,8 @@ filter_moments_by_author(Uid, Moments, ShowDevContent) ->
                 %% Ouid is ok if: not in RemoveAuthorSet AND allowed on public feed
                 IsOuidOk = not sets:is_element(Ouid, RemoveAuthorSet)
                     andalso (ShowDevContent orelse dev_users:show_on_public_feed(Ouid)),
-                IsNotifIdOk = NotifId >= LatestNotificationId,
-                %% IsContentOk to share: we can share the content if notification id matches or if the content is image/video.
-                IsContentOk = NotifId =:= LatestNotificationId orelse ContentType =:= image orelse ContentType =:= video,
-                IsOuidOk andalso IsNotifIdOk andalso IsContentOk;
+                IsNotifIdOk = LatestNotificationId >= NotifId,
+                IsOuidOk andalso IsNotifIdOk;
             (_Else) ->
                 false
         end,
