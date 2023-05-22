@@ -146,7 +146,7 @@ init([]) ->
     ets:new(?MONITOR_TABLE, [named_table, public]),
     ejabberd_hooks:add(node_up, ?MODULE, node_up, 10),
     {ok, #state{monitors = #{}, active_pings = #{}, gen_servers = [],
-        trefs = [TRef, TRef2, TRef3, TRef4, TRef5]}}.
+        trefs = [TRef, TRef2, TRef3, TRef4, TRef5], pidmap = #{}}}.
 
 
 terminate(_Reason, #state{trefs = TRefs} = _State) ->
@@ -174,7 +174,7 @@ handle_cast(ping_procs, State) ->
     NewState3 = send_pings(NewState2),
     {noreply, NewState3};
 
-handle_cast({monitor, {global, Name} = Proc}, #state{monitors = Monitors, gen_servers = GenServers} = State) ->
+handle_cast({monitor, {global, Name} = Proc}, #state{monitors = Monitors, gen_servers = GenServers, pidmap = PidMap} = State) ->
     Pid = global:whereis_name(Name),
     NewState2 = case lists:member(Proc, maps:values(Monitors)) of
         true -> State;
@@ -186,7 +186,7 @@ handle_cast({monitor, {global, Name} = Proc}, #state{monitors = Monitors, gen_se
                 _ ->
                    ?INFO("Monitoring global process name: ~p, pid: ~p", [Name, Pid]),
                    Ref = erlang:monitor(process, Pid),
-                   State#state{monitors = Monitors#{Ref => Proc}}
+                   State#state{monitors = Monitors#{Ref => Proc}, pidmap = PidMap#{Pid => Proc}}
             end,
             case lists:member(Proc, GenServers) of
                 true -> NewState;
@@ -195,11 +195,11 @@ handle_cast({monitor, {global, Name} = Proc}, #state{monitors = Monitors, gen_se
     end,
     {noreply, NewState2};
 
-handle_cast({monitor, Proc}, #state{monitors = Monitors, gen_servers = GenServers} = State) ->
+handle_cast({monitor, Proc}, #state{monitors = Monitors, gen_servers = GenServers, pidmap = PidMap} = State) ->
     Pid = whereis(Proc),
     ?INFO("Monitoring process name: ~p, pid: ~p", [Proc, Pid]),
     Ref = erlang:monitor(process, Proc),
-    NewState = State#state{monitors = Monitors#{Ref => Proc}},
+    NewState = State#state{monitors = Monitors#{Ref => Proc}, pidmap = PidMap#{Pid => Proc}},
     NewState2 = case is_gen_server(Proc) of
         true -> NewState#state{gen_servers = [Proc | GenServers]};
         false -> NewState
@@ -215,11 +215,12 @@ handle_cast(Msg, State) ->
     {noreply, State}.
 
 
-handle_info({ack, Id, Ts, From}, #state{active_pings = PingMap} = State) ->
+handle_info({ack, Id, Ts, From}, #state{active_pings = PingMap, pidmap = PidMap} = State) ->
+    Proc = maps:get(From, PidMap, undefined),
     case maps:take(Id, PingMap) of
         error ->
             Secs = (util:now_ms() - Ts) / 1000,
-            ?WARNING("Got late ack (~ps) from: ~p", [Secs, From]),
+            ?WARNING("Got late ack (~ps) from ~p (~p)", [Secs, Proc, From]),
             NewPingMap = PingMap;
         {Mod, NewPingMap} ->
             PingTimeoutMs = case Mod of
@@ -229,18 +230,19 @@ handle_info({ack, Id, Ts, From}, #state{active_pings = PingMap} = State) ->
             case util:now_ms() - Ts > PingTimeoutMs of
                 true ->
                     Secs = (util:now_ms() - Ts) / 1000,
-                    ?WARNING("Got late ack (~ps) from: ~p (~p)", [Secs, From, Mod]),
+                    ?WARNING("Got late ack (~ps) from ~p (~p)", [Secs, Mod, From]),
                     record_state(Mod, ?FAIL_STATE);
                 false -> record_state(Mod, ?ALIVE_STATE)
             end
     end,
     {noreply, State#state{active_pings = NewPingMap}};
 
-handle_info({'DOWN', Ref, process, Pid, Reason}, #state{monitors = Monitors} = State) ->
-    ?ERROR("process down, pid: ~p, reason: ~p", [Pid, Reason]),
+handle_info({'DOWN', Ref, process, Pid, Reason}, #state{monitors = Monitors, pidmap = PidMap} = State) ->
     Proc = maps:get(Ref, Monitors, undefined),
+    ?ERROR("process down: ~p (~p), reason: ~p", [Proc, Pid, Reason]),
     case Proc of
-        undefined -> ?ERROR("Monitor's reference missing: ~p", [Ref]);
+        undefined ->
+            ?ERROR("Monitor's reference missing for ~p: ~p", [maps:get(Pid, PidMap, undefined), Ref]);
         {global, Name} ->
             case Reason of
                 shutdown -> ?INFO("Remote monitor at ~p shutdown", [node(Pid)]);
@@ -254,8 +256,9 @@ handle_info({'DOWN', Ref, process, Pid, Reason}, #state{monitors = Monitors} = S
     end,
     NewMonitors = maps:remove(Ref, State#state.monitors),
     NewGenServers = lists:delete(Proc, State#state.gen_servers),
+    NewPidMap = maps:remove(Pid, State#state.pidmap),
     {ok, _TRef} = timer:apply_after(?REMONITOR_DELAY_MS, ?MODULE, try_remonitor, [Proc]),
-    FinalState = State#state{monitors = NewMonitors, gen_servers = NewGenServers},
+    FinalState = State#state{monitors = NewMonitors, gen_servers = NewGenServers, pidmap = NewPidMap},
     {noreply, FinalState};
 
 handle_info(Info, State) ->
