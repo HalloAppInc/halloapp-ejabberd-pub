@@ -20,7 +20,7 @@
 -define(FOCONTACT_SCORE, 40).
 -define(FOREVCONTACT_SCORE, 20).
 -define(FOGEOTAG_SCORE, 20).
--define(FOF_RUNTIME_LIMIT_MS, 100).
+-define(FOF_RUNTIME_LIMIT_MS, 1000).
 %% limits for num of fof users.
 -define(FOF_BATCH_LIMIT, 100).
 -define(FOF_TOTAL_LIMIT, 500).
