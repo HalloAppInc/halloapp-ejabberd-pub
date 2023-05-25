@@ -221,6 +221,18 @@ get_album_prompts() ->
                 id = <<"album.11">>,
                 text = <<"the waves are calling, when was the last time you were by the water?  🌊"/utf8>>,
                 reuse_after = 6 * ?MONTHS
+            },
+        <<"album.12">> =>
+            #prompt{
+                id = <<"album.12">>,
+                text = <<"Your weekend personality is known for..."/utf8>>,
+                reuse_after = 6 * ?MONTHS
+            },
+        <<"album.13">> =>
+            #prompt{
+                id = <<"album.13">>,
+                text = <<"Friendship makes the world go 'round, share your besties 🐍"/utf8>>,
+                reuse_after = 6 * ?MONTHS
             }
     }.
 
@@ -418,6 +430,33 @@ get_text_prompts() ->
                 ai_image_model = ?STABLE_DIFFUSION_1_5,
                 prompt_wrapper = fun(T) -> <<T/binary, ", emoji faces">> end,
                 negative_prompt = <<>>
+            },
+        <<"text.25">> =>
+            #prompt{
+                id = <<"text.25">>,
+                text = <<"your go to self-care hack? 💆🏾‍♀️🧖🏽"/utf8>>,
+                reuse_after = 6 * ?MONTHS,
+                ai_image_model = ?STABLE_DIFFUSION_1_5,
+                prompt_wrapper = fun(T) -> <<T/binary, ", example of self care">> end,
+                negative_prompt = <<"text, disfigured faces">>
+            },
+        <<"text.26">> =>
+            #prompt{
+                id = <<"text.26">>,
+                text = <<"what zodiac sign people think you are vs. your actual sign ♏️♌️"/utf8>>,
+                reuse_after = 6 * ?MONTHS,
+                ai_image_model = ?STABLE_DIFFUSION_1_5,
+                prompt_wrapper = fun(T) -> <<T/binary, ", zodiac sign">> end,
+                negative_prompt = <<"text, disfigured faces">>
+            },
+        <<"text.27">> =>
+            #prompt{
+                id = <<"text.27">>,
+                text = <<"A movie quote that's become a part of your vocab 🍿🥸"/utf8>>,
+                reuse_after = 6 * ?MONTHS,
+                ai_image_model = ?STABLE_DIFFUSION_1_5,
+                prompt_wrapper = fun(T) -> <<T/binary, ", movie quote">> end,
+                negative_prompt = <<"text, disfigured faces">>
             }
     }.
 
@@ -440,6 +479,18 @@ get_camera_prompts() ->
             #prompt{
                 id = <<"camera.3">>,
                 text = <<"ootd 👗👕👟🧢"/utf8>>,
+                reuse_after = 6 * ?MONTHS
+            },
+        <<"camera.4">> =>
+            #prompt{
+                id = <<"camera.4">>,
+                text = <<"in the mood for..."/utf8>>,
+                reuse_after = 6 * ?MONTHS
+            },
+        <<"camera.5">> =>
+            #prompt{
+                id = <<"camera.5">>,
+                text = <<"tap in with a video 🎥"/utf8>>,
                 reuse_after = 6 * ?MONTHS
             }
     }.
