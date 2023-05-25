@@ -63,7 +63,12 @@ do_noise_login({Name, Host}, Version) ->
             record_state(Host, login, ?FAIL_STATE)
     catch
         _:Reason ->
-            ?ERROR("Noise login error on ~s (~s): ~p", [Name, Host, Reason]),
+            case Reason of
+                {timeout, _} ->
+                    ?INFO("Noise login timeout on ~s (~s)", [Name, Host]);
+                _ ->
+                    ?ERROR("Noise login error on ~s (~s): ~p", [Name, Host, Reason])
+            end,
             record_state(Host, login, ?FAIL_STATE)
     end,
     ok.
@@ -82,7 +87,12 @@ do_noise_register({Name, Host}, Version) ->
             record_state(Host, register, ?FAIL_STATE)
     catch
         _:Reason:Stacktrace ->
-            ?ERROR("Noise register error on ~s (~s): ~p ~p", [Name, Host, Reason, Stacktrace]),
+            case Reason of
+                {badmatch,{error,{error,timeout}}} ->
+                    ?INFO("Noise register timeout on ~s (~s)", [Name, Host]);
+                _ ->
+                    ?ERROR("Noise register error on ~s (~s): ~p ~p", [Name, Host, Reason, Stacktrace])
+            end,
             record_state(Host, register, ?FAIL_STATE)
     end,
     ok.

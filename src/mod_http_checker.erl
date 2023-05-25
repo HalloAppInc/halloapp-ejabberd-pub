@@ -138,7 +138,14 @@ handle_info({http, {Ref, {error, Reason}}}, #{mrefs := MRefs} = State) ->
     case maps:get(Ref, MRefs, undefined) of
         undefined -> ?ERROR("Monitor reference not in state");
         Ip ->
-            ?ERROR("HTTP failure, ip: ~p, reason: ~p", [Ip, Reason]),
+            case Reason of
+                timeout ->
+                    ?INFO("HTTP timeout, ip: ~p", [Ip]);
+                {failed_connect, Details} ->
+                    ?INFO("HTTP failed to connect to ~p, details: ~p", [Ip, Details]);
+                _ ->
+                    ?ERROR("HTTP failure, ip: ~p, reason: ~p", [Ip, Reason])
+            end,
             record_state(Ip, ?FAIL_STATE)
     end,
     NewMRefs = maps:remove(Ref, MRefs),

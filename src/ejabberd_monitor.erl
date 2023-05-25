@@ -239,16 +239,19 @@ handle_info({ack, Id, Ts, From}, #state{active_pings = PingMap, pidmap = PidMap}
 
 handle_info({'DOWN', Ref, process, Pid, Reason}, #state{monitors = Monitors, pidmap = PidMap} = State) ->
     Proc = maps:get(Ref, Monitors, undefined),
-    ?ERROR("process down: ~p (~p), reason: ~p", [Proc, Pid, Reason]),
     case Proc of
         undefined ->
-            ?ERROR("Monitor's reference missing for ~p: ~p", [maps:get(Pid, PidMap, undefined), Ref]);
+            ?ERROR("Monitor's reference missing for downed process ~p: ~p: ~p", [maps:get(Pid, PidMap, undefined), Ref, Reason]);
         {global, Name} ->
             case Reason of
-                shutdown -> ?INFO("Remote monitor at ~p shutdown", [node(Pid)]);
-                _ -> alerts:send_process_down_alert(util:to_binary(Name), <<"Monitor is dead">>)
+                shutdown ->
+                    ?INFO("Remote monitor at ~p shutdown", [node(Pid)]);
+                _ ->
+                    ?ERROR("Process down: ~p (~p), reason: ~p", [Proc, Pid, Reason]),
+                    alerts:send_process_down_alert(util:to_binary(Name), <<"Monitor is dead">>)
             end;
         _ ->
+            ?ERROR("Process down: ~p (~p), reason: ~p", [Proc, Pid, Reason]),
             [_, Node] = binary:split(util:to_binary(node()), <<"@">>),
             BProc = util:to_binary(Proc),
             Name = <<BProc/binary, ".", Node/binary>>,
