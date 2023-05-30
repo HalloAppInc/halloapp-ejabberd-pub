@@ -166,7 +166,7 @@ get_props(Uid, ClientVersion, halloapp) ->
         call_hold => false, %% allow calls to be on hold
         call_rerequest => false, %% controls if clients will respond to call-rerequests and also wait for them
         group_max_for_showing_invite_sheet => 5, %% max members to show the invite link after group flow.
-        draw_media => false,
+        draw_media => true,
         privacy_label => false,
         krisp_noise_suppression => false,
         group_comments_notification => true, %% notifications for group comments by friends on group posts.
