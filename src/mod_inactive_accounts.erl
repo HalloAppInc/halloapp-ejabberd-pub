@@ -26,8 +26,7 @@
     find_inactive_accounts/2,
     find_uids/0,
     check_uids/0,
-    delete_uids/0,
-    is_any_dev_account/0
+    delete_uids/0
 ]).
 
 %% Hooks
@@ -166,44 +165,20 @@ is_inactive_user(Uid) ->
 check_and_delete_accounts(ShouldDelete) ->
     NumInactiveAccounts = model_accounts:count_uids_to_delete(),
     NumTotalAccountsMap = model_accounts:count_accounts(),
-    ?INFO("Halloapp | Num Inactive: ~p, Total: ~p", [NumInactiveAccounts, maps:get(?HALLOAPP, NumTotalAccountsMap)]),
-    ?INFO("Katchup | Num Inactive: ~p, Total: ~p", [NumInactiveAccounts, maps:get(?KATCHUP, NumTotalAccountsMap)]),
-    %% Fraction = NumInactiveAccounts / NumTotalAccounts,
+    ?INFO("Num Inactive: ~p, HalloApp Total: ~p, Katchup Total: ~p",
+        [NumInactiveAccounts, maps:get(?HALLOAPP, NumTotalAccountsMap), maps:get(?KATCHUP, NumTotalAccountsMap)]),
 
-    IsNoDevAccount = not (is_any_dev_account()),
-
-    %% Ok to delete, if to delete is within acceptable fraction and no dev account is slated for
-    %% deletion.
-    %% IsAcceptable = (Fraction < ?ACCEPTABLE_FRACTION) and IsNoDevAccount,
-    IsAcceptable = (NumInactiveAccounts =< ?MAX_TO_DELETE_ACCOUNTS) and IsNoDevAccount,
+    %% Ok to delete, if to delete is within acceptable fraction
+    IsAcceptable = NumInactiveAccounts =< ?MAX_TO_DELETE_ACCOUNTS,
     case IsAcceptable of
         false ->
-            ?ERROR("Not deleting inactive accounts. NumInactive: ~p, Total: ~p, No dev account?: ~p",
-                [NumInactiveAccounts, NumTotalAccountsMap, IsNoDevAccount]),
+            ?ERROR("Not deleting inactive accounts. NumInactive: ~p, Total: ~p",
+                [NumInactiveAccounts, NumTotalAccountsMap]),
             ok;
         true ->
             delete_inactive_accounts(ShouldDelete)
     end.
 
-
--spec is_any_dev_account() -> boolean().
-is_any_dev_account() ->
-    lists:any(fun(Slot) ->
-        ?INFO("Looking for dev account in slot: ~p", [Slot]),
-        {ok, List} = model_accounts:get_uids_to_delete(Slot),
-        lists:any(fun(Uid) ->
-            case lists:member(Uid, dev_users:get_dev_uids()) of
-                true ->
-                    ?INFO("Uid: ~p in dev users", [Uid]),
-                    true;
-                false ->
-                    false
-            end
-        end,
-        List)
-    end,
-    lists:seq(0, ?NUM_SLOTS - 1)).
- 
 
 -spec delete_inactive_accounts(ShouldDelete :: boolean()) -> ok.
 delete_inactive_accounts(ShouldDelete) ->
@@ -233,7 +208,8 @@ maybe_delete_inactive_account(Uid, ShouldDelete) ->
                     lists:member(InviterUid, dev_users:get_dev_uids())
                 end,
                 InvitersList),
-            case IsInvitedInternally of
+            IsDevUser = dev_users:is_dev_uid(Uid),
+            case IsInvitedInternally orelse IsDevUser of
                 false ->
                     case ShouldDelete of
                         true ->
@@ -245,9 +221,9 @@ maybe_delete_inactive_account(Uid, ShouldDelete) ->
                                 [Uid, Phone, Version, VersionDaysLeft, InvitersList])
                     end;
                 true ->
-                    %% Either invited explicitly by an insider or it is an initial account.
-                    ?ERROR("Manual attention needed. Not deleting: ~p, Phone: ~p, Version: ~p, Version validity: ~p days, Invited by: ~p",
-                        [Uid, Phone, Version, VersionDaysLeft, InvitersList])
+                    %% Either invited explicitly by an insider or it is an initial account or it is a dev account.
+                    ?ERROR("Manual attention needed. Not deleting: ~p, Phone: ~p, Version: ~p, Version validity: ~p days, Invited by: ~p, Dev: ~p",
+                        [Uid, Phone, Version, VersionDaysLeft, InvitersList, IsDevUser])
             end;
         false ->
             ?INFO("Not deleting: ~p, account has become active", [Uid])
