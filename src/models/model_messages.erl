@@ -175,7 +175,7 @@ withhold_message(Uid, MsgId) ->
 %%TODO(murali@): Update this to use a lua script.
 -spec remove_all_user_messages(Uid :: uid()) -> ok | {error, any()}.
 remove_all_user_messages(Uid) ->
-    {ok, MsgIds} = q(["ZRANGEBYLEX", message_queue_key(Uid), "-", "+"]),
+    {ok, MsgIds} = q(["ZRANGE", message_queue_key(Uid), "-", "+", "BYLEX"]),
     MessageKeys = message_keys(Uid, MsgIds),
     case MessageKeys of
         [] -> ok;
@@ -208,7 +208,7 @@ mark_queue_clean(Uid) ->
 
 -spec get_all_user_messages(Uid :: uid()) -> {ok, [maybe(offline_message())]} | {error, any()}.
 get_all_user_messages(Uid) ->
-    {ok, MsgIds} = q(["ZRANGEBYLEX", message_queue_key(Uid), "-", "+"]),
+    {ok, MsgIds} = q(["ZRANGE", message_queue_key(Uid), "-", "+", "BYLEX"]),
     Messages = get_all_user_messages(Uid, MsgIds),
     {ok, Messages}.
 
@@ -216,7 +216,7 @@ get_all_user_messages(Uid) ->
 -spec get_user_messages(Uid :: uid(), MinOrderId :: integer(),
         Limit :: maybe(integer())) -> {ok, boolean(), [maybe(offline_message())]} | {error, any()}.
 get_user_messages(Uid, MinOrderId, Limit) ->
-    Part1 = ["ZRANGEBYSCORE", message_queue_key(Uid), MinOrderId, "+inf"],
+    Part1 = ["ZRANGE", message_queue_key(Uid), MinOrderId, "+inf", "BYSCORE"],
     Part2 = case Limit of
         undefined -> ["LIMIT", 0, -1];
         _ -> ["LIMIT", 0, Limit]
@@ -248,9 +248,9 @@ delete_empty_messages(Uid, MsgIds) -> {ok, _} = q(["ZREM", message_queue_key(Uid
 
 -spec record_push_sent(Uid :: uid(), ContentId :: binary()) -> boolean().
 record_push_sent(Uid, ContentId) ->
-    [{ok, Res}, _Result] = qp([["SETNX", push_sent_key(Uid, ContentId), util:now()],
+    [{ok, Res}, _Result] = qp([["SET", push_sent_key(Uid, ContentId), util:now(), "NX"],
         ["EXPIRE", push_sent_key(Uid, ContentId), ?PUSH_EXPIRATION]]),
-    binary_to_integer(Res) == 1.
+    Res == <<"OK">>.
 
 
 get_message_commands([], Commands) ->

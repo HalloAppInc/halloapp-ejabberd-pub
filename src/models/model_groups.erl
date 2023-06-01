@@ -544,8 +544,8 @@ remove_group_invite_link(Link) ->
 
 -spec set_group_invite_link(Link :: binary(), Gid :: gid()) -> ok.
 set_group_invite_link(Link, Gid) ->
-    % SETNX protects agains the very unlikely case of duplicate link
-    {ok, _Res} = q(["SETNX", group_invite_link_key(Link), Gid]),
+    % SET NX protects against the very unlikely case of duplicate link
+    {ok, _Res} = q(["SET", group_invite_link_key(Link), Gid, "NX"]),
     ok.
 
 -spec get_invite_link_gid(Link :: binary()) -> maybe(gid()).

@@ -192,6 +192,7 @@ check_redis_client({Id, Nodes}) ->
 
 % check if can set/get on each master
 can_set_get_masters(Id) ->
+    %% TODO: As of Redis 7.0, this command is deprecated and should be changed to "CLUSTER SHARDS"
     case ecredis:q(Id, ["CLUSTER", "SLOTS"]) of
         {ok, Res} ->
             record_state(Id, ?CLUSTER_CAN_CONNECT_KEY, ?ALIVE_STATE),

@@ -176,10 +176,10 @@ remove_all_keys(Uid) ->
 
 mark_e2e_stats_query() ->
     [{ok, Exists}, {ok, _}] = qp([
-        ["SETNX", ?E2E_STATS_QUERY_KEY, 1],
+        ["SET", ?E2E_STATS_QUERY_KEY, 1, "NX"],
         ["EXPIRE", ?E2E_STATS_QUERY_KEY, ?E2E_QUERY_EXPIRY]
     ]),
-    Exists =:= <<"1">>.
+    Exists =:= <<"OK">>.
 
 
 -spec export_keys(Uid :: uid()) ->

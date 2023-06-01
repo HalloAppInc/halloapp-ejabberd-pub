@@ -263,7 +263,7 @@ add_not_invited_phone(Phone) ->
 
 -spec get_not_invited_phones() -> [{binary(), non_neg_integer()}].
 get_not_invited_phones() ->
-    {ok, Res} = q(["ZRANGEBYSCORE", not_invited_phones_key(), "-inf", "+inf", "WITHSCORES"]),
+    {ok, Res} = q(["ZRANGE", not_invited_phones_key(), "-inf", "+inf", "BYSCORE", "WITHSCORES"]),
     util_redis:parse_zrange_with_scores(Res).
 
 

@@ -224,8 +224,8 @@ update_sms_code(Phone, AppType, Code, AttemptId) ->
 -spec get_verification_attempt_list(Phone :: phone(), AppType :: app_type()) -> {ok, [{binary(), binary()}]} | {error, any()}.
 get_verification_attempt_list(Phone, AppType) ->
     Deadline = util:now() - ?TTL_SMS_CODE,
-    {ok, Res} = q(["ZRANGEBYSCORE", verification_attempt_list_key(Phone, AppType),
-          integer_to_binary(Deadline), "+inf", "WITHSCORES"]),
+    {ok, Res} = q(["ZRANGE", verification_attempt_list_key(Phone, AppType),
+          integer_to_binary(Deadline), "+inf", "BYSCORE", "WITHSCORES"]),
     {ok, util_redis:parse_zrange_with_scores(Res)}.
 
 

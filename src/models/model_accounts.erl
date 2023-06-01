@@ -607,7 +607,7 @@ delete_username_prefix(Username, PrefixLen) ->
 
 -spec search_username_prefix(Prefix :: binary(), Limit :: integer()) -> {ok, [binary()]} | {error, any()}.
 search_username_prefix(Prefix, Limit) ->
-    {ok, Usernames} = q(["ZRANGEBYLEX", username_index_key(Prefix), "-", "+", "LIMIT", 0, Limit]),
+    {ok, Usernames} = q(["ZRANGE", username_index_key(Prefix), "-", "+", "BYLEX", "LIMIT", 0, Limit]),
     {ok, Usernames}.
 
 
@@ -2040,7 +2040,7 @@ get_latest_geo_tag(Uid) ->
 get_all_geo_tags(Uid) ->
     Key = geo_tag_key(Uid),
     ExpiredTs = util:now() - ?GEO_TAG_EXPIRATION,
-    case q(["ZREVRANGEBYSCORE", Key, "+inf", util:to_list(ExpiredTs), "WITHSCORES"]) of
+    case q(["ZRANGE", Key, "+inf", util:to_list(ExpiredTs), "BYSCORE", "REV","WITHSCORES"]) of
         {ok, GeoTags} ->
             util_redis:parse_zrange_with_scores(GeoTags);
         Err ->
@@ -2062,7 +2062,7 @@ add_rejected_suggestions(Uid, Ouids) ->
 get_all_rejected_suggestions(Uid) ->
     Key = rejected_suggestion_key(Uid),
     ExpiredTs = util:now() - ?REJECTED_SUGGESTION_EXPIRATION,
-    q(["ZREVRANGEBYSCORE", Key, "+inf", util:to_list(ExpiredTs)]).
+    q(["ZRANGE", Key, "+inf", util:to_list(ExpiredTs), "BYSCORE", "REV"]).
 
 -spec add_marketing_tag(Uid :: uid(), Tag :: binary()) -> ok.
 add_marketing_tag(Uid, Tag) ->
@@ -2080,7 +2080,7 @@ add_marketing_tag(Uid, Tag) ->
 get_marketing_tags(Uid) ->
     OldTs = util:now() - ?MARKETING_TAG_TTL,
     ListKey = marketing_tag_key(Uid),
-    {ok, Res} = q(["ZREVRANGEBYSCORE", ListKey, "+inf", integer_to_binary(OldTs), "WITHSCORES"]),
+    {ok, Res} = q(["ZRANGE", ListKey, "+inf", integer_to_binary(OldTs), "BYSCORE", "REV", "WITHSCORES"]),
     {ok, util_redis:parse_zrange_with_scores(Res)}.
 
 

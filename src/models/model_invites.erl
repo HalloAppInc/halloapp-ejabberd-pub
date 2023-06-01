@@ -122,8 +122,7 @@ get_inviters_list(PhoneNums) when is_list(PhoneNums) ->
     StartTimeBin = integer_to_binary(StartTime),
     Commands = lists:map(
         fun(PhoneNum) ->
-            ["ZRANGEBYSCORE", ph_invited_by_key(PhoneNum),
-                StartTimeBin, "+inf", "WITHSCORES"]
+            ["ZRANGE", ph_invited_by_key(PhoneNum), StartTimeBin, "+inf", "BYSCORE", "WITHSCORES"]
         end, PhoneNums),
     Res = qmn_phones(Commands),
     Result = lists:foldl(
@@ -139,8 +138,8 @@ get_inviters_list(PhoneNums) when is_list(PhoneNums) ->
         {ok, [{Uid :: uid(), Timestamp :: binary()}]}.
 get_inviters_list(PhoneNum, Now) ->
     StartTime = Now - ?INVITE_TTL,
-    {ok, InvitersList} = q_phones(["ZRANGEBYSCORE", ph_invited_by_key(PhoneNum),
-        integer_to_binary(StartTime), "+inf", "WITHSCORES"]),
+    {ok, InvitersList} = q_phones(["ZRANGE", ph_invited_by_key(PhoneNum),
+        integer_to_binary(StartTime), "+inf", "BYSCORE", "WITHSCORES"]),
     {ok, util_redis:parse_zrange_with_scores(InvitersList)}.
 
 
@@ -151,8 +150,8 @@ get_sent_invites(Uid) ->
 -spec get_sent_invites(Uid :: binary(), Now :: integer()) -> {ok, [binary()]}.
 get_sent_invites(Uid, Now) ->
     StartTime = Now - ?INVITE_TTL,
-    {ok, Phones} = q_accounts(["ZRANGEBYSCORE", invites_key(Uid),
-        integer_to_binary(StartTime), "+inf"]),
+    {ok, Phones} = q_accounts(["ZRANGE", invites_key(Uid),
+        integer_to_binary(StartTime), "+inf", "BYSCORE"]),
     {ok, Phones}.
 
 get_invite_ttl() ->

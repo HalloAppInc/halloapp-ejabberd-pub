@@ -34,14 +34,13 @@ get_version_ts(Version) ->
 
 -spec set_version_ts(Version :: binary(), Ts :: integer()) -> boolean().
 set_version_ts(Version, Ts) ->
-    {ok, Res} = q(["SETNX", version_key(Version), Ts]),
-    NewVersion = (binary_to_integer(Res) =:= 1),
-    case NewVersion of
-        true ->
-            {ok, <<"1">>} = q(["ZADD", all_versions_key(), Ts, Version]);
-        false -> ok
-    end,
-    NewVersion.
+    {ok, Res} = q(["SET", version_key(Version), Ts, "NX"]),
+    case Res of
+        <<"OK">> ->
+            {ok, <<"1">>} = q(["ZADD", all_versions_key(), Ts, Version]),
+            true;
+        _ -> false
+    end.
 
 
 -spec update_version_ts(Version :: binary(), Ts :: integer()) -> ok | {error, any()}.
@@ -54,14 +53,14 @@ update_version_ts(Version, Ts) ->
 -spec get_versions(MinTs :: integer(), MaxTs :: integer()) -> {ok, [binary()]}.
 get_versions(MinTs, MaxTs) ->
     {ok, Versions} = q(
-        ["ZRANGEBYSCORE", all_versions_key(), integer_to_binary(MinTs), integer_to_binary(MaxTs)]),
+        ["ZRANGE", all_versions_key(), integer_to_binary(MinTs), integer_to_binary(MaxTs), "BYSCORE"]),
     {ok, Versions}.
 
 
 -spec get_all_versions() -> {ok, [binary()]}.
 get_all_versions() ->
     {ok, Versions} = q(
-        ["ZRANGEBYSCORE", all_versions_key(), "-inf", "+inf"]),
+        ["ZRANGE", all_versions_key(), "-inf", "+inf", "BYSCORE"]),
     {ok, Versions}.
 
 

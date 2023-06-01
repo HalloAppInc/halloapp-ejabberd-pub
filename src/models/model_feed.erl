@@ -529,7 +529,7 @@ get_posts_by_time_bucket(StartTimestampHr, CurTimestampHr,
     ResultPostIds;
 get_posts_by_time_bucket(StartTimestampHr, CurTimestampHr,
         CursorPostId, CurLimit, Limit, ResultPostIds) ->
-    {ok, PostIds} = q(["ZREVRANGEBYSCORE", time_bucket_key_hr(CurTimestampHr), "+inf", "-inf"]),
+    {ok, PostIds} = q(["ZRANGE", time_bucket_key_hr(CurTimestampHr), "+inf", "-inf", "BYSCORE", "REV"]),
     FinalResultPostIds = case util:index_of(CursorPostId, PostIds) of
         undefined ->
             ResultPostIds ++ lists:sublist(PostIds, CurLimit);
@@ -553,7 +553,7 @@ get_posts_by_geo_tag_time_bucket(_GeoTag, StartTimestampHr, CurTimestampHr,
     ResultPostIds;
 get_posts_by_geo_tag_time_bucket(GeoTag, StartTimestampHr, CurTimestampHr,
         CursorPostId, CurLimit, Limit, ResultPostIds) ->
-    {ok, PostIds} = q(["ZREVRANGEBYSCORE", geo_tag_time_bucket_key_hr(GeoTag, CurTimestampHr), "+inf", "-inf"]),
+    {ok, PostIds} = q(["ZRANGE", geo_tag_time_bucket_key_hr(GeoTag, CurTimestampHr), "+inf", "-inf", "BYSCORE", "REV"]),
     FinalResultPostIds = case util:index_of(CursorPostId, PostIds) of
         undefined ->
             ResultPostIds ++ lists:sublist(PostIds, CurLimit);
@@ -575,7 +575,7 @@ get_all_posts_by_time_bucket(StartTimestampHr, CurTimestampHr, ResultPostIds)
         when StartTimestampHr - CurTimestampHr >= ?KATCHUP_MOMENT_EXPIRATION_HRS ->
     ResultPostIds;
 get_all_posts_by_time_bucket(StartTimestampHr, CurTimestampHr, ResultPostIds) ->
-    {ok, PostIds} = q(["ZREVRANGEBYSCORE", time_bucket_key_hr(CurTimestampHr), "+inf", "-inf"]),
+    {ok, PostIds} = q(["ZRANGE", time_bucket_key_hr(CurTimestampHr), "+inf", "-inf", "BYSCORE", "REV"]),
     FinalResultPostIds = ResultPostIds ++ PostIds,
     get_all_posts_by_time_bucket(StartTimestampHr, CurTimestampHr-1, FinalResultPostIds).
 
@@ -587,7 +587,7 @@ get_all_posts_by_geo_tag_time_bucket(_GeoTag, StartTimestampHr, CurTimestampHr, 
         when StartTimestampHr - CurTimestampHr >= ?KATCHUP_MOMENT_EXPIRATION_HRS ->
     ResultPostIds;
 get_all_posts_by_geo_tag_time_bucket(GeoTag, StartTimestampHr, CurTimestampHr, ResultPostIds) ->
-    {ok, PostIds} = q(["ZREVRANGEBYSCORE", geo_tag_time_bucket_key_hr(GeoTag, CurTimestampHr), "+inf", "-inf"]),
+    {ok, PostIds} = q(["ZRANGE", geo_tag_time_bucket_key_hr(GeoTag, CurTimestampHr), "+inf", "-inf", "BYSCORE", "REV"]),
     FinalResultPostIds = ResultPostIds ++ PostIds,
     get_all_posts_by_geo_tag_time_bucket(GeoTag, StartTimestampHr, CurTimestampHr-1, FinalResultPostIds).
 
@@ -765,7 +765,7 @@ retract_post(PostId, Uid) ->
 
 -spec delete_post(PostId :: binary(), Uid :: uid()) -> ok | {error, any()}.
 delete_post(PostId, _Uid) ->
-    {ok, CommentIds} = q(["ZRANGEBYSCORE", post_comments_key(PostId), "-inf", "+inf"]),
+    {ok, CommentIds} = q(["ZRANGE", post_comments_key(PostId), "-inf", "+inf", "BYSCORE"]),
 
     %% Delete all comments content and leave tombstone.
     CommentDeleteCommands = lists:foldl(
@@ -863,7 +863,7 @@ get_notification_id(Uid) ->
 
 -spec remove_all_user_posts(Uid :: uid()) -> ok.
 remove_all_user_posts(Uid) ->
-    {ok, PostIds} = q(["ZRANGEBYSCORE", reverse_post_key(Uid), "-inf", "+inf"]),
+    {ok, PostIds} = q(["ZRANGE", reverse_post_key(Uid), "-inf", "+inf", "BYSCORE"]),
     lists:foreach(fun(PostId) -> ok = delete_post(PostId, Uid) end, PostIds),
     {ok, _} = q(["DEL", reverse_post_key(Uid)]),
     ok.
@@ -1056,7 +1056,7 @@ get_comment_push_data(CommentId, PostId) ->
 
 -spec get_post_comments(PostId :: binary()) -> {ok, [comment()]} | {error, any()}.
 get_post_comments(PostId) when is_binary(PostId) ->
-    {ok, CommentIds} = q(["ZRANGEBYSCORE", post_comments_key(PostId), "-inf", "+inf"]),
+    {ok, CommentIds} = q(["ZRANGE", post_comments_key(PostId), "-inf", "+inf", "BYSCORE"]),
     AllCommentsInfo = get_comments(CommentIds, PostId),
     Comments = lists:filtermap(
         fun(Comment) ->
@@ -1369,7 +1369,7 @@ get_psa_tag_posts(PSATag) ->
 
 -spec get_user_feed(Uid :: uid(), DeadlineMs :: integer()) -> {ok, [feed_item()]} | {error, any()}.
 get_user_feed(Uid, DeadlineMs) ->
-    {ok, AllPostIds} = q(["ZRANGEBYSCORE", reverse_post_key(Uid), integer_to_binary(DeadlineMs), "+inf"]),
+    {ok, AllPostIds} = q(["ZRANGE", reverse_post_key(Uid), integer_to_binary(DeadlineMs), "+inf", "BYSCORE"]),
     Posts = get_user_feed_posts(AllPostIds),
     PostIds = [PostId || #post{id = PostId} <- Posts],
     Comments = get_posts_comments(PostIds),
@@ -1441,7 +1441,7 @@ get_latest_posts(Uids) ->
 
 -spec get_group_feed(Uid :: uid(), DeadlineMs :: integer()) -> {ok, [feed_item()]} | {error, any()}.
 get_group_feed(Gid, DeadlineMs) ->
-    {ok, AllPostIds} = q(["ZRANGEBYSCORE", reverse_group_post_key(Gid), integer_to_binary(DeadlineMs), "+inf"]),
+    {ok, AllPostIds} = q(["ZRANGE", reverse_group_post_key(Gid), integer_to_binary(DeadlineMs), "+inf", "BYSCORE"]),
     Posts = get_group_feed_posts(AllPostIds),
     PostIds = [PostId || #post{id = PostId} <- Posts],
     Comments = get_posts_comments(PostIds),
@@ -1450,7 +1450,7 @@ get_group_feed(Gid, DeadlineMs) ->
 
 -spec get_psa_tag_posts(PSATag :: binary(), DeadlineMs :: integer()) -> {ok, [feed_item()]} | {error, any()}.
 get_psa_tag_posts(PSATag, DeadlineMs) ->
-    {ok, AllPostIds} = q(["ZRANGEBYSCORE", reverse_psa_tag_key(PSATag), integer_to_binary(DeadlineMs), "+inf"]),
+    {ok, AllPostIds} = q(["ZRANGE", reverse_psa_tag_key(PSATag), integer_to_binary(DeadlineMs), "+inf", "BYSCORE"]),
     FilterFun = fun (X) -> X =/= undefined end,
     {ok, get_posts(AllPostIds, FilterFun)}.
 
@@ -1539,8 +1539,8 @@ get_posts_comments(PostIds) ->
 
 -spec remove_user(Uid :: binary()) -> ok.
 remove_user(Uid) ->
-    {ok, PostIds} = q(["ZRANGEBYSCORE", reverse_post_key(Uid), "-inf", "+inf"]),
-    {ok, CommentKeys} = q(["ZRANGEBYSCORE", reverse_comment_key(Uid), "-inf", "+inf"]),
+    {ok, PostIds} = q(["ZRANGE", reverse_post_key(Uid), "-inf", "+inf", "BYSCORE"]),
+    {ok, CommentKeys} = q(["ZRANGE", reverse_comment_key(Uid), "-inf", "+inf", "BYSCORE"]),
     %% Delete all posts and their uid fields too.
     lists:foreach(fun(PostId) -> ok = delete_post(PostId, Uid) end, PostIds),
     %% Delete all comments and their publisher_uid fields too.
