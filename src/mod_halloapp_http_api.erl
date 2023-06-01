@@ -95,16 +95,22 @@ process([<<"registration">>, <<"register2">>],
     stat:count(util:get_stat_namespace(UserAgent) ++ "/registration",
         "verify_otp_request", 1, [{protocol, "https"}]),
     Payload = jiffy:decode(Data, [return_maps]),
-    RawPhone = maps:get(<<"phone">>, Payload),
-    Phone = normalize_by_version(RawPhone, UserAgent),
     Name = maps:get(<<"name">>, Payload),
+    RawPhone = maps:get(<<"phone">>, Payload),
+    Phone = try
+        normalize_by_version(RawPhone, UserAgent)
+    catch
+        error : _Reason : _Stacktrace ->
+            RawPhone
+    end,
     Result = #{
-            uid => util_uid:generate_uid(UserAgent),
-            phone => Phone,
-            name => Name,
-            result => ok
+        uid => util_uid:generate_uid(UserAgent),
+        phone => Phone,
+        name => Name,
+        result => ok
     },
     {200, ?HEADER(?CT_JSON), jiffy:encode(Result)};
+
 
 %% Return the group name based on group_invite_token
 process([<<"registration">>, <<"get_group_info">>],
@@ -185,7 +191,12 @@ process_otp_request_dummy(Data, IP, Headers) ->
         "Hashcash solution: ~p time taken: ~pms payload:~p ",
         [AppType, RawPhone, UserAgent, ClientIP, MethodBin, LangId, PhoneCC, IPCC, HashcashSolution,
         HashcashSolutionTimeTakenMs, Payload]),
-    Phone = normalize_by_version(RawPhone, UserAgent),
+    Phone = try
+        normalize_by_version(RawPhone, UserAgent)
+    catch
+        _Err : _Res : _Stacktrace ->
+            RawPhone
+    end,
     return_dropped(Phone, 30, MethodBin, AppType).
 
 -spec process_hashcash_request(RequestData :: map()) -> {ok, binary()}.
