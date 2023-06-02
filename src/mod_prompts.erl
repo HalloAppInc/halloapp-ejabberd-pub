@@ -233,6 +233,18 @@ get_album_prompts() ->
                 id = <<"album.13">>,
                 text = <<"Friendship makes the world go 'round, share your besties 🐍"/utf8>>,
                 reuse_after = 6 * ?MONTHS
+            },
+        <<"album.14">> =>
+            #prompt{
+                id = <<"album.14">>,
+                text = <<"A Tik-tok trend you've been enjoying..."/utf8>>,
+                reuse_after = 6 * ?MONTHS
+            },
+        <<"album.15">> =>
+            #prompt{
+                id = <<"album.15">>,
+                text = <<"how your month of may went in one photo 📅"/utf8>>,
+                reuse_after = 6 * ?MONTHS
             }
     }.
 
@@ -457,6 +469,33 @@ get_text_prompts() ->
                 ai_image_model = ?STABLE_DIFFUSION_1_5,
                 prompt_wrapper = fun(T) -> <<T/binary, ", movie quote">> end,
                 negative_prompt = <<"text, disfigured faces">>
+            },
+        <<"text.28">> =>
+            #prompt{
+                id = <<"text.28">>,
+                text = <<"my late night craving is..."/utf8>>,
+                reuse_after = 6 * ?MONTHS,
+                ai_image_model = ?STABLE_DIFFUSION_1_5,
+                prompt_wrapper = fun(T) -> <<T/binary, ", food, snack,">> end,
+                negative_prompt = <<"disfigured, text">>
+            },
+        <<"text.29">> =>
+            #prompt{
+                id = <<"text.29">>,
+                text = <<"what simple pleasure brings you joy? 🫰🏽️"/utf8>>,
+                reuse_after = 6 * ?MONTHS,
+                ai_image_model = ?STABLE_DIFFUSION_1_5,
+                prompt_wrapper = fun(T) -> <<T/binary, ", good vibes, simple, ">> end,
+                negative_prompt = <<"text, words">>
+            },
+        <<"text.30">> =>
+            #prompt{
+                id = <<"text.30">>,
+                text = <<"👻you're unalive👻 how would you prank your friends and fam as a ghost?"/utf8>>,
+                reuse_after = 6 * ?MONTHS,
+                ai_image_model = ?STABLE_DIFFUSION_1_5,
+                prompt_wrapper = fun(T) -> <<T/binary, ", funeral, silly">> end,
+                negative_prompt = <<"text, words, disfigured">>
             }
     }.
 
@@ -491,6 +530,12 @@ get_camera_prompts() ->
             #prompt{
                 id = <<"camera.5">>,
                 text = <<"tap in with a video 🎥"/utf8>>,
+                reuse_after = 0
+            },
+        <<"camera.6">> =>
+            #prompt{
+                id = <<"camera.6">>,
+                text = <<"mood of the day?"/utf8>>,
                 reuse_after = 6 * ?MONTHS
             }
     }.
