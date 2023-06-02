@@ -152,5 +152,6 @@ is_spam_country(<<"KG">>) -> true;
 is_spam_country(<<"PK">>) -> true;
 is_spam_country(<<"PH">>) -> true;
 is_spam_country(<<"UZ">>) -> true;
+is_spam_country(<<"GE">>) -> true;
 is_spam_country(_) -> false.
  
