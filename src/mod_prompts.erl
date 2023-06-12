@@ -245,6 +245,18 @@ get_album_prompts() ->
                 id = <<"album.15">>,
                 text = <<"how your month of may went in one photo 📅"/utf8>>,
                 reuse_after = 6 * ?MONTHS
+            },
+        <<"album.16">> =>
+            #prompt{
+                id = <<"album.16">>,
+                text = <<"a baby photo vs. your live selfie! 👶🏾🍼"/utf8>>,
+                reuse_after = 6 * ?MONTHS
+            },
+        <<"album.17">> =>
+            #prompt{
+                id = <<"album.17">>,
+                text = <<"a view you can't forget 🏔"/utf8>>,
+                reuse_after = 6 * ?MONTHS
             }
     }.
 
@@ -496,6 +508,33 @@ get_text_prompts() ->
                 ai_image_model = ?STABLE_DIFFUSION_1_5,
                 prompt_wrapper = fun(T) -> <<T/binary, ", funeral, silly">> end,
                 negative_prompt = <<"text, words, disfigured">>
+            },
+        <<"text.31">> =>
+            #prompt{
+                id = <<"text.31">>,
+                text = <<"If you could create a new holiday what would it be? 🎉"/utf8>>,
+                reuse_after = 6 * ?MONTHS,
+                ai_image_model = ?STABLE_DIFFUSION_1_5,
+                prompt_wrapper = fun(T) -> <<T/binary, ", photo of calendar">> end,
+                negative_prompt = <<"disfigured faces, text, people">>
+            },
+        <<"text.32">> =>
+            #prompt{
+                id = <<"text.32">>,
+                text = <<"What celebrity would you bring back from the dead? 💀💃🏼️"/utf8>>,
+                reuse_after = 6 * ?MONTHS,
+                ai_image_model = ?STABLE_DIFFUSION_1_5,
+                prompt_wrapper = fun(T) -> <<T/binary, ", grave yard, rip, popstar,">> end,
+                negative_prompt = <<>>
+            },
+        <<"text.33">> =>
+            #prompt{
+                id = <<"text.33">>,
+                text = <<"If animals could talk, what compaints would your pet embarrass you?📢🐕"/utf8>>,
+                reuse_after = 6 * ?MONTHS,
+                ai_image_model = ?STABLE_DIFFUSION_1_5,
+                prompt_wrapper = fun(T) -> <<T/binary, ", talking pets">> end,
+                negative_prompt = <<"disfigured faces, text, people">>
             }
     }.
 
@@ -536,6 +575,18 @@ get_camera_prompts() ->
             #prompt{
                 id = <<"camera.6">>,
                 text = <<"mood of the day?"/utf8>>,
+                reuse_after = 6 * ?MONTHS
+            },
+        <<"camera.7">> =>
+            #prompt{
+                id = <<"camera.7">>,
+                text = <<"rock, paper, or scissors? 🗿📄✂️"/utf8>>,
+                reuse_after = 0
+            },
+        <<"camera.8">> =>
+            #prompt{
+                id = <<"camera.8">>,
+                text = <<"snap a photo of the sky 🌤"/utf8>>,
                 reuse_after = 6 * ?MONTHS
             }
     }.
