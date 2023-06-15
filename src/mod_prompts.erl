@@ -257,6 +257,18 @@ get_album_prompts() ->
                 id = <<"album.17">>,
                 text = <<"a view you can't forget 🏔"/utf8>>,
                 reuse_after = 6 * ?MONTHS
+            },
+        <<"album.18">> =>
+            #prompt{
+                id = <<"album.18">>,
+                text = <<"🌞 Sunny days call for..."/utf8>>,
+                reuse_after = 6 * ?MONTHS
+            },
+        <<"album.19">> =>
+            #prompt{
+                id = <<"album.19">>,
+                text = <<"Lock screen background 📱"/utf8>>,
+                reuse_after = 6 * ?MONTHS
             }
     }.
 
@@ -535,6 +547,33 @@ get_text_prompts() ->
                 ai_image_model = ?STABLE_DIFFUSION_1_5,
                 prompt_wrapper = fun(T) -> <<T/binary, ", talking pets">> end,
                 negative_prompt = <<"disfigured faces, text, people">>
+            },
+        <<"text.34">> =>
+            #prompt{
+                id = <<"text.34">>,
+                text = <<"Most embarrassing autocorrect fail🙈"/utf8>>,
+                reuse_after = 6 * ?MONTHS,
+                ai_image_model = ?STABLE_DIFFUSION_1_5,
+                prompt_wrapper = fun(T) -> <<T/binary, ", text message on phone">> end,
+                negative_prompt = <<>>
+            },
+        <<"text.35">> =>
+            #prompt{
+                id = <<"text.35">>,
+                text = <<"If you suddenly became a giant, what would be the biggest inconvenience?  👣"/utf8>>,
+                reuse_after = 6 * ?MONTHS,
+                ai_image_model = ?STABLE_DIFFUSION_1_5,
+                prompt_wrapper = fun(T) -> <<T/binary, ", photo of a giant, giant person">> end,
+                negative_prompt = <<"disfigured faces, text, people">>
+            },
+        <<"text.36">> =>
+            #prompt{
+                id = <<"text.36">>,
+                text = <<"What are you starting to dislike as you get older? 👴🏻🍃🏠"/utf8>>,
+                reuse_after = 6 * ?MONTHS,
+                ai_image_model = ?STABLE_DIFFUSION_1_5,
+                prompt_wrapper = fun(T) -> <<T/binary, ", annoyed, bugs, ">> end,
+                negative_prompt = <<"disfigured faces, text, people">>
             }
     }.
 
@@ -587,6 +626,18 @@ get_camera_prompts() ->
             #prompt{
                 id = <<"camera.8">>,
                 text = <<"snap a photo of the sky 🌤"/utf8>>,
+                reuse_after = 6 * ?MONTHS
+            },
+        <<"camera.9">> =>
+            #prompt{
+                id = <<"camera.9">>,
+                text = <<"Mood of the day 👍🏾👎🏽"/utf8>>,
+                reuse_after = 0
+            },
+        <<"camera.10">> =>
+            #prompt{
+                id = <<"camera.10">>,
+                text = <<"Fit Pic"/utf8>>,
                 reuse_after = 6 * ?MONTHS
             }
     }.
