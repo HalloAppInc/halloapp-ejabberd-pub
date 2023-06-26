@@ -689,12 +689,6 @@ get_camera_prompts() ->
                 id = <<"camera.11">>,
                 text = <<"mood💭"/utf8>>,
                 reuse_after = 4 * ?WEEKS
-            },
-        <<"camera.12">> =>
-            #prompt{
-                id = <<"camera.12">>,
-                text = <<"tap in with a video 🎥"/utf8>>,
-                reuse_after = 4 * ?WEEKS
             }
     }.
 
