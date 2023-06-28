@@ -99,6 +99,15 @@ init([Host|_]) ->
     ejabberd_hooks:add(offline_queue_check, katchup, ?MODULE, offline_queue_check, 50),
     ejabberd_hooks:add(remove_user, katchup, ?MODULE, remove_user, 50),
     ejabberd_hooks:add(c2s_session_closed, katchup, ?MODULE, c2s_session_closed, 100),
+    %% Photo Sharing
+    ejabberd_hooks:add(store_message_hook, ?PHOTO_SHARING, ?MODULE, store_message_hook, 50),
+    ejabberd_hooks:add(user_receive_packet, ?PHOTO_SHARING, ?MODULE, user_receive_packet, 100),
+    ejabberd_hooks:add(user_send_ack, ?PHOTO_SHARING, ?MODULE, user_send_ack, 50),
+    ejabberd_hooks:add(c2s_session_opened, ?PHOTO_SHARING, ?MODULE, c2s_session_opened, 100),
+    ejabberd_hooks:add(user_session_activated, ?PHOTO_SHARING, ?MODULE, user_session_activated, 50),
+    ejabberd_hooks:add(offline_queue_check, ?PHOTO_SHARING, ?MODULE, offline_queue_check, 50),
+    ejabberd_hooks:add(remove_user, ?PHOTO_SHARING, ?MODULE, remove_user, 50),
+    ejabberd_hooks:add(c2s_session_closed, ?PHOTO_SHARING, ?MODULE, c2s_session_closed, 100),
     {ok, #{host => Host}}.
 
 
@@ -122,6 +131,15 @@ terminate(_Reason, #{host := _Host} = _State) ->
     ejabberd_hooks:delete(offline_queue_check, katchup, ?MODULE, offline_queue_check, 50),
     ejabberd_hooks:delete(remove_user, katchup, ?MODULE, remove_user, 50),
     ejabberd_hooks:delete(c2s_session_closed, katchup, ?MODULE, c2s_session_closed, 100),
+    %% Photo Sharing
+    ejabberd_hooks:delete(store_message_hook, ?PHOTO_SHARING, ?MODULE, store_message_hook, 50),
+    ejabberd_hooks:delete(user_receive_packet, ?PHOTO_SHARING, ?MODULE, user_receive_packet, 100),
+    ejabberd_hooks:delete(user_send_ack, ?PHOTO_SHARING, ?MODULE, user_send_ack, 50),
+    ejabberd_hooks:delete(c2s_session_opened, ?PHOTO_SHARING, ?MODULE, c2s_session_opened, 100),
+    ejabberd_hooks:delete(user_session_activated, ?PHOTO_SHARING, ?MODULE, user_session_activated, 50),
+    ejabberd_hooks:delete(offline_queue_check, ?PHOTO_SHARING, ?MODULE, offline_queue_check, 50),
+    ejabberd_hooks:delete(remove_user, ?PHOTO_SHARING, ?MODULE, remove_user, 50),
+    ejabberd_hooks:delete(c2s_session_closed, ?PHOTO_SHARING, ?MODULE, c2s_session_closed, 100),
     ok.
 
 

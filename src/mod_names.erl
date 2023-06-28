@@ -48,6 +48,10 @@ start(_Host, _Opts) ->
     %% Katchup
     gen_iq_handler:add_iq_handler(ejabberd_local, katchup, pb_name, ?MODULE, process_local_iq),
     ejabberd_hooks:add(re_register_user, katchup, ?MODULE, re_register_user, 50),
+    %% Photo Sharing
+    gen_iq_handler:add_iq_handler(ejabberd_local, ?PHOTO_SHARING, pb_name, ?MODULE, process_local_iq),
+    ejabberd_hooks:add(re_register_user, ?PHOTO_SHARING, ?MODULE, re_register_user, 50),
+    ejabberd_hooks:add(account_name_updated, ?PHOTO_SHARING, ?MODULE, account_name_updated, 50),
     ok.
 
 stop(_Host) ->

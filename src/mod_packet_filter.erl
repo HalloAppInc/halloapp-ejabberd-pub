@@ -42,6 +42,10 @@ start(_Host, _Opts) ->
     ejabberd_hooks:add(offline_message_version_filter, katchup, ?MODULE, offline_message_version_filter, 50),
     ejabberd_hooks:add(push_version_filter, katchup, ?MODULE, push_version_filter, 50),
     ejabberd_hooks:add(user_send_packet, katchup, ?MODULE, user_send_packet, 100),
+    %% Photo Sharing
+    ejabberd_hooks:add(offline_message_version_filter, ?PHOTO_SHARING, ?MODULE, offline_message_version_filter, 50),
+    ejabberd_hooks:add(push_version_filter, ?PHOTO_SHARING, ?MODULE, push_version_filter, 50),
+    ejabberd_hooks:add(user_send_packet, ?PHOTO_SHARING, ?MODULE, user_send_packet, 100),
     ok.
 
 stop(_Host) ->
@@ -54,6 +58,10 @@ stop(_Host) ->
     ejabberd_hooks:delete(user_send_packet, katchup, ?MODULE, user_send_packet, 100),
     ejabberd_hooks:delete(offline_message_version_filter, katchup, ?MODULE, offline_message_version_filter, 50),
     ejabberd_hooks:delete(push_version_filter, katchup, ?MODULE, push_version_filter, 50),
+    %% Photo Sharing
+    ejabberd_hooks:delete(user_send_packet, ?PHOTO_SHARING, ?MODULE, user_send_packet, 100),
+    ejabberd_hooks:delete(offline_message_version_filter, ?PHOTO_SHARING, ?MODULE, offline_message_version_filter, 50),
+    ejabberd_hooks:delete(push_version_filter, ?PHOTO_SHARING, ?MODULE, push_version_filter, 50),
     ok.
 
 depends(_Host, _Opts) ->

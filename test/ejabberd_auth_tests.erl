@@ -63,6 +63,17 @@ ka_try_register(_) ->
     ?_assertEqual({ok, <<"Katchup/iOS1.2.93">>}, model_accounts:get_signup_user_agent(Uid)),
     ?_assertEqual(?KATCHUP, util_uid:get_app_type(Uid))].
 
+ps_try_register(_) ->
+    UserAgent = <<"PhotoSharing/iOS1.0.0">>,
+    {ok, SPub, Uid, register} = ejabberd_auth:ha_try_register(?PHONE, <<>>, ?SPUB, UserAgent, <<>>),
+    [?_assertEqual(?SPUB, SPub),
+        ?_assert(model_accounts:account_exists(Uid)),
+        ?_assert(ejabberd_auth:check_spub(Uid, ?SPUB)),
+        ?_assertEqual({ok, ?PHONE}, model_accounts:get_phone(Uid)),
+        ?_assertEqual({ok, Uid}, model_phone:get_uid(?PHONE, ?PHOTO_SHARING)),
+        ?_assertEqual({ok, UserAgent}, model_accounts:get_signup_user_agent(Uid)),
+        ?_assertEqual(?PHOTO_SHARING, util_uid:get_app_type(Uid))].
+
 
 try_enroll(_) ->
     {ok, AttemptId, _} = ejabberd_auth:try_enroll(?PHONE, ?HALLOAPP, ?CODE, <<>>),
@@ -95,6 +106,7 @@ ejabberd_auth_test_() ->
         fun check_spub/1,
         fun ha_try_register/1,
         fun ka_try_register/1,
+        fun ps_try_register/1,
         fun try_enroll/1,
         fun remove_user/1
         ]),

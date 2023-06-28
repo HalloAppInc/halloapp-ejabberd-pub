@@ -47,12 +47,14 @@ start(_Host, Opts) ->
     initialize_url_generators(),
     gen_iq_handler:add_iq_handler(ejabberd_local, halloapp, pb_upload_media, ?MODULE, process_local_iq),
     gen_iq_handler:add_iq_handler(ejabberd_local, katchup, pb_upload_media, ?MODULE, process_local_iq),
+    gen_iq_handler:add_iq_handler(ejabberd_local, ?PHOTO_SHARING, pb_upload_media, ?MODULE, process_local_iq),
     ok.
 
 stop(_Host) ->
     ?INFO("stop ~w", [?MODULE]),
     gen_iq_handler:remove_iq_handler(ejabberd_local, halloapp, pb_upload_media),
     gen_iq_handler:remove_iq_handler(ejabberd_local, katchup, pb_upload_media),
+    gen_iq_handler:remove_iq_handler(ejabberd_local, ?PHOTO_SHARING, pb_upload_media),
     s3_signed_url_generator:close(),
     upload_server_url_generator:close(),
     ok.

@@ -34,12 +34,14 @@ start(_Host, _Opts) ->
     ?INFO("start", []),
     gen_iq_handler:add_iq_handler(ejabberd_local, halloapp, pb_delete_account, ?MODULE, process_local_iq),
     gen_iq_handler:add_iq_handler(ejabberd_local, katchup, pb_delete_account, ?MODULE, process_local_iq),
+    gen_iq_handler:add_iq_handler(ejabberd_local, ?PHOTO_SHARING, pb_delete_account, ?MODULE, process_local_iq),
     ok.
 
 stop(_Host) ->
     ?INFO("stop", []),
     gen_iq_handler:remove_iq_handler(ejabberd_local, halloapp, pb_delete_account),
     gen_iq_handler:remove_iq_handler(ejabberd_local, katchup, pb_delete_account),
+    gen_iq_handler:remove_iq_handler(ejabberd_local, ?PHOTO_SHARING, pb_delete_account),
     ok.
 
 depends(_Host, _Opts) ->

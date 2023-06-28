@@ -16,6 +16,7 @@
 -export([
     is_halloapp/1,
     is_katchup/1,
+    is_photo_sharing/1,
     get_client_type/1,
     get_app_type/1,
     get_app_hash/1,
@@ -47,6 +48,14 @@ is_katchup(UserAgent) ->
     end.
 
 
+-spec is_photo_sharing(UserAgent :: binary()) -> boolean().
+is_photo_sharing(UserAgent) ->
+    case re_match(UserAgent, "PhotoSharing") of
+        match -> true;
+        nomatch -> false
+    end.
+
+
 -spec get_client_type(RawUserAgent :: binary()) -> maybe(client_type()).
 get_client_type(undefined) -> undefined;
 get_client_type(RawUserAgent) ->
@@ -65,7 +74,11 @@ get_app_type(RawUserAgent) ->
         false ->
             case is_katchup(RawUserAgent) of
                 true -> katchup;
-                false -> undefined
+                false ->
+                    case is_photo_sharing(RawUserAgent) of
+                        true -> ?PHOTO_SHARING;
+                        false -> undefined
+                    end
             end
     end.
 
@@ -73,26 +86,28 @@ get_app_type(RawUserAgent) ->
 %% TODO: Send AppHash for Katchup.
 -spec get_app_hash(UserAgent :: binary()) -> binary().
 get_app_hash(UserAgent) ->
-    case is_halloapp(UserAgent) of
-        true ->
+    case get_app_type(UserAgent) of
+        halloapp ->
             case {is_android_debug(UserAgent), is_android(UserAgent)} of
                 {true, true} -> ?ANDROID_DEBUG_HASH;
                 {false, true} -> ?ANDROID_RELEASE_HASH;
                 _ -> <<"">>
             end;
-        false ->
+        katchup ->
             case {is_android_debug(UserAgent), is_android(UserAgent)} of
                 {true, true} -> ?KATCHUP_ANDROID_DEBUG_HASH;
                 {false, true} -> ?KATCHUP_ANDROID_RELEASE_HASH;
                 _ -> <<>>
-            end
+            end;
+        ?PHOTO_SHARING -> <<>>
     end.
 
 
 -spec is_android_debug(binary()) -> boolean().
 is_android_debug(UserAgent) ->
     case re_match(UserAgent, "^HalloApp\/Android.*D$") =:= match orelse
-            re_match(UserAgent, "^Katchup\/Android.*D$") =:= match of
+            re_match(UserAgent, "^Katchup\/Android.*D$") =:= match  orelse
+            re_match(UserAgent, "^PhotoSharing\/Android.*D$") =:= match of
         true -> true;
         false -> false
     end.
@@ -100,7 +115,8 @@ is_android_debug(UserAgent) ->
 -spec is_android(binary()) -> boolean().
 is_android(UserAgent) ->
     case re_match(UserAgent, "^HalloApp\/Android.*$") =:= match orelse
-            re_match(UserAgent, "^Katchup\/Android.*$") =:= match of
+            re_match(UserAgent, "^Katchup\/Android.*$") =:= match orelse
+            re_match(UserAgent, "^PhotoSharing\/Android.*$") =:= match of
         true -> true;
         false -> false
     end.
@@ -108,7 +124,8 @@ is_android(UserAgent) ->
 -spec is_ios(binary()) -> boolean().
 is_ios(UserAgent) ->
     case re_match(UserAgent, "^HalloApp\/iOS.*$") =:= match orelse
-            re_match(UserAgent, "^Katchup\/iOS.*$") =:= match of
+            re_match(UserAgent, "^Katchup\/iOS.*$") =:= match orelse
+            re_match(UserAgent, "^PhotoSharing\/iOS.*$") =:= match of
         true -> true;
         false -> false
     end.
@@ -186,7 +203,11 @@ split_version(Version) ->
         false ->
             case is_katchup(Version) of
                 true -> split_katchup_version(Version);
-                false -> {undefined, undefined, undefined}
+                false ->
+                    case is_photo_sharing(Version) of
+                        true -> split_photo_sharing_version(Version);
+                        false -> {undefined, undefined, undefined}
+                    end
             end
     end.
 
@@ -235,6 +256,33 @@ split_katchup_version(Version) ->
             end;
         ios ->
             case re:run(Version, "^Katchup\/iOS([0-9]+).([0-9]+).([0-9]+)$", [{capture, all, binary}]) of
+                nomatch ->
+                    {undefined, undefined, undefined};
+                {match, [Version, Major, Minor, Patch]} ->
+                    {binary_to_integer(Major), binary_to_integer(Minor), binary_to_integer(Patch)}
+            end;
+        undefined ->
+            {undefined, undefined, undefined}
+    end.
+
+
+-spec split_photo_sharing_version(Version :: binary()) -> {integer(), integer(), integer()}.
+split_photo_sharing_version(Version) ->
+    case util_ua:get_client_type(Version) of
+        android ->
+            case re:run(Version, "^PhotoSharing\/Android([0-9]+).([0-9]+)D?$", [{capture, all, binary}]) of
+                nomatch ->
+                    case re:run(Version, "^PhotoSharing\/Android([0-9]+).([0-9]+).([0-9]+)D?$", [{capture, all, binary}]) of
+                        {match, [Version, Major, Minor, Patch]} ->
+                            {binary_to_integer(Major), binary_to_integer(Minor), binary_to_integer(Patch)};
+                        nomatch ->
+                            {undefined, undefined, undefined}
+                    end;
+                {match, [Version, Major, Patch]} ->
+                    {binary_to_integer(Major), 1, binary_to_integer(Patch)}
+            end;
+        ios ->
+            case re:run(Version, "^PhotoSharing\/iOS([0-9]+).([0-9]+).([0-9]+)$", [{capture, all, binary}]) of
                 nomatch ->
                     {undefined, undefined, undefined};
                 {match, [Version, Major, Minor, Patch]} ->

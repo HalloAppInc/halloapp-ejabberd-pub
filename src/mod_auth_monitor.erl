@@ -10,6 +10,7 @@
 -behaviour(gen_mod).
 -behaviour(gen_server).
 
+-include("ha_types.hrl").
 -include("logger.hrl").
 -include("time.hrl").
 -include("proc.hrl").
@@ -59,6 +60,9 @@ start(Host, Opts) ->
     %% Katchup
     ejabberd_hooks:add(pb_c2s_auth_result, katchup, ?MODULE, process_auth_result, 50),
     ejabberd_hooks:add(c2s_auth_result, katchup, ?MODULE, process_auth_result, 50),
+    %% Photo Sharing
+    ejabberd_hooks:add(pb_c2s_auth_result, ?PHOTO_SHARING, ?MODULE, process_auth_result, 50),
+    ejabberd_hooks:add(c2s_auth_result, ?PHOTO_SHARING, ?MODULE, process_auth_result, 50),
     ok.
 
 stop(_Host) ->
@@ -70,6 +74,9 @@ stop(_Host) ->
     %% Katchup
     ejabberd_hooks:delete(pb_c2s_auth_result, katchup, ?MODULE, process_auth_result, 50),
     ejabberd_hooks:delete(c2s_auth_result, katchup, ?MODULE, process_auth_result, 50),
+    %% Photo Sharing
+    ejabberd_hooks:delete(pb_c2s_auth_result, ?PHOTO_SHARING, ?MODULE, process_auth_result, 50),
+    ejabberd_hooks:delete(c2s_auth_result, ?PHOTO_SHARING, ?MODULE, process_auth_result, 50),
     ok.
 
 depends(_Host, _Opts) ->

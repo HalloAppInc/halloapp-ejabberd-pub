@@ -596,7 +596,9 @@ generate_attempt_id() ->
 phone_key(Phone, halloapp, Slot) ->
     <<?PHONE_KEY/binary, <<"{">>/binary, Slot/integer, <<"}:">>/binary, Phone/binary>>;
 phone_key(Phone, katchup, Slot) ->
-    <<?PHONE_KATCHUP_KEY/binary, <<"{">>/binary, Slot/integer, <<"}:">>/binary, Phone/binary>>.
+    <<?PHONE_KATCHUP_KEY/binary, <<"{">>/binary, Slot/integer, <<"}:">>/binary, Phone/binary>>;
+phone_key(Phone, ?PHOTO_SHARING, Slot) ->
+    <<?PHONE_PHOTO_SHARING_KEY/binary, <<"{">>/binary, Slot/integer, <<"}:">>/binary, Phone/binary>>.
 
 
 -spec get_slot(Phone :: phone()) -> integer().
@@ -607,14 +609,18 @@ get_slot(Phone) ->
 verification_attempt_list_key(Phone, halloapp) ->
     <<?VERIFICATION_ATTEMPT_LIST_KEY/binary, <<"{">>/binary, Phone/binary, <<"}">>/binary>>;
 verification_attempt_list_key(Phone, katchup) ->
-    <<?KATCHUP_VERIFICATION_ATTEMPT_LIST_KEY/binary, <<"{">>/binary, Phone/binary, <<"}">>/binary>>.
+    <<?KATCHUP_VERIFICATION_ATTEMPT_LIST_KEY/binary, <<"{">>/binary, Phone/binary, <<"}">>/binary>>;
+verification_attempt_list_key(Phone, ?PHONE_PHOTO_SHARING_KEY) ->
+    <<?PHOTO_SHARING_VERIFICATION_ATTEMPT_LIST_KEY/binary, <<"{">>/binary, Phone/binary, <<"}">>/binary>>.
 
 
 -spec verification_attempt_key(Phone :: phone(), AppType :: app_type(), AttemptId :: binary()) -> binary().
 verification_attempt_key(Phone, halloapp, AttemptId) ->
     <<?VERIFICATION_ATTEMPT_ID_KEY/binary, <<"{">>/binary, Phone/binary, <<"}:">>/binary, AttemptId/binary>>;
 verification_attempt_key(Phone, katchup, AttemptId) ->
-    <<?KATCHUP_VERIFICATION_ATTEMPT_ID_KEY/binary, <<"{">>/binary, Phone/binary, <<"}:">>/binary, AttemptId/binary>>.
+    <<?KATCHUP_VERIFICATION_ATTEMPT_ID_KEY/binary, <<"{">>/binary, Phone/binary, <<"}:">>/binary, AttemptId/binary>>;
+verification_attempt_key(Phone, ?PHOTO_SHARING, AttemptId) ->
+    <<?PHOTO_SHARING_VERIFICATION_ATTEMPT_ID_KEY/binary, <<"{">>/binary, Phone/binary, <<"}:">>/binary, AttemptId/binary>>.
 
 
 -spec incremental_timestamp_key(IncrementalTS :: integer()) -> binary().
@@ -652,6 +658,9 @@ phone_attempt_key(Phone, halloapp, Timestamp) ->
     <<?PHONE_ATTEMPT_KEY/binary, "{", Phone/binary, "}:", Day/binary>>;
 phone_attempt_key(Phone, katchup, Timestamp) ->
     Day = util:to_binary(util:to_integer(Timestamp / ?DAYS)),
-    <<?PHONE_KATCHUP_ATTEMPT_KEY/binary, "{", Phone/binary, "}:", Day/binary>>.
+    <<?PHONE_KATCHUP_ATTEMPT_KEY/binary, "{", Phone/binary, "}:", Day/binary>>;
+phone_attempt_key(Phone, ?PHOTO_SHARING, Timestamp) ->
+    Day = util:to_binary(util:to_integer(Timestamp / ?DAYS)),
+    <<?PHOTO_SHARING_KATCHUP_ATTEMPT_KEY/binary, "{", Phone/binary, "}:", Day/binary>>.
 
 

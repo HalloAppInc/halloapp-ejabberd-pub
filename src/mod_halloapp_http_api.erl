@@ -600,6 +600,8 @@ normalize_by_version(RawPhone, UserAgent) ->
 -spec normalize(RawPhone :: binary(), AppType :: app_type()) -> binary() | {error, atom()}.
 normalize(<<"">>, katchup) -> <<"">>;
 normalize(undefined, katchup) -> <<"">>;
+normalize(<<"">>, ?PHOTO_SHARING) -> <<"">>;
+normalize(undefined, ?PHOTO_SHARING) -> <<"">>;
 normalize(RawPhone, _AppType) ->
     %% We explicitly ask the clients to remove the plus in this case.
     %% So, we try to re-add here before normalizing.

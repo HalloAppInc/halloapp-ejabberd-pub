@@ -40,6 +40,8 @@ start(_Host, _Opts) ->
     gen_iq_handler:add_iq_handler(ejabberd_local, halloapp, pb_client_version, ?MODULE, process_local_iq),
     ejabberd_hooks:add(c2s_session_opened, katchup, ?MODULE, c2s_session_opened, 50),
     gen_iq_handler:add_iq_handler(ejabberd_local, katchup, pb_client_version, ?MODULE, process_local_iq),
+    ejabberd_hooks:add(c2s_session_opened, ?PHOTO_SHARING, ?MODULE, c2s_session_opened, 50),
+    gen_iq_handler:add_iq_handler(ejabberd_local, ?PHOTO_SHARING, pb_client_version, ?MODULE, process_local_iq),
     ok.
 
 stop(_Host) ->
@@ -47,6 +49,8 @@ stop(_Host) ->
     gen_iq_handler:remove_iq_handler(ejabberd_local, halloapp, pb_client_version),
     ejabberd_hooks:delete(c2s_session_opened, katchup, ?MODULE, c2s_session_opened, 50),
     gen_iq_handler:remove_iq_handler(ejabberd_local, katchup, pb_client_version),
+    ejabberd_hooks:delete(c2s_session_opened, ?PHOTO_SHARING, ?MODULE, c2s_session_opened, 50),
+    gen_iq_handler:remove_iq_handler(ejabberd_local, ?PHOTO_SHARING, pb_client_version),
     ok.
 
 depends(_Host, _Opts) ->

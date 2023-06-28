@@ -69,12 +69,14 @@ start(_Host, _Opts) ->
     lists:foreach(fun init_gateway/1, sms_gateway_list:all()),
     ejabberd_hooks:add(on_user_first_login, halloapp, ?MODULE, on_user_first_login, 1),
     ejabberd_hooks:add(on_user_first_login, katchup, ?MODULE, on_user_first_login, 1),
+    ejabberd_hooks:add(on_user_first_login, ?PHOTO_SHARING, ?MODULE, on_user_first_login, 1),
     ok.
 
 stop(_Host) ->
     ?INFO("stop ~w ~p", [?MODULE, self()]),
     ejabberd_hooks:delete(on_user_first_login, halloapp, ?MODULE, on_user_first_login, 1),
     ejabberd_hooks:delete(on_user_first_login, katchup, ?MODULE, on_user_first_login, 1),
+    ejabberd_hooks:delete(on_user_first_login, ?PHOTO_SHARING, ?MODULE, on_user_first_login, 1),
     ok.
 
 depends(_Host, _Opts) ->
