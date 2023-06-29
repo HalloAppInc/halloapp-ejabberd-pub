@@ -549,8 +549,11 @@ is_disconnected(#{stream_state := StreamState}) ->
 
 
 -spec process_stream_end(stop_reason(), state()) -> state().
-process_stream_end(_, #{stream_state := disconnected} = State) ->
-    State;
+%% A lot of processes with stream_state =:= disconnected were getting sent here
+%% temporary solution is to disable this code, but we should figure out why
+%% processes are getting the disconnected state prematurely
+%%process_stream_end(_, #{stream_state := disconnected} = State) ->
+%%    State;
 process_stream_end(Reason, State) ->
     State1 = State#{stream_timeout => infinity, stream_state => disconnected},
     try callback(handle_stream_end, Reason, State1)
