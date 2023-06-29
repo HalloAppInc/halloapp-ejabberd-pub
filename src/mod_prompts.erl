@@ -281,6 +281,18 @@ get_album_prompts() ->
                 id = <<"album.21">>,
                 text = <<"weekend get-away ✈️"/utf8>>,
                 reuse_after = 9 * ?WEEKS
+            },
+        <<"album.22">> =>
+            #prompt{
+                id = <<"album.22">>,
+                text = <<"How was your ✨🌈PRIDE🌈✨ month?"/utf8>>,
+                reuse_after = 52 * ?WEEKS
+            },
+        <<"album.23">> =>
+            #prompt{
+                id = <<"album.23">>,
+                text = <<"Gym selfie 🏋🏾‍♀️🏋🏿"/utf8>>,
+                reuse_after = 9 * ?WEEKS
             }
     }.
 
@@ -618,6 +630,33 @@ get_text_prompts() ->
                 ai_image_model = ?STABLE_DIFFUSION_1_5,
                 prompt_wrapper = fun(T) -> <<T/binary, ", headphones, music">> end,
                 negative_prompt = <<>>
+            },
+        <<"text.40">> =>
+            #prompt{
+                id = <<"text.40">>,
+                text = <<"What are some green flags on a first date? 🟢"/utf8>>,
+                reuse_after = 12 * ?WEEKS,
+                ai_image_model = ?STABLE_DIFFUSION_1_5,
+                prompt_wrapper = fun(T) -> <<T/binary, ", love notes, love letters,">> end,
+                negative_prompt = <<"text, disfigured faces">>
+            },
+        <<"text.41">> =>
+            #prompt{
+                id = <<"text.41">>,
+                text = <<"a podcast you listen to daily? 🎧"/utf8>>,
+                reuse_after = 12 * ?WEEKS,
+                ai_image_model = ?STABLE_DIFFUSION_1_5,
+                prompt_wrapper = fun(T) -> <<T/binary, ", podcast, headphones, ">> end,
+                negative_prompt = <<>>
+            },
+        <<"text.42">> =>
+            #prompt{
+                id = <<"text.42">>,
+                text = <<"a tik-tok sound that has been living in your head rent free?"/utf8>>,
+                reuse_after = 12 * ?WEEKS,
+                ai_image_model = ?STABLE_DIFFUSION_1_5,
+                prompt_wrapper = fun(T) -> <<T/binary, ", tiktok, laughing">> end,
+                negative_prompt = <<>>
             }
     }.
 
@@ -688,6 +727,12 @@ get_camera_prompts() ->
             #prompt{
                 id = <<"camera.11">>,
                 text = <<"mood💭"/utf8>>,
+                reuse_after = 4 * ?WEEKS
+            },
+        <<"camera.12">> =>
+            #prompt{
+                id = <<"camera.12">>,
+                text = <<"SMILE! 🤗"/utf8>>,
                 reuse_after = 4 * ?WEEKS
             }
     }.
