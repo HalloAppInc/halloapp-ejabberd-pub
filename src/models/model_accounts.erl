@@ -193,6 +193,7 @@
     get_username_uids/1,
     search_username_prefix/2,
     get_basic_user_profiles/2,
+    get_halloapp_user_profiles/2,
     get_user_profiles/2,
     add_rejected_suggestions/2,
     get_all_rejected_suggestions/1,
@@ -1595,6 +1596,41 @@ get_blocked_user_profile(Uid, Ouid) ->
         following_status = none,
         follower_status = none,
         blocked = model_follow:is_blocked(Uid, Ouid)
+    }.
+
+
+-spec get_halloapp_user_profiles(Uids :: uid() | list(uid()), Ouids :: uid() | list(uid()))
+        -> pb_halloapp_user_profile() | list(pb_halloapp_user_profile()).
+get_halloapp_user_profiles(Uid, Ouids) when is_list(Ouids) ->
+    %% Gets profiles of Ouids from the perspective of Uid
+    lists:map(
+        fun(Ouid) ->
+            get_halloapp_user_profile(Uid, Ouid)
+        end,
+        Ouids);
+
+get_halloapp_user_profiles(Uid, Ouid) ->
+    %% Gets profile of Ouid from the perspective of Uid
+    get_halloapp_user_profile(Uid, Ouid).
+
+
+-spec get_halloapp_user_profile(Uid :: uid(), Ouid :: uid()) -> pb_halloapp_user_profile().
+get_halloapp_user_profile(Uid, Ouid) ->
+    %% TODO: clean up this.
+    [{ok, Username}, {ok, Name}, {ok, AvatarId}, {ok, IsBlocked}] = qmn([
+        ["HGET", account_key(Ouid), ?FIELD_USERNAME],
+        ["HGET", account_key(Ouid), ?FIELD_NAME],
+        ["HGET", account_key(Ouid), ?FIELD_AVATAR_ID],
+        ["SISMEMBER", model_halloapp_friends:blocked_key(Uid), Ouid]
+    ]),
+    FriendStatus = model_halloapp_friends:get_friend_status(Uid, Ouid),
+    #pb_halloapp_user_profile{
+        uid = Ouid,
+        username = Username,
+        name = Name,
+        avatar_id = AvatarId,
+        status = FriendStatus,
+        blocked = IsBlocked
     }.
 
 %%====================================================================

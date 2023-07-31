@@ -235,6 +235,7 @@ modules:
   mod_ka_vanity: {}
   mod_moment_notif_monitor: {}
   mod_image_ai: {}
+  mod_halloapp_friends: {}
 
 ### Local Variables:
 ### mode: yaml

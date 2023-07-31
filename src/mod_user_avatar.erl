@@ -110,20 +110,14 @@ process_local_iq(#pb_iq{from_uid = UserId, type = set,
 %%% get_avatar (friend) %%%
 process_local_iq(#pb_iq{from_uid = UserId, type = get,
         payload = #pb_avatar{uid = FriendId}} = IQ) ->
-    case check_and_get_avatar_id(UserId, FriendId) of
-        undefined ->
-            ?WARNING("Uid: ~s, Invalid friend_uid: ~s", [UserId, FriendId]),
-            pb:make_error(IQ, util:err(invalid_friend_uid));
-        AvatarId ->
-            pb:make_iq_result(IQ, #pb_avatar{uid = FriendId, id = AvatarId})
-    end;
+    pb:make_iq_result(IQ, #pb_avatar{uid = FriendId, id = model_accounts:get_avatar_id_binary(FriendId)});
 
 %%% get_avatars %%%
 process_local_iq(#pb_iq{from_uid = UserId, type = get,
         payload = #pb_avatars{avatars = Avatars}} = IQ) ->
     NewAvatars = lists:foreach(
         fun(#pb_avatar{uid = FriendId} = Avatar) ->
-            Avatar#pb_avatar{id = check_and_get_avatar_id(UserId, FriendId)}
+            Avatar#pb_avatar{id = model_accounts:get_avatar_id_binary(FriendId)}
         end, Avatars),
     pb:make_iq_result(IQ, #pb_avatars{avatars = NewAvatars}).
 
@@ -182,16 +176,16 @@ process_set_user_avatar(IQ, Uid, Data, FullData) ->
     end.
 
 
--spec check_and_get_avatar_id(Uid :: uid(), FriendUid :: uid()) -> undefined | avatar_id().
-check_and_get_avatar_id(Uid, Uid) ->
-    model_accounts:get_avatar_id_binary(Uid);
-check_and_get_avatar_id(Uid, FriendUid) ->
-    case model_friends:is_friend(Uid, FriendUid) of
-        false ->
-            undefined;
-        true ->
-            model_accounts:get_avatar_id_binary(Uid)
-    end.
+% -spec check_and_get_avatar_id(Uid :: uid(), Ouid :: uid()) -> undefined | avatar_id().
+% check_and_get_avatar_id(Uid, Uid) ->
+%     model_accounts:get_avatar_id_binary(Uid);
+% check_and_get_avatar_id(Uid, FriendUid) ->
+%     case model_friends:is_friend(Uid, FriendUid) of
+%         false ->
+%             undefined;
+%         true ->
+%             model_accounts:get_avatar_id_binary(Uid)
+%     end.
 
 
 -spec delete_user_avatar_internal(Uid :: uid(), Server :: binary()) -> ok.
@@ -233,7 +227,7 @@ update_user_avatar(UserId, Server, AvatarId) ->
     delete_avatar_s3(OldAvatarId),
     ok.
 
-
+% TODO: No longer needed here. model_halloapp_friends does the job of publishing it to relevant audience.
 -spec user_avatar_published(UserId :: binary(), Server :: binary(), AvatarId :: binary()) -> ok.
 user_avatar_published(UserId, _Server, AvatarId) ->
     ?INFO("Uid: ~p, AvatarId: ~p", [UserId, AvatarId]),

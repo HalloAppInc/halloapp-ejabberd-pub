@@ -170,6 +170,9 @@
 
 %% RedisAccounts (model_friends)
 -define(FRIENDS_KEY, <<"fr:">>).
+-define(HALLOAPP_FRIENDS_KEY, <<"hfr:">>).
+-define(OUTGOING_FRIENDS_KEY, <<"ofr:">>).
+-define(INCOMING_FRIENDS_KEY, <<"ifr:">>).
 -define(FOLLOWER_KEY, <<"fwr:">>).
 -define(FOLLOWING_KEY, <<"fwg:">>).
 -define(BLOCKED_KEY, <<"blk">>).
