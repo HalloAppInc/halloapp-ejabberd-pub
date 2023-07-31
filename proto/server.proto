@@ -148,6 +148,7 @@ message MomentInfo {
         VIDEO = 1;
         TEXT = 2;
         ALBUM_IMAGE = 3;
+        ALBUM_DUMP = 4;
     }
     ContentType content_type = 6; // Actual content type based on moment notification info.
     string date = 7; // Date received with the notification in the format: DD/MM/YYYY.
@@ -1055,6 +1056,7 @@ message MomentNotification {
         TEXT_POST = 1;
         PROMPT_POST = 2 [deprecated = true];
         ALBUM_POST = 3;
+        ALBUM_DUMP = 4;
     }
     Type type = 3;
     string prompt = 4;
@@ -2156,3 +2158,100 @@ message AiImage {
     string id = 1;
     bytes image = 2;
 }
+
+
+message FriendshipRequest {
+    enum Action {
+        ADD_FRIEND = 0;
+        ACCEPT_FRIEND = 1;
+        REMOVE_FRIEND = 2;
+        BLOCK = 3;
+        UNBLOCK = 4;
+        REJECT_SUGGESTION = 5;
+    }
+    Action action = 1;
+    int64 uid = 2 [ebin = true];
+}
+
+message FriendshipResponse {
+    enum Result {
+        OK = 0;
+        FAIL = 1;
+    }
+    Result result = 1;
+    HalloappUserProfile profile = 2;
+}
+
+enum FriendshipStatus {
+    NONE_STATUS = 0;
+    INCOMING_PENDING = 1;
+    OUTGOING_PENDING = 2;
+    FRIENDS = 3;
+}
+
+message HalloappUserProfile {
+    int64 uid = 1 [ebin = true];
+    string username = 2;
+    string name = 3;
+    string avatar_id = 4;
+    FriendshipStatus status = 5;
+    bool blocked = 6;
+}
+
+message HalloappProfileUpdate {
+    enum Type {
+        NORMAL = 0; // Profile information update
+        FRIEND_NOTICE = 1; // When the uid accepts my friend request.
+        INCOMING_FRIEND_REQUEST = 2; // When the uid sends me a friend request.
+    }
+    Type type = 1;
+    HalloappUserProfile profile = 2;
+}
+
+message HalloAppSearchRequest {
+  string username_string = 1;
+}
+
+message HalloAppSearchResponse {
+  enum Result {
+      OK = 0;
+      FAIL = 1;
+  }
+  Result result = 1;
+  repeated HalloappUserProfile search_result = 2;
+}
+
+message FriendListRequest {
+  enum Action {
+    GET_FRIENDS = 0;           // Fetch all friends of the user.
+    GET_INCOMING_PENDING = 1;  // Fetch all incoming pending friend requests to the user.
+    GET_OUTGOING_PENDING = 2;  // Fetch all outgoing friend requests from the user.
+    GET_SUGGESTIONS = 3;       // Fetch all friend suggestions from the user.
+  }
+  Action action = 1;
+  string cursor = 2;
+}
+
+message FriendProfile {
+  HalloappUserProfile user_profile = 1;
+  enum Reason {
+    UNKNOWN_REASON = 0;
+    DIRECT_CONTACT = 1;
+    INCOMING_PENDING = 2;
+    FRIENDS_OF_FRIENDS = 3;
+  }
+  Reason reason = 2; // Field is populated only for friend suggestions.
+  int32 rank = 3; // Lower rank is better. populated only for suggestions.
+}
+
+message FriendListResponse {
+  enum Result {
+    OK = 0;
+    FAIL = 1;
+  }
+  Result result = 1;
+  string cursor = 2;
+  repeated FriendProfile friend_profiles = 3;
+}
+
+
