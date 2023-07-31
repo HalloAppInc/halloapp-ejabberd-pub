@@ -32,11 +32,13 @@
 start(_Host, Opts) ->
     ?INFO("start ~w ~p", [?MODULE, Opts]),
     gen_iq_handler:add_iq_handler(ejabberd_local, katchup, pb_username_request, ?MODULE, process_local_iq),
+    gen_iq_handler:add_iq_handler(ejabberd_local, halloapp, pb_username_request, ?MODULE, process_local_iq),
     ok.
 
 stop(_Host) ->
     ?INFO("stop ~w", [?MODULE]),
     gen_iq_handler:remove_iq_handler(ejabberd_local, katchup, pb_username_request),
+    gen_iq_handler:remove_iq_handler(ejabberd_local, halloapp, pb_username_request),
     ok.
 
 reload(_Host, _NewOpts, _OldOpts) ->
@@ -56,7 +58,7 @@ mod_options(_Host) ->
 process_local_iq(
     #pb_iq{from_uid = Uid, type = get, payload = #pb_username_request{
         action = is_available, username = Username}} = IQ) ->
-    stat:count("KA/username", "is_available"),
+    stat:count(util:get_stat_namespace(Uid) ++ "/username", "is_available"),
     Result = case model_accounts:is_username_available(Username) of
         true -> ok;
         false -> notuniq
@@ -69,7 +71,7 @@ process_local_iq(
 process_local_iq(#pb_iq{from_uid = Uid, type = set,
         payload = #pb_username_request{action = set, username = Username}} = IQ) ->
     ?INFO("Uid: ~p, set username ~p", [Uid, Username]),
-    stat:count("KA/username", "set"),
+    stat:count(util:get_stat_namespace(Uid) ++ "/username", "set"),
     IsFirstTime = model_accounts:get_username(Uid) =:= {ok, undefined},
     Result = case is_valid_username(Username) of
         {false, Err} -> {fail, Err};
