@@ -1614,15 +1614,15 @@ get_feed_audience_set(Action, Uid, AudienceList) ->
         %% HalloApp
         halloapp ->
             {ok, BlockedUids} = model_privacy:get_blocked_uids2(Uid),
-            {ok, FriendUids} = model_friends:get_friends(Uid),
+            % {ok, FriendUids} = model_halloapp_friends:get_all_friends(Uid),
             AudienceSet = sets:from_list(AudienceList),
 
             %% Intersect the audience-set with friends.
             %% post-owner's uid is already included in the audience,
             %% but it may be removed during intersection.
-            NewAudienceSet = sets:intersection(AudienceSet, sets:from_list(FriendUids)),
+            % NewAudienceSet = sets:intersection(AudienceSet, sets:from_list(FriendUids)),
             FinalAudienceSet = case Action of
-                publish -> sets:subtract(NewAudienceSet, sets:from_list(BlockedUids));
+                publish -> sets:subtract(AudienceSet, sets:from_list(BlockedUids));
                 retract -> AudienceSet
             end,
             %% Always add Uid to the audience set.

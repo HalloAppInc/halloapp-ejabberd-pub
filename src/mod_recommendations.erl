@@ -365,7 +365,7 @@ generate_invite_recos(Uid, Ouids) ->
 
 -spec update_ouid_map(Ouid :: uid(), Cnt :: pos_integer(), Map :: map()) -> map().
 update_ouid_map(Ouid, Cnt, Map) ->
-    {ok, FriendsList} = model_friends:get_friends(Ouid), 
+    {ok, FriendsList} = model_friends:get_friends(Ouid),
     case dev_users:is_dev_uid(Ouid) orelse length(FriendsList) >= 15 of
         true -> 
             Map;

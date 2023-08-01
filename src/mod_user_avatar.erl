@@ -108,12 +108,12 @@ process_local_iq(#pb_iq{from_uid = UserId, type = set,
     process_set_user_avatar(IQ, UserId, Data, FinalFullData);
 
 %%% get_avatar (friend) %%%
-process_local_iq(#pb_iq{from_uid = UserId, type = get,
+process_local_iq(#pb_iq{from_uid = _UserId, type = get,
         payload = #pb_avatar{uid = FriendId}} = IQ) ->
     pb:make_iq_result(IQ, #pb_avatar{uid = FriendId, id = model_accounts:get_avatar_id_binary(FriendId)});
 
 %%% get_avatars %%%
-process_local_iq(#pb_iq{from_uid = UserId, type = get,
+process_local_iq(#pb_iq{from_uid = _UserId, type = get,
         payload = #pb_avatars{avatars = Avatars}} = IQ) ->
     NewAvatars = lists:foreach(
         fun(#pb_avatar{uid = FriendId} = Avatar) ->
@@ -174,18 +174,6 @@ process_set_user_avatar(IQ, Uid, Data, FullData) ->
             update_user_avatar(Uid, util:get_host(), AvatarId),
             pb:make_iq_result(IQ, #pb_avatar{id = AvatarId})
     end.
-
-
-% -spec check_and_get_avatar_id(Uid :: uid(), Ouid :: uid()) -> undefined | avatar_id().
-% check_and_get_avatar_id(Uid, Uid) ->
-%     model_accounts:get_avatar_id_binary(Uid);
-% check_and_get_avatar_id(Uid, FriendUid) ->
-%     case model_friends:is_friend(Uid, FriendUid) of
-%         false ->
-%             undefined;
-%         true ->
-%             model_accounts:get_avatar_id_binary(Uid)
-%     end.
 
 
 -spec delete_user_avatar_internal(Uid :: uid(), Server :: binary()) -> ok.

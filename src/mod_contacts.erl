@@ -261,6 +261,7 @@ send_new_user_notifications(UserId, Phone) ->
     ok.
 
 
+%% TODO: remove this for newer version of halloapp.
 -spec block_uids(Uid :: binary(), Server :: binary(), Ouids :: list(binary())) -> ok.
 block_uids(Uid, Server, Ouids) ->
     %% TODO(murali@): Add batched api for friends.
@@ -271,6 +272,7 @@ block_uids(Uid, Server, Ouids) ->
     ok.
 
 
+%% TODO: remove this for newer version of halloapp.
 -spec unblock_uids(Uid :: binary(), Server :: binary(), Ouids :: list(binary())) -> ok.
 unblock_uids(Uid, Server, Ouids) ->
     {ok, Phone} = model_accounts:get_phone(Uid),
