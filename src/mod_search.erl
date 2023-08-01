@@ -31,11 +31,13 @@
 start(_Host, Opts) ->
     ?INFO("start ~w ~p", [?MODULE, Opts]),
     gen_iq_handler:add_iq_handler(ejabberd_local, katchup, pb_search_request, ?MODULE, process_local_iq),
+    gen_iq_handler:add_iq_handler(ejabberd_local, halloapp, pb_halloapp_search_request, ?MODULE, process_local_iq),
     ok.
 
 stop(_Host) ->
     ?INFO("stop ~w", [?MODULE]),
     gen_iq_handler:remove_iq_handler(ejabberd_local, katchup, pb_search_request),
+    gen_iq_handler:remove_iq_handler(ejabberd_local, halloapp, pb_halloapp_search_request),
     ok.
 
 reload(_Host, _NewOpts, _OldOpts) ->
@@ -58,21 +60,47 @@ process_local_iq(
     ?INFO("Uid: ~p, username prefix ~p", [Uid, Prefix]),
     stat:count("KA/search", "username_prefix"),
     SearchResult = search_username_prefix(Prefix, Uid),
-    pb:make_iq_result(IQ, #pb_search_response{result = ok, search_result = SearchResult}).
+    pb:make_iq_result(IQ, #pb_search_response{result = ok, search_result = SearchResult});
+
+process_local_iq(
+    #pb_iq{from_uid = Uid, type = get, payload = #pb_halloapp_search_request{
+        username_string = Prefix}} = IQ) ->
+    ?INFO("Uid: ~p, username prefix ~p", [Uid, Prefix]),
+    stat:count("HA/search", "username_prefix"),
+    SearchResult = search_username_prefix(Prefix, Uid),
+    pb:make_iq_result(IQ, #pb_halloapp_search_response{result = ok, search_result = SearchResult}).
 
 -spec search_username_prefix(Prefix :: binary(), Uid :: uid()) -> [pb_basic_user_profile()].
 search_username_prefix(Prefix, Uid) ->
+    AppType = util_uid:get_app_type(Uid),
     LowercasedPrefix = string:lowercase(Prefix),
     {ok, Usernames} = model_accounts:search_username_prefix(LowercasedPrefix, 20),
     Ouids = maps:values(model_accounts:get_username_uids(Usernames)),
-    FilteredOuids = lists:filter(fun(Ouid) -> not (Uid =:= Ouid orelse model_follow:is_blocked_any(Uid, Ouid)) end, Ouids),
-    BasicProfiles = model_accounts:get_basic_user_profiles(Uid, FilteredOuids),
-    %% Filter out profiles that don't have name or username set
-    lists:filter(
-        fun
-            (#pb_basic_user_profile{name = undefined}) -> false;
-            (#pb_basic_user_profile{username = undefined}) -> false;
-            (_) -> true
-        end,
-        BasicProfiles).
+    %% Filter out uids based off app type.
+    FilteredOuids = lists:filter(
+        fun(Ouid) ->
+            not (Uid =:= Ouid orelse model_follow:is_blocked_any(Uid, Ouid) orelse util_uid:get_app_type(Ouid) =/= AppType)
+        end, Ouids),
+    case AppType of
+        katchup ->
+            BasicProfiles = model_accounts:get_basic_user_profiles(Uid, FilteredOuids),
+            %% Filter out profiles that don't have name or username set
+            lists:filter(
+                fun
+                    (#pb_basic_user_profile{name = undefined}) -> false;
+                    (#pb_basic_user_profile{username = undefined}) -> false;
+                    (_) -> true
+                end,
+                BasicProfiles);
+        halloapp ->
+            HalloappProfiles = model_accounts:get_halloapp_user_profiles(Uid, FilteredOuids),
+            %% Filter out profiles that don't have name or username set
+            lists:filter(
+                fun
+                    (#pb_halloapp_user_profile{name = undefined}) -> false;
+                    (#pb_halloapp_user_profile{username = undefined}) -> false;
+                    (_) -> true
+                end,
+                HalloappProfiles)
+    end.
 

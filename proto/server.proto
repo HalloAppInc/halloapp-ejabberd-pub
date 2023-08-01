@@ -2208,11 +2208,11 @@ message HalloappProfileUpdate {
     HalloappUserProfile profile = 2;
 }
 
-message HalloAppSearchRequest {
+message HalloappSearchRequest {
   string username_string = 1;
 }
 
-message HalloAppSearchResponse {
+message HalloappSearchResponse {
   enum Result {
       OK = 0;
       FAIL = 1;

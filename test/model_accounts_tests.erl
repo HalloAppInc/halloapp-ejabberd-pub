@@ -617,11 +617,11 @@ rejected_suggestions_test(_) ->
 
 username_test(_) ->
     ExpectedRes1 = [
-        #pb_basic_user_profile{uid = ?UID2, username = ?USERNAME2, name = ?NAME2, avatar_id = ?AVATAR_ID2},
-        #pb_basic_user_profile{uid = ?UID1, username = ?USERNAME1, name = ?NAME1, avatar_id = ?AVATAR_ID1}
+        #pb_halloapp_user_profile{uid = ?UID2, username = ?USERNAME2, name = ?NAME2, avatar_id = ?AVATAR_ID2, status = none_status, blocked = false},
+        #pb_halloapp_user_profile{uid = ?UID1, username = ?USERNAME1, name = ?NAME1, avatar_id = ?AVATAR_ID1, status = none_status, blocked = false}
     ],
     ExpectedRes2 = [
-        #pb_basic_user_profile{uid = ?UID1, username = ?USERNAME1, name = ?NAME1, avatar_id = ?AVATAR_ID1}
+        #pb_halloapp_user_profile{uid = ?UID1, username = ?USERNAME1, name = ?NAME1, avatar_id = ?AVATAR_ID1, status = none_status, blocked = false}
     ],
     [?_assertEqual({false, tooshort}, mod_username:is_valid_username(<<"ab">>)),
     ?_assertEqual({false, badexpr}, mod_username:is_valid_username(<<"1ab">>)),

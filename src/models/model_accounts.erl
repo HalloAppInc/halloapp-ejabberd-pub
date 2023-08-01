@@ -392,20 +392,14 @@ decrement_version_and_lang_counters(Uid, ClientVersion, LangId) ->
 
 -spec set_name(Uid :: uid(), Name :: binary()) -> ok  | {error, any()}.
 set_name(Uid, Name) ->
-    case util_uid:get_app_type(Uid) of
-        katchup ->
-            OldName = get_name_binary(Uid),
-            case get_username(Uid) of
-                {ok, Username} when Username =/= undefined andalso Username =/= <<>> ->
-                    {ok, _Res} = q(["HSET", account_key(Uid), ?FIELD_NAME, Name]),
-                    delete_name_prefix(string:lowercase(OldName), Username, byte_size(OldName)),
-                    add_name_prefix(string:lowercase(Name), Username, byte_size(Name));
-                _ ->
-                    %% We add this index later when setting usernames.
-                    {ok, _Res} = q(["HSET", account_key(Uid), ?FIELD_NAME, Name]),
-                    ok
-            end;
-        halloapp ->
+    OldName = get_name_binary(Uid),
+    case get_username(Uid) of
+        {ok, Username} when Username =/= undefined andalso Username =/= <<>> ->
+            {ok, _Res} = q(["HSET", account_key(Uid), ?FIELD_NAME, Name]),
+            delete_name_prefix(string:lowercase(OldName), Username, byte_size(OldName)),
+            add_name_prefix(string:lowercase(Name), Username, byte_size(Name));
+        _ ->
+            %% We add this index later when setting usernames.
             {ok, _Res} = q(["HSET", account_key(Uid), ?FIELD_NAME, Name]),
             ok
     end.
@@ -1630,7 +1624,7 @@ get_halloapp_user_profile(Uid, Ouid) ->
         name = Name,
         avatar_id = AvatarId,
         status = FriendStatus,
-        blocked = IsBlocked
+        blocked = util_redis:decode_boolean(IsBlocked)
     }.
 
 %%====================================================================
