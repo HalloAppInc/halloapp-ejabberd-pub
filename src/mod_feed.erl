@@ -1328,7 +1328,7 @@ filter_moments_by_author(Uid, Moments, ShowDevContent) ->
             (#post{expired = true} = _Moment) ->
                 %% Filter out expired posts
                 false;
-            (#post{expired = false, uid = Ouid, moment_info = #pb_moment_info{notification_id = NotifId, content_type = ContentType}}) ->
+            (#post{expired = false, uid = Ouid, moment_info = #pb_moment_info{notification_id = NotifId, content_type = _ContentType}}) ->
                 %% Ouid is ok if: not in RemoveAuthorSet AND allowed on public feed
                 IsOuidOk = not sets:is_element(Ouid, RemoveAuthorSet)
                     andalso (ShowDevContent orelse dev_users:show_on_public_feed(Ouid)),
