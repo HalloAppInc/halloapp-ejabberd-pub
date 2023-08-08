@@ -206,8 +206,11 @@ remove_user(Uid, _Server) ->
 -spec username_updated(Uid :: uid(), Username :: binary(), IsFirstTime :: boolean()) -> ok.
 username_updated(Uid, _Username, true) ->
     ?INFO("Uid: ~p", [Uid]),
-    %% Users transitioning will set a username and we will clear all their old friend lists.
-    model_friends:remove_all_friends(Uid),
+    %% Users transitioning will set a username, so we'll carry over their existing friends.
+    {ok, FriendUids} = model_friends:get_friends(Uid),
+    lists:foreach(
+        fun(Ouid) -> model_halloapp_friends:accept_friend_request(Uid, Ouid) end,
+        FriendUids),
     ok;
 username_updated(Uid, _Username, false) ->
     ?INFO("Uid: ~p", [Uid]),
