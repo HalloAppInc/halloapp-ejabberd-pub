@@ -119,7 +119,18 @@ update_friend_suggestions(Uid, Phone) ->
     %% Get Uid info:
     AppType = util_uid:get_app_type(Uid),
     {ok, Phone} = model_accounts:get_phone(Uid),
-    AllFriendSet = sets:from_list(model_halloapp_friends:get_all_friends(Uid)),
+
+    AllFriendSet = case model_accounts:get_username_binary(Uid) of
+        <<>> ->
+            %% halloapp user has not migrated yet.
+            %% use mutual add based friends for suggestions.
+            {ok, OldFriendUids} = model_friends:get_friends(Uid),
+            sets:from_list(OldFriendUids);
+        _ ->
+            %% halloapp user already migrated and set username.
+            %% use halloapp friends
+            sets:from_list(model_halloapp_friends:get_all_friends(Uid))
+    end,
     Time2 = util:now_ms(),
     ?INFO("Uid: ~p, Time taken to get user info: ~p", [Uid, Time2 - Time1]),
 

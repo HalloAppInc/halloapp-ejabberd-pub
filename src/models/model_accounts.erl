@@ -523,15 +523,10 @@ get_username(Uid) ->
 
 -spec get_username_binary(Uid :: uid()) -> binary().
 get_username_binary(Uid) ->
-    case util_uid:get_app_type(Uid) of
-        katchup ->
-            {ok, Username} = get_username(Uid),
-            case Username of
-                undefined ->  <<>>;
-                _ -> Username
-            end;
-        _ ->
-            get_name_binary(Uid)
+    {ok, Username} = get_username(Uid),
+    case Username of
+        undefined ->  <<>>;
+        _ -> Username
     end.
 
 -spec get_username_uid(Username :: binary()) -> {ok, maybe(binary())} | {error, any()}.
