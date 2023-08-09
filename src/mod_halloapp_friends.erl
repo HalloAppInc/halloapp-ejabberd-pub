@@ -68,7 +68,8 @@ process_local_iq(#pb_iq{from_uid = Uid, type = get,
         payload = #pb_friend_list_request{action = get_friends, cursor = Cursor}} = IQ) ->
     ?INFO("~s get_friends", [Uid]),
     {FriendUids, NewCursor} = model_halloapp_friends:get_friends(Uid, Cursor, ?USERS_PER_PAGE),
-    FriendProfiles = model_accounts:get_halloapp_user_profiles(Uid, FriendUids),
+    HalloappUserProfiles = model_accounts:get_halloapp_user_profiles(Uid, FriendUids),
+    FriendProfiles = [#pb_friend_profile{user_profile = UserProfile} || UserProfile <- HalloappUserProfiles],
     pb:make_iq_result(IQ, #pb_friend_list_response{cursor = NewCursor, friend_profiles = FriendProfiles});
 
 %% get FriendList (action = get_incoming_pending)
@@ -76,25 +77,26 @@ process_local_iq(#pb_iq{from_uid = Uid, type = get,
         payload = #pb_friend_list_request{action = get_incoming_pending, cursor = Cursor}} = IQ) ->
     ?INFO("~s get_incoming_pending", [Uid]),
     {IncomingFriendUids, NewCursor} = model_halloapp_friends:get_incoming_friends(Uid, Cursor, ?USERS_PER_PAGE),
-    IncomingFriendProfiles = model_accounts:get_halloapp_user_profiles(Uid, IncomingFriendUids),
-    pb:make_iq_result(IQ, #pb_friend_list_response{cursor = NewCursor, friend_profiles = IncomingFriendProfiles});
+    HalloappUserProfiles = model_accounts:get_halloapp_user_profiles(Uid, IncomingFriendUids),
+    FriendProfiles = [#pb_friend_profile{user_profile = UserProfile} || UserProfile <- HalloappUserProfiles],
+    pb:make_iq_result(IQ, #pb_friend_list_response{cursor = NewCursor, friend_profiles = FriendProfiles});
 
 %% get FriendList (action = get_outgoing_pending)
 process_local_iq(#pb_iq{from_uid = Uid, type = get,
         payload = #pb_friend_list_request{action = get_outgoing_pending, cursor = Cursor}} = IQ) ->
     ?INFO("~s get_outgoing_pending", [Uid]),
     {OutgoingFriendUids, NewCursor} = model_halloapp_friends:get_outgoing_friends(Uid, Cursor, ?USERS_PER_PAGE),
-    OutgoingFriendProfiles = model_accounts:get_halloapp_user_profiles(Uid, OutgoingFriendUids),
-    pb:make_iq_result(IQ, #pb_friend_list_response{cursor = NewCursor, friend_profiles = OutgoingFriendProfiles});
+    HalloappUserProfiles = model_accounts:get_halloapp_user_profiles(Uid, OutgoingFriendUids),
+    FriendProfiles = [#pb_friend_profile{user_profile = UserProfile} || UserProfile <- HalloappUserProfiles],
+    pb:make_iq_result(IQ, #pb_friend_list_response{cursor = NewCursor, friend_profiles = FriendProfiles});
 
-% %% get FriendList (action = get_suggestions)
-% process_local_iq(#pb_iq{from_uid = Uid, type = get,
-%         payload = #pb_friend_list_request{action = get_suggestions, cursor = Cursor}} = IQ) ->
-%     ?INFO("~s get_suggestions", [Uid]),
-%     %% TODO: Fix this.
-%     {SuggestedFriendUids, NewCursor} = {[], <<>>},
-%     SuggestedProfiles = model_accounts:get_halloapp_user_profiles(Uid, SuggestedFriendUids),
-%     pb:make_iq_result(IQ, #pb_friend_list_response{cursor = NewCursor, friend_profiles = SuggestedProfiles});
+%% get FriendList (action = get_suggestions)
+process_local_iq(#pb_iq{from_uid = Uid, type = get,
+        payload = #pb_friend_list_request{action = get_suggestions, cursor = _Cursor}} = IQ) ->
+    ?INFO("~s get_suggestions", [Uid]),
+    SuggestedFriendProfiles = mod_friend_suggestions:fetch_friend_suggestions(Uid),
+    NewCursor = <<>>, %% no cursor for now.
+    pb:make_iq_result(IQ, #pb_friend_list_response{cursor = NewCursor, friend_profiles = SuggestedFriendProfiles});
 
 %% set FriendList (action = reject)
 process_local_iq(#pb_iq{from_uid = Uid, type = set,
@@ -128,8 +130,12 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
 %% set FriendshipRequest (action = remove_friend)
 process_local_iq(#pb_iq{from_uid = Uid, type = set,
         payload = #pb_friendship_request{action = remove_friend, uid = Ouid}} = IQ) ->
+    IsFriends = model_halloapp_friends:is_friend(Uid, Ouid),
     ok = model_halloapp_friends:remove_friend(Uid, Ouid),
-    remove_friend_hook(Uid, Ouid, false),
+    case IsFriends of
+        true -> remove_friend_hook(Uid, Ouid, false);
+        false -> ok %% Dont run hook if they were never friends in the first place.
+    end,
     OuidProfile = model_accounts:get_halloapp_user_profiles(Uid, Ouid),
     notify_profile_update(Uid, Ouid),
     ?INFO("~s remove_friend ~s", [Uid, Ouid]),

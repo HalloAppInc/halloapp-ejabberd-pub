@@ -399,18 +399,17 @@ process_local_iq(#pb_iq{from_uid = Uid, payload = #pb_post_subscription_request{
 
 
 -spec add_friend(Uid :: uid(), Server :: binary(), Ouid :: uid(), WasBlocked :: boolean()) -> ok.
-add_friend(Uid, _Server, Ouid, false) ->
+add_friend(Uid, Server, Ouid, false) ->
     ?INFO("Uid: ~s, Ouid: ~s", [Uid, Ouid]),
     UidAppType = util_uid:get_app_type(Uid),
     OuidAppType = util_uid:get_app_type(Ouid),
-    case UidAppType =:= OuidAppType andalso UidAppType =:= katchup of
+    case UidAppType =:= OuidAppType andalso UidAppType =:= halloapp of
         true ->
-            %% TODO: WIP
-            ok;
             % % Posts from Uid to Ouid
-            % send_old_items(Uid, Ouid, Server),
-            % % Posts from Ouid to Uid
-            % send_old_items(Ouid, Uid, Server),
+            send_old_items(Uid, Ouid, Server),
+            % Posts from Ouid to Uid
+            send_old_items(Ouid, Uid, Server),
+            ok;
         false ->
             ok
     end,
@@ -1462,7 +1461,7 @@ send_all_old_moments_to_self(Uid) ->
 send_old_items(FromUid, ToUid, _Server) ->
     ?INFO("sending old items of ~s, to ~s", [FromUid, ToUid]),
     AppType = util_uid:get_app_type(FromUid),
-    {ok, FeedItems} = model_feed:get_7day_user_feed(FromUid),
+    {ok, FeedItems} = model_feed:get_entire_user_feed(FromUid),
     {FilteredPosts, FilteredComments} = filter_feed_items(ToUid, FeedItems),
     PostStanzas = lists:map(fun convert_posts_to_feed_items/1, FilteredPosts),
     CommentStanzas = lists:map(fun convert_comments_to_feed_items/1, FilteredComments),

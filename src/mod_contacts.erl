@@ -660,13 +660,10 @@ add_friends_and_notify(Uid, UserPhone, FriendContacts, OldFriendUidSet) ->
 -spec notify_friends(Uid :: binary(), UserPhone :: binary(), NewFriendUids :: [binary()]) -> ok.
 notify_friends(Uid, UserPhone, NewFriendUids) ->
     ?INFO("Uid: ~p, Notifying friends: ~p", [Uid, NewFriendUids]),
-    Server = util:get_host(),
-    %% Run add_friend hook only for NewFriendUids - other modules are interested in only new changes to relationships.
     try
         lists:foreach(
             fun(FriendUid) ->
-                notify_contact_about_user(Uid, UserPhone, FriendUid, friends),
-                add_friend_hook(Uid, Server, FriendUid, false)
+                notify_contact_about_user(Uid, UserPhone, FriendUid, friends)
             end, NewFriendUids)
     catch
         Class:Reason:Stacktrace ->
@@ -692,24 +689,15 @@ obtain_avatar_ids(FriendContacts) ->
 
 
 -spec add_friend(Uid :: binary(), Server :: binary(), Ouid :: binary(), WasBlocked :: boolean()) -> ok.
-add_friend(Uid, Server, Ouid, WasBlocked) ->
+add_friend(Uid, _Server, Ouid, _WasBlocked) ->
     ?INFO("~p is friends with ~p", [Uid, Ouid]),
-    model_friends:add_friend(Uid, Ouid),
-    add_friend_hook(Uid, Server, Ouid, WasBlocked).
-
-
--spec add_friend_hook(Uid :: binary(), Server :: binary(), Ouid :: binary(), WasBlocked :: boolean()) -> ok.
-add_friend_hook(Uid, Server, Ouid, WasBlocked) ->
-    AppType = util_uid:get_app_type(Uid),
-    ejabberd_hooks:run(add_friend, AppType, [Uid, Server, Ouid, WasBlocked]).
+    model_friends:add_friend(Uid, Ouid).
 
 
 -spec remove_friend(Uid :: binary(), Server :: binary(), Ouid :: binary()) -> ok.
-remove_friend(Uid, Server, Ouid) ->
-    AppType = util_uid:get_app_type(Uid),
+remove_friend(Uid, _Server, Ouid) ->
     ?INFO("~p is no longer friends with ~p", [Uid, Ouid]),
-    model_friends:remove_friend(Uid, Ouid),
-    ejabberd_hooks:run(remove_friend, AppType, [Uid, Server, Ouid]).
+    model_friends:remove_friend(Uid, Ouid).
 
 
 -spec extract_normalized(Contacts :: [pb_contact()]) -> [binary()].

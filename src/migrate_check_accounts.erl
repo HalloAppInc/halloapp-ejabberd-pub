@@ -32,6 +32,7 @@
     % sync_latest_notification/2,
     calculate_fof_run/2,
     calculate_follow_suggestions/2,
+    calculate_friend_suggestions/2,
     update_geotag_index/2
 ]).
 
@@ -594,6 +595,21 @@ calculate_follow_suggestions(Key, State) ->
     end,
     State.
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                             calculate friend suggestions                         %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+calculate_friend_suggestions(Key, State) ->
+    Result = re:run(Key, "^acc:{(1000[0-9]+)}$", [global, {capture, all, binary}]),
+    %% Matches only for halloapp uids.
+    case Result of
+        {match, [[_FullKey, Uid]]} ->
+            ?INFO("Uid: ~p update_friend_suggestions", [Uid]),
+            mod_friend_suggestions:update_friend_suggestions(Uid),
+            ok;
+        _ -> ok
+    end,
+    State.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

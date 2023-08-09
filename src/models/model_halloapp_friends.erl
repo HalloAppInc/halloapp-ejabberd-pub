@@ -29,11 +29,17 @@
     get_all_friends/1,
     get_all_outgoing_friends/1,
     get_all_incoming_friends/1,
+    get_num_mutual_friends/2,
     get_friend_status/2,
     remove_friend/2,
     remove_all_friends/1,
     remove_all_outgoing_friends/1,
     remove_all_incoming_friends/1,
+    get_random_friends/2,
+    update_contact_suggestions/2,
+    update_fof_suggestions/2,
+    get_contact_suggestions/1,
+    get_fof_suggestions/1,
     block/2,
     unblock/2,
     is_blocked/2,
@@ -124,6 +130,16 @@ get_all_incoming_friends(Uid) ->
     IncomingFriendUids.
 
 
+-spec get_num_mutual_friends(Uid :: uid(), Ouids :: uid() | list(uid())) -> integer() | list(integer()).
+get_num_mutual_friends(Uid, Ouids) when is_list(Ouids) ->
+    %% TODO: improve this by switching to qmn.
+    [get_num_mutual_friends(Uid, Ouid) || Ouid <- Ouids];
+get_num_mutual_friends(Uid, Ouid) ->
+    UidFriendSet = sets:from_list(get_all_friends(Uid)),
+    OuidFriendSet = sets:from_list(get_all_friends(Ouid)),
+    sets:size(sets:intersection(UidFriendSet, OuidFriendSet)).
+
+
 -spec get_friend_status(Uid :: uid(), Ouid :: uid()) -> atom().
 get_friend_status(Uid, Ouid) ->
     [{ok, FriendsResult}, {ok, OutgoingFriendsResult}, {ok, IncomingFriendsResult}] = qp([
@@ -183,6 +199,49 @@ remove_all_incoming_friends(Uid) ->
     lists:foreach(fun(X) -> q(["ZREM", outgoing_friends_key(X), Uid]) end, Friends),
     {ok, _Res} = q(["DEL", incoming_friends_key(Uid)]),
     ok.
+
+
+-spec get_random_friends(Uids :: [uid()] | uid(), Limit :: integer()) -> [uid()].
+get_random_friends(Uids, Limit) when is_list(Uids) ->
+    Commands = lists:map(
+        fun(Uid) ->
+            ["ZRANDMEMBER", friends_key(Uid), Limit]
+        end, Uids),
+    Res = qmn(Commands),
+    Result = lists:flatmap(fun({ok, Friends}) -> Friends end, Res),
+    Result;
+get_random_friends(Uid, Limit) ->
+    get_random_friends([Uid], Limit).
+
+
+-spec update_contact_suggestions(Uid :: uid(), Suggestions :: [uid()]) -> ok.
+update_contact_suggestions(_Uid, []) -> ok;
+update_contact_suggestions(Uid, ContactSuggestionsList) ->
+    [{ok, _}, {ok, _}] = qp([
+        ["DEL", contact_suggestions_key(Uid)],
+        ["RPUSH", contact_suggestions_key(Uid) | ContactSuggestionsList]]),
+    ok.
+
+
+-spec update_fof_suggestions(Uid :: uid(), Suggestions :: [uid()]) -> ok.
+update_fof_suggestions(_Uid, []) -> ok;
+update_fof_suggestions(Uid, FoFSuggestionsList) ->
+    [{ok, _}, {ok, _}] = qp([
+        ["DEL", fof_suggestions_key(Uid)],
+        ["RPUSH", fof_suggestions_key(Uid) | FoFSuggestionsList]]),
+    ok.
+
+
+-spec get_contact_suggestions(Uid :: uid()) -> [uid()].
+get_contact_suggestions(Uid) ->
+    {ok, ContactSuggestionsList} = q(["LRANGE", contact_suggestions_key(Uid), "0", "-1"]),
+    ContactSuggestionsList.
+
+
+-spec get_fof_suggestions(Uid :: uid()) -> [uid()].
+get_fof_suggestions(Uid) ->
+    {ok, FoFSuggestionsList} = q(["LRANGE", fof_suggestions_key(Uid), "0", "-1"]),
+    FoFSuggestionsList.
 
 
 %% Uid blocks Ouid
@@ -329,4 +388,9 @@ blocked_key(Uid) ->
 blocked_by_key(Uid) ->
     <<?BLOCKED_BY_KEY/binary, <<"{">>/binary, Uid/binary, <<"}">>/binary>>.
 
+contact_suggestions_key(Uid) ->
+    <<?CONTACT_SUGGESTIONS_KEY/binary, "{", Uid/binary, "}">>.
+
+fof_suggestions_key(Uid) ->
+    <<?FOF_SUGGESTIONS_KEY/binary, "{", Uid/binary, "}">>.
 
