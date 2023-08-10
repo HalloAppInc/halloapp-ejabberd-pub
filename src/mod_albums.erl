@@ -40,11 +40,13 @@
 %%====================================================================
 
 start(_Host, _Opts) ->
+    ?INFO("Start: ~w", [?MODULE]),
     gen_iq_handler:add_iq_handler(ejabberd_local, ?HALLOAPP, pb_album, ?MODULE, process_local_iq),
     gen_iq_handler:add_iq_handler(ejabberd_local, ?HALLOAPP, pb_get_albums, ?MODULE, process_local_iq),
     ok.
 
 stop(_Host) ->
+    ?INFO("Stop: ~w", [?MODULE]),
     gen_iq_handler:remove_iq_handler(ejabberd_local, ?HALLOAPP, pb_album),
     gen_iq_handler:remove_iq_handler(ejabberd_local, ?HALLOAPP, pb_get_albums),
     ok.
