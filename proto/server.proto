@@ -1175,6 +1175,9 @@ message Iq {
         FriendshipResponse friendship_response = 79;
         FriendListRequest friend_list_request = 80;
         FriendListResponse friend_list_response = 81;
+        Album album = 82;
+        AlbumResult album_result = 83;
+        GetAlbums get_albums = 84;
     }
     int64 to_uid = 29 [ebin = true];    // only for server use
     int64 from_uid = 30 [ebin = true];    // only for server use
@@ -1249,6 +1252,7 @@ message Msg {
         PublicFeedUpdate public_feed_update = 55;
         AiImage ai_image = 56;
         HalloappProfileUpdate halloapp_profile_update = 57;
+        Album album = 58;
     }
     int32 retry_count = 21;
     int32 rerequest_count = 25;
@@ -2166,6 +2170,114 @@ message AiImage {
     bytes image = 2;
 }
 
+// Photo Sharing
+
+enum AlbumAccess {
+    INVITE_ONLY = 0;  // uids have to be explicitly added
+    EVERYONE = 1;     // all HalloApp contacts and anyone with a link to the album
+}
+
+message TimeRange {
+    int64 start_timestamp = 1;
+    int64 end_timestamp = 2;
+    int64 utc_offset = 3;  // in seconds
+}
+
+message Album {
+    string id = 1;
+    enum Action {
+        CREATE = 0;
+        CHANGE_NAME = 1;
+        CHANGE_LOCATION = 2;
+        CHANGE_TIME = 3;
+        CHANGE_VIEW_ACCESS = 4;
+        CHANGE_CONTRIBUTE_ACCESS = 5;
+        MODIFY_MEMBERS = 6;
+        ADD_MEDIA = 7;
+        REMOVE_MEDIA = 8;
+        MEDIA_UPDATE = 9;
+        GET_INFO = 10;
+        GET_MEDIA = 11;
+        GET = 12;  // Gets all the album info and also the initial set of media items
+        DELETE = 13;
+    }
+    Action action = 2;
+    string name = 3;
+    int64 owner = 4 [ebin = true];
+    TimeRange time_range = 5;
+    GpsLocation location = 6;
+    AlbumAccess can_view = 7;
+    AlbumAccess can_contribute = 8;
+    repeated AlbumMember members = 9;
+    repeated MediaItem media_items = 10;
+    string cursor = 11;
+}
+
+message AlbumResult {
+    enum Result {
+        OK = 0;
+        FAIL = 1;
+    }
+    Result result = 1;
+    enum Reason {
+        UNKNOWN = 0;
+        BAD_ALBUM_ID = 1;
+        NOT_ALLOWED = 2;
+    }
+    Reason reason = 2;
+    Album album = 3;
+}
+
+message AlbumMember {
+    int64 uid = 1 [ebin = true];
+    enum Action {
+        NONE = 0;
+        ACCEPT_INVITE = 1;
+        REJECT_INVITE = 2;
+        JOIN = 3;
+        LEAVE = 4;
+        UN_INVITE = 5;
+        REMOVE = 6;
+        INVITE = 7;
+        PROMOTE = 8;
+        DEMOTE = 9;
+    }
+    Action action = 2;
+    string name = 3;
+    string username = 4;
+    string avatar_id = 5;
+    enum Role {
+        VIEWER = 0;
+        CONTRIBUTOR = 1;
+        ADMIN = 2;
+        OWNER = 3;
+    }
+    Role role = 6;
+    bool pending = 7;
+    bool remove_media = 8;
+}
+
+message GetAlbums {
+    enum Type {
+        ALL = 0;
+        MEMBER = 1;
+        INVITED = 2;
+    }
+    Type type = 1;
+    repeated string album_ids = 2;  // set by server only
+}
+
+message MediaItem {
+    string id = 1;
+    int64 publisher_uid = 2 [ebin = true];
+    string publisher_name = 3;
+    string publisher_username = 4;
+    string album_id = 5;
+    bytes payload = 6;
+    int64 device_capture_timestamp_ms = 7;
+    int64 upload_timestamp_ms = 8;
+    string parent_media_id = 9;  // set by the server only
+}
 
 message FriendshipRequest {
     enum Action {
@@ -2260,5 +2372,4 @@ message FriendListResponse {
   string cursor = 2;
   repeated FriendProfile friend_profiles = 3;
 }
-
 

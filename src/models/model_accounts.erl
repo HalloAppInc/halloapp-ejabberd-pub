@@ -181,6 +181,7 @@
     get_node_list/0,
     scan/3,
     get_user_activity_info/1,
+    get_album_member_info/1,
     migrate_zone_offset_set/3,  %% for migration
     update_zone_offset_hr_index/3,
     get_uids_from_zone_offset_hrs/1,
@@ -2164,6 +2165,12 @@ get_user_activity_info(Usernames) ->
         end,
         InfoMap,
         Usernames -- maps:keys(InfoMap)).
+
+
+-spec get_album_member_info(uid()) -> {binary(), binary(), binary()}.
+get_album_member_info(Uid) ->
+    {ok, [Name, Username, AvatarId]} = q(["HMGET", account_key(Uid), ?FIELD_NAME, ?FIELD_USERNAME, ?FIELD_AVATAR_ID]),
+    {util_redis:decode_binary(Name, <<>>), util_redis:decode_binary(Username, <<>>), util_redis:decode_binary(AvatarId)}.
 
 
 -spec update_permissions(Uid :: uid(), Permission :: pb_permissions()) -> ok.

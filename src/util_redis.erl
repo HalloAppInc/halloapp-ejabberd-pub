@@ -24,6 +24,7 @@
     q/2,
     qp/2,
     decode_binary/1,
+    decode_binary/2,
     eredis_hash/1,
     encode_boolean/1,
     decode_boolean/1,
@@ -31,6 +32,7 @@
     encode_b64/1,
     decode_b64/1,
     parse_zrange_with_scores/1,
+    parse_hgetall/1,
     flatten_proplist/1,
     run_qmn/2,
     verify_ok/1
@@ -85,8 +87,10 @@ decode_float(Bin) ->
     end.
 
 
-decode_binary(<<"undefined">>) -> undefined;
-decode_binary(Bin) -> Bin.
+decode_binary(Bin) -> decode_binary(Bin, undefined).
+decode_binary(undefined, Default) -> Default;
+decode_binary(<<"undefined">>, Default) -> Default;
+decode_binary(Bin, _) -> Bin.
 
 
 -spec decode_maybe_binary(Bin :: binary()) -> undefined | binary().
@@ -129,6 +133,16 @@ parse_zrange_with_scores([], Res) ->
     lists:reverse(Res);
 parse_zrange_with_scores([El, Score | Rest], Res) ->
     parse_zrange_with_scores(Rest, [{El, Score} | Res]).
+
+
+-spec parse_hgetall(L :: list()) -> list({term(), term()}).
+parse_hgetall(L) ->
+    parse_hgetall(L, []).
+
+parse_hgetall([], Res) ->
+    lists:reverse(Res);
+parse_hgetall([K, V | Rest], Res) ->
+    parse_hgetall(Rest, [{K, V} | Res]).
 
 
 -spec flatten_proplist(L :: proplist()) -> list().

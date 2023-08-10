@@ -131,6 +131,12 @@
 -define(POST_SCORE_KEY, <<"psk:">>).
 -define(POST_SCORE_EXPLANATION_KEY, <<"pse:">>).
 -define(FEED_RANK_KEY, <<"frk:">>).
+-define(ALBUM_KEY, <<"alb:">>).
+-define(ALBUM_MEMBERS_KEY, <<"amb:">>).
+-define(ALBUM_MEDIA_KEY, <<"amd:">>).
+-define(MEDIA_ITEM_KEY, <<"mi:">>).
+-define(USER_ALBUMS_KEY, <<"ual">>).
+-define(USER_MEDIA_KEY, <<"umd">>).
 
 
 %% PrivacyKeys

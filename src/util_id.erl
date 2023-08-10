@@ -13,6 +13,7 @@
 
 
 -export([
+    generate_album_id/0,
     generate_gid/0,
     new_msg_id/0,
     new_avatar_id/0,
@@ -23,6 +24,13 @@
 ]).
 
 -define(GID_SIZE, 22).
+-define(ALBUM_ID_SIZE, 22).
+
+
+-spec generate_album_id() -> binary().
+generate_album_id() ->
+    LastPart = util:random_str(?ALBUM_ID_SIZE - 1),
+    <<"a", LastPart/binary>>.
 
 
 -spec generate_gid() -> binary().

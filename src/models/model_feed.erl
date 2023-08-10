@@ -1568,7 +1568,7 @@ delete_external_share_post(BlobId) ->
 get_external_share_post(BlobId) ->
     {ok, Payload} = q(["GET", external_share_post_key(BlobId)]),
     {ok, Payload}.
-    
+
 
 %%====================================================================
 %% Internal functions
