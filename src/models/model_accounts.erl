@@ -1591,6 +1591,7 @@ get_blocked_user_profile(Uid, Ouid) ->
 
 -spec get_halloapp_user_profiles(Uids :: uid() | list(uid()), Ouids :: uid() | list(uid()))
         -> pb_halloapp_user_profile() | list(pb_halloapp_user_profile()).
+get_halloapp_user_profiles(_Uid, []) -> [];
 get_halloapp_user_profiles(Uid, Ouids) when is_list(Ouids) ->
     %% Gets profiles of Ouids from the perspective of Uid
     lists:map(
@@ -2075,6 +2076,7 @@ get_all_geo_tags(Uid) ->
     end.
 
 -spec add_rejected_suggestions(Uid :: uid(), Ouids :: [uid()]) -> ok.
+add_rejected_suggestions(_Uid, []) -> [];
 add_rejected_suggestions(Uid, Ouids) ->
     Now = util:now(),
     ExpiredTs = Now - ?REJECTED_SUGGESTION_EXPIRATION,

@@ -260,6 +260,7 @@ notify_profile_update(Uid, Ouid)  ->
 
 
 -spec notify_profile_update(Uid :: uid() | list(uid()), Ouid :: uid() | list(uid()), UpdateType :: 'pb_halloapp_profile_update.Type'()) -> ok.
+notify_profile_update(_Uid, [], _) -> ok;
 notify_profile_update(Uid, Ouids, UpdateType) when is_list(Ouids) ->
     %% Notify Ouids about a change to Uid's profile
     Profiles = model_accounts:get_halloapp_user_profiles(Ouids, Uid),

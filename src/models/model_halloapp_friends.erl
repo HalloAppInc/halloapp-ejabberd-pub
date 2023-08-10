@@ -131,6 +131,7 @@ get_all_incoming_friends(Uid) ->
 
 
 -spec get_num_mutual_friends(Uid :: uid(), Ouids :: uid() | list(uid())) -> integer() | list(integer()).
+get_num_mutual_friends(_Uid, []) -> [];
 get_num_mutual_friends(Uid, Ouids) when is_list(Ouids) ->
     %% TODO: improve this by switching to qmn.
     [get_num_mutual_friends(Uid, Ouid) || Ouid <- Ouids];
