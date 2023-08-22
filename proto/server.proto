@@ -1178,6 +1178,8 @@ message Iq {
         Album album = 82;
         AlbumResult album_result = 83;
         GetAlbums get_albums = 84;
+        HalloappProfileRequest halloapp_profile_request = 85;
+        HalloappProfileResult hallaopp_profile_result = 86;
     }
     int64 to_uid = 29 [ebin = true];    // only for server use
     int64 from_uid = 30 [ebin = true];    // only for server use
