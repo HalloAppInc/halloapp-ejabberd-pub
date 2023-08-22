@@ -42,6 +42,7 @@ start(_Host, _Opts) ->
     gen_iq_handler:add_iq_handler(ejabberd_local, ?KATCHUP, pb_archive_request, ?MODULE, process_local_iq),
     gen_iq_handler:add_iq_handler(ejabberd_local, ?KATCHUP, pb_geo_tag_request, ?MODULE, process_local_iq),
     gen_iq_handler:add_iq_handler(ejabberd_local, ?KATCHUP, pb_register_request, ?MODULE, process_local_iq),
+    gen_iq_handler:add_iq_handler(ejabberd_local, halloapp, pb_halloapp_profile_request, ?MODULE, process_local_iq),
     ejabberd_hooks:add(account_name_updated, katchup, ?MODULE, account_name_updated, 50),
     ejabberd_hooks:add(user_avatar_published, katchup, ?MODULE, user_avatar_published, 50),
     ejabberd_hooks:add(username_updated, katchup, ?MODULE, username_updated, 50),
@@ -54,6 +55,7 @@ stop(_Host) ->
     gen_iq_handler:remove_iq_handler(ejabberd_local, ?KATCHUP, pb_archive_request),
     gen_iq_handler:remove_iq_handler(ejabberd_local, ?KATCHUP, pb_geo_tag_request),
     gen_iq_handler:remove_iq_handler(ejabberd_local, ?KATCHUP, pb_register_request),
+    gen_iq_handler:remove_iq_handler(ejabberd_local, halloapp, pb_halloapp_profile_request),
     ejabberd_hooks:delete(account_name_updated, katchup, ?MODULE, account_name_updated, 50),
     ejabberd_hooks:delete(user_avatar_published, katchup, ?MODULE, user_avatar_published, 50),
     ejabberd_hooks:delete(username_updated, katchup, ?MODULE, username_updated, 50),
@@ -153,7 +155,28 @@ process_local_iq(#pb_iq{from_uid = Uid,
 
 %% RegisterRequest
 process_local_iq(#pb_iq{from_uid = Uid, payload = #pb_register_request{} = Payload} = Iq) ->
-    process_register_request(Uid, Payload, Iq).
+    process_register_request(Uid, Payload, Iq);
+
+
+%% HalloappProfileRequest for uid
+process_local_iq(#pb_iq{type = get, from_uid = Uid,
+        payload = #pb_halloapp_profile_request{uid = Ouid}} = Iq) when Ouid =/= undefined andalso Ouid =/= <<>> ->
+    process_halloapp_profile_request(Uid, Ouid, Iq);
+
+%% HalloappProfileRequest for username
+process_local_iq(#pb_iq{type = get, from_uid = Uid,
+        payload = #pb_halloapp_profile_request{username = Username}} = Iq)
+        when Username =/= undefined andalso Username =/= <<>> ->
+    {ok, Ouid} = model_accounts:get_username_uid(Username),
+    process_halloapp_profile_request(Uid, Ouid, Iq);
+
+%% HalloappProfileRequest (invalid)
+process_local_iq(#pb_iq{payload = #pb_halloapp_profile_request{}} = Iq) ->
+    Ret = #pb_halloapp_profile_result{
+        result = fail,
+        reason = unknown_reason
+    },
+    pb:make_iq_result(Iq, Ret).
 
 
 %%====================================================================
@@ -220,6 +243,23 @@ compose_user_profile_result(Uid, Ouid) ->
         profile = UserProfile,
         recent_posts = RecentPosts
     }.
+
+
+process_halloapp_profile_request(Uid, Ouid, Iq) ->
+    Ret = case model_accounts:account_exists(Ouid) andalso not model_halloapp_friends:is_blocked_any(Uid, Ouid) of
+        true ->
+            HalloappUserProfile = model_accounts:get_halloapp_user_profiles(Uid, Ouid),
+            #pb_user_profile_result{
+                result = ok,
+                profile = HalloappUserProfile
+            };
+        false ->
+            #pb_halloapp_profile_result{
+                result = fail,
+                reason = no_user
+            }
+    end,
+    pb:make_iq_result(Iq, Ret).
 
 
 process_user_archive_request(Uid, Ouid, Iq) ->

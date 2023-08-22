@@ -2223,6 +2223,7 @@ message AlbumResult {
         UNKNOWN = 0;
         BAD_ALBUM_ID = 1;
         NOT_ALLOWED = 2;
+        TOO_MANY_MEMBERS = 3;
     }
     Reason reason = 2;
     Album album = 3;
@@ -2338,6 +2339,25 @@ message HalloappSearchResponse {
   }
   Result result = 1;
   repeated HalloappUserProfile search_result = 2;
+}
+
+message HalloappProfileRequest {
+    int64 uid = 1 [ebin = true];
+    string username = 2;
+}
+
+message HalloappProfileResult {
+    enum Result {
+        OK = 0;
+        FAIL = 1;
+    }
+    Result result = 1;
+    enum Reason {
+        UNKNOWN_REASON = 0;
+        NO_USER = 1;
+    }
+    Reason reason = 2;
+    HalloappUserProfile profile = 3;
 }
 
 message FriendListRequest {
