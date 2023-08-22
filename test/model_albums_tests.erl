@@ -216,7 +216,7 @@ execute_member_action_testset(_) ->
     TmpContributorUid = tutil:generate_uid(),
     ViewerUid = tutil:generate_uid(),
     AlbumId = create_simple_album(OwnerUid),
-    ActionSet1 = [{set, TmpAdminUid, admin, false}, {set, ViewerUid, viewer, true}],
+    ActionSet1 = [{set, TmpAdminUid, admin, false, 1}, {set, ViewerUid, viewer, true, 0}],
     TmpAdminMediaItems = [
         #pb_media_item{id = util_id:new_long_id(), publisher_uid = TmpAdminUid, album_id = AlbumId, payload = <<"p1">>, device_capture_timestamp_ms = 10, upload_timestamp_ms = 100},
         #pb_media_item{id = util_id:new_long_id(), publisher_uid = TmpAdminUid, album_id = AlbumId, payload = <<"p2">>, device_capture_timestamp_ms = 20, upload_timestamp_ms = 200}
@@ -225,8 +225,8 @@ execute_member_action_testset(_) ->
         #pb_media_item{id = util_id:new_long_id(), publisher_uid = TmpContributorUid, album_id = AlbumId, payload = <<"p3">>, device_capture_timestamp_ms = 30, upload_timestamp_ms = 300},
         #pb_media_item{id = util_id:new_long_id(), publisher_uid = TmpContributorUid, album_id = AlbumId, payload = <<"p4">>, device_capture_timestamp_ms = 40, upload_timestamp_ms = 400}
     ],
-    ActionSet2 = [{remove, TmpAdminUid, false}, {set, TmpContributorUid, contributor, false}],
-    ActionSet3 = [{remove, TmpContributorUid, true}],
+    ActionSet2 = [{remove, TmpAdminUid, false, -1}, {set, TmpContributorUid, contributor, false, 1}],
+    ActionSet3 = [{remove, TmpContributorUid, true, -1}],
     [
         ?_assertEqual({none, false}, model_albums:get_role(AlbumId, TmpAdminUid)),
         ?_assertEqual({none, false}, model_albums:get_role(AlbumId, ViewerUid)),

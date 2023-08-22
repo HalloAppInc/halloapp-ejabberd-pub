@@ -21,6 +21,7 @@
     get_album/2,
     delete_album/1,
     get_user_albums/2,
+    get_owner/1,
     get_role/2,
     set_role/3,
     remove_role/2,
@@ -36,6 +37,8 @@
     get_view_access/1,
     set_view_access/2,
     get_all_members/1,
+    get_num_members/1,
+    get_user_media_items/2,
     get_media_items/2,
     store_media_items/2,
     remove_media_items/3
@@ -207,6 +210,15 @@ get_user_albums(Uid, Type) ->
     end.
 
 
+-spec get_owner(album_id()) -> bad_album_id | uid().
+get_owner(AlbumId) ->
+    {ok, Owner} = q(["HGET", album_key(AlbumId), ?FIELD_OWNER]),
+    case util_redis:decode_binary(Owner) of
+        undefined -> bad_album_id;
+        _ -> Owner
+    end.
+
+
 -spec get_role(album_id(), uid()) -> album_role().
 get_role(AlbumId, Uid) ->
     {ok, EncodedRole} = q(["HGET", album_members_key(AlbumId), Uid]),
@@ -232,9 +244,9 @@ remove_role(AlbumId, Uid) ->
 execute_member_actions(AlbumId, ActionList) ->
     Commands = lists:map(
         fun
-            ({set, Uid, Role, Pending}) ->
+            ({set, Uid, Role, Pending, _}) ->
                 [["HSET", album_members_key(AlbumId), Uid, encode_role({Role, Pending})]];
-            ({remove, Uid, RemoveAllMedia}) ->
+            ({remove, Uid, RemoveAllMedia, _}) ->
                 {ok, MediaItemIds} = q(["SMEMBERS", user_media_key(AlbumId, Uid)]),
                 case RemoveAllMedia of
                     true ->
@@ -315,6 +327,21 @@ get_all_members(AlbumId) ->
     {ok, RawMemberData} = q(["HGETALL", album_members_key(AlbumId)]),
     MemberData = util_redis:parse_hgetall(RawMemberData),
     lists:map(fun({Uid, EncodedRole}) -> {Uid, decode_role(EncodedRole)} end, MemberData).
+
+
+-spec get_num_members(album_id()) -> bad_album_id | pos_integer().
+get_num_members(AlbumId) ->
+    {ok, Num} = q(["HLEN", album_members_key(AlbumId)]),
+    case util_redis:decode_int(Num) of
+        undefined -> bad_album_id;
+        Res -> Res
+    end.
+
+
+-spec get_user_media_items(AlbumId :: album_id(), Uid :: uid() | list(binary())) -> list(maybe(pb_media_item())).
+get_user_media_items(AlbumId, Uid) ->
+    {ok, MediaItemIds} = q(["SMEMBERS", user_media_key(AlbumId, Uid)]),
+    get_media_items(AlbumId, MediaItemIds).
 
 
 %% TODO: add a function to decode client payload, so we can inspect these items for debugging

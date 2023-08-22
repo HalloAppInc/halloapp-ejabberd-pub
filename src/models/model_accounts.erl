@@ -2172,7 +2172,7 @@ get_user_activity_info(Usernames) ->
 -spec get_album_member_info(uid()) -> {binary(), binary(), binary()}.
 get_album_member_info(Uid) ->
     {ok, [Name, Username, AvatarId]} = q(["HMGET", account_key(Uid), ?FIELD_NAME, ?FIELD_USERNAME, ?FIELD_AVATAR_ID]),
-    {util_redis:decode_binary(Name, <<>>), util_redis:decode_binary(Username, <<>>), util_redis:decode_binary(AvatarId)}.
+    {util_redis:decode_binary(Name, <<>>), util_redis:decode_binary(Username, <<>>), util_redis:decode_binary(AvatarId, <<>>)}.
 
 
 -spec update_permissions(Uid :: uid(), Permission :: pb_permissions()) -> ok.

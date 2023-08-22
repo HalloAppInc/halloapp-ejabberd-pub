@@ -17,6 +17,7 @@
 %% for tests
 -ifdef(TEST).
 -export([
+    filter_album/2,
     parse_member_actions/3,
     is_role_higher/2,
     is_role_lower/2,
@@ -30,10 +31,10 @@
 
 %% API
 -export([
-    process_local_iq/1
+    process_local_iq/1,
+    block_uids/3,
+    unblock_uids/3
 ]).
-
--define(ALBUM_MEMBER_LIMIT, 256).
 
 %%====================================================================
 %% gen_mod API
@@ -43,12 +44,17 @@ start(_Host, _Opts) ->
     ?INFO("Start: ~w", [?MODULE]),
     gen_iq_handler:add_iq_handler(ejabberd_local, ?HALLOAPP, pb_album, ?MODULE, process_local_iq),
     gen_iq_handler:add_iq_handler(ejabberd_local, ?HALLOAPP, pb_get_albums, ?MODULE, process_local_iq),
+    ejabberd_hooks:add(block_uids, halloapp, ?MODULE, block_uids, 50),
+    ejabberd_hooks:add(unblock_uids, halloapp, ?MODULE, unblock_uids, 50),
+
     ok.
 
 stop(_Host) ->
     ?INFO("Stop: ~w", [?MODULE]),
     gen_iq_handler:remove_iq_handler(ejabberd_local, ?HALLOAPP, pb_album),
     gen_iq_handler:remove_iq_handler(ejabberd_local, ?HALLOAPP, pb_get_albums),
+    ejabberd_hooks:delete(block_uids, halloapp, ?MODULE, block_uids, 50),
+    ejabberd_hooks:delete(unblock_uids, halloapp, ?MODULE, unblock_uids, 50),
     ok.
 
 depends(_Host, _Opts) ->
@@ -72,12 +78,23 @@ process_local_iq(#pb_iq{from_uid = Uid, payload = #pb_album{action = create, nam
     %%    * if time_range is specified, make sure it is valid
     %%    * if members are added, make sure the total number does not exceed the limit
     %%    * creator of album should not be in members list (server always adds them during creation)
+    %%    * none of the added members have a block relationship with the owner
+    IsAnyoneBlocked = lists:any(fun(#pb_album_member{uid = OUid}) -> model_halloapp_friends:is_blocked_any(Uid, OUid) end, Members),
     case not lists:member(undefined, [Name, CanView, CanContribute])
             andalso is_time_range_ok(TimeRange)
             andalso length(Members) < ?ALBUM_MEMBER_LIMIT
-            andalso not lists:keyfind(Uid, 2, Members) of
+            andalso not lists:keyfind(Uid, 2, Members)
+            andalso not IsAnyoneBlocked of
         false ->
-            pb:make_iq_result(IQ, #pb_album_result{result = fail});
+            %% Try and provide a fail reason
+            case {length(Members) + 1 > ?ALBUM_MEMBER_LIMIT, IsAnyoneBlocked orelse lists:keyfind(Uid, 2, Members)} of
+                {true, _} ->
+                    pb:make_iq_result(IQ, #pb_album_result{result = fail, reason = too_many_members});
+                {_, true} ->
+                    pb:make_iq_result(IQ, #pb_album_result{result = fail, reason = not_allowed});
+                _ ->
+                    pb:make_iq_result(IQ, #pb_album_result{result = fail})
+            end;
         true ->
             %% Make sure all members have pending = true
             PendingMembers = lists:map(fun(#pb_album_member{} = PbMember) -> PbMember#pb_album_member{pending = true} end, Members),
@@ -163,14 +180,31 @@ process_local_iq(#pb_iq{from_uid = Uid, payload = #pb_album{id = AlbumId, action
 %% Modify members
 process_local_iq(#pb_iq{from_uid = Uid, payload = #pb_album{id = AlbumId, action = modify_members, members = PbMembers} = PbAlbum} = IQ) ->
     ActionList = parse_member_actions(AlbumId, Uid, PbMembers),
-    case lists:member(not_allowed, ActionList) of
-        true ->
+    NumCurrentMembers = model_albums:get_num_members(AlbumId),
+    case {NumCurrentMembers, lists:member(not_allowed, ActionList)} of
+        {bad_album_id, _} ->
+            pb:make_iq_result(IQ, #pb_album_result{result = fail, reason = bad_album_id});
+        {_, true} ->
             pb:make_iq_result(IQ, #pb_album_result{result = fail, reason = not_allowed});
-        false ->
-            ok = model_albums:execute_member_actions(AlbumId, ActionList),
-            ok = notify(Uid, PbAlbum),
-            ?INFO("~s modified album (~s) members", [Uid, AlbumId]),
-            pb:make_iq_result(IQ, #pb_album_result{result = ok, album = PbAlbum})
+        {_, false} ->
+            NumAlbumMembersAfterChange = lists:foldl(
+                fun
+                    ({set, _, _, _, Num}, Count) -> Count + Num;
+                    ({remove, _, _, Num}, Count) -> Count + Num
+                end,
+                NumCurrentMembers,
+                ActionList),
+            case NumAlbumMembersAfterChange > ?ALBUM_MEMBER_LIMIT of
+                true ->
+                    ?WARNING("Album (~s) modify_members request rejected because it would result it too many members (~B)",
+                        [AlbumId, NumAlbumMembersAfterChange]),
+                    pb:make_iq_result(IQ, #pb_album_result{result = fail, reason = too_many_members});
+                false ->
+                    ok = model_albums:execute_member_actions(AlbumId, ActionList),
+                    ok = notify(Uid, PbAlbum),
+                    ?INFO("~s modified album (~s) members", [Uid, AlbumId]),
+                    pb:make_iq_result(IQ, #pb_album_result{result = ok, album = PbAlbum})
+            end
     end;
 
 %% Add media items
@@ -191,16 +225,25 @@ process_local_iq(#pb_iq{from_uid = Uid, payload = #pb_album{id = AlbumId, action
             pb:make_iq_result(IQ, #pb_album_result{result = ok, album = PbAlbum});
         {false, everyone, true} ->
             %% Uid is not a contributor, but the contribute access is everyone, so we allow the media items and set Uid as a contributor
-            ok = model_albums:set_role(AlbumId, Uid, {contributor, false}),
-            ok = notify(Uid, #pb_album{id = AlbumId, action = modify_members, members = #pb_album_member{uid = Uid, action = join}}),
-            ok = model_albums:store_media_items(AlbumId, MediaItems),
-            ok = notify(Uid, PbAlbum),
-            ?INFO("~s added ~B media items to an album (~s) and joined as a contributor", [Uid, length(MediaItems), AlbumId]),
-            pb:make_iq_result(IQ, #pb_album_result{result = ok, album = PbAlbum})
+            %% as long as adding this Uid to the album will not exceed the album member limit
+            NumAlbumMembersAfterChange = model_albums:get_num_members(AlbumId) + 1,
+            case NumAlbumMembersAfterChange > ?ALBUM_MEMBER_LIMIT of
+                true ->
+                    ?WARNING("Album (~s) modify_members request rejected because it would result it too many members (~B)",
+                        [AlbumId, NumAlbumMembersAfterChange]),
+                    pb:make_iq_result(IQ, #pb_album_result{result = fail, reason = too_many_members});
+                false ->
+                    ok = model_albums:set_role(AlbumId, Uid, {contributor, false}),
+                    ok = notify(Uid, #pb_album{id = AlbumId, action = modify_members, members = #pb_album_member{uid = Uid, action = join}}),
+                    ok = model_albums:store_media_items(AlbumId, MediaItems),
+                    ok = notify(Uid, PbAlbum),
+                    ?INFO("~s added ~B media items to an album (~s) and joined as a contributor", [Uid, length(MediaItems), AlbumId]),
+                    pb:make_iq_result(IQ, #pb_album_result{result = ok, album = PbAlbum})
+            end
     end;
 
 %% Remove media items
-process_local_iq(#pb_iq{from_uid = Uid, payload = #pb_album{id = AlbumId, action = remove_media, media_items = MediaItems} = Album} = IQ) ->
+process_local_iq(#pb_iq{from_uid = Uid, payload = #pb_album{id = AlbumId, action = remove_media, media_items = MediaItems} = PbAlbum} = IQ) ->
     %% Uid must be an admin or the creator of all the media items
     case is_role_at_least(get_role(AlbumId, Uid), admin)
             orelse not lists:any(fun(#pb_media_item{publisher_uid = PUid}) -> PUid =/= Uid end, MediaItems) of
@@ -209,8 +252,9 @@ process_local_iq(#pb_iq{from_uid = Uid, payload = #pb_album{id = AlbumId, action
         true ->
             MediaItemIds = lists:map(fun(#pb_media_item{id = Id}) -> Id end, MediaItems),
             ok = model_albums:remove_media_items(AlbumId, Uid, MediaItemIds),
+            ok = notify(Uid, PbAlbum),
             ?INFO("~s removed ~B media items from an album (~s)", [Uid, length(MediaItems), AlbumId]),
-            pb:make_iq_result(IQ, #pb_album_result{result = ok, album = Album})
+            pb:make_iq_result(IQ, #pb_album_result{result = ok, album = PbAlbum})
     end;
 
 %% Get album (info only, media items only, or entire thing)
@@ -218,10 +262,13 @@ process_local_iq(#pb_iq{from_uid = Uid, payload = #pb_album{id = AlbumId, action
         when Action =:= get orelse Action =:= get_info orelse Action =:= get_media ->
     %% Album view access needs to be set to everyone OR Uid needs to be at least a viewer OR Uid needs to be invited
     {Role, Pending} = model_albums:get_role(AlbumId, Uid),
-    case {model_albums:get_view_access(AlbumId), is_role_at_least(Role, viewer), Pending} of
-        {bad_album_id, _, _} ->
+    BlockRelationshipWithOwner = model_halloapp_friends:is_blocked_any(model_albums:get_owner(AlbumId), Uid),
+    case {BlockRelationshipWithOwner, model_albums:get_view_access(AlbumId), is_role_at_least(Role, viewer), Pending} of
+        {true, _, _, _} ->
             pb:make_iq_result(IQ, #pb_album_result{result = fail, reason = bad_album_id});
-        {invite_only, false, false} ->
+        {_, bad_album_id, _, _} ->
+            pb:make_iq_result(IQ, #pb_album_result{result = fail, reason = bad_album_id});
+        {_, invite_only, false, false} ->
             pb:make_iq_result(IQ, #pb_album_result{result = fail, reason = not_allowed});
         _ ->
             AlbumRecord = case Action of
@@ -230,7 +277,7 @@ process_local_iq(#pb_iq{from_uid = Uid, payload = #pb_album{id = AlbumId, action
                 get_media -> model_albums:get_album_media_items(AlbumId, Cursor)
             end,
             ?INFO("~s requested an album (~s) with ~s", [Uid, AlbumId, Action]),
-            pb:make_iq_result(IQ, #pb_album_result{result = ok, album = album_record_to_pb(AlbumRecord)})
+            pb:make_iq_result(IQ, #pb_album_result{result = ok, album = filter_album(Uid, album_record_to_pb(AlbumRecord))})
     end;
 
 %% Delete album
@@ -251,6 +298,99 @@ process_local_iq(#pb_iq{from_uid = Uid, payload = #pb_get_albums{type = Type}} =
     pb:make_iq_result(IQ, #pb_get_albums{type = Type, album_ids = AlbumIds}).
 
 %%====================================================================
+%% Hooks
+%%====================================================================
+
+-spec block_uids(Uid :: binary(), Server :: binary(), Ouids :: list(binary())) -> ok.
+block_uids(Uid, _Server, Ouids) ->
+    %% Get all users from albums that Uid is in
+    SharedAlbumUsers = lists:flatmap(
+        fun(AlbumId) ->
+            lists:map(fun({MUid, Role}) -> {MUid, Role, AlbumId} end, model_albums:get_all_members(AlbumId))
+        end,
+        model_albums:get_user_albums(Uid, all)),
+    %% Find the overlap between Ouids (who have just been blocked) and SharedAlbumUsers
+    BlockedUserOverlap = lists:filter(fun({MUid, _Role, _AlbumId}) -> lists:member(MUid, Ouids) end, SharedAlbumUsers),
+    %% Take appropriate action
+    lists:foreach(
+        fun({MUid, Role, AlbumId}) ->
+            case {model_albums:get_role(AlbumId, Uid), Role} of
+                {{owner, false}, _} ->
+                    %% If Uid is the owner of the album, then Ouid will be removed along with all their media
+                    ok = model_albums:execute_member_actions(AlbumId, [{remove, MUid, true, -1}]),
+                    NotifyAlbum = #pb_album{
+                        id = AlbumId,
+                        action = modify_members,
+                        members = [
+                            #pb_album_member{uid = MUid, action = remove, remove_media = true}
+                        ]
+                    },
+                    notify(Uid, NotifyAlbum);
+                {_, {owner, false}} ->
+                    %% If OUid is the owner of the album, then Uid will be removed along with all their media
+                    ok = model_albums:execute_member_actions(AlbumId, [{remove, Uid, true, -1}]),
+                    NotifyAlbum = #pb_album{
+                        id = AlbumId,
+                        action = modify_members,
+                        members = [
+                            #pb_album_member{uid = Uid, action = leave, remove_media = true}
+                        ]
+                    },
+                    notify(Uid, NotifyAlbum);
+                _ ->
+                    %% Else, Uid and Ouid are both non-owner members of the same album
+                    %% Both members will continue to exist in the album, but will have no knowledge of the other user
+                    %% So we must inform each that the other user and their media items have been removed
+                    lists:foreach(
+                        fun({Uid1, Uid2}) ->
+                            send_msg(Uid1, Uid2, #pb_album{id = AlbumId, action = modify_members, members = [
+                                #pb_album_member{uid = Uid1, action = leave, remove_media = true}
+                            ]})
+                        end,
+                        [{Uid, MUid}, {MUid, Uid}])
+            end
+        end,
+        BlockedUserOverlap).
+
+
+-spec unblock_uids(Uid :: binary(), Server :: binary(), Ouids :: list(binary())) -> ok.
+unblock_uids(Uid, _Server, Ouids) ->
+    %% Get all users from albums that Uid is in
+    SharedAlbumUsers = lists:flatmap(
+        fun(AlbumId) ->
+            lists:map(fun({MUid, Role}) -> {MUid, Role, AlbumId} end, model_albums:get_all_members(AlbumId))
+        end,
+        model_albums:get_user_albums(Uid, all)),
+    %% Find the overlap between Ouids (who have just been unblocked) and SharedAlbumUsers
+    UnblockedUserOverlap = lists:filter(fun({MUid, _Role, _AlbumId}) -> lists:member(MUid, Ouids) end, SharedAlbumUsers),
+    %% Take appropriate action
+    lists:foreach(
+        fun({MUid, {Role, Pending}, AlbumId}) ->
+            %% If the user was previously blocked, it is impossible for them to share an album where one is an owner
+            %% So, we just need to notify each that the other user (and their media items) exist
+            lists:foreach(
+                fun({Uid1, Uid2}) ->
+                    %% Notify Uid2 that Uid1 is in the album
+                    {Role, Pending} = model_albums:get_role(AlbumId, Uid1),
+                    PbAlbum = #pb_album{id = AlbumId, action = modify_members},
+                    %% Fake an invite from the owner at Uid1's current role
+                    OwnerUid = model_albums:get_owner(AlbumId),
+                    send_msg(OwnerUid, Uid2, PbAlbum#pb_album{members = [#pb_album_member{uid = Uid1, action = invite, role = Role}]}),
+                    case Pending of
+                        true -> ok;
+                        false ->
+                            %% If Uid1 isn't actually pending, have them accept the invite right away
+                            send_msg(Uid1, Uid2, PbAlbum#pb_album{members = [#pb_album_member{uid = Uid1, action = accept_invite}]})
+                    end,
+                    %% Send all Uid1's media items to Uid2
+                    MediaItems = model_albums:get_user_media_items(AlbumId, Uid),
+                    batch_send(Uid1, Uid2, MediaItems, #pb_album{id = AlbumId, action = add_media})
+                end,
+                [{Uid, MUid}, {MUid, Uid}])
+        end,
+        UnblockedUserOverlap).
+
+%%====================================================================
 %% Internal functions
 %%====================================================================
 
@@ -260,10 +400,28 @@ notify(FromUid, PbAlbum) ->
     lists:foreach(
         fun
             ({ToUid, _}) when ToUid =/= FromUid ->
-                send_msg(FromUid, ToUid, PbAlbum);
+                send_msg(FromUid, ToUid, filter_album(ToUid, PbAlbum));
             (_) -> ok
         end,
         Members).
+
+
+%% For sending media items in batches of ?MEDIA_ITEMS_PER_PAGE
+-spec batch_send(uid(), uid(), list(pb_media_item()), pb_album()) -> ok.
+batch_send(_, _, [], _) -> ok;
+batch_send(FromUid, ToUid, AllMediaItems, PbAlbum) ->
+    send_msg(FromUid, ToUid, PbAlbum#pb_album{media_items = lists:sublist(AllMediaItems, ?MEDIA_ITEMS_PER_PAGE)}),
+    batch_send(FromUid, ToUid, lists:sublist(AllMediaItems, ?MEDIA_ITEMS_PER_PAGE + 1, length(AllMediaItems)), PbAlbum).
+
+
+%% Filters blocked users from list of members and media items
+-spec filter_album(uid(), pb_album()) -> pb_album().
+filter_album(_Uid, #pb_album{members = [], media_items = []} = PbAlbum) -> PbAlbum;
+filter_album(Uid, #pb_album{members = Members, media_items = MediaItems} = PbAlbum) ->
+    BlockedUidsSet = sets:from_list(model_halloapp_friends:get_blocked_uids(Uid) ++ model_halloapp_friends:get_blocked_by_uids(Uid)),
+    FilteredMembers = lists:filter(fun(#pb_album_member{uid = MUid}) -> not sets:is_element(MUid, BlockedUidsSet) end, Members),
+    FilteredMediaItems = lists:filter(fun(#pb_media_item{publisher_uid = MUid}) -> not sets:is_element(MUid, BlockedUidsSet) end, MediaItems),
+    PbAlbum#pb_album{members = FilteredMembers, media_items = FilteredMediaItems}.
 
 
 %% Parse through intended member actions and return a list of actions to complete
@@ -275,42 +433,50 @@ parse_member_actions(AlbumId, Uid, PbMembers) ->
         false -> UserRole
     end,
     UserIsAtLeastAdmin = is_role_at_least(UserCurrentRole, admin),
+    OwnerUid = model_albums:get_owner(AlbumId),
+    BlockedSet = sets:from_list(lists:append([
+        model_halloapp_friends:get_blocked_uids(OwnerUid),
+        model_halloapp_friends:get_blocked_by_uids(OwnerUid),
+        model_halloapp_friends:get_blocked_uids(Uid),
+        model_halloapp_friends:get_blocked_by_uids(Uid)
+    ])),
     lists:map(
         fun(#pb_album_member{uid = MUid, action = Action, role = MNewRole, remove_media = RemoveMedia}) ->
-            %% Processes all valid combinations and outputs {action, uid, role, pending} | {remove, uid, remove_media} | not_allowed
+            %% Processes all valid combinations and outputs {action, uid, role, pending, change} | {remove, uid, remove_media, change} | not_allowed
+            %% where change is an integer specifying the resulting change to the total number of album members
             {MRole, MPending} = model_albums:get_role(AlbumId, MUid),
             MCurrentRole = case MPending of
                 true -> none;
                 false -> MRole
             end,
-            case {Action, Uid, UserPending, MUid} of
-                {accept_invite, Uid, true, Uid} -> {set, Uid, UserRole, false};
-                {reject_invite, Uid, true, Uid} -> {remove, Uid, false};
-                {join, Uid, _, Uid} ->
+            case {Action, Uid, UserPending, MUid, sets:is_element(MUid, BlockedSet)} of
+                {accept_invite, Uid, true, Uid, false} -> {set, Uid, UserRole, false, 1};
+                {reject_invite, Uid, true, Uid, false} -> {remove, Uid, false, 0};
+                {join, Uid, _, Uid, false} ->
                     case {model_albums:get_view_access(AlbumId), model_albums:get_contribute_access(AlbumId)} of
                         {invite_only, invite_only} -> not_allowed;
-                        {everyone, invite_only} -> {set, Uid, viewer, false};
-                        {everyone, everyone} -> {set, Uid, contributor, false}
+                        {everyone, invite_only} -> {set, Uid, viewer, false, 1};
+                        {everyone, everyone} -> {set, Uid, contributor, false, 1}
                     end;
-                {leave, Uid, _, Uid} when UserRole =/= owner -> {remove, Uid, RemoveMedia};
-                {un_invite, _, false, MUid} when UserIsAtLeastAdmin andalso MPending -> {remove, MUid, false};  %% TODO: make it so Uid can un-invite MUid if they were the one to invite them
-                {remove, Uid, false, MUid} when Uid =/= MUid andalso UserIsAtLeastAdmin -> {remove, MUid, false};
-                {invite, Uid, false, MUid} when Uid =/= MUid->
+                {leave, Uid, _, Uid, _} when UserRole =/= owner -> {remove, Uid, RemoveMedia, -1};
+                {un_invite, _, false, MUid, false} when UserIsAtLeastAdmin andalso MPending -> {remove, MUid, false, 0};  %% TODO: make it so Uid can un-invite MUid if they were the one to invite them
+                {remove, Uid, false, MUid, false} when Uid =/= MUid andalso UserIsAtLeastAdmin -> {remove, MUid, false, -1};
+                {invite, Uid, false, MUid, false} when Uid =/= MUid->
                     %% Contributors and above can invite other users at their level or lower (except owner)
                     case is_role_at_least(UserCurrentRole, contributor) andalso is_role_at_most(MNewRole, UserCurrentRole) andalso MNewRole =/= owner of
-                        true -> {set, MUid, MNewRole, true};
+                        true -> {set, MUid, MNewRole, true, 0};
                         false -> not_allowed
                     end;
-                {promote, Uid, false, MUid} when Uid =/= MUid andalso UserIsAtLeastAdmin andalso MNewRole =/= owner ->
+                {promote, Uid, false, MUid, false} when Uid =/= MUid andalso UserIsAtLeastAdmin andalso MNewRole =/= owner ->
                     %% Uid can promote viewers and above to a role at or below themselves (but owner cannot promote to owner)
                     case is_role_at_least(MCurrentRole, viewer) andalso is_role_higher(MNewRole, MCurrentRole) andalso is_role_at_most(MNewRole, UserCurrentRole) andalso MNewRole =/= owner of
-                        true -> {set, MUid, MNewRole, false};
+                        true -> {set, MUid, MNewRole, false, 0};
                         false -> not_allowed
                     end;
-                {demote, Uid, false, MUid} when Uid =/= MUid andalso UserIsAtLeastAdmin andalso MNewRole =/= none ->
+                {demote, Uid, false, MUid, false} when Uid =/= MUid andalso UserIsAtLeastAdmin andalso MNewRole =/= none ->
                     %% Uid must be a higher role than MUid and the demotion must be valid (new role is lower but not none)
                     case is_role_at_least(UserCurrentRole, MCurrentRole) andalso is_role_higher(MCurrentRole, MNewRole) andalso MNewRole =/= none of
-                        true -> {set, MUid, MNewRole, false};
+                        true -> {set, MUid, MNewRole, false, 0};
                         false -> not_allowed
                     end;
                 _ -> not_allowed

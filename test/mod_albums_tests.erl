@@ -24,28 +24,32 @@ album_wrapper(Album) ->
     mod_albums:album_pb_to_record(Album).
 
 
+create_simple_album(OwnerUid) ->
+    model_albums:create_album(OwnerUid, album_wrapper(#pb_album{name = <<"Album Name">>, can_view = everyone, can_contribute = everyone})).
+
+
 parse_member_actions_testset(_) ->
     OwnerUid = tutil:generate_uid(),
     AdminUid = tutil:generate_uid(),
     NotInterestedUid = tutil:generate_uid(),
     MistakenlyInvitedUid = tutil:generate_uid(),
-    AlbumId = model_albums:create_album(OwnerUid, album_wrapper(#pb_album{name = <<"name">>, can_view = everyone, can_contribute = everyone})),
+    AlbumId = create_simple_album(OwnerUid),
     OwnerAction1 = [#pb_album_member{uid = AdminUid, action = invite, role = admin}, #pb_album_member{uid = NotInterestedUid, action = invite, role = admin},
         #pb_album_member{uid = MistakenlyInvitedUid, action = invite, role = viewer}],
-    OwnerResult1 = [{set, AdminUid, admin, true}, {set, NotInterestedUid, admin, true}, {set, MistakenlyInvitedUid, viewer, true}],
+    OwnerResult1 = [{set, AdminUid, admin, true, 0}, {set, NotInterestedUid, admin, true, 0}, {set, MistakenlyInvitedUid, viewer, true, 0}],
     AdminAction1 = [#pb_album_member{uid = AdminUid, action = accept_invite}],
-    AdminResult2 = [{set, AdminUid, admin, false}],
+    AdminResult2 = [{set, AdminUid, admin, false, 1}],
     NotInterestedAction1 = [#pb_album_member{uid = NotInterestedUid, action = reject_invite}],
-    NotInterestedResult1 = [{remove, NotInterestedUid, false}],
+    NotInterestedResult1 = [{remove, NotInterestedUid, false, 0}],
     OwnerAction2 = [#pb_album_member{uid = MistakenlyInvitedUid, action = un_invite}],
-    OwnerResult2 = [{remove, MistakenlyInvitedUid, false}],
+    OwnerResult2 = [{remove, MistakenlyInvitedUid, false, 0}],
     JoinedUid = tutil:generate_uid(),
     JoinedAction1 = [#pb_album_member{uid = JoinedUid, action = join}],
-    JoinedResult1 = [{set, JoinedUid, contributor, false}],
+    JoinedResult1 = [{set, JoinedUid, contributor, false, 1}],
     OwnerAction3 = [#pb_album_member{uid = AdminUid, action = demote, role = contributor}, #pb_album_member{uid = JoinedUid, action = promote, role = admin}],
-    OwnerResult3 = [{set, AdminUid, contributor, false}, {set, JoinedUid, admin, false}],
+    OwnerResult3 = [{set, AdminUid, contributor, false, 0}, {set, JoinedUid, admin, false, 0}],
     JoinedAction2 = [#pb_album_member{uid = AdminUid, action = remove}, #pb_album_member{uid = JoinedUid, action = leave, remove_media = true}],
-    JoinedResult2 = [{remove, AdminUid, false}, {remove, JoinedUid, true}],
+    JoinedResult2 = [{remove, AdminUid, false, -1}, {remove, JoinedUid, true, -1}],
     OwnerDisallowedAction1 = [#pb_album_member{uid = JoinedUid, action = promote, role = owner}],
     OwnerDisallowedAction2 = [#pb_album_member{uid = OwnerUid, action = leave}],
     MistakenlyDisallowedAction1 = [#pb_album_member{uid = MistakenlyInvitedUid, action = accept_invite}],
@@ -146,4 +150,56 @@ is_role_lower_testparallel(_) ->
         ?_assert(mod_albums:is_role_lower(none, viewer)),
         ?_assertNot(mod_albums:is_role_lower(none, none))
     ]}.
+
+
+filter_album_testset(_) ->
+    Uid1 = tutil:generate_uid(),
+    Uid2 = tutil:generate_uid(),
+    Uid3 = tutil:generate_uid(),
+    AlbumId = create_simple_album(Uid1),
+    Uid2MediaItems = [
+        #pb_media_item{id = util_id:new_long_id(), publisher_uid = Uid2, album_id = AlbumId, payload = <<"p1">>, device_capture_timestamp_ms = 10, upload_timestamp_ms = 100},
+        #pb_media_item{id = util_id:new_long_id(), publisher_uid = Uid2, album_id = AlbumId, payload = <<"p2">>, device_capture_timestamp_ms = 20, upload_timestamp_ms = 200}
+    ],
+    Uid3MediaItems = [
+        #pb_media_item{id = util_id:new_long_id(), publisher_uid = Uid3, album_id = AlbumId, payload = <<"p3">>, device_capture_timestamp_ms = 30, upload_timestamp_ms = 300},
+        #pb_media_item{id = util_id:new_long_id(), publisher_uid = Uid3, album_id = AlbumId, payload = <<"p4">>, device_capture_timestamp_ms = 40, upload_timestamp_ms = 400}
+    ],
+    ok = model_albums:store_media_items(AlbumId, Uid2MediaItems),
+    ok = model_albums:store_media_items(AlbumId, Uid3MediaItems),
+    ok = model_albums:execute_member_actions(AlbumId, [{set, Uid2, contributor, false, 1}, {set, Uid3, contributor, false, 1}]),
+    AllMediaItems = Uid2MediaItems ++ Uid3MediaItems,
+    Wrapper = fun(Uid) ->
+        PbAlbum = mod_albums:filter_album(Uid, mod_albums:album_record_to_pb(model_albums:get_album(AlbumId))),
+        PbAlbum#pb_album{members = lists:sort(PbAlbum#pb_album.members)}
+    end,
+    AllMembers = lists:sort([#pb_album_member{uid = Uid1, role = owner}, #pb_album_member{uid = Uid2, role = contributor},
+        #pb_album_member{uid = Uid3, role = contributor}]),
+    Uid2Members = lists:sort([#pb_album_member{uid = Uid1, role = owner}, #pb_album_member{uid = Uid2, role = contributor}]),
+    Uid3Members = lists:sort([#pb_album_member{uid = Uid1, role = owner}, #pb_album_member{uid = Uid3, role = contributor}]),
+    ExpectedAlbumWrapper = fun(Members, MediaItems) ->
+        #pb_album{id = AlbumId, name = model_albums:get_name(AlbumId),
+            owner = Uid1, can_view = everyone, can_contribute = everyone, members = Members, media_items = MediaItems}
+    end,
+    [
+        ?_assertEqual(ExpectedAlbumWrapper(AllMembers, AllMediaItems), Wrapper(Uid1)),
+        ?_assertEqual(ExpectedAlbumWrapper(AllMembers, AllMediaItems), Wrapper(Uid2)),
+        ?_assertEqual(ExpectedAlbumWrapper(AllMembers, AllMediaItems), Wrapper(Uid3)),
+        ?_assertOk(model_halloapp_friends:block(Uid2, Uid3)),
+        ?_assertEqual(ExpectedAlbumWrapper(AllMembers, AllMediaItems), Wrapper(Uid1)),
+        ?_assertEqual(ExpectedAlbumWrapper(Uid2Members, Uid2MediaItems), Wrapper(Uid2)),
+        ?_assertEqual(ExpectedAlbumWrapper(Uid3Members, Uid3MediaItems), Wrapper(Uid3)),
+        ?_assertOk(model_halloapp_friends:block(Uid3, Uid2)),
+        ?_assertEqual(ExpectedAlbumWrapper(AllMembers, AllMediaItems), Wrapper(Uid1)),
+        ?_assertEqual(ExpectedAlbumWrapper(Uid2Members, Uid2MediaItems), Wrapper(Uid2)),
+        ?_assertEqual(ExpectedAlbumWrapper(Uid3Members, Uid3MediaItems), Wrapper(Uid3)),
+        ?_assertOk(model_halloapp_friends:unblock(Uid2, Uid3)),
+        ?_assertEqual(ExpectedAlbumWrapper(AllMembers, AllMediaItems), Wrapper(Uid1)),
+        ?_assertEqual(ExpectedAlbumWrapper(Uid2Members, Uid2MediaItems), Wrapper(Uid2)),
+        ?_assertEqual(ExpectedAlbumWrapper(Uid3Members, Uid3MediaItems), Wrapper(Uid3)),
+        ?_assertOk(model_halloapp_friends:unblock(Uid3, Uid2)),
+        ?_assertEqual(ExpectedAlbumWrapper(AllMembers, AllMediaItems), Wrapper(Uid1)),
+        ?_assertEqual(ExpectedAlbumWrapper(AllMembers, AllMediaItems), Wrapper(Uid2)),
+        ?_assertEqual(ExpectedAlbumWrapper(AllMembers, AllMediaItems), Wrapper(Uid3))
+    ].
 

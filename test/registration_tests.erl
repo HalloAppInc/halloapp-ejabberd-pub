@@ -463,7 +463,7 @@ phoneless_reg_noise_test(_Conf) ->
 
     %% Compose RequestOtp
     RequestOtpOptions = #{},
-    {ok, RegisterRequestPkt} = registration_client:compose_otp_noise_request(Phone, RequestOtpOptions),
+    {ok, _RegisterRequestPkt} = registration_client:compose_otp_noise_request(Phone, RequestOtpOptions),
 
     %% Generate NoiseKeys.
     KeyPair = ha_enoise:generate_signature_keypair(),

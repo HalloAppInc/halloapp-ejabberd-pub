@@ -10,6 +10,7 @@
 -ifndef(ALBUMS).
 -define(ALBUMS, 1).
 
+-define(ALBUM_MEMBER_LIMIT, 256).
 -define(MEDIA_ITEMS_PER_PAGE, 20).
 
 -type album_id() :: binary().
@@ -21,7 +22,8 @@
 -type share_type() :: contribute | view.
 -type share_access() :: invite_only | everyone.
 -type user_album_type() :: all | member | invited.
--type member_actions_list() :: list({set, uid(), role(), Pending :: boolean()} | {remove, uid(), RemoveTheirMedia :: boolean()} | not_allowed).
+-type member_actions_list() :: list({set, uid(), role(), Pending :: boolean(), Change :: integer()} |  %% Change describes the resulting change
+    {remove, uid(), RemoveTheirMedia :: boolean(), Change :: integer()} | not_allowed).                %% on the number of members in the album
 
 -record(album_member, {
     uid :: uid(),
