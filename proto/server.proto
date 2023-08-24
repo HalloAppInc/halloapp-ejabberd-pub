@@ -1180,6 +1180,8 @@ message Iq {
         GetAlbums get_albums = 84;
         HalloappProfileRequest halloapp_profile_request = 85;
         HalloappProfileResult hallaopp_profile_result = 86;
+        ReverseGeocodeRequest reverse_geocode_request = 87;
+        ReverseGeocodeResult reverse_geocode_result = 88;
     }
     int64 to_uid = 29 [ebin = true];    // only for server use
     int64 from_uid = 30 [ebin = true];    // only for server use
@@ -2393,5 +2395,38 @@ message FriendListResponse {
   Result result = 1;
   string cursor = 2;
   repeated FriendProfile friend_profiles = 3;
+}
+
+message ReverseGeocodeRequest {
+    GpsLocation location = 1;
+}
+
+message ReverseGeocodeLocation {
+    string name = 1;
+    GpsLocation location = 2;
+    string type = 3;
+    string address = 4;
+    string neighborhood = 5;
+    string postcode = 6;
+    string district = 7;
+    string region = 8;
+    string country = 9;
+    string place = 10;
+}
+
+message ReverseGeocodeResult {
+    enum Result {
+        OK = 0;
+        FAIL = 1;
+    }
+    Result result = 1;
+    enum Reason {
+        UNKNOWN = 0;
+        TOO_SOON = 1;
+        INVALID_LAT_LONG = 2;
+    }
+    Reason reason = 2;
+    int64 backoff = 3;
+    ReverseGeocodeLocation location = 4;
 }
 

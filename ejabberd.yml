@@ -237,6 +237,7 @@ modules:
   mod_image_ai: {}
   mod_halloapp_friends: {}
   mod_albums: {}
+  mod_geocoding: {}
 
 ### Local Variables:
 ### mode: yaml
