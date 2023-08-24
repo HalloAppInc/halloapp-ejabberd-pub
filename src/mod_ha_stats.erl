@@ -33,7 +33,7 @@
     re_register_user/4,
     add_phone_user/4,
     add_friend/4,
-    remove_friend/3,
+    remove_friend/4,
     user_send_packet/1,
     user_receive_packet/1,
     event_fab_action/1
@@ -452,8 +452,8 @@ add_friend(Uid, _Server, _ContactId, _WasBlocked) ->
     ok.
 
 
--spec remove_friend(UserId :: binary(), Server :: binary(), ContactId :: binary()) -> ok.
-remove_friend(Uid, _Server, _ContactId) ->
+-spec remove_friend(UserId :: binary(), Server :: binary(), ContactId :: binary(), WasBlocked :: boolean()) -> ok.
+remove_friend(Uid, _Server, _ContactId, _WasBlocked) ->
     ?INFO("counting uid:~s", [Uid]),
     stat:count("HA/graph", "remove_friend"),
     ok.
