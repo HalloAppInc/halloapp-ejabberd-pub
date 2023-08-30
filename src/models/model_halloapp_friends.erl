@@ -69,12 +69,14 @@ add_friend_request(Uid, Ouid) ->
 -spec accept_friend_request(Uid :: uid(), Ouid :: uid()) -> ok | {error, any()}.
 accept_friend_request(Uid, Ouid) ->
     TimestampMs = util:now_ms(),
-    [{ok, _}, {ok, _}] = qp([
+    [{ok, _}, {ok, _}, {ok, _}] = qp([
         ["ZREM", incoming_friends_key(Uid), Ouid],
+        ["ZREM", outgoing_friends_key(Uid), Ouid],
         ["ZADD", friends_key(Uid), TimestampMs, Ouid]
         ]),
-    [{ok, _}, {ok, _}] = qp([
+    [{ok, _}, {ok, _}, {ok, _}] = qp([
         ["ZREM", outgoing_friends_key(Ouid), Uid],
+        ["ZREM", incoming_friends_key(Ouid), Uid],
         ["ZADD", friends_key(Ouid), TimestampMs, Uid]
         ]),
     ok.
