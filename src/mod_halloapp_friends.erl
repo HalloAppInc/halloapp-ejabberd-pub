@@ -155,6 +155,20 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
     ?INFO("~s remove_friend ~s", [Uid, Ouid]),
     pb:make_iq_result(IQ, #pb_friendship_response{result = ok, profile = OuidProfile});
 
+%% set FriendshipRequest (action = remove_friend)
+process_local_iq(#pb_iq{from_uid = Uid, type = set,
+        payload = #pb_friendship_request{action = reject_friend, uid = Ouid}} = IQ) ->
+    IsFriends = model_halloapp_friends:is_friend(Uid, Ouid),
+    ok = model_halloapp_friends:remove_friend(Uid, Ouid),
+    case IsFriends of
+        true -> remove_friend_hook(Uid, Ouid, false);
+        false -> ok %% Dont run hook if they were never friends in the first place.
+    end,
+    OuidProfile = model_accounts:get_halloapp_user_profiles(Uid, Ouid),
+    notify_profile_update(Uid, Ouid),
+    ?INFO("~s reject_friend ~s", [Uid, Ouid]),
+    pb:make_iq_result(IQ, #pb_friendship_response{result = ok, profile = OuidProfile});
+
 
 %% set FriendshipRequest (action = block)
 process_local_iq(#pb_iq{from_uid = Uid, type = set,
