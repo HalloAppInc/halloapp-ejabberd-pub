@@ -2286,12 +2286,13 @@ message MediaItem {
 
 message FriendshipRequest {
     enum Action {
-        ADD_FRIEND = 0;
-        ACCEPT_FRIEND = 1;
-        REMOVE_FRIEND = 2;
-        BLOCK = 3;
-        UNBLOCK = 4;
-        REJECT_SUGGESTION = 5;
+        ADD_FRIEND = 0; // sending a friend request.
+        ACCEPT_FRIEND = 1; // accepting the friend request.
+        REMOVE_FRIEND = 2; // remove the friend request after accepting.
+        REJECT_FRIEND = 3; // reject the friend request.
+        BLOCK = 4; // block the user.
+        UNBLOCK = 5; // unblock user.
+        REJECT_SUGGESTION = 6; // reject friend suggestion.
     }
     Action action = 1;
     int64 uid = 2 [ebin = true];
