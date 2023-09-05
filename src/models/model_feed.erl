@@ -127,6 +127,7 @@
     clean_ranked_feed/2,
     expire_post/1,
     unexpire_post/1,
+    get_active_uids/0,
     get_active_uids/1
 ]).
 
@@ -441,6 +442,9 @@ index_post_by_user_tags(PostId, Uid, PostTag, TimestampMs) ->
     end,
     ok.
 
+
+get_active_uids() ->
+    get_active_uids(sets:from_list([])).
 
 %% Works only for halloapp users.
 %% TODO: clean this up if it works well in production.
