@@ -157,7 +157,21 @@ update_friend_suggestions(Uid, Phone) ->
     FofriendSet = sets:from_list(model_halloapp_friends:get_random_friends(lists:sublist(sets:to_list(AllFriendSet), ?FOF_SUGGESTIONS_INITIAL_LIMIT), ?FOF_SUGGESTIONS_BATCH_LIMIT)),
     FoContactSet = sets:from_list(model_halloapp_friends:get_random_friends(lists:sublist(sets:to_list(ContactUidSet), ?FOF_SUGGESTIONS_INITIAL_LIMIT), ?FOF_SUGGESTIONS_BATCH_LIMIT)),
     FoRevContactSet = sets:from_list(model_halloapp_friends:get_random_friends(lists:sublist(sets:to_list(RevContactUidSet), ?FOF_SUGGESTIONS_INITIAL_LIMIT), ?FOF_SUGGESTIONS_BATCH_LIMIT)),
-    BroaderFriendSuggestionsUidSet = sets:union([FofriendSet, FoContactSet, FoRevContactSet]),
+    FofriendSet2 = sets:from_list(model_halloapp_friends:get_random_outgoing_friends(lists:sublist(sets:to_list(AllFriendSet), ?FOF_SUGGESTIONS_INITIAL_LIMIT), ?FOF_SUGGESTIONS_BATCH_LIMIT)),
+    FoContactSet2 = sets:from_list(model_halloapp_friends:get_random_outgoing_friends(lists:sublist(sets:to_list(ContactUidSet), ?FOF_SUGGESTIONS_INITIAL_LIMIT), ?FOF_SUGGESTIONS_BATCH_LIMIT)),
+    FoRevContactSet2 = sets:from_list(model_halloapp_friends:get_random_outgoing_friends(lists:sublist(sets:to_list(RevContactUidSet), ?FOF_SUGGESTIONS_INITIAL_LIMIT), ?FOF_SUGGESTIONS_BATCH_LIMIT)),
+    FofriendSet3 = sets:from_list(model_halloapp_friends:get_random_incoming_friends(lists:sublist(sets:to_list(AllFriendSet), ?FOF_SUGGESTIONS_INITIAL_LIMIT), ?FOF_SUGGESTIONS_BATCH_LIMIT)),
+    FoContactSet3 = sets:from_list(model_halloapp_friends:get_random_incoming_friends(lists:sublist(sets:to_list(ContactUidSet), ?FOF_SUGGESTIONS_INITIAL_LIMIT), ?FOF_SUGGESTIONS_BATCH_LIMIT)),
+    FoRevContactSet3 = sets:from_list(model_halloapp_friends:get_random_incoming_friends(lists:sublist(sets:to_list(RevContactUidSet), ?FOF_SUGGESTIONS_INITIAL_LIMIT), ?FOF_SUGGESTIONS_BATCH_LIMIT)),
+    BroaderFriendSuggestionsUidSet = sets:union([FofriendSet, FoContactSet, FoRevContactSet, FofriendSet2, FoContactSet2, FoRevContactSet2, FofriendSet3, FoContactSet3, FoRevContactSet3]),
+
+    ActiveUserSuggestionsUidSet = case sets:size(BroaderFriendSuggestionsUidSet) > 0 orelse sets:size(RevContactUidSet) > 0 of
+        true -> sets:from_list([]);
+        false ->
+            %% Fetches recent 25 active users recently.
+            %% We start off that for suggestions as of now.
+            sets:from_list(model_feed:get_active_uids())
+    end,
     Time5 = util:now_ms(),
     ?INFO("Uid: ~p, Time taken to get broader friend suggestion set: ~p", [Uid, Time5 - Time4]),
 

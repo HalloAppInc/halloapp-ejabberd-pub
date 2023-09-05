@@ -36,6 +36,8 @@
     remove_all_outgoing_friends/1,
     remove_all_incoming_friends/1,
     get_random_friends/2,
+    get_random_incoming_friends/2,
+    get_random_outgoing_friends/2,
     update_contact_suggestions/2,
     update_fof_suggestions/2,
     get_contact_suggestions/1,
@@ -215,6 +217,32 @@ get_random_friends(Uids, Limit) when is_list(Uids) ->
     Result;
 get_random_friends(Uid, Limit) ->
     get_random_friends([Uid], Limit).
+
+
+-spec get_random_incoming_friends(Uids :: [uid()] | uid(), Limit :: integer()) -> [uid()].
+get_random_incoming_friends(Uids, Limit) when is_list(Uids) ->
+    Commands = lists:map(
+        fun(Uid) ->
+            ["ZRANDMEMBER", incoming_friends_key(Uid), Limit]
+        end, Uids),
+    Res = qmn(Commands),
+    Result = lists:flatmap(fun({ok, Friends}) -> Friends end, Res),
+    Result;
+get_random_incoming_friends(Uid, Limit) ->
+    get_random_incoming_friends([Uid], Limit).
+
+
+-spec get_random_outgoing_friends(Uids :: [uid()] | uid(), Limit :: integer()) -> [uid()].
+get_random_outgoing_friends(Uids, Limit) when is_list(Uids) ->
+    Commands = lists:map(
+        fun(Uid) ->
+            ["ZRANDMEMBER", outgoing_friends_key(Uid), Limit]
+        end, Uids),
+    Res = qmn(Commands),
+    Result = lists:flatmap(fun({ok, Friends}) -> Friends end, Res),
+    Result;
+get_random_outgoing_friends(Uid, Limit) ->
+    get_random_outgoing_friends([Uid], Limit).
 
 
 -spec update_contact_suggestions(Uid :: uid(), Suggestions :: [uid()]) -> ok.

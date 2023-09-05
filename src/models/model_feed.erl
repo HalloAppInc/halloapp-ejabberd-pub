@@ -421,46 +421,37 @@ clear_past_reported_posts(Uid) ->
 %% Indexes post-id by a specific geotag if the post-tag matches public content.
 -spec index_post_by_user_tags(PostId :: binary(), Uid :: uid(), PostTag :: post_tag(), TimestampMs :: integer()) -> ok.
 index_post_by_user_tags(PostId, Uid, PostTag, TimestampMs) ->
-    try
-        %% Index public content - only moments for now.
-        %% Ignore posts for now.
-        case PostTag =:= public_moment of
-            true ->
-                %% Index onto time buckets.
-                [{ok, _}, {ok, _}] = qp([
-                    ["ZADD", time_bucket_key(TimestampMs), TimestampMs, PostId],
-                    ["EXPIRE", time_bucket_key(TimestampMs), ?KATCHUP_MOMENT_INDEX_EXPIRATION]]),
+    AppType = util_uid:get_app_type(Uid),
+    case AppType =:= halloapp of
+        true ->
+            %% Index onto time buckets.
+            [{ok, _}, {ok, _}] = qp([
+                ["ZADD", time_bucket_key(TimestampMs), TimestampMs, PostId],
+                ["EXPIRE", time_bucket_key(TimestampMs), ?POST_INDEX_EXPIRATION]]),
 
-                %% We could obtain other user info here like lang-id or cc etc and index by them as well.
-                %% Obtain geo tag and index by geotag.
-                GeoTag = model_accounts:get_latest_geo_tag(Uid),
-                [{ok, _}, {ok, _}] = qp([
-                            ["ZADD", geo_tag_time_bucket_key(GeoTag, TimestampMs), TimestampMs, PostId],
-                            ["EXPIRE", geo_tag_time_bucket_key(GeoTag, TimestampMs), ?KATCHUP_MOMENT_INDEX_EXPIRATION]]),
-
-                %% Index Uid into active user time bucket.
-                TimestampDay = floor(TimestampMs / (1 * ?DAYS_MS)),
-                UidSlot = util_redis:eredis_hash(binary_to_list(Uid)),
-                [{ok, _}, {ok, _}] = qp([
-                    ["SADD", uid_slot_time_bucket_key(UidSlot, TimestampDay), Uid],
-                    ["EXPIRE", uid_slot_time_bucket_key(UidSlot, TimestampDay), ?KATCHUP_ACTIVE_USER_EXPIRATION]]),
-
-                ok;
-            false -> ok
-        end,
-        ok
-    catch
-        _:_ ->
+            %% Index Uid into active user time bucket.
+            TimestampDay = floor(TimestampMs / (1 * ?DAYS_MS)),
+            UidSlot = util_redis:eredis_hash(binary_to_list(Uid)),
+            [{ok, _}, {ok, _}] = qp([
+                ["SADD", uid_slot_time_bucket_key(UidSlot, TimestampDay), Uid],
+                ["EXPIRE", uid_slot_time_bucket_key(UidSlot, TimestampDay), ?HALLOAPP_ACTIVE_USER_INDEX_EXPIRATION]]),
+            ok;
+        false ->
             ok
     end,
     ok.
 
+
+%% Works only for halloapp users.
+%% TODO: clean this up if it works well in production.
 get_active_uids(NegSet) ->
-    get_active_uids(sets:from_list([]), NegSet, util:now_ms()).
+    ActiveUidSet = get_active_uids(sets:from_list([]), NegSet, util:now_ms()),
+    lists:filter(fun(Uid) -> util_uid:get_app_type(Uid) =:= halloapp end, sets:to_list(ActiveUidSet)).
+
 
 get_active_uids(AccSet, NegSet, CurTimeMs) ->
-    IsEnough = sets:size(AccSet) >= ?ACTIVE_UIDS_LIMIT,
-    IsVeryOld = CurTimeMs =< (util:now_ms() - (?KATCHUP_ACTIVE_USER_EXPIRATION * ?SECONDS_MS)),
+    IsEnough = sets:size(AccSet) >= ?HALLOAPP_ACTIVE_UIDS_LIMIT,
+    IsVeryOld = CurTimeMs =< (util:now_ms() - (?HALLOAPP_ACTIVE_USER_INDEX_EXPIRATION * ?SECONDS_MS)),
     case {IsEnough, IsVeryOld} of
         {false, false} ->
             CurDay = floor(CurTimeMs / (1 * ?DAYS_MS)),
@@ -474,13 +465,13 @@ get_active_uids_day(AccSet, _NegSet, _CurDay, Slot) when Slot >= ?NUM_SLOTS ->
 get_active_uids_day(AccSet, NegSet, CurDay, Slot) ->
     {ok, List} = q(["SMEMBERS", uid_slot_time_bucket_key(Slot, CurDay)]),
     NewSet = lists:foldl(fun(Uid, AccIn) ->
-        case sets:size(AccIn) < ?ACTIVE_UIDS_LIMIT andalso 
+        case sets:size(AccIn) < ?HALLOAPP_ACTIVE_UIDS_LIMIT andalso
                 not sets:is_element(Uid, NegSet) of
             true -> sets:add_element(Uid, AccIn);
             false -> AccIn
         end
     end, AccSet, List),
-    case sets:size(NewSet) >= ?ACTIVE_UIDS_LIMIT of
+    case sets:size(NewSet) >= ?HALLOAPP_ACTIVE_UIDS_LIMIT of
         true -> NewSet;
         false -> get_active_uids_day(NewSet, NegSet, CurDay, Slot + 1)
     end.
@@ -1772,11 +1763,11 @@ time_bucket_key_hr(TimestampHr) ->
     <<?TIME_BUCKET_KEY/binary, "{", TimestampHrBin/binary, "}">>.
 
 
--spec geo_tag_time_bucket_key(GeoTag :: atom(), TimestampMs :: integer()) -> binary().
-geo_tag_time_bucket_key(GeoTag, TimestampMs) ->
-    TimestampHr = floor(TimestampMs / (1 * ?HOURS_MS)),
-    GeoTagBin = util:to_binary(GeoTag),
-    geo_tag_time_bucket_key_hr(GeoTagBin, TimestampHr).
+% -spec geo_tag_time_bucket_key(GeoTag :: atom(), TimestampMs :: integer()) -> binary().
+% geo_tag_time_bucket_key(GeoTag, TimestampMs) ->
+%     TimestampHr = floor(TimestampMs / (1 * ?HOURS_MS)),
+%     GeoTagBin = util:to_binary(GeoTag),
+%     geo_tag_time_bucket_key_hr(GeoTagBin, TimestampHr).
 
 
 -spec geo_tag_time_bucket_key_hr(GeoTag :: binary(), TimestampHr :: integer()) -> binary().

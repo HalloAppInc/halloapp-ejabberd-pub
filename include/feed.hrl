@@ -83,6 +83,10 @@
 -type moment_notification() :: #moment_notification{}.
 
 -define(POST_EXPIRATION, (31 * ?DAYS)).
+-define(POST_INDEX_EXPIRATION, (7 * ?DAYS)).
+-define(HALLOAPP_ACTIVE_USER_INDEX_EXPIRATION, (7 * ?DAYS)).
+-define(HALLOAPP_ACTIVE_UIDS_LIMIT, 25).
+
 -define(KATCHUP_MOMENT_EXPIRATION, (2 * ?DAYS)).
 -define(KATCHUP_MOMENT_EXPIRATION_MS, (2 * ?DAYS_MS)).
 -define(KATCHUP_MOMENT_EXPIRATION_HRS, 48).
