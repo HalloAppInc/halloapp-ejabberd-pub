@@ -212,7 +212,10 @@
     inc_num_comments/1,
     inc_num_seen/1,
     remove_geo_tags/1,
-    add_phone_to_uid/2
+    add_phone_to_uid/2,
+    ban/1,
+    is_banned/1,
+    get_all_banned/0
 ]).
 
 %%====================================================================
@@ -2210,6 +2213,29 @@ inc_num_comments(Uid) ->
 inc_num_seen(Uid) ->
     q(["INCR", num_seen_key(Uid)]).
 
+
+-spec ban(phone() | list(phone())) -> ok.
+ban(Phone) when not is_list(Phone) ->
+    ban([Phone]);
+ban(Phones) ->
+    UidsToDelete = model_phone:get_uids(Phones, ?HALLOAPP),
+    ok = lists:foreach(fun delete_account/1, maps:values(UidsToDelete)),
+    Command = ["SADD", banned_phones_key() | Phones],
+    {ok, _} = q(Command),
+    ok.
+
+
+-spec is_banned(phone()) -> boolean().
+is_banned(Phone) ->
+    {ok, Res} = q(["SISMEMBER", banned_phones_key(), Phone]),
+    util_redis:decode_boolean(Res).
+
+
+-spec get_all_banned() -> list(phone()).
+get_all_banned() ->
+    {ok, Phones} = q(["SMEMBERS", banned_phones_key()]),
+    Phones.
+
 %%====================================================================
 %% Internal redis functions.
 %%====================================================================
@@ -2362,4 +2388,7 @@ num_comments_key(Uid) ->
 
 num_seen_key(Uid) ->
     <<?UID_NUM_POST_SEEN_KEY/binary, "{", Uid/binary, "}">>.
+
+banned_phones_key() ->
+    ?BANNED_PHONES_KEY.
 

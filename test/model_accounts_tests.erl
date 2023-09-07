@@ -833,6 +833,18 @@ basic_user_profile_testset(_) ->
     ].
 
 
+test_ban(_) ->
+    [
+        ?_assert(model_accounts:account_exists(?UID1)),
+        ?_assertNot(model_accounts:is_banned(?PHONE1)),
+        ?_assertEqual([], model_accounts:get_all_banned()),
+        ?_assertOk(model_accounts:ban(?PHONE1)),
+        ?_assertNot(model_accounts:account_exists(?UID1)),
+        ?_assert(model_accounts:is_banned(?PHONE1)),
+        ?_assertEqual([?PHONE1], model_accounts:get_all_banned())
+    ].
+
+
 api_test_() ->
     [tutil:setup_foreach(fun setup/0, [
         fun create_account/1,
@@ -876,6 +888,9 @@ api_test_() ->
         fun zone_offset_tag_test/1,
         fun set_get_bio_test/1,
         fun set_get_links_test/1
+    ]),
+    tutil:setup_foreach(fun setup_accounts/0, [
+        fun test_ban/1
     ])].
 
 
@@ -890,6 +905,7 @@ setup_accounts() ->
     CleanupInfo = setup(),
     model_accounts:create_account(?UID1, ?PHONE1, ?USER_AGENT1, ?CAMPAIGN_ID, ?TS1),
     model_accounts:set_name(?UID1, ?NAME1),
+    model_phone:add_phone(?PHONE1, ?HALLOAPP, ?UID1),
     model_accounts:create_account(?UID2, ?PHONE2, ?USER_AGENT2, ?CAMPAIGN_ID, ?TS2),
     model_accounts:set_name(?UID2, ?NAME2),
     CleanupInfo.

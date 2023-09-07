@@ -45,7 +45,8 @@
     otp_checker_ip_blocklist,
     otp_checker_ip,
     otp_checker_phone_pattern,
-    otp_checker_ip_geo
+    otp_checker_ip_geo,
+    otp_checker_phone_ban
 ]).
 -else.
 -define(CHECKERS, [
@@ -57,7 +58,8 @@
     otp_checker_ip_blocklist,
     otp_checker_ip,
     otp_checker_phone_pattern,
-    otp_checker_ip_geo
+    otp_checker_ip_geo,
+    otp_checker_phone_ban
 ]).
 -endif.
 

@@ -32,6 +32,8 @@
 %% SortedSet of phone invited by the user: in2:{Uid} -> zset(Phone, Ts)
 -define(INVITES2_KEY, <<"in2:">>).
 -define(GEO_TAG_INDEX_KEY, <<"gti:">>).
+%% set of banned phone numbers
+-define(BANNED_PHONES_KEY, <<"ban:">>).
 
 %% Active users keys
 -define(ACTIVE_USERS_ALL_KEY_HA, <<"active_users_all:">>).
