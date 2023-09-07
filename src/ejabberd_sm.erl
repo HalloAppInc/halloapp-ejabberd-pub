@@ -709,9 +709,10 @@ route_message(#pb_msg{} = Packet) ->
             ok;
         {deny, invalid_to_uid} ->
             ?INFO("Invalid To uid: ~s packet received: ~p", [LUser, Packet]),
-            Err = util:err(invalid_to_uid),
-            ErrorPacket = pb:make_error(Packet, Err),
-            ejabberd_router:route(ErrorPacket)
+            ok
+            % Err = util:err(invalid_to_uid),
+            % ErrorPacket = pb:make_error(Packet, Err),
+            % ejabberd_router:route(ErrorPacket)
     end.
 
 
