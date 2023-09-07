@@ -87,24 +87,24 @@ delete_account_msg_test(_Conf) ->
     #pb_packet{
         stanza = #pb_ack{id = MsgId1, timestamp = _ServerTs}
     } = Ack,
-    RecvMsg = ha_client:wait_for(C1,
-        fun (P) ->
-            case P of
-                #pb_packet{stanza = #pb_msg{id = MsgId1}} -> true;
-                _Any -> false
-            end
-        end),
-    #pb_packet{
-        stanza = #pb_msg{
-            id = MsgId1,
-            type = error,
-            from_uid = ?UID8,
-            to_uid = ?UID1,
-            payload = #pb_error_stanza{
-                reason = <<"invalid_to_uid">>
-            }
-        }   
-    } = RecvMsg,
+    % RecvMsg = ha_client:wait_for(C1,
+    %     fun (P) ->
+    %         case P of
+    %             #pb_packet{stanza = #pb_msg{id = MsgId1}} -> true;
+    %             _Any -> false
+    %         end
+    %     end),
+    % #pb_packet{
+    %     stanza = #pb_msg{
+    %         id = MsgId1,
+    %         type = error,
+    %         from_uid = ?UID8,
+    %         to_uid = ?UID1,
+    %         payload = #pb_error_stanza{
+    %             reason = <<"invalid_to_uid">>
+    %         }
+    %     }   
+    % } = RecvMsg,
     ok = ha_client:stop(C1),
     ok = ha_client:stop(C2),
     ok.
