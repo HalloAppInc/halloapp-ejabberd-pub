@@ -208,10 +208,13 @@ count_sync_contacts(Uid, Sid) ->
 
 -spec get_contact_uids(Contact :: binary() | [binary()], AppType :: app_type()) -> {ok, [binary()] | map()} | {error, any()}.
 get_contact_uids(Contacts, AppType) when is_list(Contacts) ->
-    Commands = lists:map(
-        fun (Contact) ->
-            ["SMEMBERS", reverse_key(Contact, AppType)]
+    Commands = lists:foldr(
+        fun (undefined, TempCommands) ->
+                TempCommands;
+            (Contact, TempCommands) ->
+                [["SMEMBERS", reverse_key(Contact, AppType)] | TempCommands]
         end,
+        [],
         Contacts),
     Res = qmn(Commands),
     Result = lists:foldl(
