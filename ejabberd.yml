@@ -236,6 +236,7 @@ modules:
   mod_moment_notif_monitor: {}
   mod_image_ai: {}
   mod_halloapp_friends: {}
+  mod_friend_suggestions: {}
   mod_albums: {}
   mod_geocoding: {}
 
