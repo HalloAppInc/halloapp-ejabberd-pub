@@ -223,6 +223,8 @@ get_contact_uids(Contacts, AppType) when is_list(Contacts) ->
         end, #{}, lists:zip(Contacts, Res)),
     {ok, Result};
 
+get_contact_uids(undefined, AppType) ->
+    {ok, []};
 get_contact_uids(Contact, AppType) ->
     {ok, Res} = q(["SMEMBERS", reverse_key(Contact, AppType)]),
     {ok, Res}.
