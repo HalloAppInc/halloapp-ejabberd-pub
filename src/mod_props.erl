@@ -161,6 +161,7 @@ get_props(Uid, ClientVersion, halloapp) ->
     PropMap1 = #{
         dev => false, %% whether the client is dev or not.
         contact_sync_frequency => 1 * ?DAYS, %% how often should clients sync all contacts.
+        relationship_sync_frequency => 1 * ?DAYS, %% how often should clients sync all relationships.
         max_group_size => ?MAX_GROUP_SIZE, %% max limit on the group size.
         max_post_media_items => 10, %% max number of media_items client can post.
         max_chat_media_items => 30, %% max number of media_items client can share in a chat message.
