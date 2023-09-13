@@ -214,6 +214,7 @@
     remove_geo_tags/1,
     add_phone_to_uid/2,
     ban/1,
+    unban/1,
     is_banned/1,
     get_all_banned/0
 ]).
@@ -2221,6 +2222,15 @@ ban(Phones) ->
     UidsToDelete = model_phone:get_uids(Phones, ?HALLOAPP),
     ok = lists:foreach(fun delete_account/1, maps:values(UidsToDelete)),
     Command = ["SADD", banned_phones_key() | Phones],
+    {ok, _} = q(Command),
+    ok.
+
+
+-spec unban(phone() | list(phone())) -> ok.
+unban(Phone) when not is_list(Phone) ->
+    unban([Phone]);
+unban(Phones) ->
+    Command = ["SREM", banned_phones_key() | Phones],
     {ok, _} = q(Command),
     ok.
 

@@ -841,7 +841,10 @@ test_ban(_) ->
         ?_assertOk(model_accounts:ban(?PHONE1)),
         ?_assertNot(model_accounts:account_exists(?UID1)),
         ?_assert(model_accounts:is_banned(?PHONE1)),
-        ?_assertEqual([?PHONE1], model_accounts:get_all_banned())
+        ?_assertEqual([?PHONE1], model_accounts:get_all_banned()),
+        ?_assertOk(model_accounts:unban(?PHONE1)),
+        ?_assertNot(model_accounts:is_banned(?PHONE1)),
+        ?_assertEqual([], model_accounts:get_all_banned())
     ].
 
 
