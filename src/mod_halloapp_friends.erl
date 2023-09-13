@@ -306,12 +306,12 @@ notify_profile_update(Uid, Ouid)  ->
 notify_profile_update(_Uid, [], _) -> ok;
 notify_profile_update(Uid, Ouids, UpdateType) when is_list(Ouids) ->
     %% Notify Ouids about a change to Uid's profile
-    Profiles = model_accounts:get_halloapp_user_profiles(Ouids, Uid),
     lists:foreach(
-        fun({Ouid, Profile}) ->
+        fun(Ouid) ->
+            Profile = model_accounts:get_halloapp_user_profiles(Ouid, Uid),
             send_msg(Uid, Ouid, #pb_halloapp_profile_update{type = UpdateType, profile = Profile})
         end,
-        lists:zip(Ouids, Profiles));
+        Ouids);
 
 notify_profile_update(Uid, Ouid, UpdateType) ->
     %% Notify Ouid about a change to Uid's profile

@@ -604,9 +604,13 @@ calculate_friend_suggestions(Key, State) ->
     %% Matches only for halloapp uids.
     case Result of
         {match, [[_FullKey, Uid]]} ->
-            ?INFO("Uid: ~p update_friend_suggestions", [Uid]),
-            mod_friend_suggestions:update_friend_suggestions(Uid),
-            ok;
+            case model_accounts:account_exists(Uid) of
+                true ->
+                    ?INFO("Uid: ~p update_friend_suggestions", [Uid]),
+                    mod_friend_suggestions:update_friend_suggestions(Uid);
+                false ->
+                    ok
+            end;
         _ -> ok
     end,
     State.
