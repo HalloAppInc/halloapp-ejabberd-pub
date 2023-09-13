@@ -131,18 +131,23 @@ put_metrics(Metrics, TimestampMs, MachineName) ->
     send_metrics(Metrics, TimestampMs, MachineName).
 
 
+%% TODO: remove when re-enabling this function
+-dialyzer({nowarn_function, compose_body/3}).
+-dialyzer({nowarn_function, convert_metric_to_map/3}).
+-dialyzer({nowarn_function, compose_tags/2}).
 -spec send_metrics(MetricsList :: [], TimestampMs :: integer(), MachineName :: binary())
             -> ok | {error, any()}.
 send_metrics([], _TimestampMs, _MachineName) ->
     ok;
 send_metrics(MetricsList, TimestampMs, MachineName) ->
-    try
-        send_request(compose_body(MetricsList, TimestampMs, MachineName))
-    catch
-        Class : Reason : Stacktrace ->
-            ?ERROR("Error:~s", [lager:pr_stacktrace(Stacktrace, {Class, Reason})]),
-            {error, Reason}
-    end.
+    ok.
+%%    try
+%%        send_request(compose_body(MetricsList, TimestampMs, MachineName))
+%%    catch
+%%        Class : Reason : Stacktrace ->
+%%            ?ERROR("Error:~s", [lager:pr_stacktrace(Stacktrace, {Class, Reason})]),
+%%            {error, Reason}
+%%    end.
 
 -spec put(DataPoints :: list(datapoint())) -> ok | {error, any()}.
 put([]) ->
