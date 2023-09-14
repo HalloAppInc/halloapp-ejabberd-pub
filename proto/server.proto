@@ -2329,6 +2329,7 @@ message HalloappProfileUpdate {
         NORMAL = 0; // Profile information update
         FRIEND_NOTICE = 1; // When the uid accepts my friend request.
         INCOMING_FRIEND_REQUEST = 2; // When the uid sends me a friend request.
+        DELETE_NOTICE = 3; // When the uid deletes their account
     }
     Type type = 1;
     HalloappUserProfile profile = 2;

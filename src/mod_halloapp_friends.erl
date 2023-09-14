@@ -324,7 +324,7 @@ notify_profile_update(Uid, Ouid, UpdateType) ->
 
 notify_account_deleted(Uid, Ouid) ->
     %% Notify Ouid that Uid's account no longer exists
-    ProfileUpdate = #pb_halloapp_profile_update{type = delete, profile = #pb_halloapp_user_profile{uid = Uid}},
+    ProfileUpdate = #pb_halloapp_profile_update{type = delete_notice, profile = #pb_halloapp_user_profile{uid = Uid}},
     send_msg(Uid, Ouid, ProfileUpdate).
 
 
