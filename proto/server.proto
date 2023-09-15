@@ -2373,6 +2373,7 @@ message FriendListRequest {
     GET_INCOMING_PENDING = 1;  // Fetch all incoming pending friend requests to the user.
     GET_OUTGOING_PENDING = 2;  // Fetch all outgoing friend requests from the user.
     GET_SUGGESTIONS = 3;       // Fetch all friend suggestions from the user.
+    GET_BLOCKED = 4;           // Fetch blocked users of this user.
   }
   Action action = 1;
   string cursor = 2;

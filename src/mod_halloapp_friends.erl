@@ -98,6 +98,15 @@ process_local_iq(#pb_iq{from_uid = Uid, type = get,
     NewCursor = <<>>, %% no cursor for now.
     pb:make_iq_result(IQ, #pb_friend_list_response{cursor = NewCursor, friend_profiles = SuggestedFriendProfiles});
 
+%% get FriendList (action = get_blocked)
+process_local_iq(#pb_iq{from_uid = Uid, type = get,
+        payload = #pb_friend_list_request{action = get_blocked, cursor = Cursor}} = IQ) ->
+    ?INFO("~s get_blocked", [Uid]),
+    BlockedUids = model_halloapp_friends:get_blocked_uids(Uid),
+    HalloappUserProfiles = model_accounts:get_halloapp_user_profiles(Uid, BlockedUids),
+    FriendProfiles = [#pb_friend_profile{user_profile = UserProfile} || UserProfile <- HalloappUserProfiles],
+    pb:make_iq_result(IQ, #pb_friend_list_response{friend_profiles = FriendProfiles});
+
 %% set FriendList (action = reject)
 process_local_iq(#pb_iq{from_uid = Uid, type = set,
         payload = #pb_friendship_request{action = reject_suggestion, uid = Ouid}} = IQ) ->
