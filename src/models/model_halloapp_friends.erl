@@ -23,6 +23,8 @@
     accept_friend_request/2,
     is_friend/2,
     is_friend_pending/2,
+    is_incoming_friend/2,
+    is_outgoing_friend/2,
     get_friends/3,
     get_outgoing_friends/3,
     get_incoming_friends/3,
@@ -96,6 +98,18 @@ is_friend_pending(Uid, Ouid) ->
         ["ZSCORE", outgoing_friends_key(Uid), Ouid],
         ["ZSCORE", incoming_friends_key(Uid), Ouid]]),
     util_redis:decode_int(Res1) =/= undefined orelse util_redis:decode_int(Res2) =/= undefined.
+
+
+-spec is_incoming_friend(Uid :: uid(), Ouid :: uid()) -> true | false.
+is_incoming_friend(Uid, Ouid) ->
+    {ok, Res1} = q(["ZSCORE", incoming_friends_key(Uid), Ouid]),
+    util_redis:decode_int(Res1) =/= undefined.
+
+
+-spec is_outgoing_friend(Uid :: uid(), Ouid :: uid()) -> true | false.
+is_outgoing_friend(Uid, Ouid) ->
+    {ok, Res1} = q(["ZSCORE", outgoing_friends_key(Uid), Ouid]),
+    util_redis:decode_int(Res1) =/= undefined.
 
 
 -spec get_friends(Uid :: uid(), Cursor :: binary(), Limit :: pos_integer()) ->

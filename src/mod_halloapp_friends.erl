@@ -118,7 +118,7 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
 %% set FriendshipRequest (action = add_friend)
 process_local_iq(#pb_iq{from_uid = Uid, type = set,
         payload = #pb_friendship_request{action = add_friend, uid = Ouid}} = IQ) ->
-    case model_halloapp_friends:is_friend_pending(Uid, Ouid) of
+    case model_halloapp_friends:is_incoming_friend(Uid, Ouid) of
         false ->
             ?INFO("~s add_friend ~s", [Uid, Ouid]),
             ok = model_halloapp_friends:add_friend_request(Uid, Ouid);
@@ -136,7 +136,7 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
 %% set FriendshipRequest (action = accept_friend)
 process_local_iq(#pb_iq{from_uid = Uid, type = set,
         payload = #pb_friendship_request{action = accept_friend, uid = Ouid}} = IQ) ->
-    case model_halloapp_friends:is_friend_pending(Uid, Ouid) of
+    case model_halloapp_friends:is_incoming_friend(Uid, Ouid) of
         false ->
             ?INFO("~s add_friend ~s", [Uid, Ouid]),
             ok = model_halloapp_friends:add_friend_request(Uid, Ouid);
