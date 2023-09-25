@@ -2374,6 +2374,7 @@ message FriendListRequest {
     GET_OUTGOING_PENDING = 2;  // Fetch all outgoing friend requests from the user.
     GET_SUGGESTIONS = 3;       // Fetch all friend suggestions from the user.
     GET_BLOCKED = 4;           // Fetch blocked users of this user.
+    SYNC_ALL = 5;             // Set by server_only. Clients should sync all their lists with the server.
   }
   Action action = 1;
   string cursor = 2;
