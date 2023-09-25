@@ -1257,6 +1257,7 @@ message Msg {
         AiImage ai_image = 56;
         HalloappProfileUpdate halloapp_profile_update = 57;
         Album album = 58;
+        FriendListRequest friend_list_request = 59;
     }
     int32 retry_count = 21;
     int32 rerequest_count = 25;
