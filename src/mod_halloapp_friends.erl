@@ -121,15 +121,15 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
     case model_halloapp_friends:is_incoming_friend(Uid, Ouid) of
         false ->
             ?INFO("~s add_friend ~s", [Uid, Ouid]),
-            ok = model_halloapp_friends:add_friend_request(Uid, Ouid);
+            ok = model_halloapp_friends:add_friend_request(Uid, Ouid),
+            notify_profile_update(Uid, Ouid, incoming_friend_request);
         true ->
             ?INFO("~s accept_friend ~s", [Uid, Ouid]),
             ok = model_halloapp_friends:accept_friend_request(Uid, Ouid),
-            add_friend_hook(Uid, Ouid)
+            add_friend_hook(Uid, Ouid),
+            notify_profile_update(Uid, Ouid, friend_notice)
     end,
     FriendProfile = model_accounts:get_halloapp_user_profiles(Uid, Ouid),
-    notify_profile_update(Uid, Ouid),
-    ?INFO("~s add_friend ~s", [Uid, Ouid]),
     pb:make_iq_result(IQ, #pb_friendship_response{result = ok, profile = FriendProfile});
 
 
@@ -139,14 +139,15 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
     case model_halloapp_friends:is_incoming_friend(Uid, Ouid) of
         false ->
             ?INFO("~s add_friend ~s", [Uid, Ouid]),
-            ok = model_halloapp_friends:add_friend_request(Uid, Ouid);
+            ok = model_halloapp_friends:add_friend_request(Uid, Ouid),
+            notify_profile_update(Uid, Ouid, incoming_friend_request);
         true ->
             ?INFO("~s accept_friend ~s", [Uid, Ouid]),
             ok = model_halloapp_friends:accept_friend_request(Uid, Ouid),
-            add_friend_hook(Uid, Ouid)
+            add_friend_hook(Uid, Ouid),
+            notify_profile_update(Uid, Ouid, friend_notice)
     end,
     FriendProfile = model_accounts:get_halloapp_user_profiles(Uid, Ouid),
-    notify_profile_update(Uid, Ouid),
     pb:make_iq_result(IQ, #pb_friendship_response{result = ok, profile = FriendProfile});
 
 
