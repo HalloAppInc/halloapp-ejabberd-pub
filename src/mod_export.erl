@@ -328,6 +328,9 @@ get_privacy_lists(Uid, halloapp) ->
 
     {ok, PrivacyType} = model_privacy:get_privacy_type(Uid),
 
+    BlockedList2 = model_halloapp_friends:get_blocked_uids(Uid),
+    FriendUids = model_halloapp_friends:get_all_friends(Uid),
+
     #{
         active_type => PrivacyType,
         only_list => format_privacy_list(OnlyList),
@@ -337,7 +340,9 @@ get_privacy_lists(Uid, halloapp) ->
         only_phones_list => format_privacy_list2(OnlyPhonesList),
         except_phones_list => format_privacy_list2(ExceptPhonesList),
         blocked_phones_list => format_privacy_list2(BlockedPhonesList),
-        mute_phones_list => format_privacy_list2(MutePhonesList)
+        mute_phones_list => format_privacy_list2(MutePhonesList),
+        blocked_uids_list => format_privacy_list(BlockedList2),
+        friend_list => format_privacy_list(FriendUids)
     };
 
 get_privacy_lists(Uid, katchup) ->

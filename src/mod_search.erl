@@ -76,13 +76,13 @@ search_username_prefix(Prefix, Uid) ->
     LowercasedPrefix = string:lowercase(Prefix),
     {ok, Usernames} = model_accounts:search_username_prefix(LowercasedPrefix, 20),
     Ouids = maps:values(model_accounts:get_username_uids(Usernames)),
-    %% Filter out uids based off app type.
-    FilteredOuids = lists:filter(
-        fun(Ouid) ->
-            not (Uid =:= Ouid orelse model_follow:is_blocked_any(Uid, Ouid) orelse util_uid:get_app_type(Ouid) =/= AppType)
-        end, Ouids),
     case AppType of
         katchup ->
+            %% Filter out uids based off app type.
+            FilteredOuids = lists:filter(
+                fun(Ouid) ->
+                    not (Uid =:= Ouid orelse model_follow:is_blocked_any(Uid, Ouid) orelse util_uid:get_app_type(Ouid) =/= AppType)
+                end, Ouids),
             BasicProfiles = model_accounts:get_basic_user_profiles(Uid, FilteredOuids),
             %% Filter out profiles that don't have name or username set
             lists:filter(
@@ -93,6 +93,11 @@ search_username_prefix(Prefix, Uid) ->
                 end,
                 BasicProfiles);
         halloapp ->
+            %% Filter out uids based off app type.
+            FilteredOuids = lists:filter(
+                fun(Ouid) ->
+                    not (Uid =:= Ouid orelse model_halloapp_friends:is_blocked_any2(Uid, Ouid) orelse util_uid:get_app_type(Ouid) =/= AppType)
+                end, Ouids),
             HalloappProfiles = model_accounts:get_halloapp_user_profiles(Uid, FilteredOuids),
             %% Filter out profiles that don't have name or username set
             lists:filter(

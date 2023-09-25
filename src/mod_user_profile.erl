@@ -246,7 +246,7 @@ compose_user_profile_result(Uid, Ouid) ->
 
 
 process_halloapp_profile_request(Uid, Ouid, Iq) ->
-    Ret = case model_accounts:account_exists(Ouid) andalso not model_halloapp_friends:is_blocked_any(Uid, Ouid) of
+    Ret = case model_accounts:account_exists(Ouid) andalso not model_halloapp_friends:is_blocked_any2(Uid, Ouid) of
         true ->
             HalloappUserProfile = model_accounts:get_halloapp_user_profiles(Uid, Ouid),
             #pb_halloapp_profile_result{

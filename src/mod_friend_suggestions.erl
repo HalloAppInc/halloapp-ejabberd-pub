@@ -176,8 +176,8 @@ update_friend_suggestions(Uid, Phone) ->
     ?INFO("Uid: ~p, Time taken to get broader friend suggestion set: ~p", [Uid, Time5 - Time4]),
 
     %% BlockedUser set
-    BlockedUidSet = sets:from_list(model_follow:get_blocked_uids(Uid)),
-    BlockedByUidSet = sets:from_list(model_follow:get_blocked_by_uids(Uid)),
+    BlockedUidSet = sets:from_list(model_halloapp_friends:get_blocked_uids2(Uid)),
+    BlockedByUidSet = sets:from_list(model_halloapp_friends:get_blocked_by_uids2(Uid)),
     Time6 = util:now_ms(),
     ?INFO("Uid: ~p, Time taken to get blocked uid set: ~p", [Uid, Time6 - Time5]),
 
@@ -260,8 +260,8 @@ fetch_friend_suggestions(Uid) ->
 %% Send in the remaining suggested profiles in ranked order.
 filter_and_convert_to_suggestions(Uid, Suggestions, Reason, StartingRank) ->
     FriendSet = sets:from_list([Uid | model_halloapp_friends:get_all_friends(Uid)]),
-    BlockedUidSet = sets:from_list(model_halloapp_friends:get_blocked_uids(Uid)),
-    BlockedByUidSet = sets:from_list(model_halloapp_friends:get_blocked_by_uids(Uid)),
+    BlockedUidSet = sets:from_list(model_halloapp_friends:get_blocked_uids2(Uid)),
+    BlockedByUidSet = sets:from_list(model_halloapp_friends:get_blocked_by_uids2(Uid)),
     IncomingFriendSet = sets:from_list(model_halloapp_friends:get_all_incoming_friends(Uid)),
     OutgoingFriendSet = sets:from_list(model_halloapp_friends:get_all_outgoing_friends(Uid)),
     {ok, RejectedUids} = model_accounts:get_all_rejected_suggestions(Uid),

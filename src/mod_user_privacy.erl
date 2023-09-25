@@ -289,8 +289,8 @@ check_blocked(FromUid, ToUid, Packet, Dir) ->
     PayloadType = pb:get_payload_type(Packet),
     IsBlocked = case Dir of
         %% Use updated functions here to check both old and new keys.
-        in -> model_privacy:is_blocked2(ToUid, FromUid);
-        out -> model_privacy:is_blocked2(FromUid, ToUid)
+        in -> model_halloapp_friends:is_blocked2(ToUid, FromUid);
+        out -> model_halloapp_friends:is_blocked2(FromUid, ToUid)
     end,
     case IsBlocked of
         true ->

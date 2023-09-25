@@ -1612,7 +1612,7 @@ get_feed_audience_set(Action, Uid, AudienceList) ->
             sets:add_element(Uid, FinalAudienceSet);
         %% HalloApp
         halloapp ->
-            {ok, BlockedUids} = model_privacy:get_blocked_uids2(Uid),
+            BlockedUids = model_halloapp_friends:get_blocked_uids2(Uid),
             AllFriendSet = case model_accounts:get_username_binary(Uid) of
                 <<>> ->
                     %% halloapp user has not migrated yet.

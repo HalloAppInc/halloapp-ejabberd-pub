@@ -272,6 +272,12 @@ username_updated(Uid, _Username, true) ->
             lists:foreach(
                 fun(Ouid) -> model_halloapp_friends:accept_friend_request(Uid, Ouid) end,
                 FriendUids),
+
+            %% We will also carry over their existing block relationships
+            {ok, BlockedUids} = model_privacy:get_blocked_uids2(Uid),
+            lists:foreach(
+                fun(Ouid) -> model_halloapp_friends:block(Uid, Ouid) end,
+                BlockedUids),
             ok;
         _ ->
             ok

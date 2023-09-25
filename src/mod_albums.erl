@@ -418,6 +418,8 @@ batch_send(FromUid, ToUid, AllMediaItems, PbAlbum) ->
 -spec filter_album(uid(), pb_album()) -> pb_album().
 filter_album(_Uid, #pb_album{members = [], media_items = []} = PbAlbum) -> PbAlbum;
 filter_album(Uid, #pb_album{members = Members, media_items = MediaItems} = PbAlbum) ->
+    %% we use the latest api on model_halloapp_friends here.
+    %% the reason is this module will work only on apps after user migrated to have their username.
     BlockedUidsSet = sets:from_list(model_halloapp_friends:get_blocked_uids(Uid) ++ model_halloapp_friends:get_blocked_by_uids(Uid)),
     FilteredMembers = lists:filter(fun(#pb_album_member{uid = MUid}) -> not sets:is_element(MUid, BlockedUidsSet) end, Members),
     FilteredMediaItems = lists:filter(fun(#pb_media_item{publisher_uid = MUid}) -> not sets:is_element(MUid, BlockedUidsSet) end, MediaItems),
@@ -434,6 +436,8 @@ parse_member_actions(AlbumId, Uid, PbMembers) ->
     end,
     UserIsAtLeastAdmin = is_role_at_least(UserCurrentRole, admin),
     OwnerUid = model_albums:get_owner(AlbumId),
+    %% we use the latest api on model_halloapp_friends here.
+    %% the reason is this module will work only on apps after user migrated to have their username.
     BlockedSet = sets:from_list(lists:append([
         model_halloapp_friends:get_blocked_uids(OwnerUid),
         model_halloapp_friends:get_blocked_by_uids(OwnerUid),

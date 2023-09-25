@@ -93,7 +93,7 @@ process_get_call_servers(IQ, Uid, PeerUid, CallId, CallType) ->
 process_start_call(IQ, Uid, PeerUid, CallId, CallType, Offer, RerequestCount, Caps) ->
     ?INFO("Uid: ~s PeerUid: ~s CallId: ~s ~s RerequestCount: ~p Caps: ~p",
         [Uid, PeerUid, CallId, CallType, RerequestCount, Caps]),
-    case model_privacy:is_blocked(Uid, PeerUid) of
+    case model_halloapp_friends:is_blocked2(Uid, PeerUid) of
         true ->
             ?INFO("Uid: ~s PeerUid: ~s CallId: ~s blocked", [Uid, PeerUid, CallId]),
             pb:make_error(IQ, util:err(user_blocked));

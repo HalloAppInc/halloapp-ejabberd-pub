@@ -47,10 +47,15 @@
     block/2,
     unblock/2,
     is_blocked/2,
+    is_blocked2/2,
     is_blocked_by/2,
+    is_blocked_by2/2,
     is_blocked_any/2,
+    is_blocked_any2/2,
     get_blocked_uids/1,
+    get_blocked_uids2/1,
     get_blocked_by_uids/1,
+    get_blocked_by_uids2/1,
     remove_all_blocked_uids/1,
     remove_all_blocked_by_uids/1,
     blocked_key/1
@@ -323,12 +328,34 @@ is_blocked(Uid, Ouid) ->
     {ok, Res} = q(["SISMEMBER", blocked_key(Uid), Ouid]),
     util_redis:decode_boolean(Res).
 
+%% Checks if Uid migrated to newer version if they have username and uses updated blocked list.
+-spec is_blocked2(Uid :: uid(), Ouid :: uid()) -> boolean().
+is_blocked2(Uid, Ouid) ->
+    %% temporary until users move to the new app
+    case model_accounts:get_username_binary(Uid) of
+        <<>> -> model_privacy:is_blocked2(Uid, Ouid);
+        _ ->
+            model_halloapp_friends:is_blocked(Uid, Ouid)
+    end.
+
+
 
 %% Uid is blocked by Ouid ?
 -spec is_blocked_by(Uid :: uid(), Ouid :: uid()) -> boolean().
 is_blocked_by(Uid, Ouid) ->
     {ok, Res} = q(["SISMEMBER", blocked_by_key(Uid), Ouid]),
     util_redis:decode_boolean(Res).
+
+
+%% Checks if Uid migrated to newer version if they have username and uses updated blocked list.
+-spec is_blocked_by2(Uid :: uid(), Ouid :: uid()) -> boolean().
+is_blocked_by2(Uid, Ouid) ->
+    %% temporary until users move to the new app
+    case model_accounts:get_username_binary(Uid) of
+        <<>> -> model_privacy:is_blocked_by2(Uid, Ouid);
+        _ ->
+            model_halloapp_friends:is_blocked_by(Uid, Ouid)
+    end.
 
 
 %% Uid blocked Ouid  or  Ouid blocked Uid
@@ -341,6 +368,17 @@ is_blocked_any(Uid, Ouid) ->
     util_redis:decode_boolean(Res1) orelse util_redis:decode_boolean(Res2).
 
 
+%% Checks if Uid migrated to newer version if they have username and uses updated blocked list.
+-spec is_blocked_any2(Uid :: uid(), Ouid :: uid()) -> boolean().
+is_blocked_any2(Uid, Ouid) ->
+    %% temporary until users move to the new app
+    case model_accounts:get_username_binary(Uid) of
+        <<>> -> model_privacy:is_blocked_any2(Uid, Ouid);
+        _ ->
+            model_halloapp_friends:is_blocked_any(Uid, Ouid)
+    end.
+
+
 %% Get list of uids that Uid has blocked
 -spec get_blocked_uids(Uid :: uid()) -> list(uid()) | {error, any()}.
 get_blocked_uids(Uid) ->
@@ -348,11 +386,37 @@ get_blocked_uids(Uid) ->
     Res.
 
 
+%% Checks if Uid migrated to newer version if they have username and uses updated blocked list.
+-spec get_blocked_uids2(Uid :: uid()) ->list(uid()) | {error, any()}.
+get_blocked_uids2(Uid) ->
+    %% temporary until users move to the new app
+    case model_accounts:get_username_binary(Uid) of
+        <<>> ->
+            {ok, BlockedUids} = model_privacy:get_blocked_uids2(Uid),
+            BlockedUids;
+        _ ->
+            model_halloapp_friends:get_blocked_uids(Uid)
+    end.
+
+
 %% Get list of uids that have blocked Uid
 -spec get_blocked_by_uids(Uid :: uid()) -> list(uid()) | {error, any()}.
 get_blocked_by_uids(Uid) ->
     {ok, Res} = q(["SMEMBERS", blocked_by_key(Uid)]),
     Res.
+
+
+%% Checks if Uid migrated to newer version if they have username and uses updated blocked list.
+-spec get_blocked_by_uids2(Uid :: uid()) ->list(uid()) | {error, any()}.
+get_blocked_by_uids2(Uid) ->
+    %% temporary until users move to the new app
+    case model_accounts:get_username_binary(Uid) of
+        <<>> ->
+            {ok, BlockedUids} = model_privacy:get_blocked_by_uids2(Uid),
+            BlockedUids;
+        _ ->
+            model_halloapp_friends:get_blocked_by_uids(Uid)
+    end.
 
 
 -spec remove_all_blocked_uids(Uid :: uid()) -> ok.
