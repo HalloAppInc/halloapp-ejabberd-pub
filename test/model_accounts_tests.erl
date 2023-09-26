@@ -642,6 +642,7 @@ username_test(_) ->
     ?_assertNot(model_accounts:is_username_available(?USERNAME2)),
     ?_assert(model_accounts:set_username(?UID1, ?USERNAME1)),
     ?_assert(model_accounts:set_username(?UID2, ?USERNAME2)),
+    ?_assertEqual(#{?UID1 => ?USERNAME1, ?UID2 => ?USERNAME2}, model_accounts:get_usernames([?UID1, ?UID2])),
     ?_assertEqual({ok, [?USERNAME2, ?USERNAME1]}, model_accounts:search_username_prefix(?USERNAMEPFIX1, 10)),
     ?_assertEqual({ok, [?USERNAME2, ?USERNAME1]}, model_accounts:search_username_prefix(?USERNAMEPFIX2, 10)),
     ?_assertEqual({ok, [?USERNAME1]}, model_accounts:search_username_prefix(?USERNAMEPFIX3, 10)),

@@ -838,13 +838,13 @@ uid_info(Uid, Options) ->
 uid_info_halloapp(Uid, Options) ->
     {ok, #account{phone = Phone, name = Name, signup_user_agent = UserAgent,
         creation_ts_ms = CreationTs, last_activity_ts_ms = LastActivityTs,
-        activity_status = ActivityStatus} = Account} = model_accounts:get_account(Uid),
+        activity_status = ActivityStatus, username = Username} = Account} = model_accounts:get_account(Uid),
     LastConnectionTime = model_accounts:get_last_connection_time(Uid),
     {CreationDate, CreationTime} = util:ms_to_datetime_string(CreationTs),
     {LastActiveDate, LastActiveTime} = util:ms_to_datetime_string(LastActivityTs),
     {LastConnDate, LastConnTime} = util:ms_to_datetime_string(LastConnectionTime),
     ?INFO("Uid: ~s, Name: ~s, Phone: ~s~n", [Uid, Name, Phone]),
-    io:format("Uid: ~s~nName: ~s~nPhone: ~s~n", [Uid, Name, Phone]),
+    io:format("Uid: ~s~nUsername: ~s~nName: ~s~nPhone: ~s~n", [Uid, Username, Name, Phone]),
     io:format("Account created on ~s at ~s ua: ~s~n",
         [CreationDate, CreationTime, UserAgent]),
     io:format("Last activity on ~s at ~s and current status is ~s~n",
@@ -860,35 +860,68 @@ uid_info_halloapp(Uid, Options) ->
     case lists:member(short, Options) of
         true -> ok;
         false ->
-            {ok, ContactList, NumFriends} = format_contact_list(Uid),
-            ContactList2 = case lists:member(show_all_contacts, Options) of
-                true -> ContactList;
-                false -> lists:filter(fun({_, _, AUid, _, _, _, _}) -> AUid =/= "" andalso AUid =/= Uid end, ContactList)
+            case Username of
+                <<>> -> uid_info_halloapp_friends_model(Uid, Options);
+                _ -> uid_info_halloapp_contacts_model(Uid, Options)
             end,
-            io:format("Contact list (~p, ~p are friends):~n",
-                [length(ContactList2), NumFriends]),
-            [io:format("  ~s ~w ~s ~p ~s ~s ~s ~n",
-                [CorF, CPhone, FUid, FNumFriends, FCDate, FLADate, FName]) ||
-                {CorF, CPhone, FUid, FName, FNumFriends, FCDate, FLADate} <- ContactList2],
+            uid_info_halloapp_group_info(Uid, Options)
+    end.
 
-            Gids = model_groups:get_groups(Uid),
-            GidMaxSize = case Gids of
-                [] -> 0;
-                _ -> lists:max(maps:values(model_groups:get_group_size(Gids)))
+uid_info_halloapp_friends_model(Uid, _Options) ->
+    Friends = model_halloapp_friends:get_all_friends(Uid),
+    Incoming = model_halloapp_friends:get_all_incoming_friends(Uid),
+    Outgoing = model_halloapp_friends:get_all_outgoing_friends(Uid),
+    Blocked = model_halloapp_friends:get_blocked_uids2(Uid),
+    BlockedBy = model_halloapp_friends:get_blocked_by_uids2(Uid),
+    UsernameMap = model_accounts:get_usernames(lists:append([Friends, Incoming, Outgoing, Blocked, BlockedBy])),
+    io:format("Relationships (~B friends [F], ~B incoming [I], ~B outgoing [O], ~B blocked [B], ~B blocked by [BB], ~B 2-way blocked [DB]):~n",
+        [length(Friends), length(Incoming), length(Outgoing), length(Blocked), length(BlockedBy), length([B || B <- Blocked, lists:member(B, BlockedBy)])]),
+    maps:foreach(
+        fun(OUid, Username) ->
+            RelationshipSymbol = case model_halloapp_friends:get_friend_status(Uid, OUid) of
+                friends -> "F";
+                incoming_pending -> "I";
+                outgoing_pending -> "O";
+                none_status ->
+                    case {lists:member(OUid, Blocked), lists:member(OUid, BlockedBy)} of
+                        {true, false} -> "B";
+                        {false, true} -> "BB";
+                        {true, true} -> "DB"
+                    end
             end,
-            io:format("Group list (~p, max membership: ~p):~n", [length(Gids), GidMaxSize]),
-            lists:foreach(
-                fun(Gid) ->
-                    {GName, GSize} = case (model_groups:get_group_info(Gid)) of
-                        #group_info{} = G -> {G#group_info.name, model_groups:get_group_size(Gid)};
-                        _  -> {undefined, undefined}
-                        end,
-                    io:format("   ~s ~p (~s)~n", [GName, GSize, Gid])
-                end,
-                Gids)
+            Name = model_accounts:get_name_binary(OUid),
+            io:format("  ~-2s ~s ~s ~s~n", [RelationshipSymbol, Name, Uid, Username])
+        end,
+        UsernameMap).
+
+uid_info_halloapp_contacts_model(Uid, Options) ->
+    {ok, ContactList, NumFriends} = format_contact_list(Uid),
+    ContactList2 = case lists:member(show_all_contacts, Options) of
+        true -> ContactList;
+        false -> lists:filter(fun({_, _, AUid, _, _, _, _}) -> AUid =/= "" andalso AUid =/= Uid end, ContactList)
     end,
-    ok.
+    io:format("Contact list (~p, ~p are friends):~n",
+        [length(ContactList2), NumFriends]),
+    [io:format("  ~s ~w ~s ~p ~s ~s ~s ~n",
+        [CorF, CPhone, FUid, FNumFriends, FCDate, FLADate, FName]) ||
+        {CorF, CPhone, FUid, FName, FNumFriends, FCDate, FLADate} <- ContactList2].
 
+uid_info_halloapp_group_info(Uid, _Options) ->
+    Gids = model_groups:get_groups(Uid),
+    GidMaxSize = case Gids of
+                     [] -> 0;
+                     _ -> lists:max(maps:values(model_groups:get_group_size(Gids)))
+                 end,
+    io:format("Group list (~p, max membership: ~p):~n", [length(Gids), GidMaxSize]),
+    lists:foreach(
+        fun(Gid) ->
+            {GName, GSize} = case (model_groups:get_group_info(Gid)) of
+                                 #group_info{} = G -> {G#group_info.name, model_groups:get_group_size(Gid)};
+                                 _  -> {undefined, undefined}
+                             end,
+            io:format("   ~s ~p (~s)~n", [GName, GSize, Gid])
+        end,
+        Gids).
 
 uid_info_katchup(Uid, Options) ->
     {ok, #account{phone = Phone, name = Name, signup_user_agent = UserAgent,
@@ -979,7 +1012,10 @@ username_info(Username, Options) ->
         {ok, undefined} ->
             io:format("No account associated with username: ~s", [Username]);
         {ok, Uid} ->
-            uid_info_katchup(Uid, Options)
+            case util_uid:get_app_type(Uid) of
+                ?HALLOAPP -> uid_info_halloapp(Uid, Options);
+                ?KATCHUP -> uid_info_katchup(Uid, Options)
+            end
     end.
 
 

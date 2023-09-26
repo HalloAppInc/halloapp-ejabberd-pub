@@ -189,6 +189,7 @@
     is_username_available/1,
     set_username/2,
     get_username/1,
+    get_usernames/1,
     get_username_binary/1,
     get_username_uid/1,
     get_username_uids/1,
@@ -525,6 +526,16 @@ get_username(Uid) ->
     {ok, Res} = q(["HGET", account_key(Uid), ?FIELD_USERNAME]),
     {ok, Res}.
 
+-spec get_usernames(Uids :: [uid()]) -> #{uid() => binary()}.
+get_usernames(Uids) ->
+    Commands = lists:map(fun(Uid) -> ["HGET", account_key(Uid), ?FIELD_USERNAME] end, Uids),
+    Res = qmn(Commands),
+    lists:foldl(
+        fun({Uid, {ok, Username}}, AccMap) ->
+            AccMap#{Uid => Username}
+        end,
+        #{},
+        lists:zip(Uids, Res)).
 
 -spec get_username_binary(Uid :: uid()) -> binary().
 get_username_binary(Uid) ->
