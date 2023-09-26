@@ -283,6 +283,10 @@ username_updated(Uid, _Username, true) ->
         _ ->
             ok
     end,
+    NewFriendUids = model_halloapp_friends:get_all_friends(Uid),
+    OutgoingFriendUids = model_halloapp_friends:get_all_outgoing_friends(Uid),
+    IncomingFriendUids = model_halloapp_friends:get_all_incoming_friends(Uid),
+    notify_profile_update(Uid, NewFriendUids ++ OutgoingFriendUids ++ IncomingFriendUids, normal),
     %% ask clients to sync all lists after username is updated for the first time.
     SyncUpdate = #pb_friend_list_request{action = sync_all},
     send_msg(<<>>, Uid, SyncUpdate);
