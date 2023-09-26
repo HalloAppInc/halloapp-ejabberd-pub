@@ -8,7 +8,6 @@
 -module(mod_reporting).
 -author("josh").
 
--include("ha_types.hrl").
 -include("logger.hrl").
 -include("reporting.hrl").
 -include("server.hrl").
@@ -24,13 +23,11 @@
 start(_Host, _Opts) ->
     gen_iq_handler:add_iq_handler(ejabberd_local, halloapp, pb_report_user_content, ?MODULE, process_local_iq),
     gen_iq_handler:add_iq_handler(ejabberd_local, katchup, pb_report_user_content, ?MODULE, process_local_iq),
-    gen_iq_handler:add_iq_handler(ejabberd_local, ?PHOTO_SHARING, pb_report_user_content, ?MODULE, process_local_iq),
     ok.
 
 stop(_Host) ->
     gen_iq_handler:remove_iq_handler(ejabberd_local, halloapp, pb_report_user_content),
     gen_iq_handler:remove_iq_handler(ejabberd_local, katchup, pb_report_user_content),
-    gen_iq_handler:remove_iq_handler(ejabberd_local, ?PHOTO_SHARING, pb_report_user_content),
     ok.
 
 depends(_Host, _Opts) ->

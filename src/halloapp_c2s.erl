@@ -176,14 +176,7 @@ host_up(_Host) ->
     ejabberd_hooks:add(pb_c2s_handle_info, katchup, ?MODULE, process_info, 100),
     ejabberd_hooks:add(pb_c2s_auth_result, katchup, ?MODULE, process_auth_result, 100),
     ejabberd_hooks:add(pb_c2s_handle_cast, katchup, ?MODULE, handle_unexpected_cast, 100),
-    ejabberd_hooks:add(pb_c2s_handle_call, katchup, ?MODULE, handle_unexpected_call, 100),
-    %% Photo Sharing
-    ejabberd_hooks:add(pb_c2s_closed, ?PHOTO_SHARING, ?MODULE, process_closed, 100),
-    ejabberd_hooks:add(pb_c2s_terminated, ?PHOTO_SHARING, ?MODULE, process_terminated, 100),
-    ejabberd_hooks:add(pb_c2s_handle_info, ?PHOTO_SHARING, ?MODULE, process_info, 100),
-    ejabberd_hooks:add(pb_c2s_auth_result, ?PHOTO_SHARING, ?MODULE, process_auth_result, 100),
-    ejabberd_hooks:add(pb_c2s_handle_cast, ?PHOTO_SHARING, ?MODULE, handle_unexpected_cast, 100),
-    ejabberd_hooks:add(pb_c2s_handle_call, ?PHOTO_SHARING, ?MODULE, handle_unexpected_call, 100).
+    ejabberd_hooks:add(pb_c2s_handle_call, katchup, ?MODULE, handle_unexpected_call, 100).
 
 
 -spec host_down(binary()) -> ok.
@@ -201,14 +194,7 @@ host_down(_Host) ->
     ejabberd_hooks:delete(pb_c2s_handle_info, katchup, ?MODULE, process_info, 100),
     ejabberd_hooks:delete(pb_c2s_auth_result, katchup, ?MODULE, process_auth_result, 100),
     ejabberd_hooks:delete(pb_c2s_handle_cast, katchup, ?MODULE, handle_unexpected_cast, 100),
-    ejabberd_hooks:delete(pb_c2s_handle_call, katchup, ?MODULE, handle_unexpected_call, 100),
-    %% Photo Sharing
-    ejabberd_hooks:delete(pb_c2s_closed, ?PHOTO_SHARING, ?MODULE, process_closed, 100),
-    ejabberd_hooks:delete(pb_c2s_terminated, ?PHOTO_SHARING, ?MODULE, process_terminated, 100),
-    ejabberd_hooks:delete(pb_c2s_handle_info, ?PHOTO_SHARING, ?MODULE, process_info, 100),
-    ejabberd_hooks:delete(pb_c2s_auth_result, ?PHOTO_SHARING, ?MODULE, process_auth_result, 100),
-    ejabberd_hooks:delete(pb_c2s_handle_cast, ?PHOTO_SHARING, ?MODULE, handle_unexpected_cast, 100),
-    ejabberd_hooks:delete(pb_c2s_handle_call, ?PHOTO_SHARING, ?MODULE, handle_unexpected_call, 100).
+    ejabberd_hooks:delete(pb_c2s_handle_call, katchup, ?MODULE, handle_unexpected_call, 100).
 
 
 -spec open_session(state()) -> {ok, state()} | state().

@@ -95,9 +95,6 @@ start(_Host, _Opts) ->
     ejabberd_hooks:add(re_register_user, katchup, ?MODULE, re_register_user, 50),
     %% We must run the sm_register_connection_hook early on - so that we have access to their their previous login time.
     ejabberd_hooks:add(sm_register_connection_hook, katchup, ?MODULE, sm_register_connection_hook, 10),
-    %% Photo Sharing
-    gen_iq_handler:add_iq_handler(ejabberd_local, ?PHOTO_SHARING, pb_feed_item, ?MODULE, process_local_iq),
-    ejabberd_hooks:add(user_send_packet, ?PHOTO_SHARING, ?MODULE, user_send_packet, 50),
     ok.
 
 stop(_Host) ->
@@ -116,9 +113,6 @@ stop(_Host) ->
     ejabberd_hooks:delete(remove_follow_relationship, katchup, ?MODULE, remove_follow_relationship, 50),
     ejabberd_hooks:delete(re_register_user, katchup, ?MODULE, re_register_user, 50),
     ejabberd_hooks:delete(sm_register_connection_hook, katchup, ?MODULE, sm_register_connection_hook, 10),
-    %% Photo Sharing
-    gen_iq_handler:remove_iq_handler(ejabberd_local, ?PHOTO_SHARING, pb_feed_item),
-    ejabberd_hooks:delete(user_send_packet, ?PHOTO_SHARING, ?MODULE, user_send_packet, 50),
     ok.
 
 reload(_Host, _NewOpts, _OldOpts) ->

@@ -156,8 +156,7 @@ host_up(Host) ->
     end,
     ejabberd_router:register_route(Host, Host, {apply, ?MODULE, route}, Owner),
     ejabberd_hooks:add(local_send_to_resource_hook, halloapp, ?MODULE, bounce_resource_packet, 100),
-    ejabberd_hooks:add(local_send_to_resource_hook, katchup, ?MODULE, bounce_resource_packet, 100),
-    ejabberd_hooks:add(local_send_to_resource_hook, ?PHOTO_SHARING, ?MODULE, bounce_resource_packet, 100).
+    ejabberd_hooks:add(local_send_to_resource_hook, katchup, ?MODULE, bounce_resource_packet, 100).
 
 host_down(Host) ->
     Owner = case whereis(?MODULE) of
@@ -166,6 +165,4 @@ host_down(Host) ->
     end,
     ejabberd_router:unregister_route(Host, Owner),
     ejabberd_hooks:delete(local_send_to_resource_hook, halloapp, ?MODULE, bounce_resource_packet, 100),
-    ejabberd_hooks:delete(local_send_to_resource_hook, katchup, ?MODULE, bounce_resource_packet, 100),
-    ejabberd_hooks:delete(local_send_to_resource_hook, ?PHOTO_SHARING, ?MODULE, bounce_resource_packet, 100).
-
+    ejabberd_hooks:delete(local_send_to_resource_hook, katchup, ?MODULE, bounce_resource_packet, 100).

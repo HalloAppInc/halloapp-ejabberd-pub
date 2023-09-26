@@ -28,14 +28,12 @@
 start(_Host, _Opts) ->
     ?DEBUG("start", []),
     ejabberd_hooks:add(user_send_packet, halloapp, ?MODULE, user_send_packet, 90),
-    ejabberd_hooks:add(user_send_packet, katchup, ?MODULE, user_send_packet, 90),
-    ejabberd_hooks:add(user_send_packet, ?PHOTO_SHARING, ?MODULE, user_send_packet, 90).
+    ejabberd_hooks:add(user_send_packet, katchup, ?MODULE, user_send_packet, 90).
 
 stop(_Host) ->
     ?DEBUG("stop", []),
     ejabberd_hooks:delete(user_send_packet, halloapp, ?MODULE, user_send_packet, 90),
-    ejabberd_hooks:delete(user_send_packet, katchup, ?MODULE, user_send_packet, 90),
-    ejabberd_hooks:delete(user_send_packet, ?PHOTO_SHARING, ?MODULE, user_send_packet, 90).
+    ejabberd_hooks:delete(user_send_packet, katchup, ?MODULE, user_send_packet, 90).
 
 depends(_Host, _Opts) ->
     [].

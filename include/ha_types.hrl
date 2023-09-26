@@ -21,7 +21,7 @@
 -type names_map() :: #{uid() := binary()}.
 
 -type client_type() :: android | ios.
--type app_type() :: halloapp | katchup | photo_sharing.
+-type app_type() :: halloapp | katchup.
 
 -type pname() :: atom().
 -type pvalue() :: binary() | boolean() | float() | integer().
@@ -36,7 +36,6 @@
 
 -define(HALLOAPP, halloapp).
 -define(KATCHUP, katchup).
--define(PHOTO_SHARING, photo_sharing).
 
 -type(avatar_id() :: binary()).
 

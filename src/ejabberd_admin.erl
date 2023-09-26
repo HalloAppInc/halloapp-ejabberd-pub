@@ -1157,8 +1157,7 @@ send_ios_push(Uid, PushType, Payload) ->
 
 get_sms_codes(PhoneRaw) ->
     get_sms_codes(PhoneRaw, halloapp),
-    get_sms_codes(PhoneRaw, katchup),
-    get_sms_codes(PhoneRaw, ?PHOTO_SHARING).
+    get_sms_codes(PhoneRaw, katchup).
 
 get_sms_codes(PhoneRaw, AppType) ->
     ?INFO("Admin requesting SMS codes for ~p", [PhoneRaw]),
@@ -1219,8 +1218,7 @@ delete_account(Uid) ->
 
 request_phone_logs(Phone) ->
     request_phone_logs(Phone, halloapp),
-    request_phone_logs(Phone, katchup),
-    request_phone_logs(Phone, ?PHOTO_SHARING).
+    request_phone_logs(Phone, katchup).
 
 
 -spec request_phone_logs(Phone :: binary(), AppType :: app_type()) -> ok.

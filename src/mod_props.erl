@@ -46,13 +46,11 @@
 start(_Host, _Opts) ->
     gen_iq_handler:add_iq_handler(ejabberd_local, halloapp, pb_props, ?MODULE, process_local_iq, 2),
     gen_iq_handler:add_iq_handler(ejabberd_local, katchup, pb_props, ?MODULE, process_local_iq, 2),
-    gen_iq_handler:add_iq_handler(ejabberd_local, ?PHOTO_SHARING, pb_props, ?MODULE, process_local_iq, 2),
     ok.
 
 stop(_Host) ->
     gen_iq_handler:remove_iq_handler(ejabberd_local, halloapp, pb_props),
     gen_iq_handler:remove_iq_handler(ejabberd_local, katchup, pb_props),
-    gen_iq_handler:remove_iq_handler(ejabberd_local, ?PHOTO_SHARING, pb_props),
     ok.
 
 depends(_Host, _Opts) ->
@@ -103,23 +101,6 @@ get_props(Uid, ClientVersion) ->
 
 
 -spec get_props(Uid :: binary(), ClientVersion :: binary(), AppType :: app_type()) -> proplist().
-get_props(Uid, ClientVersion, ?PHOTO_SHARING) ->
-    PropMap1 = #{
-        dev => false
-    },
-    ClientType = util_ua:get_client_type(ClientVersion),
-    AppType = util_ua:get_app_type(ClientVersion),
-    PropMap2 = case model_accounts:get_phone(Uid) of
-        {ok, Phone} ->
-            get_phone_based_props(PropMap1, AppType, Phone);
-        {error, _} ->
-            PropMap1
-    end,
-    PropMap3 = get_client_based_props(PropMap2, AppType, ClientType, ClientVersion),
-    PropMap4 = get_uid_based_props(PropMap3, AppType, Uid),
-    Proplist = maps:to_list(PropMap4),
-    lists:keysort(1, Proplist);
-
 get_props(Uid, ClientVersion, katchup) ->
     PropMap1 = #{
         dev => false, %% whether the client is dev or not.
@@ -284,17 +265,7 @@ get_uid_based_props(PropMap, katchup, Uid) ->
                 daily_katchup_notif_template => get_daily_notif_strings_bin()
             }
     end,
-    apply_uid_prop_overrides(Uid, ResPropMap);
-
-get_uid_based_props(PropMap, ?PHOTO_SHARING, Uid) ->
-    case dev_users:is_dev_uid(Uid) of
-        false ->
-            PropMap;
-        true ->
-            PropMap#{
-                dev => true
-            }
-    end.
+    apply_uid_prop_overrides(Uid, ResPropMap).
 
 
 get_phone_based_props(PropMap, katchup, Phone) ->
@@ -352,10 +323,7 @@ get_client_based_props(PropMap, katchup, android, ClientVersion) ->
 get_client_based_props(PropMap, katchup, ios, ClientVersion) ->
     Result1 = util_ua:is_version_greater_than(ClientVersion, <<"Katchup/iOS1.7.52">>),
     PropMap1 = maps:update(ai_generated_images, Result1, PropMap),
-    PropMap1;
-
-get_client_based_props(PropMap, ?PHOTO_SHARING, _, _ClientVersion) ->
-    PropMap.
+    PropMap1.
 
 
 apply_uid_prop_overrides(Uid, PropMap) ->

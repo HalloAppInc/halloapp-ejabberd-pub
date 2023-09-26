@@ -55,13 +55,6 @@ start(Host, Opts) ->
     ejabberd_hooks:add(c2s_handle_send, katchup, ?MODULE, c2s_handle_send, 0),
     ejabberd_hooks:add(register_user, katchup, ?MODULE, register_user, 10),
     ejabberd_hooks:add(remove_user, katchup, ?MODULE, remove_user, 50),
-    %% Photo Sharing
-    ejabberd_hooks:add(c2s_session_opened, ?PHOTO_SHARING, ?MODULE, c2s_session_opened, 0),
-    ejabberd_hooks:add(c2s_session_closed, ?PHOTO_SHARING, ?MODULE, c2s_session_closed, 0),
-    ejabberd_hooks:add(c2s_handle_recv, ?PHOTO_SHARING, ?MODULE, c2s_handle_recv, 0),
-    ejabberd_hooks:add(c2s_handle_send, ?PHOTO_SHARING, ?MODULE, c2s_handle_send, 0),
-    ejabberd_hooks:add(register_user, ?PHOTO_SHARING, ?MODULE, register_user, 10),
-    ejabberd_hooks:add(remove_user, ?PHOTO_SHARING, ?MODULE, remove_user, 50),
     ok.
 
 
@@ -82,13 +75,6 @@ stop(_Host) ->
     ejabberd_hooks:delete(c2s_handle_recv, katchup, ?MODULE, c2s_handle_recv, 0),
     ejabberd_hooks:delete(c2s_session_closed, katchup, ?MODULE, c2s_session_closed, 0),
     ejabberd_hooks:delete(c2s_session_opened, katchup, ?MODULE, c2s_session_opened, 0),
-    %% Photo Sharing
-    ejabberd_hooks:delete(remove_user, ?PHOTO_SHARING, ?MODULE, remove_user, 50),
-    ejabberd_hooks:delete(register_user, ?PHOTO_SHARING, ?MODULE, register_user, 10),
-    ejabberd_hooks:delete(c2s_handle_send, ?PHOTO_SHARING, ?MODULE, c2s_handle_send, 0),
-    ejabberd_hooks:delete(c2s_handle_recv, ?PHOTO_SHARING, ?MODULE, c2s_handle_recv, 0),
-    ejabberd_hooks:delete(c2s_session_closed, ?PHOTO_SHARING, ?MODULE, c2s_session_closed, 0),
-    ejabberd_hooks:delete(c2s_session_opened, ?PHOTO_SHARING, ?MODULE, c2s_session_opened, 0),
     ok.
 
 

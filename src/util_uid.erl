@@ -48,17 +48,18 @@ get_app_type(Uid) ->
     case Uid of
         <<"1000", _Rest/binary>> -> halloapp;
         <<"1001", _Rest/binary>> -> katchup;
-        <<"1002", _Rest/binary>> -> ?PHOTO_SHARING;
         _ -> halloapp %% tests use weird uids. need to fix them.
     end.
 
 
 generate_uid(UserAgent) ->
-    case util_ua:get_app_type(UserAgent) of
-        halloapp -> generate_uid(1, 0, 0);
-        katchup -> generate_uid(1, 1, 0);
-        ?PHOTO_SHARING -> generate_uid(1, 2, 0);
-        _ -> {error, invalid_ua}
+    case util_ua:is_halloapp(UserAgent) of
+        true -> generate_uid(1, 0, 0);
+        false ->
+            case util_ua:is_katchup(UserAgent) of
+                true -> generate_uid(1, 1, 0);
+                false -> {error, invalid_ua}
+            end
     end.
 
 
@@ -97,7 +98,7 @@ uid_size() ->
 looks_like_uid(Bin) when not is_binary(Bin) orelse byte_size(Bin) =/= ?UID_SIZE->
     false;
 looks_like_uid(Bin) ->
-    case re:run(Bin, "100[0-2]{1}000000[0-9]{9}") of
+    case re:run(Bin, "100[0-1]{1}000000[0-9]{9}") of
         {match, [{0, 19}]} -> true;
         _ -> false
     end.

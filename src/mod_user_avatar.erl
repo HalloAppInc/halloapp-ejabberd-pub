@@ -49,11 +49,6 @@ start(_Host, _Opts) ->
     gen_iq_handler:add_iq_handler(ejabberd_local, katchup, pb_avatars, ?MODULE, process_local_iq),
     gen_iq_handler:add_iq_handler(ejabberd_local, katchup, pb_upload_avatar, ?MODULE, process_local_iq),
     ejabberd_hooks:add(remove_user, katchup, ?MODULE, remove_user, 10),
-    %% Photo Sharing
-    gen_iq_handler:add_iq_handler(ejabberd_local, ?PHOTO_SHARING, pb_avatar, ?MODULE, process_local_iq),
-    gen_iq_handler:add_iq_handler(ejabberd_local, ?PHOTO_SHARING, pb_avatars, ?MODULE, process_local_iq),
-    gen_iq_handler:add_iq_handler(ejabberd_local, ?PHOTO_SHARING, pb_upload_avatar, ?MODULE, process_local_iq),
-    ejabberd_hooks:add(remove_user, ?PHOTO_SHARING, ?MODULE, remove_user, 10),
     ok.
 
 stop(_Host) ->
@@ -69,11 +64,6 @@ stop(_Host) ->
     gen_iq_handler:remove_iq_handler(ejabberd_local, katchup, pb_avatar),
     gen_iq_handler:remove_iq_handler(ejabberd_local, katchup, pb_avatars),
     gen_iq_handler:remove_iq_handler(ejabberd_local, katchup, pb_upload_avatar),
-    %% Photo Sharing
-    ejabberd_hooks:delete(remove_user, ?PHOTO_SHARING, ?MODULE, remove_user, 10),
-    gen_iq_handler:remove_iq_handler(ejabberd_local, ?PHOTO_SHARING, pb_avatar),
-    gen_iq_handler:remove_iq_handler(ejabberd_local, ?PHOTO_SHARING, pb_avatars),
-    gen_iq_handler:remove_iq_handler(ejabberd_local, ?PHOTO_SHARING, pb_upload_avatar),
     ok.
 
 

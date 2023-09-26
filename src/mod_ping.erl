@@ -262,12 +262,7 @@ register_hooks(_Host) ->
     ejabberd_hooks:add(sm_register_connection_hook, katchup, ?MODULE, sm_register_connection_hook, 100),
     ejabberd_hooks:add(sm_remove_connection_hook, katchup, ?MODULE, sm_remove_connection_hook, 100),
     ejabberd_hooks:add(user_send_packet, katchup, ?MODULE, user_send_packet, 50),
-    ejabberd_hooks:add(user_session_activated, katchup, ?MODULE, user_session_activated, 50),
-    %% Photo Sharing
-    ejabberd_hooks:add(sm_register_connection_hook, ?PHOTO_SHARING, ?MODULE, sm_register_connection_hook, 100),
-    ejabberd_hooks:add(sm_remove_connection_hook, ?PHOTO_SHARING, ?MODULE, sm_remove_connection_hook, 100),
-    ejabberd_hooks:add(user_send_packet, ?PHOTO_SHARING, ?MODULE, user_send_packet, 50),
-    ejabberd_hooks:add(user_session_activated, ?PHOTO_SHARING, ?MODULE, user_session_activated, 50).
+    ejabberd_hooks:add(user_session_activated, katchup, ?MODULE, user_session_activated, 50).
 
 
 unregister_hooks(_Host) ->
@@ -280,12 +275,7 @@ unregister_hooks(_Host) ->
     ejabberd_hooks:delete(sm_remove_connection_hook, katchup, ?MODULE, sm_remove_connection_hook, 100),
     ejabberd_hooks:delete(sm_register_connection_hook, katchup, ?MODULE, sm_register_connection_hook, 100),
     ejabberd_hooks:delete(user_send_packet, katchup, ?MODULE, user_send_packet, 50),
-    ejabberd_hooks:delete(user_session_activated, katchup, ?MODULE, user_session_activated, 50),
-    %% Photo Sharing
-    ejabberd_hooks:delete(sm_remove_connection_hook, ?PHOTO_SHARING, ?MODULE, sm_remove_connection_hook, 100),
-    ejabberd_hooks:delete(sm_register_connection_hook, ?PHOTO_SHARING, ?MODULE, sm_register_connection_hook, 100),
-    ejabberd_hooks:delete(user_send_packet, ?PHOTO_SHARING, ?MODULE, user_send_packet, 50),
-    ejabberd_hooks:delete(user_session_activated, ?PHOTO_SHARING, ?MODULE, user_session_activated, 50).
+    ejabberd_hooks:delete(user_session_activated, katchup, ?MODULE, user_session_activated, 50).
 
 
 register_iq_handlers(_Host) ->
@@ -294,10 +284,7 @@ register_iq_handlers(_Host) ->
     gen_iq_handler:add_iq_handler(ejabberd_local, halloapp, pb_ping, ?MODULE, iq_ping),
     %% Katchup
     gen_iq_handler:add_iq_handler(ejabberd_sm, katchup, pb_ping, ?MODULE, iq_ping),
-    gen_iq_handler:add_iq_handler(ejabberd_local, katchup, pb_ping, ?MODULE, iq_ping),
-    %% Katchup
-    gen_iq_handler:add_iq_handler(ejabberd_sm, ?PHOTO_SHARING, pb_ping, ?MODULE, iq_ping),
-    gen_iq_handler:add_iq_handler(ejabberd_local, ?PHOTO_SHARING, pb_ping, ?MODULE, iq_ping).
+    gen_iq_handler:add_iq_handler(ejabberd_local, katchup, pb_ping, ?MODULE, iq_ping).
 
 
 unregister_iq_handlers(_Host) ->
@@ -306,10 +293,7 @@ unregister_iq_handlers(_Host) ->
     gen_iq_handler:remove_iq_handler(ejabberd_sm, halloapp, pb_ping),
     %% Katchup
     gen_iq_handler:remove_iq_handler(ejabberd_local, katchup, pb_ping),
-    gen_iq_handler:remove_iq_handler(ejabberd_sm, katchup, pb_ping),
-    %% Katchup
-    gen_iq_handler:remove_iq_handler(ejabberd_local, ?PHOTO_SHARING, pb_ping),
-    gen_iq_handler:remove_iq_handler(ejabberd_sm, ?PHOTO_SHARING, pb_ping).
+    gen_iq_handler:remove_iq_handler(ejabberd_sm, katchup, pb_ping).
 
 
 -spec add_timer(SessionInfo :: session_info(), State :: state()) -> state().
