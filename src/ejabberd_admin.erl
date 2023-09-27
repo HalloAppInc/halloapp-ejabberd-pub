@@ -861,8 +861,8 @@ uid_info_halloapp(Uid, Options) ->
         true -> ok;
         false ->
             case Username of
-                <<>> -> uid_info_halloapp_friends_model(Uid, Options);
-                _ -> uid_info_halloapp_contacts_model(Uid, Options)
+                <<>> -> uid_info_halloapp_contacts_model(Uid, Options);
+                _ -> uid_info_halloapp_friends_model(Uid, Options)
             end,
             uid_info_halloapp_group_info(Uid, Options)
     end.
@@ -890,7 +890,7 @@ uid_info_halloapp_friends_model(Uid, _Options) ->
                     end
             end,
             Name = model_accounts:get_name_binary(OUid),
-            io:format("  ~-2s ~s ~s ~s~n", [RelationshipSymbol, Name, Uid, Username])
+            io:format("  ~-2s ~-25s ~s ~s~n", [RelationshipSymbol, Name, OUid, Username])
         end,
         UsernameMap).
 
