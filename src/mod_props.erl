@@ -191,7 +191,8 @@ get_props(Uid, ClientVersion, halloapp) ->
         contact_sharing => false,  %% Enables clients to share contacts on chat
         close_friends_recos => false, %% Should invite recommendations be sorted based on number of close friends
         location_sharing => false,
-        moment_external_share => false %% Enabled external sharing of moments
+        moment_external_share => false, %% Enabled external sharing of moments
+        photo_suggestions => true %% Enable Magic Posts tab
     },
     AppType = util_ua:get_app_type(ClientVersion),
     ClientType = util_ua:get_client_type(ClientVersion),
