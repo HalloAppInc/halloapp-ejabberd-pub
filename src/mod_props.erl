@@ -288,7 +288,8 @@ get_client_based_props(PropMap, halloapp, android, ClientVersion) ->
     PropMap7 = maps:update(comment_reactions, Result6, PropMap6),
     Result7 = util_ua:is_version_greater_than(ClientVersion, <<"HalloApp/Android1.6.4">>),
     PropMap8 = maps:update(post_reactions, Result7, PropMap7),
-    PropMap8;
+    PropMap9 = maps:update(photo_suggestions, false, PropMap8),
+    PropMap9;
 
 
 get_client_based_props(PropMap, halloapp, ios, ClientVersion) ->
