@@ -192,7 +192,8 @@ get_props(Uid, ClientVersion, halloapp) ->
         close_friends_recos => false, %% Should invite recommendations be sorted based on number of close friends
         location_sharing => false,
         moment_external_share => false, %% Enabled external sharing of moments
-        photo_suggestions => true %% Enable Magic Posts tab
+        photo_suggestions => true, %% Enable Magic Posts tab
+        message_non_friends => true %% Enable users to message non friends.
     },
     AppType = util_ua:get_app_type(ClientVersion),
     ClientType = util_ua:get_client_type(ClientVersion),
