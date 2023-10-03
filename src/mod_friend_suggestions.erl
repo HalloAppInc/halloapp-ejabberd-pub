@@ -276,8 +276,7 @@ filter_and_convert_to_suggestions(Uid, Suggestions, Reason, StartingRank) ->
             case sets:is_element(Ouid, UnacceptedUids) of
                 true -> false;
                 false ->
-                    case OuidProfile#pb_halloapp_user_profile.name =/= undefined andalso
-                            OuidProfile#pb_halloapp_user_profile.username =/= undefined of
+                    case OuidProfile#pb_halloapp_user_profile.name =/= undefined of
                         true -> {true, #pb_friend_profile{
                                             user_profile = OuidProfile,
                                             reason = Reason,
