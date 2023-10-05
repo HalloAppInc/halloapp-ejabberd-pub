@@ -111,6 +111,7 @@ process_local_iq(#pb_iq{from_uid = Uid, type = get,
 process_local_iq(#pb_iq{from_uid = Uid, type = set,
         payload = #pb_friendship_request{action = reject_suggestion, uid = Ouid}} = IQ) ->
     ok = model_accounts:add_rejected_suggestions(Uid, [Ouid]),
+    stat:count("HA/friends", reject_suggestion),
     ?INFO("~s add_rejected_suggestions ~s", [Uid, Ouid]),
     pb:make_iq_result(IQ, #pb_friendship_response{result = ok});
 
@@ -122,13 +123,18 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
         false ->
             ?INFO("~s add_friend ~s", [Uid, Ouid]),
             ok = model_halloapp_friends:add_friend_request(Uid, Ouid),
-            notify_profile_update(Uid, Ouid, incoming_friend_request);
+            notify_profile_update(Uid, Ouid, incoming_friend_request),
+            stat:count("HA/friends", add_friend),
+            ok;
         true ->
             ?INFO("~s accept_friend ~s", [Uid, Ouid]),
             ok = model_halloapp_friends:accept_friend_request(Uid, Ouid),
             add_friend_hook(Uid, Ouid),
-            notify_profile_update(Uid, Ouid, friend_notice)
+            notify_profile_update(Uid, Ouid, friend_notice),
+            stat:count("HA/friends", accept_friend),
+            ok
     end,
+    stat:count("HA/friends", request_add_friend),
     FriendProfile = model_accounts:get_halloapp_user_profiles(Uid, Ouid),
     pb:make_iq_result(IQ, #pb_friendship_response{result = ok, profile = FriendProfile});
 
@@ -140,13 +146,18 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
         false ->
             ?INFO("~s add_friend ~s", [Uid, Ouid]),
             ok = model_halloapp_friends:add_friend_request(Uid, Ouid),
-            notify_profile_update(Uid, Ouid, incoming_friend_request);
+            notify_profile_update(Uid, Ouid, incoming_friend_request),
+            stat:count("HA/friends", add_friend),
+            ok;
         true ->
             ?INFO("~s accept_friend ~s", [Uid, Ouid]),
             ok = model_halloapp_friends:accept_friend_request(Uid, Ouid),
             add_friend_hook(Uid, Ouid),
-            notify_profile_update(Uid, Ouid, friend_notice)
+            notify_profile_update(Uid, Ouid, friend_notice),
+            stat:count("HA/friends", accept_friend),
+            ok
     end,
+    stat:count("HA/friends", request_accept_friend),
     FriendProfile = model_accounts:get_halloapp_user_profiles(Uid, Ouid),
     pb:make_iq_result(IQ, #pb_friendship_response{result = ok, profile = FriendProfile});
 
@@ -160,6 +171,7 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
         true -> remove_friend_hook(Uid, Ouid, false);
         false -> ok %% Dont run hook if they were never friends in the first place.
     end,
+    stat:count("HA/friends", remove_friend),
     OuidProfile = model_accounts:get_halloapp_user_profiles(Uid, Ouid),
     notify_profile_update(Uid, Ouid),
     ?INFO("~s remove_friend ~s", [Uid, Ouid]),
@@ -175,6 +187,7 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
         true -> remove_friend_hook(Uid, Ouid, false);
         false -> ok %% Dont run hook if they were never friends in the first place.
     end,
+    stat:count("HA/friends", withdraw_friend_request),
     OuidProfile = model_accounts:get_halloapp_user_profiles(Uid, Ouid),
     notify_profile_update(Uid, Ouid),
     ?INFO("~s withdraw_friend_request ~s", [Uid, Ouid]),
@@ -189,6 +202,7 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
         true -> remove_friend_hook(Uid, Ouid, false);
         false -> ok %% Dont run hook if they were never friends in the first place.
     end,
+    stat:count("HA/friends", reject_friend),
     OuidProfile = model_accounts:get_halloapp_user_profiles(Uid, Ouid),
     notify_profile_update(Uid, Ouid),
     ?INFO("~s reject_friend ~s", [Uid, Ouid]),
@@ -208,6 +222,7 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
             ok = notify_account_deleted(Uid, Ouid);
         false -> ok
     end,
+    stat:count("HA/friends", block),
     OuidProfile = model_accounts:get_halloapp_user_profiles(Uid, Ouid),
     ?INFO("~s blocked ~s", [Uid, Ouid]),
     pb:make_iq_result(IQ, #pb_friendship_response{result = ok, profile = OuidProfile});
@@ -217,6 +232,7 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
 process_local_iq(#pb_iq{from_uid = Uid, type = set,
         payload = #pb_friendship_request{action = unblock, uid = Ouid}} = IQ) ->
     ok = model_halloapp_friends:unblock(Uid, Ouid),
+    stat:count("HA/friends", unblock),
     AppType = util_uid:get_app_type(Uid),
     ejabberd_hooks:run(unblock_uids, AppType, [Uid, util:get_host(), [Ouid]]),
     OuidProfile = model_accounts:get_halloapp_user_profiles(Uid, Ouid),
