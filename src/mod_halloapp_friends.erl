@@ -111,7 +111,7 @@ process_local_iq(#pb_iq{from_uid = Uid, type = get,
 process_local_iq(#pb_iq{from_uid = Uid, type = set,
         payload = #pb_friendship_request{action = reject_suggestion, uid = Ouid}} = IQ) ->
     ok = model_accounts:add_rejected_suggestions(Uid, [Ouid]),
-    stat:count("HA/friends", reject_suggestion),
+    stat:count("HA/friends", "reject_suggestion"),
     ?INFO("~s add_rejected_suggestions ~s", [Uid, Ouid]),
     pb:make_iq_result(IQ, #pb_friendship_response{result = ok});
 
