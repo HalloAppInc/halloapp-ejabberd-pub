@@ -15,34 +15,50 @@ jobs:
   build:
     # The type of runner that the job will run on
     runs-on: self-hosted
-
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
     - name: Checkout ejabberd
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
     - name: Run Autogen
       run: ./autogen.sh
     - name: Run Configure
       run: ./configure
+    - name: Check for cached files
+      uses: actions/cache@v3
+      with:
+        path: _build
+        key: ejabberd-build-${{ github.ref_name }}-${{ hashFiles('**/*.erl') }}
+        restore-keys: |
+          ejabberd-build-${{ github.ref_name }}-
+          ejabberd-build-
     - name: Compile
       run: make
     - name: Install ejabberd
       run: sudo make install
+    - name: Check for cached Dialyzer PLT files
+      uses: actions/cache@v3
+      with:
+        path: _build/default/rebar3_*_plt
+        key: dialyzer-plt-${{ github.ref_name }}-${{ hashFiles('rebar.config') }}
+        restore-keys: |
+          dialyzer-plt-${{ github.ref_name }}-
+          dialyzer-plt-
     - name: Run Dialyzer
       run: ./rebar3 dialyzer
     - name: Run unit tests
-      run: ./rebar3 eunit || ./rebar3 eunit
+      run: ./rebar3 eunit
       env:
-      # Environment variable used by ejabberd to connect to redis
+        # Environment variable used by ejabberd to connect to redis
         HALLO_ENV: github
     - name: Run Common Test suite
+      id: ct_run
       run: ./rebar3 ct --suite=test/ha_SUITE
       # Environment variable used by ejabberd to connect to redis
       env:
         HALLO_ENV: github
     - name: Publish CT suite Logs
-      uses: actions/upload-artifact@v2
-      if: ${{ always() }}
+      uses: actions/upload-artifact@v3
+      if: ${{ failure() && steps.ct_run.conclusion == 'failure' }}
       with:
           name: ha_suite_logs
           retention-days: 7
