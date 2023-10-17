@@ -142,7 +142,6 @@ is_hashcash_enabled(UserAgent, _Solution) ->
 is_spam_country(<<"AZ">>) -> true;
 is_spam_country(<<"SD">>) -> true;
 is_spam_country(<<"VN">>) -> true;
-is_spam_country(<<"NG">>) -> true;
 is_spam_country(<<"LK">>) -> true;
 is_spam_country(<<"BD">>) -> true;
 is_spam_country(<<"JO">>) -> true;

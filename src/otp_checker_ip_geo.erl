@@ -38,8 +38,6 @@ check_otp_request(_Phone, _IP, <<"SD">>, CC) ->
     {block, phone_cc_block, {<<"SD">>, CC}};
 check_otp_request(_Phone, _IP, <<"VN">>, CC) ->
     {block, phone_cc_block, {<<"VN">>, CC}};
-check_otp_request(_Phone, _IP, <<"NG">>, CC) ->
-    {block, phone_cc_block, {<<"NG">>, CC}};
 check_otp_request(_Phone, _IP, <<"LK">>, CC) ->
     {block, phone_cc_block, {<<"LK">>, CC}};
 check_otp_request(_Phone, _IP, <<"BD">>, CC) ->
