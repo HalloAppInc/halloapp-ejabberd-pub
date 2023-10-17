@@ -65,6 +65,7 @@ is_cc_supported(CC) ->
         <<"KE">> -> false;     %% Kenya
         <<"MA">> -> false;     %% Morocco
         <<"MM">> -> false;     %% Myanmar
+        <<"NG">> -> false;     %% Nigeria
         <<"NZ">> -> false;     %% New Zealand
         <<"QA">> -> false;     %% Qatar
         <<"RU">> -> false;     %% Russia

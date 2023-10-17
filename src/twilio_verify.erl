@@ -40,8 +40,11 @@ can_send_sms(_AppType, CC) ->
 can_send_voice_call(_AppType, CC) ->
     is_cc_supported(CC).
 
-is_cc_supported(_CC) ->
-    true.
+is_cc_supported(CC) ->
+    case CC of
+        <<"NG">> -> false;     %% Nigeria
+        _ -> true
+    end.
 
 -spec send_sms(Phone :: phone(), Code :: binary(), LangId :: binary(),
         UserAgent :: binary()) -> {ok, gateway_response()} | {error, sms_fail, retry | no_retry}.
