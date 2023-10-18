@@ -57,7 +57,7 @@ otp_delivered(_Phone, _IP, _Protocol, undefined) ->
 otp_delivered(Phone, _IP, _Protocol, RemoteStaticKey) ->
     {ok, {Count, _LastTs}} = model_phone:get_static_key_info(RemoteStaticKey),
     case Count =/= undefined andalso Count > ?ERROR_THRESHOLD of
-        true -> ?ERROR("OTP delivered to Phone ~s but StaticKey ~s has ~s Attempts",
+        true -> ?ERROR("OTP delivered to Phone ~s but StaticKey ~s has ~B Attempts",
                     [Phone, base64:encode(RemoteStaticKey), Count]);
         false -> ok
     end,
