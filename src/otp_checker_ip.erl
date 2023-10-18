@@ -50,7 +50,7 @@ check_otp_request(_Phone, IP, _UserAgent, _Method, _Protocol, _RemoteStaticKey) 
 otp_delivered(Phone, IP, _Protocol, _RemoteStaticKey) ->
     {ok, {Count, _LastTs}} = model_ip_addresses:get_ip_address_info(IP),
     case Count =/= undefined andalso Count > ?IP_RETURN_ERROR_THRESHOLD of
-        true -> ?ERROR("OTP delivered to Phone ~s but IP ~s has ~s Attempts", [Phone, IP, Count]);
+        true -> ?ERROR("OTP delivered to Phone ~s but IP ~s has ~B Attempts", [Phone, IP, Count]);
         false -> ok
     end,
     model_ip_addresses:delete_ip_address(IP).

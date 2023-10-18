@@ -100,7 +100,7 @@ otp_delivered(_Phone, _PhoneCC, <<"ZZ">>) ->
 otp_delivered(Phone, PhoneCC, _IPCC) ->
     {ok, {Count, _LastTs}} = model_phone:get_phone_cc_info(PhoneCC),
     case Count =/= undefined andalso Count > ?ERROR_THRESHOLD of
-        true -> ?ERROR("OTP delivered to Phone ~s but CC ~s has ~s Attempts",
+        true -> ?ERROR("OTP delivered to Phone ~s but CC ~s has ~B Attempts",
                     [Phone, PhoneCC, Count]);
         false -> ok
     end,
