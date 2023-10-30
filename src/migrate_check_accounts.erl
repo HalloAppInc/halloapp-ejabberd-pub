@@ -33,7 +33,8 @@
     calculate_fof_run/2,
     calculate_follow_suggestions/2,
     calculate_friend_suggestions/2,
-    update_geotag_index/2
+    update_geotag_index/2,
+    username_search_index_run/2
 ]).
 
 
@@ -640,6 +641,47 @@ update_geotag_index(Key, State) ->
                     end;
                 halloapp ->
                     ok
+            end;
+        _ -> ok
+    end,
+    State.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                          Fix username search index                                 %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% some names in the username search index were not converted to lowercase before insertion.
+%% this migration should fix that
+username_search_index_run(Key, State) ->
+    DryRun = maps:get(dry_run, State, true),
+    Result = re:run(Key, "^usi:{(.*)}$", [global, {capture, all, binary}]),
+    case Result of
+        {match, [[_FullKey, Prefix]]} ->
+            CorrectPrefix = string:lowercase(Prefix),
+            case Prefix =:= CorrectPrefix of
+                false ->
+                    {ok, CorrectPrefixUsernames} = q(ecredis_accounts, ["ZRANGE", model_accounts:username_index_key(CorrectPrefix)]),
+                    {ok, BadPrefixUsernames} = q(ecredis_accounts, ["ZRANGE", model_accounts:username_index_key(Prefix)]),
+                    ?INFO("Usernames at correct prefix (~p): ~p", [CorrectPrefix, CorrectPrefixUsernames]),
+                    ?INFO("Usernames at bad prefix (~p): ~p", [Prefix, BadPrefixUsernames]),
+                    case DryRun of
+                        true ->
+                            ?INFO("[DRY RUN]: Expected usernames at correct prefix (~p) after migration: ~p",
+                                [CorrectPrefix, util:uniq(CorrectPrefixUsernames ++ BadPrefixUsernames)]);
+                        false ->
+                            lists:foreach(
+                                fun(Username) ->
+                                    ok = q(ecredis_accounts, ["ZADD", model_accounts:username_index_key(CorrectPrefix), 1, Username])
+                                end,
+                                BadPrefixUsernames),
+                            NewCorrectPrefixUsernames = q(ecredis_accounts, ["ZRANGE", model_accounts:username_index_key(CorrectPrefix)]),
+                            ?INFO("New usernames at correct prefix (~p): ~p", [CorrectPrefix, NewCorrectPrefixUsernames]),
+                            ok = q(ecredis_accounts, ["DEL", model_accounts:username_index_key(Prefix)]),
+                            NewBadPrefixUsernames = q(ecredis_accounts, ["ZRANGE", model_accounts:username_index_key(Prefix)]),
+                            ?INFO("New usernames at bad prefix (~p): ~p", [Prefix, NewBadPrefixUsernames])
+                    end;
+                true -> ok
             end;
         _ -> ok
     end,
