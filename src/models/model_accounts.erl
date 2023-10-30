@@ -584,7 +584,7 @@ delete_username_index(Username) ->
 
 add_name_prefix(_Name, _Username, PrefixLen) when PrefixLen =< 2 -> ok;
 add_name_prefix(Name, Username, PrefixLen) ->
-    LowercaseName = string:lowercase(Name),
+    LowercaseName = string:lowercase((unicode:characters_to_binary(binary_to_list(Name)))),
     <<NamePrefix:PrefixLen/binary, _T/binary>> = LowercaseName,
     {ok, _Res} = q(["ZADD", username_index_key(NamePrefix), 1, Username]),
     add_name_prefix(LowercaseName, Username, PrefixLen - 1).

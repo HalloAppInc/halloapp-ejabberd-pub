@@ -658,11 +658,11 @@ username_search_index_run(Key, State) ->
     Result = re:run(Key, "^usi:{(.*)}$", [global, {capture, all, binary}]),
     case Result of
         {match, [[_FullKey, Prefix]]} ->
-            CorrectPrefix = string:lowercase(Prefix),
+            CorrectPrefix = string:lowercase((unicode:characters_to_binary(binary_to_list(Prefix)))),
             case Prefix =:= CorrectPrefix of
                 false ->
-                    {ok, CorrectPrefixUsernames} = q(ecredis_accounts, ["ZRANGE", model_accounts:username_index_key(CorrectPrefix)]),
-                    {ok, BadPrefixUsernames} = q(ecredis_accounts, ["ZRANGE", model_accounts:username_index_key(Prefix)]),
+                    {ok, CorrectPrefixUsernames} = q(ecredis_accounts, ["ZRANGE", model_accounts:username_index_key(CorrectPrefix), "-", "+", "BYLEX"]),
+                    {ok, BadPrefixUsernames} = q(ecredis_accounts, ["ZRANGE", model_accounts:username_index_key(Prefix), "-", "+", "BYLEX"]),
                     ?INFO("Usernames at correct prefix (~p): ~p", [CorrectPrefix, CorrectPrefixUsernames]),
                     ?INFO("Usernames at bad prefix (~p): ~p", [Prefix, BadPrefixUsernames]),
                     case DryRun of
@@ -675,10 +675,10 @@ username_search_index_run(Key, State) ->
                                     ok = q(ecredis_accounts, ["ZADD", model_accounts:username_index_key(CorrectPrefix), 1, Username])
                                 end,
                                 BadPrefixUsernames),
-                            NewCorrectPrefixUsernames = q(ecredis_accounts, ["ZRANGE", model_accounts:username_index_key(CorrectPrefix)]),
+                            NewCorrectPrefixUsernames = q(ecredis_accounts, ["ZRANGE", model_accounts:username_index_key(CorrectPrefix), "-", "+", "BYLEX"]),
                             ?INFO("New usernames at correct prefix (~p): ~p", [CorrectPrefix, NewCorrectPrefixUsernames]),
                             ok = q(ecredis_accounts, ["DEL", model_accounts:username_index_key(Prefix)]),
-                            NewBadPrefixUsernames = q(ecredis_accounts, ["ZRANGE", model_accounts:username_index_key(Prefix)]),
+                            NewBadPrefixUsernames = q(ecredis_accounts, ["ZRANGE", model_accounts:username_index_key(Prefix), "-", "+", "BYLEX"]),
                             ?INFO("New usernames at bad prefix (~p): ~p", [Prefix, NewBadPrefixUsernames])
                     end;
                 true -> ok
