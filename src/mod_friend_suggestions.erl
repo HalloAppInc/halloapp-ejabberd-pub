@@ -270,9 +270,14 @@ filter_and_convert_to_suggestions(Uid, Suggestions, Reason, StartingRank) ->
     UnacceptedUids = sets:union([FriendSet, BlockedUidSet, BlockedByUidSet,IncomingFriendSet, OutgoingFriendSet, RejectedUidSet]),
     %% Get all profiles as well.
     SuggestedProfiles = model_accounts:get_halloapp_user_profiles(Uid, Suggestions),
+
+    {Suggestions1, Suggestions2} = lists:partition(fun(OuidProfile) -> OuidProfile#pb_halloapp_user_profile.username =/= undefined end, SuggestedProfiles),
+    OrderedSuggestedProfiles = Suggestions1 ++ Suggestions2,
+
     %% Filter them out, set a proper rank and return.
     FinalSuggestedProfiles = lists:filtermap(
-        fun({Ouid, OuidProfile, Rank}) ->
+        fun({OuidProfile, Rank}) ->
+            Ouid = OuidProfile#pb_halloapp_user_profile.uid,
             case sets:is_element(Ouid, UnacceptedUids) of
                 true -> false;
                 false ->
@@ -286,6 +291,6 @@ filter_and_convert_to_suggestions(Uid, Suggestions, Reason, StartingRank) ->
                         false -> false
                     end
             end
-        end, lists:zip3(Suggestions, SuggestedProfiles, lists:seq(StartingRank, StartingRank+length(Suggestions)-1))),
+        end, lists:zip(OrderedSuggestedProfiles, lists:seq(StartingRank, StartingRank+length(OrderedSuggestedProfiles)-1))),
     FinalSuggestedProfiles.
 
