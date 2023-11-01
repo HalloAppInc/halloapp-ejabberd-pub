@@ -54,8 +54,7 @@
     version_key/1,
     os_version_key/2,
     lang_key/2,
-    uids_to_delete_key/1,
-    username_index_key/1
+    uids_to_delete_key/1
 ]).
 
 
@@ -404,7 +403,7 @@ set_name(Uid, Name) ->
         {ok, Username} when Username =/= undefined andalso Username =/= <<>> ->
             {ok, _Res} = q(["HSET", account_key(Uid), ?FIELD_NAME, Name]),
             delete_name_prefix(string:lowercase(OldName), Username, byte_size(OldName)),
-            add_name_prefix(Name, Username, byte_size(Name));
+            add_name_prefix(string:lowercase(Name), Username, byte_size(Name));
         _ ->
             %% We add this index later when setting usernames.
             {ok, _Res} = q(["HSET", account_key(Uid), ?FIELD_NAME, Name]),
@@ -584,10 +583,9 @@ delete_username_index(Username) ->
 
 add_name_prefix(_Name, _Username, PrefixLen) when PrefixLen =< 2 -> ok;
 add_name_prefix(Name, Username, PrefixLen) ->
-    LowercaseName = string:lowercase((unicode:characters_to_binary(binary_to_list(Name)))),
-    <<NamePrefix:PrefixLen/binary, _T/binary>> = LowercaseName,
+    <<NamePrefix:PrefixLen/binary, _T/binary>> = Name,
     {ok, _Res} = q(["ZADD", username_index_key(NamePrefix), 1, Username]),
-    add_name_prefix(LowercaseName, Username, PrefixLen - 1).
+    add_name_prefix(Name, Username, PrefixLen - 1).
 
 
 delete_name_prefix(_Name, _Username, PrefixLen) when PrefixLen =< 2 -> ok;
