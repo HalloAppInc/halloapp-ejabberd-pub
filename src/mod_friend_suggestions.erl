@@ -251,9 +251,14 @@ fetch_friend_suggestions(Uid) ->
     ?INFO("Uid: ~p, Time taken to filter and convert fof suggestions: ~p", [Uid, Time4 - Time3]),
 
     AllSuggestedProfiles = ContactSuggestedProfiles ++ FoFSuggestedProfiles,
+
+    %% Temporary reordering.
+    {Suggestions1, Suggestions2} = lists:partition(fun(OuidProfile) -> OuidProfile#pb_friend_profile.user_profile#pb_halloapp_user_profile.username =/= undefined end, AllSuggestedProfiles),
+    OrderedSuggestedProfiles = Suggestions1 ++ Suggestions2,
+
     %% TODO: handle edgecase of empty fof suggestions.
     %% model_feed:get_active_uids code is not great.
-    AllSuggestedProfiles.
+    OrderedSuggestedProfiles.
 
 
 %% Filter out following uids, self uids, blocked-any uids, rejected uids and uids without name/username.
