@@ -128,54 +128,6 @@ process([<<"mbird">>],
             util_http:return_500()
     end;
 
-% https://api.halloapp.net/api/smscallback/vonage
-%% https://developer.nexmo.com/concepts/guides/webhooks
-%% https://developer.nexmo.com/messaging/sms/guides/delivery-receipts
-%% Example Receipt:
-%%{
-%%    "msisdn": "12066585586",
-%%    "to": "18445443434",
-%%    "network-code": "310260",
-%%    "messageId": "15000001FDB8525C",
-%%    "price": "0.00828000",
-%%    "status": "delivered",
-%%    "scts": "2109022321",
-%%    "err-code": "0",
-%%    "api-key": "77939d62",
-%%    "message-timestamp": "2021-09-02 23:21:22"
-%%}
-process([<<"vonage">>],
-    #request{method = 'POST', data = Data, ip = IP, headers = Headers} = Request) ->
-    try
-        ClientIP = util_http:get_ip(IP, Headers),
-        UserAgent = util_http:get_user_agent(Headers),
-        ?INFO("Vonage SMS callback: Data:~p ip:~s ua:~s, headers:~p",
-            [Data, ClientIP, UserAgent, Headers]),
-        Payload = jiffy:decode(Data, [return_maps]),
-        MsgId = maps:get(<<"messageId">>, Payload),
-        Phone = maps:get(<<"msisdn">>, Payload),
-        MCCMNC = maps:get(<<"network-code">>, Payload, undefined),
-        RealStatus = maps:get(<<"status">>, Payload),
-        Status = vonage:normalized_status(RealStatus),
-        ErrCode = maps:get(<<"err-code">>, Payload),
-        Price = binary_to_list(maps:get(<<"price">>, Payload)),
-        RealPrice = case string:to_float(Price) of
-            {error, _} -> undefined;
-            {RealPrice2, []} -> RealPrice2
-        end,
-        Currency = <<"EUR">>,
-        ?INFO("Delivery receipt Vonage: Phone: ~s Status: ~s MsgId:~s ErrCode:~s MCCMNC:~s Price:~p(~s)",
-            [Phone, RealStatus, MsgId, ErrCode, MCCMNC, RealPrice, Currency]),
-        add_gateway_callback_info(
-            #gateway_response{gateway_id = MsgId, gateway = vonage, status = Status,
-                price = RealPrice, currency = Currency}),
-        {200, ?HEADER(?CT_JSON), jiffy:encode({[{result, ok}]})}
-    catch
-        error : Reason : Stacktrace  ->
-            ?ERROR("Vonage SMS callback error: ~p, ~p~nRequest:~p", [Reason, Stacktrace, Request]),
-            util_http:return_500()
-    end;
-
 %%https://www.infobip.com/docs/api#channels/sms/receive-outbound-sms-message-report
 %%https://www.infobip.com/docs/essentials/response-status-and-error-codes
 %%{

@@ -20,8 +20,6 @@
     twilio_verify,
     mbird,
     mbird_verify,
-    vonage,
-    vonage_verify,
     infobip,
     telesign,
     clickatell
@@ -38,7 +36,6 @@
 ]).
 
 -define(EXTERNAL_CODE_GATEWAYS, [
-    vonage_verify,
     mbird_verify
 ]).
 
@@ -58,7 +55,6 @@ external_code_gateways() ->
 
 
 -spec uses_external_code(Gateway :: term()) -> boolean().
-uses_external_code(vonage_verify) -> true;
 uses_external_code(mbird_verify) -> true;
 uses_external_code(X) when is_binary(X) -> uses_external_code(util:to_atom(X));
 uses_external_code(_) -> false. 

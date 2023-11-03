@@ -117,7 +117,6 @@ get_secret(SecretName) ->
                 %% This allows us to ping an SMS provider's test API
                 <<"TwilioTest">> -> get_secret_internal(SecretName);
                 <<"MBirdTest">> -> get_secret_internal(SecretName);
-                <<"Vonage">> -> get_secret_internal(SecretName);
                 <<"fcm">> -> <<"{\"fcm\": \"dummySecret\"}">>;
                 _ -> ?DUMMY_SECRET
             end
