@@ -33,7 +33,8 @@
     calculate_fof_run/2,
     calculate_follow_suggestions/2,
     calculate_friend_suggestions/2,
-    update_geotag_index/2
+    update_geotag_index/2,
+    update_new_search_index/2
 ]).
 
 
