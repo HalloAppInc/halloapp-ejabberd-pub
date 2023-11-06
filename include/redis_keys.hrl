@@ -85,6 +85,7 @@
 
 -define(USERNAME_KEY, <<"usu:">>).
 -define(USERNAME_INDEX_KEY, <<"usi:">>).
+-define(SEARCH_INDEX_KEY, <<"hsi:">>).
 
 -define(UID_NUM_POSTS_KEY, <<"unp:">>).
 -define(UID_NUM_COMMENTS_KEY, <<"unc:">>).

@@ -193,6 +193,10 @@
     get_username_binary/1,
     get_username_uid/1,
     get_username_uids/1,
+    add_search_index/2,
+    delete_search_index/2,
+    search_index_results/1,
+    search_index_results/2,
     search_username_prefix/2,
     get_basic_user_profiles/2,
     get_halloapp_user_profiles/2,
@@ -581,6 +585,61 @@ delete_username_index(Username) ->
     ok.
 
 
+normalize_chars(Binary) ->
+    case unicode:characters_to_nfc_binary(Binary) of
+        {error, _, _} ->
+            ?WARNING("Error normalizing unicode: ~p", [Binary]),
+            Binary;
+        Utf8NormBin ->
+            string:casefold(Utf8NormBin)
+    end.
+
+
+%% Use this function to index names and username for search on HalloApp
+-spec add_search_index(uid(), unicode:chardata()) -> ok.
+add_search_index(Uid, SearchTerm) ->
+    NormalizedTerm = normalize_chars(SearchTerm),
+    add_search_index_internal(Uid, NormalizedTerm, string:length(NormalizedTerm)).
+
+add_search_index_internal(_Uid, _SearchTerm, PrefixLen) when PrefixLen =< 2 ->
+    ok;
+add_search_index_internal(Uid, SearchTerm, PrefixLen) ->
+    NamePrefix = string:slice(SearchTerm, 0, PrefixLen),
+    {ok, _} = q(["ZADD", search_index_key(NamePrefix), 1, Uid]),
+    add_search_index_internal(Uid, SearchTerm, PrefixLen - 1).
+
+
+-spec delete_search_index(uid(), unicode:chardata()) -> ok.
+delete_search_index(Uid, SearchTerm) ->
+    case lists:member(Uid, search_index_results(SearchTerm)) of
+        true ->
+            NormalizedTerm = normalize_chars(SearchTerm),
+            delete_search_index_internal(Uid, NormalizedTerm, string:length(NormalizedTerm));
+        false ->
+            ok
+    end.
+
+delete_search_index_internal(_Uid, _SearchTerm, PrefixLen) when PrefixLen =< 2 ->
+    ok;
+delete_search_index_internal(Uid, SearchTerm, PrefixLen) ->
+    NamePrefix = string:slice(SearchTerm, 0, PrefixLen),
+    {ok, _} = q(["ZREM", search_index_key(NamePrefix), Uid]),
+    delete_search_index_internal(Uid, SearchTerm, PrefixLen - 1).
+
+
+-spec search_index_results(unicode:chardata()) -> list(uid()).
+search_index_results(SearchTerm) ->
+    %% Default search limit will return maximum 20 results
+    search_index_results(SearchTerm, 20).
+
+-spec search_index_results(unicode:chardata(), pos_integer()) -> list(uid()).
+search_index_results(SearchTerm, Limit) ->
+    NormalizedTerm = normalize_chars(SearchTerm),
+    {ok, Uids} = q(["ZRANGE", search_index_key(NormalizedTerm), "-", "+", "BYLEX", "LIMIT", 0, Limit]),
+    Uids.
+
+
+%% TODO: remove when new search index is built
 add_name_prefix(_Name, _Username, PrefixLen) when PrefixLen =< 2 -> ok;
 add_name_prefix(Name, Username, PrefixLen) ->
     <<NamePrefix:PrefixLen/binary, _T/binary>> = Name,
@@ -588,6 +647,7 @@ add_name_prefix(Name, Username, PrefixLen) ->
     add_name_prefix(Name, Username, PrefixLen - 1).
 
 
+%% TODO: remove when new search index is built
 delete_name_prefix(_Name, _Username, PrefixLen) when PrefixLen =< 2 -> ok;
 delete_name_prefix(Name, Username, PrefixLen) ->
     <<NamePrefix:PrefixLen/binary, _T/binary>> = Name,
@@ -595,8 +655,7 @@ delete_name_prefix(Name, Username, PrefixLen) ->
     delete_name_prefix(Name, Username, PrefixLen - 1).
 
 
-%% TODO: we should switch to uids here - would make things a lot simpler to add new indexing strings.
-%% like bio/links etc.
+%% TODO: remove when new search index is built
 add_username_prefix(_Username, PrefixLen) when PrefixLen =< 2 ->
     ok;
 add_username_prefix(Username, PrefixLen) ->
@@ -604,6 +663,7 @@ add_username_prefix(Username, PrefixLen) ->
     {ok, _Res} = q(["ZADD", username_index_key(UsernamePrefix), 1, Username]),
     add_username_prefix(Username, PrefixLen - 1).
 
+%% TODO: remove when new search index is built
 delete_username_prefix(_Username, PrefixLen) when PrefixLen =< 2 ->
     ok;
 delete_username_prefix(Username, PrefixLen) ->
@@ -611,6 +671,7 @@ delete_username_prefix(Username, PrefixLen) ->
     {ok, _Res} = q(["ZREM", username_index_key(UsernamePrefix), Username]),
     delete_username_prefix(Username, PrefixLen - 1).
 
+%% TODO: remove when new search index is built
 -spec search_username_prefix(Prefix :: binary(), Limit :: integer()) -> {ok, [binary()]} | {error, any()}.
 search_username_prefix(Prefix, Limit) ->
     {ok, Usernames} = q(["ZRANGE", username_index_key(Prefix), "-", "+", "BYLEX", "LIMIT", 0, Limit]),
@@ -2397,6 +2458,9 @@ zone_offset_sec_key(Slot, ZoneOffsetSec) ->
 
 username_index_key(UsernamePrefix) ->
     <<?USERNAME_INDEX_KEY/binary, "{", UsernamePrefix/binary, "}">>.
+
+search_index_key(Prefix) ->
+    <<?SEARCH_INDEX_KEY/binary, "{", Prefix/binary, "}">>.
 
 username_uid_key(Username) ->
     <<?USERNAME_KEY/binary, "{", Username/binary, "}">>.

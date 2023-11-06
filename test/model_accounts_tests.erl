@@ -666,6 +666,32 @@ username_test(_) ->
     ].
 
 
+search_index_test(_) ->
+    Name1 = <<"abcdef">>,
+    Name2 = <<"Abcdddddd">>,
+    CommonPrefix = <<"abc">>,
+    [
+        ?_assertEqual([], model_accounts:search_index_results(Name1)),
+        ?_assertEqual([], model_accounts:search_index_results(Name2)),
+        ?_assertOk(model_accounts:add_search_index(?UID1, Name1)),
+        ?_assertEqual([?UID1], model_accounts:search_index_results(Name1)),
+        ?_assertEqual([?UID1], model_accounts:search_index_results(CommonPrefix)),
+        ?_assertEqual([], model_accounts:search_index_results(Name2)),
+        ?_assertOk(model_accounts:add_search_index(?UID2, Name2)),
+        ?_assertEqual([?UID1], model_accounts:search_index_results(Name1)),
+        ?_assertEqual(lists:sort([?UID1, ?UID2]), lists:sort(model_accounts:search_index_results(CommonPrefix))),
+        ?_assertEqual([?UID2], model_accounts:search_index_results(Name2)),
+        ?_assertOk(model_accounts:delete_search_index(?UID1, Name1)),
+        ?_assertEqual([], model_accounts:search_index_results(Name1)),
+        ?_assertEqual([?UID2], model_accounts:search_index_results(CommonPrefix)),
+        ?_assertEqual([?UID2], model_accounts:search_index_results(Name2)),
+        ?_assertOk(model_accounts:delete_search_index(?UID1, Name1)),
+        ?_assertEqual([], model_accounts:search_index_results(Name1)),
+        ?_assertEqual([?UID2], model_accounts:search_index_results(CommonPrefix)),
+        ?_assertEqual([?UID2], model_accounts:search_index_results(Name2))
+    ].
+
+
 geo_tag_test(_) ->
     TagToExpire = 'GEO0',
     ExpiredTime = util:now() - ?GEO_TAG_EXPIRATION,
@@ -888,6 +914,7 @@ api_test_() ->
         fun psa_tag_test/1,
         fun moment_notification_test/1,
         fun rejected_suggestions_test/1,
+        fun search_index_test/1,
         fun geo_tag_test/1,
         fun zone_offset_tag_test/1,
         fun set_get_bio_test/1,
