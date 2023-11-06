@@ -684,12 +684,8 @@ update_new_search_index(Key, State) ->
                     %% Add name and username to search index
                     lists:foreach(
                         fun(SearchTerm) ->
-                            case model_accounts:add_search_index(Uid, SearchTerm) of
-                                ok ->
-                                    ?INFO("Added name '~p' to search index for ~p", [SearchTerm, Uid]);
-                                Err ->
-                                    ?ERROR("Error adding name '~p' to search index for ~p: ~p", [SearchTerm, Uid, Err])
-                            end
+                            model_accounts:add_search_index(Uid, SearchTerm),
+                            ?INFO("Added name '~p' to search index for ~p", [SearchTerm, Uid])
                         end,
                         [Name, Username])
             end;
