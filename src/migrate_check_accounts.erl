@@ -645,6 +645,57 @@ update_geotag_index(Key, State) ->
     end,
     State.
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                        Migrate to new HalloApp search index                        %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+update_new_search_index(Key, State) ->
+    DryRun = maps:get(dry_run, State, true),
+    %% Match only HalloApp users
+    Result = re:run(Key, "^acc:{(1000[0-9]+)}$", [global, {capture, all, binary}]),
+    case Result of
+        {match, [[_FullKey, Uid]]} ->
+            Name = model_accounts:get_name_binary(Uid),
+            Username = model_accounts:get_username_binary(Uid),
+            case DryRun of
+                true ->
+                    %% Make sure each key is hashable by redis – might be an issue with some non-English unicode chars
+                    [NameIsOkay, UsernameIsOkay] = lists:map(
+                        fun(SearchTerm) ->
+                            case string:length(SearchTerm) =< 2 of
+                                true -> na;
+                                false ->
+                                    try model_accounts:search_index_results(SearchTerm) of
+                                        [] -> true;
+                                        UnexpectedResult ->
+                                            ?WARNING("[DRY RUN]: Unexpected result for search '~p': ~p", [SearchTerm, UnexpectedResult]),
+                                            true
+                                    catch
+                                        error:badarg ->
+                                            ?ERROR("[DRY RUN]: SearchTerm not hashable for ~p: ~p", [Uid, SearchTerm]),
+                                            false
+                                    end
+                            end
+                        end,
+                        [Name, Username]),
+                    ?INFO("[DRY RUN]: Will index for ~p: Name = ~p Username = ~p", [Uid, NameIsOkay, UsernameIsOkay]);
+                false ->
+                    %% Add name and username to search index
+                    lists:foreach(
+                        fun(SearchTerm) ->
+                            case model_accounts:add_search_index(Uid, SearchTerm) of
+                                ok ->
+                                    ?INFO("Added name '~p' to search index for ~p", [SearchTerm, Uid]);
+                                Err ->
+                                    ?ERROR("Error adding name '~p' to search index for ~p: ~p", [SearchTerm, Uid, Err])
+                            end
+                        end,
+                        [Name, Username])
+            end;
+        _ -> ok
+    end,
+    State.
+
 
 q(Client, Command) -> util_redis:q(Client, Command).
 
