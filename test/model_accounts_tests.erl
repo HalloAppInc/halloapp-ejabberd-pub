@@ -748,9 +748,9 @@ set_get_bio_test(_) ->
 set_get_links_test(_) ->
     Links = #{snapchat => "snap_name", user_defined => "https://localhost/test"},
     [
-        ?_assertEqual(#{}, model_accounts:get_links(?UID1)),
-        ?_assertOk(model_accounts:set_links(?UID1, Links)),
-        ?_assertEqual(Links, model_accounts:get_links(?UID1))
+        ?_assertEqual(#{}, model_accounts:get_links_katchup(?UID1)),
+        ?_assertOk(model_accounts:set_links_katchup(?UID1, Links)),
+        ?_assertEqual(Links, model_accounts:get_links_katchup(?UID1))
     ].
 
 user_profile_test(_) ->
@@ -784,7 +784,7 @@ user_profile_test(_) ->
         ?_assert(model_accounts:set_username(?UID1, Username)),
         ?_assertOk(model_accounts:set_avatar_id(?UID1, AvatarId)),
         ?_assertOk(model_accounts:set_bio(?UID1, Bio)),
-        ?_assertOk(model_accounts:set_links(?UID1, LinkMap)),
+        ?_assertOk(model_accounts:set_links_katchup(?UID1, LinkMap)),
         ?_assertMatch(ExpectedResult, LinkListToSet(model_accounts:get_user_profiles(?UID2, ?UID1)))
     ].
 

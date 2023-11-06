@@ -857,6 +857,15 @@ uid_info_halloapp(Uid, Options) ->
     Tags = model_accounts:get_all_geo_tags(Uid),
     io:format("GeoTags: ~p~n", [Tags]),
 
+    LinksList = model_accounts:get_links(Uid),
+    LinksStr = lists:foldl(
+        fun({LinkType, Link}, AccStr) ->
+            AccStr ++ "{" ++ util:to_list(LinkType) ++ ", " ++ util:to_list(Link) ++ "}"
+        end,
+        "Links:",
+        LinksList) ++ "~n",
+    io:format("~p", [LinksStr]),
+
     case lists:member(short, Options) of
         true -> ok;
         false ->
@@ -954,7 +963,7 @@ uid_info_katchup(Uid, Options) ->
         [ContactsPerms, LocationPerms, NotificationsPerms]),
 
     Bio = model_accounts:get_bio(Uid),
-    LinksMap = model_accounts:get_links(Uid),
+    LinksMap = model_accounts:get_links_katchup(Uid),
     io:format("Bio: ~p~n", [Bio]),
     LinksStr = maps:fold(
         fun(LinkType, Link, AccStr) ->

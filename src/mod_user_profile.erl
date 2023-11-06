@@ -21,6 +21,7 @@
 %% API
 -export([
     process_local_iq/1,
+    process_local_iq_katchup/1,
     account_name_updated/2,
     user_avatar_published/3,
     username_updated/3,
@@ -29,7 +30,8 @@
 ]).
 
 -define(MAX_BIO_LENGTH, 150).
--define(VALID_LINK_TYPES, [user_defined, tiktok, snapchat, instagram]).
+-define(VALID_LINK_TYPES_HALLOAPP, [user_defined, tiktok, instagram, x, youtube]).
+-define(VALID_LINK_TYPES_KATCHUP, [user_defined, tiktok, snapchat, instagram]).
 
 %%====================================================================
 %% gen_mod API
@@ -37,11 +39,12 @@
 
 start(_Host, _Opts) ->
     gen_iq_handler:add_iq_handler(ejabberd_local, ?KATCHUP, pb_set_bio_request, ?MODULE, process_local_iq),
-    gen_iq_handler:add_iq_handler(ejabberd_local, ?KATCHUP, pb_set_link_request, ?MODULE, process_local_iq),
+    gen_iq_handler:add_iq_handler(ejabberd_local, ?KATCHUP, pb_set_link_request, ?MODULE, process_local_iq_katchup),
     gen_iq_handler:add_iq_handler(ejabberd_local, ?KATCHUP, pb_user_profile_request, ?MODULE, process_local_iq),
     gen_iq_handler:add_iq_handler(ejabberd_local, ?KATCHUP, pb_archive_request, ?MODULE, process_local_iq),
     gen_iq_handler:add_iq_handler(ejabberd_local, ?KATCHUP, pb_geo_tag_request, ?MODULE, process_local_iq),
     gen_iq_handler:add_iq_handler(ejabberd_local, ?KATCHUP, pb_register_request, ?MODULE, process_local_iq),
+    gen_iq_handler:add_iq_handler(ejabberd_local, halloapp, pb_set_link_request, ?MODULE, process_local_iq),
     gen_iq_handler:add_iq_handler(ejabberd_local, halloapp, pb_halloapp_profile_request, ?MODULE, process_local_iq),
     ejabberd_hooks:add(account_name_updated, katchup, ?MODULE, account_name_updated, 50),
     ejabberd_hooks:add(user_avatar_published, katchup, ?MODULE, user_avatar_published, 50),
@@ -55,6 +58,7 @@ stop(_Host) ->
     gen_iq_handler:remove_iq_handler(ejabberd_local, ?KATCHUP, pb_archive_request),
     gen_iq_handler:remove_iq_handler(ejabberd_local, ?KATCHUP, pb_geo_tag_request),
     gen_iq_handler:remove_iq_handler(ejabberd_local, ?KATCHUP, pb_register_request),
+    gen_iq_handler:remove_iq_handler(ejabberd_local, halloapp, pb_set_link_request),
     gen_iq_handler:remove_iq_handler(ejabberd_local, halloapp, pb_halloapp_profile_request),
     ejabberd_hooks:delete(account_name_updated, katchup, ?MODULE, account_name_updated, 50),
     ejabberd_hooks:delete(user_avatar_published, katchup, ?MODULE, user_avatar_published, 50),
@@ -93,19 +97,39 @@ process_local_iq(#pb_iq{type = set, from_uid = Uid, payload = #pb_set_bio_reques
     pb:make_iq_result(Iq, Ret);
 
 
-%% SetLinkRequest
+%% SetLinkRequest (HalloApp) – set
 process_local_iq(#pb_iq{type = set, from_uid = Uid,
-        payload = #pb_set_link_request{link = #pb_link{type = BinType, text = Text}}} = Iq) ->
+        payload = #pb_set_link_request{link = #pb_link{type = BinType, text = Text}, action = set}} = Iq) ->
     Type = util:to_atom(BinType),
-    Ret = case lists:member(Type, ?VALID_LINK_TYPES) of
+    ?INFO("Set link request from ~p: ~p: ~p", [Uid, Type, Text]),
+    Ret = case lists:member(Type, ?VALID_LINK_TYPES_HALLOAPP) of
         true ->
-            LinkMap = model_accounts:get_links(Uid),
+            Links = model_accounts:get_links(Uid),
             case Text of
                 undefined ->
-                    ok = model_accounts:set_links(Uid, LinkMap#{Type => <<>>});
+                    ok = model_accounts:set_links(Uid, Links);
                 _ ->
-                    ok = model_accounts:set_links(Uid, LinkMap#{Type => Text})
+                    NewLinks = [{Type, Text} | Links],
+                    ok = model_accounts:set_links(Uid, NewLinks),
+                    ?INFO("New links for ~p: ~p", [Uid, NewLinks])
             end,
+            #pb_set_link_result{result = ok};
+        false ->
+            #pb_set_link_result{result = fail, reason = bad_type}
+    end,
+    pb:make_iq_result(Iq, Ret);
+
+%% SetLinkRequest (HalloApp) – remove
+process_local_iq(#pb_iq{type = set, from_uid = Uid,
+    payload = #pb_set_link_request{link = #pb_link{type = BinType, text = Text}, action = remove}} = Iq) ->
+    Type = util:to_atom(BinType),
+    ?INFO("Remove link request from ~p: ~p: ~p", [Uid, Type, Text]),
+    Ret = case lists:member(Type, ?VALID_LINK_TYPES_HALLOAPP) of
+        true ->
+            OldLinks = model_accounts:get_links(Uid),
+            NewLinks = lists:filter(fun({Typ, Txt}) -> not (Type =:= Typ andalso Txt =:= Text) end, OldLinks),
+            ok = model_accounts:set_links(Uid, NewLinks),
+            ?INFO("New links for ~p: ~p", [Uid, NewLinks]),
             #pb_set_link_result{result = ok};
         false ->
             #pb_set_link_result{result = fail, reason = bad_type}
@@ -178,6 +202,25 @@ process_local_iq(#pb_iq{payload = #pb_halloapp_profile_request{}} = Iq) ->
     },
     pb:make_iq_result(Iq, Ret).
 
+
+%% SetLinkRequest (Katchup)
+process_local_iq_katchup(#pb_iq{type = set, from_uid = Uid,
+        payload = #pb_set_link_request{link = #pb_link{type = BinType, text = Text}}} = Iq) ->
+    Type = util:to_atom(BinType),
+    Ret = case lists:member(Type, ?VALID_LINK_TYPES_KATCHUP) of
+              true ->
+                  LinkMap = model_accounts:get_links_katchup(Uid),
+                  case Text of
+                      undefined ->
+                          ok = model_accounts:set_links_katchup(Uid, LinkMap#{Type => <<>>});
+                      _ ->
+                          ok = model_accounts:set_links_katchup(Uid, LinkMap#{Type => Text})
+                  end,
+                  #pb_set_link_result{result = ok};
+              false ->
+                  #pb_set_link_result{result = fail, reason = bad_type}
+          end,
+    pb:make_iq_result(Iq, Ret).
 
 %%====================================================================
 %% Hooks

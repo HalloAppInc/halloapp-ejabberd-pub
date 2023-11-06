@@ -207,6 +207,8 @@
     get_bio/1,
     set_links/2,
     get_links/1,
+    set_links_katchup/2,
+    get_links_katchup/1,
     delete_old_username/1,
     get_geotag_uids/1,
     update_geo_tag_index/2,
@@ -265,7 +267,8 @@
 -define(FIELD_USERNAME, <<"un">>).
 -define(FIELD_USERNAME_UID, <<"unu">>).
 -define(FIELD_BIO, <<"bio">>).
--define(FIELD_LINKS, <<"lnk">>).
+-define(FIELD_LINKS_KATCHUP, <<"lnk">>).
+-define(FIELD_LINKS_HALLOAPP, <<"hlk">>).
 -define(FIELD_CONTACTS_PERMISSION, <<"con">>).
 -define(FIELD_LOCATION_PERMISSION, <<"loc">>).
 -define(FIELD_NOTIFICATIONS_PERMISSION, <<"not">>).
@@ -690,16 +693,40 @@ get_bio(Uid) ->
     util_redis:decode_binary(Res).
 
 
--spec set_links(Uid :: uid(), Links :: map()) -> ok.
+-spec set_links(Uid :: uid(), Links :: [{atom(), binary()}]) -> ok.
 set_links(Uid, Links) ->
-    JsonLinks = jiffy:encode(Links),
-    {ok, _} = q(["HSET", account_key(Uid), ?FIELD_LINKS, JsonLinks]),
+    {_, EJsonLinks} = lists:foldl(
+        fun({T, V}, {AccNum, AccMap}) ->
+            {AccNum + 1, AccMap#{integer_to_binary(AccNum) => [T, V]}}
+        end,
+        {1, #{}},
+        Links),
+    JsonLinks = jiffy:encode(EJsonLinks),
+    {ok, _} = q(["HSET", account_key(Uid), ?FIELD_LINKS_HALLOAPP, JsonLinks]),
     ok.
 
 
--spec get_links(Uid :: uid()) -> Links :: map().
+-spec get_links(Uid :: uid()) -> Links :: [{atom(), binary()}].
 get_links(Uid) ->
-    {ok, Res} = q(["HGET", account_key(Uid), ?FIELD_LINKS]),
+    {ok, Res} = q(["HGET", account_key(Uid), ?FIELD_LINKS_HALLOAPP]),
+    case util_redis:decode_binary(Res) of
+        undefined -> [];
+        BinRes ->
+            JsonLinks = jiffy:decode(BinRes, [return_maps]),
+            lists:map(fun({_, [T, V]}) -> {util:to_atom(T), V} end, maps:to_list(JsonLinks))
+    end.
+
+
+-spec set_links_katchup(Uid :: uid(), Links :: map()) -> ok.
+set_links_katchup(Uid, Links) ->
+    JsonLinks = jiffy:encode(Links),
+    {ok, _} = q(["HSET", account_key(Uid), ?FIELD_LINKS_KATCHUP, JsonLinks]),
+    ok.
+
+
+-spec get_links_katchup(Uid :: uid()) -> Links :: map().
+get_links_katchup(Uid) ->
+    {ok, Res} = q(["HGET", account_key(Uid), ?FIELD_LINKS_KATCHUP]),
     case util_redis:decode_binary(Res) of
         undefined -> #{};
         BinRes ->
@@ -1584,7 +1611,7 @@ get_user_profile(Uid, Ouid) ->
         ["HGET", account_key(Ouid), ?FIELD_NAME],
         ["HGET", account_key(Ouid), ?FIELD_AVATAR_ID],
         ["HGET", account_key(Ouid), ?FIELD_BIO],
-        ["HGET", account_key(Ouid), ?FIELD_LINKS],
+        ["HGET", account_key(Ouid), ?FIELD_LINKS_KATCHUP],
         ["ZSCORE", model_follow:follower_key(Uid), Ouid],
         ["ZSCORE", model_follow:following_key(Uid), Ouid],
         ["SISMEMBER", model_follow:blocked_key(Uid), Ouid],
@@ -1684,20 +1711,27 @@ get_halloapp_user_profiles(Uid, Ouid) ->
 -spec get_halloapp_user_profile(Uid :: uid(), Ouid :: uid()) -> pb_halloapp_user_profile().
 get_halloapp_user_profile(Uid, Ouid) ->
     %% TODO: clean up this.
-    [{ok, Username}, {ok, Name}, {ok, AvatarId}, {ok, IsBlocked}] = qmn([
+    [{ok, Username}, {ok, Name}, {ok, AvatarId}, {ok, LinkJson}, {ok, IsBlocked}] = qmn([
         ["HGET", account_key(Ouid), ?FIELD_USERNAME],
         ["HGET", account_key(Ouid), ?FIELD_NAME],
         ["HGET", account_key(Ouid), ?FIELD_AVATAR_ID],
+        ["HGET", account_key(Ouid), ?FIELD_LINKS_HALLOAPP],
         ["SISMEMBER", model_halloapp_friends:blocked_key(Uid), Ouid]
     ]),
     FriendStatus = model_halloapp_friends:get_friend_status(Uid, Ouid),
+    Links = case LinkJson of
+        undefined -> [];
+        _ -> lists:map(fun({_, [T, V]}) -> #pb_link{type = util:to_atom(T), text = V} end,
+                maps:to_list(jiffy:decode(LinkJson, [return_maps])))
+    end,
     #pb_halloapp_user_profile{
         uid = Ouid,
         username = Username,
         name = Name,
         avatar_id = AvatarId,
         status = FriendStatus,
-        blocked = util_redis:decode_boolean(IsBlocked)
+        blocked = util_redis:decode_boolean(IsBlocked),
+        links = Links
     }.
 
 %%====================================================================
@@ -2230,7 +2264,7 @@ get_user_activity_info(Usernames) ->
                     },
                     num_following => {fun model_follow:get_following_count/1, fun(N) -> N >= ?ACTIVE_USER_MIN_FOLLOWING end},
                     avatar => {fun(U) -> get_avatar_id_binary(U) =/= <<>> end, fun(Bool) -> Bool end},
-                    ig => {fun(U) -> maps:get(instagram, get_links(U), <<>>) end, fun(IG) -> IG =/= <<>> end},
+                    ig => {fun(U) -> maps:get(instagram, get_links_katchup(U), <<>>) end, fun(IG) -> IG =/= <<>> end},
                     num_posts => {fun model_feed:get_num_posts/1, fun(N) -> N >= ?ACTIVE_USER_MIN_POSTS end}
                 }),
             DataMap#{uid => Uid, active => IsActive}

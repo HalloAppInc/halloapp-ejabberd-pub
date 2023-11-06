@@ -30,17 +30,39 @@ set_bio_testparallel() ->
     ].
 
 set_links_testparallel() ->
+    Uid = tutil:generate_uid(?HALLOAPP),
+    BadLink = #pb_link{type = not_a_valid_type, text = "no"},
+    GoodLink = #pb_link{type = x, text = "not twitter"},
+    Request = fun(Link, Action) -> #pb_iq{type = set, from_uid = Uid, payload = #pb_set_link_request{link = Link, action = Action}} end,
+    BadSetResult = #pb_iq{to_uid = Uid, type = result,
+        payload = #pb_set_link_result{result = fail, reason = bad_type}},
+    GoodSetResult = #pb_iq{to_uid = Uid, type = result,
+        payload = #pb_set_link_result{result = ok}},
+    BadRemoveResult = #pb_iq{to_uid = Uid, type = result,
+        payload = #pb_set_link_result{result = fail, reason = bad_type}},
+    GoodRemoveResult = #pb_iq{to_uid = Uid, type = result,
+        payload = #pb_set_link_result{result = ok}},
+    [
+        ?_assertMatch(BadSetResult, mod_user_profile:process_local_iq(Request(BadLink, set))),
+        ?_assertMatch(GoodSetResult, mod_user_profile:process_local_iq(Request(GoodLink, set))),
+        ?_assertEqual([{x, "not twitter"}], model_accounts:get_links(Uid)),
+        ?_assertMatch(BadRemoveResult, mod_user_profile:process_local_iq(Request(BadLink, remove))),
+        ?_assertMatch(GoodRemoveResult, mod_user_profile:process_local_iq(Request(GoodLink, remove))),
+        ?_assertEqual([], model_accounts:get_links(Uid))
+    ].
+
+set_links_katchup_testparallel() ->
     Uid = tutil:generate_uid(?KATCHUP),
     BadLink = #pb_link{type = not_a_valid_type, text = "no"},
-    GoodLink = #pb_link{type = snapchat, text = "snapchat"},
+    GoodLink = #pb_link{type = instagram, text = "instagram"},
     Request = fun(Link) -> #pb_iq{type = set, from_uid = Uid, payload = #pb_set_link_request{link = Link}} end,
     BadResult = #pb_iq{to_uid = Uid, type = result,
         payload = #pb_set_link_result{result = fail, reason = bad_type}},
     GoodResult = #pb_iq{to_uid = Uid, type = result,
         payload = #pb_set_link_result{result = ok}},
     [
-        ?_assertMatch(BadResult, mod_user_profile:process_local_iq(Request(BadLink))),
-        ?_assertMatch(GoodResult, mod_user_profile:process_local_iq(Request(GoodLink)))
+        ?_assertMatch(BadResult, mod_user_profile:process_local_iq_katchup(Request(BadLink))),
+        ?_assertMatch(GoodResult, mod_user_profile:process_local_iq_katchup(Request(GoodLink)))
     ].
 
 get_user_profile_by_uid_no_user_testparallel() ->

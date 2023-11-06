@@ -2101,8 +2101,10 @@ message Link {
     enum Type {
         USER_DEFINED = 0;
         TIKTOK = 1;
-        SNAPCHAT = 2;
+        SNAPCHAT = 2;  // deprecated: using this on HalloApp results in BAD_TYPE error
         INSTAGRAM = 3;
+        X = 4;
+        YOUTUBE = 5;
     }
     Type type = 1;
     string text = 2;
@@ -2110,6 +2112,11 @@ message Link {
 
 message SetLinkRequest {
     Link link = 1;
+    enum Action {
+        SET = 0;
+        REMOVE = 1;
+    }
+    Action action = 2;
 }
 
 message SetLinkResult {
@@ -2323,6 +2330,7 @@ message HalloappUserProfile {
     string avatar_id = 4;
     FriendshipStatus status = 5;
     bool blocked = 6;
+    repeated Link links = 7;
 }
 
 message HalloappProfileUpdate {
