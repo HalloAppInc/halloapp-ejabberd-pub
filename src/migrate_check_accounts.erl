@@ -656,38 +656,42 @@ update_new_search_index(Key, State) ->
     Result = re:run(Key, "^acc:{(1000[0-9]+)}$", [global, {capture, all, binary}]),
     case Result of
         {match, [[_FullKey, Uid]]} ->
-            Name = model_accounts:get_name_binary(Uid),
-            Username = model_accounts:get_username_binary(Uid),
-            case DryRun of
+            case model_accounts:account_exists(Uid) of
                 true ->
-                    %% Make sure each key is hashable by redis – might be an issue with some non-English unicode chars
-                    [NameIsOkay, UsernameIsOkay] = lists:map(
-                        fun(SearchTerm) ->
-                            case string:length(SearchTerm) =< 2 of
-                                true -> na;
-                                false ->
-                                    try model_accounts:search_index_results(SearchTerm) of
-                                        [] -> true;
-                                        UnexpectedResult ->
-                                            ?WARNING("[DRY RUN]: Unexpected result for search '~p': ~p", [SearchTerm, UnexpectedResult]),
-                                            true
-                                    catch
-                                        error:badarg ->
-                                            ?ERROR("[DRY RUN]: SearchTerm not hashable for ~p: ~p", [Uid, SearchTerm]),
-                                            false
+                    Name = model_accounts:get_name_binary(Uid),
+                    Username = model_accounts:get_username_binary(Uid),
+                    case DryRun of
+                        true ->
+                            %% Make sure each key is hashable by redis – might be an issue with some non-English unicode chars
+                            [NameIsOkay, UsernameIsOkay] = lists:map(
+                                fun(SearchTerm) ->
+                                    case string:length(SearchTerm) =< 2 of
+                                        true -> na;
+                                        false ->
+                                            try model_accounts:search_index_results(SearchTerm) of
+                                                [] -> true;
+                                                UnexpectedResult ->
+                                                    ?WARNING("[DRY RUN2]: Unexpected result for search '~p': ~p", [SearchTerm, UnexpectedResult]),
+                                                    true
+                                            catch
+                                                error:badarg ->
+                                                    ?ERROR("[DRY RUN2]: SearchTerm not hashable for ~p: ~p", [Uid, SearchTerm]),
+                                                    false
+                                            end
                                     end
-                            end
-                        end,
-                        [Name, Username]),
-                    ?INFO("[DRY RUN]: Will index for ~p: Name = ~p Username = ~p", [Uid, NameIsOkay, UsernameIsOkay]);
-                false ->
-                    %% Add name and username to search index
-                    lists:foreach(
-                        fun(SearchTerm) ->
-                            model_accounts:add_search_index(Uid, SearchTerm),
-                            ?INFO("Added name '~p' to search index for ~p", [SearchTerm, Uid])
-                        end,
-                        [Name, Username])
+                                end,
+                                [Name, Username]),
+                            ?INFO("[DRY RUN2]: Will index for ~p: Name = ~p Username = ~p", [Uid, NameIsOkay, UsernameIsOkay]);
+                        false ->
+                            %% Add name and username to search index
+                            lists:foreach(
+                                fun(SearchTerm) ->
+                                    model_accounts:add_search_index(Uid, SearchTerm),
+                                    ?INFO("Added name '~p' to search index for ~p", [SearchTerm, Uid])
+                                end,
+                                [Name, Username])
+                    end;
+                false -> ok
             end;
         _ -> ok
     end,
