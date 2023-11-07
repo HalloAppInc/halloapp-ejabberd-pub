@@ -643,15 +643,15 @@ username_test(_) ->
     ?_assert(model_accounts:set_username(?UID1, ?USERNAME1)),
     ?_assert(model_accounts:set_username(?UID2, ?USERNAME2)),
     ?_assertEqual(#{?UID1 => ?USERNAME1, ?UID2 => ?USERNAME2}, model_accounts:get_usernames([?UID1, ?UID2])),
-    ?_assertEqual({ok, [?USERNAME2, ?USERNAME1]}, model_accounts:search_username_prefix(?USERNAMEPFIX1, 10)),
-    ?_assertEqual({ok, [?USERNAME2, ?USERNAME1]}, model_accounts:search_username_prefix(?USERNAMEPFIX2, 10)),
-    ?_assertEqual({ok, [?USERNAME1]}, model_accounts:search_username_prefix(?USERNAMEPFIX3, 10)),
-    ?_assertEqual({ok, [?USERNAME2]}, model_accounts:search_username_prefix(?USERNAMEPFIX4, 10)),
+    ?_assertEqual([?UID2, ?UID1], model_accounts:search_index_results(?USERNAMEPFIX1, 10)),
+    ?_assertEqual([?UID2, ?UID1], model_accounts:search_index_results(?USERNAMEPFIX2, 10)),
+    ?_assertEqual([?UID1], model_accounts:search_index_results(?USERNAMEPFIX3, 10)),
+    ?_assertEqual([?UID2], model_accounts:search_index_results(?USERNAMEPFIX4, 10)),
     ?_assert(model_accounts:set_username(?UID1, ?USERNAME3)),
-    ?_assertEqual({ok, [?USERNAME2]}, model_accounts:search_username_prefix(?USERNAMEPFIX1, 10)),
-    ?_assertEqual({ok, [?USERNAME2]}, model_accounts:search_username_prefix(?USERNAMEPFIX2, 10)),
-    ?_assertEqual({ok, []}, model_accounts:search_username_prefix(?USERNAMEPFIX3, 10)),
-    ?_assertEqual({ok, [?USERNAME2]}, model_accounts:search_username_prefix(?USERNAMEPFIX4, 10)),
+    ?_assertEqual([?UID2], model_accounts:search_index_results(?USERNAMEPFIX1, 10)),
+    ?_assertEqual([?UID2], model_accounts:search_index_results(?USERNAMEPFIX2, 10)),
+    ?_assertEqual([], model_accounts:search_index_results(?USERNAMEPFIX3, 10)),
+    ?_assertEqual([?UID2], model_accounts:search_index_results(?USERNAMEPFIX4, 10)),
     ?_assertOk(model_accounts:create_account(?UID1, ?PHONE1, ?USER_AGENT1, ?CAMPAIGN_ID, ?TS1)),
     ?_assertOk(model_accounts:set_name(?UID1, ?NAME1)),
     ?_assertOk(model_accounts:create_account(?UID2, ?PHONE2, ?USER_AGENT2, ?CAMPAIGN_ID, ?TS2)),
@@ -673,13 +673,13 @@ search_index_test(_) ->
     [
         ?_assertEqual([], model_accounts:search_index_results(Name1)),
         ?_assertEqual([], model_accounts:search_index_results(Name2)),
-        ?_assertOk(model_accounts:add_search_index(?UID1, Name1)),
+        ?_assertOk(model_accounts:set_name(?UID1, Name1)),  %% adds name to index
         ?_assertEqual([?UID1], model_accounts:search_index_results(Name1)),
         ?_assertEqual([?UID1], model_accounts:search_index_results(CommonPrefix)),
         ?_assertEqual([], model_accounts:search_index_results(Name2)),
-        ?_assertOk(model_accounts:add_search_index(?UID2, Name2)),
+        ?_assertOk(model_accounts:set_name(?UID2, Name2)),  %% adds name to index,
         ?_assertEqual([?UID1], model_accounts:search_index_results(Name1)),
-        ?_assertEqual(lists:sort([?UID1, ?UID2]), lists:sort(model_accounts:search_index_results(CommonPrefix))),
+        ?_assertEqual([?UID2, ?UID1], model_accounts:search_index_results(CommonPrefix)),
         ?_assertEqual([?UID2], model_accounts:search_index_results(Name2)),
         ?_assertOk(model_accounts:delete_search_index(?UID1, Name1)),
         ?_assertEqual([], model_accounts:search_index_results(Name1)),
@@ -914,14 +914,14 @@ api_test_() ->
         fun psa_tag_test/1,
         fun moment_notification_test/1,
         fun rejected_suggestions_test/1,
-        fun search_index_test/1,
         fun geo_tag_test/1,
         fun zone_offset_tag_test/1,
         fun set_get_bio_test/1,
         fun set_get_links_test/1
     ]),
     tutil:setup_foreach(fun setup_accounts/0, [
-        fun test_ban/1
+        fun test_ban/1,
+        fun search_index_test/1
     ])].
 
 

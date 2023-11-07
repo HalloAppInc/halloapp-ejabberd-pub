@@ -73,9 +73,7 @@ process_local_iq(
 -spec search_username_prefix(Prefix :: binary(), Uid :: uid()) -> [pb_basic_user_profile()].
 search_username_prefix(Prefix, Uid) ->
     AppType = util_uid:get_app_type(Uid),
-    LowercasedPrefix = string:lowercase(Prefix),
-    {ok, Usernames} = model_accounts:search_username_prefix(LowercasedPrefix, 20),
-    Ouids = maps:values(model_accounts:get_username_uids(Usernames)),
+    Ouids = model_accounts:search_index_results(Prefix, 20),
     case AppType of
         katchup ->
             %% Filter out uids based off app type.

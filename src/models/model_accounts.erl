@@ -197,7 +197,6 @@
     delete_search_index/2,
     search_index_results/1,
     search_index_results/2,
-    search_username_prefix/2,
     get_basic_user_profiles/2,
     get_halloapp_user_profiles/2,
     get_user_profiles/2,
@@ -365,7 +364,7 @@ delete_account(Uid) ->
                 ["DECR", count_accounts_key(Uid)]
             ]),
             case Username =/= undefined andalso util_uid:get_app_type(Uid) =/= halloapp of
-                true -> delete_username_index(Username);
+                true -> delete_username_index(Uid, Username);
                 false -> ok
             end,
             case RenameResult of
@@ -406,16 +405,9 @@ decrement_version_and_lang_counters(Uid, ClientVersion, LangId) ->
 -spec set_name(Uid :: uid(), Name :: binary()) -> ok  | {error, any()}.
 set_name(Uid, Name) ->
     OldName = get_name_binary(Uid),
-    case get_username(Uid) of
-        {ok, Username} when Username =/= undefined andalso Username =/= <<>> ->
-            {ok, _Res} = q(["HSET", account_key(Uid), ?FIELD_NAME, Name]),
-            delete_name_prefix(string:lowercase(OldName), Username, byte_size(OldName)),
-            add_name_prefix(string:lowercase(Name), Username, byte_size(Name));
-        _ ->
-            %% We add this index later when setting usernames.
-            {ok, _Res} = q(["HSET", account_key(Uid), ?FIELD_NAME, Name]),
-            ok
-    end.
+    {ok, _Res} = q(["HSET", account_key(Uid), ?FIELD_NAME, Name]),
+    delete_search_index(Uid, OldName),
+    add_search_index(Uid, Name).
 
 
 -spec get_name(Uid :: uid()) -> binary() | {ok, maybe(binary())} | {error, any()}.
@@ -500,30 +492,19 @@ is_username_available(Username) ->
     Res =:= undefined.
 
 
-%% This adds an index on usernames and names of user as well.
-%% This is necessary right now since index uses Username, but onboarding involves user setting name before username.
-%% This temporarily fixes the issue by refreshing the indexing on names here.
 -spec set_username(Uid :: uid(), Username :: binary()) -> true | {false, any()} | {error, any()}.
 set_username(Uid, Username) ->
-    case get_username(Uid) of
-        {ok, Username} ->
-            {ok, _} = q(["HSETNX", username_uid_key(Username), ?FIELD_USERNAME_UID, Uid]),
-            NameBin = get_name_binary(Uid),
-            add_username_prefix(Username, byte_size(Username)),
-            add_name_prefix(NameBin, Username, byte_size(NameBin)),
+    {ok, NotExists} = q(["HSETNX", username_uid_key(Username), ?FIELD_USERNAME_UID, Uid]),
+    case NotExists =:= <<"1">> of
+        true ->
+            delete_old_username(Uid),
+            {ok, _} = q(["HSET", account_key(Uid), ?FIELD_USERNAME, Username]),
+            add_search_index(Uid, Username),
             true;
-        _ ->
-            {ok, NotExists} = q(["HSETNX", username_uid_key(Username), ?FIELD_USERNAME_UID, Uid]),
-            case NotExists =:= <<"1">> of
-                true ->
-                    delete_old_username(Uid),
-                    {ok, _} = q(["HSET", account_key(Uid), ?FIELD_USERNAME, Username]),
-                    NameBin = get_name_binary(Uid),
-                    add_username_prefix(Username, byte_size(Username)),
-                    add_name_prefix(NameBin, Username, byte_size(NameBin)),
-                    true;
-                false ->
-                    {false, notuniq}
+        false ->
+            case get_username(Uid) of
+                {ok, Username} -> true;
+                _ -> {false, notuniq}
             end
     end.
 
@@ -577,14 +558,14 @@ delete_old_username(Uid) ->
     case OldUsername =/= undefined of
         false -> ok;
         true ->
-            delete_username_index(OldUsername)
+            delete_username_index(Uid, OldUsername)
     end.
 
 
--spec delete_username_index(Username :: binary()) -> ok | {error, any()}.
-delete_username_index(Username) ->
+-spec delete_username_index(Uid :: uid(), Username :: binary()) -> ok | {error, any()}.
+delete_username_index(Uid, Username) ->
     {ok, _} = q(["HDEL", username_uid_key(Username), ?FIELD_USERNAME_UID]),
-    delete_username_prefix(Username, byte_size(Username)),
+    delete_search_index(Uid, Username),
     ok.
 
 
@@ -639,46 +620,47 @@ search_index_results(SearchTerm) ->
 search_index_results(SearchTerm, Limit) ->
     NormalizedTerm = normalize_chars(SearchTerm),
     {ok, Uids} = q(["ZRANGE", search_index_key(NormalizedTerm), "-", "+", "BYLEX", "LIMIT", 0, Limit]),
-    Uids.
-
-
-%% TODO: remove when new search index is built
-add_name_prefix(_Name, _Username, PrefixLen) when PrefixLen =< 2 -> ok;
-add_name_prefix(Name, Username, PrefixLen) ->
-    <<NamePrefix:PrefixLen/binary, _T/binary>> = Name,
-    {ok, _Res} = q(["ZADD", username_index_key(NamePrefix), 1, Username]),
-    add_name_prefix(Name, Username, PrefixLen - 1).
-
-
-%% TODO: remove when new search index is built
-delete_name_prefix(_Name, _Username, PrefixLen) when PrefixLen =< 2 -> ok;
-delete_name_prefix(Name, Username, PrefixLen) ->
-    <<NamePrefix:PrefixLen/binary, _T/binary>> = Name,
-    {ok, _Res} = q(["ZREM", username_index_key(NamePrefix), Username]),
-    delete_name_prefix(Name, Username, PrefixLen - 1).
-
-
-%% TODO: remove when new search index is built
-add_username_prefix(_Username, PrefixLen) when PrefixLen =< 2 ->
-    ok;
-add_username_prefix(Username, PrefixLen) ->
-    <<UsernamePrefix:PrefixLen/binary, _T/binary>> = Username,
-    {ok, _Res} = q(["ZADD", username_index_key(UsernamePrefix), 1, Username]),
-    add_username_prefix(Username, PrefixLen - 1).
-
-%% TODO: remove when new search index is built
-delete_username_prefix(_Username, PrefixLen) when PrefixLen =< 2 ->
-    ok;
-delete_username_prefix(Username, PrefixLen) ->
-    <<UsernamePrefix:PrefixLen/binary, _T/binary>> = Username,
-    {ok, _Res} = q(["ZREM", username_index_key(UsernamePrefix), Username]),
-    delete_username_prefix(Username, PrefixLen - 1).
-
-%% TODO: remove when new search index is built
--spec search_username_prefix(Prefix :: binary(), Limit :: integer()) -> {ok, [binary()]} | {error, any()}.
-search_username_prefix(Prefix, Limit) ->
-    {ok, Usernames} = q(["ZRANGE", username_index_key(Prefix), "-", "+", "BYLEX", "LIMIT", 0, Limit]),
-    {ok, Usernames}.
+    %% Sort results so that users with usernames appear at the top
+    %% TODO: we can remove this when all users have usernames
+    UidToUsernameMap = get_usernames(Uids),
+    {UidsWithUsernames, UidsWithoutUsernames} = lists:foldl(
+        fun({Uid, Username}, {WithUsernames, WithoutUsernames}) ->
+            case Username of
+                <<>> -> {WithUsernames, [Uid | WithoutUsernames]};
+                _ -> {[Uid | WithUsernames], WithoutUsernames}
+            end
+        end,
+        {[], []},
+        maps:to_list(UidToUsernameMap)),
+    %% Now sort each list alphabetically and recombine them
+    UidToNameMap = get_names(Uids),
+    SortedUidsWithUsernames = lists:sort(
+        fun(U1, U2) ->
+            %% for each U, choose either name or username that matches search prefix
+            [U1Term, U2Term] = lists:map(
+                fun(U) ->
+                    Name = normalize_chars(maps:get(U, UidToNameMap, <<>>)),
+                    case maps:get(U, UidToUsernameMap, undefined) of
+                        undefined -> Name;
+                        Username ->
+                            UsernameSimilarity = binary:longest_common_prefix([NormalizedTerm, Username]),
+                            NameSimilarity = binary:longest_common_prefix([NormalizedTerm, Name]),
+                            case UsernameSimilarity >= NameSimilarity of
+                                true -> Username;
+                                false -> Name
+                            end
+                    end
+                end,
+                [U1, U2]),
+            U1Term =< U2Term
+        end,
+        UidsWithUsernames),
+    SortedUidsWithoutUsernames = lists:sort(
+        fun(U1, U2) ->
+             normalize_chars(maps:get(U1, UidToNameMap, <<>>)) =< normalize_chars(maps:get(U2, UidToNameMap, <<>>))
+        end,
+        UidsWithoutUsernames),
+    lists:append(SortedUidsWithUsernames, SortedUidsWithoutUsernames).
 
 
 -spec set_bio(Uid :: uid(), Bio :: binary()) -> ok.
@@ -2489,9 +2471,6 @@ zone_offset_sec_key(Slot, ZoneOffsetSec) ->
     SlotBin = util:to_binary(Slot),
     ZoneOffsetSecBin = util:to_binary(ZoneOffsetSec),
     <<?ZONE_OFFSET_SEC_KEY/binary, "{", SlotBin/binary, "}:", ZoneOffsetSecBin/binary>>.
-
-username_index_key(UsernamePrefix) ->
-    <<?USERNAME_INDEX_KEY/binary, "{", UsernamePrefix/binary, "}">>.
 
 search_index_key(Prefix) ->
     <<?SEARCH_INDEX_KEY/binary, "{", Prefix/binary, "}">>.

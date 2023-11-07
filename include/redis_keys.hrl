@@ -84,7 +84,7 @@
 -define(ZONE_OFFSET_SEC_KEY, <<"zot:">>).
 
 -define(USERNAME_KEY, <<"usu:">>).
--define(USERNAME_INDEX_KEY, <<"usi:">>).
+-define(USERNAME_INDEX_KEY, <<"usi:">>).  %% deprecated. needs to be cleaned up
 -define(SEARCH_INDEX_KEY, <<"hsi:">>).
 
 -define(UID_NUM_POSTS_KEY, <<"unp:">>).
