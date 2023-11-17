@@ -16,7 +16,7 @@ test_is_android_debug(_) ->
     {inparallel, [
         ?_assertEqual(true, util_ua:is_android_debug("HalloApp/Android1.0.0D")),
         ?_assertEqual(false, util_ua:is_android_debug("HalloApp/Android1.0.0")),
-        ?_assertEqual(true, util_ua:is_android_debug("Katchup/Android1.0.0D")),
+        ?_assertEqual(false, util_ua:is_android_debug("Katchup/Android1.0.0D")),
         ?_assertEqual(false, util_ua:is_android_debug("Katchup/Android1.0.0")),
         ?_assertEqual(false, util_ua:is_android_debug("Random")),
         ?_assertEqual(false, util_ua:is_android_debug(""))
@@ -27,7 +27,7 @@ test_is_android_release(_) ->
         ?_assertEqual(false, util_ua:is_android_release("HalloApp/Android1.0.0D")),
         ?_assertEqual(true, util_ua:is_android_release("HalloApp/Android1.0.0")),
         ?_assertEqual(false, util_ua:is_android_release("Katchup/Android1.0.0D")),
-        ?_assertEqual(true, util_ua:is_android_release("Katchup/Android1.0.0")),
+        ?_assertEqual(false, util_ua:is_android_release("Katchup/Android1.0.0")),
         ?_assertEqual(false, util_ua:is_android_release("Random")),
         ?_assertEqual(false, util_ua:is_android_release(""))
     ]}.
@@ -36,7 +36,7 @@ test_is_android(_) ->
     {inparallel, [
         ?_assertEqual(true, util_ua:is_android("HalloApp/Android1.2.3")),
         ?_assertEqual(false, util_ua:is_android("HalloApp/iOS")),
-        ?_assertEqual(true, util_ua:is_android("Katchup/Android1.2.3")),
+        ?_assertEqual(false, util_ua:is_android("Katchup/Android1.2.3")),
         ?_assertEqual(false, util_ua:is_android("Katchup/iOS")),
         ?_assertEqual(false, util_ua:is_android(""))
     ]}.
@@ -46,9 +46,9 @@ test_is_valid_ua(_) ->
         ?_assertEqual(true, util_ua:is_valid_ua("HalloApp/Android1.2.3")),
         ?_assertEqual(true, util_ua:is_valid_ua("HalloApp/Android1.2.3D")),
         ?_assertEqual(true, util_ua:is_valid_ua("HalloApp/iOS1.2.3")),
-        ?_assertEqual(true, util_ua:is_valid_ua("Katchup/Android1.2.3")),
-        ?_assertEqual(true, util_ua:is_valid_ua("Katchup/Android1.2.3D")),
-        ?_assertEqual(true, util_ua:is_valid_ua("Katchup/iOS1.2.3")),
+        ?_assertEqual(false, util_ua:is_valid_ua("Katchup/Android1.2.3")),
+        ?_assertEqual(false, util_ua:is_valid_ua("Katchup/Android1.2.3D")),
+        ?_assertEqual(false, util_ua:is_valid_ua("Katchup/iOS1.2.3")),
         ?_assertEqual(false, util_ua:is_valid_ua("HalloApp/other")),
         ?_assertEqual(false, util_ua:is_valid_ua("Katchup/other")),
         ?_assertEqual(false, util_ua:is_valid_ua("Not")),
@@ -61,8 +61,8 @@ test_get_client_type(_) ->
         ?_assertEqual(android, util_ua:get_client_type(<<"HalloApp/Android1.0">>)),
         ?_assertEqual(ios, util_ua:get_client_type(<<"HalloApp/iOS1.0">>)),
         ?_assertEqual(undefined, util_ua:get_client_type(<<"HalloApp/other">>)),
-        ?_assertEqual(android, util_ua:get_client_type(<<"Katchup/Android1.0">>)),
-        ?_assertEqual(ios, util_ua:get_client_type(<<"Katchup/iOS1.0">>)),
+        ?_assertEqual(undefined, util_ua:get_client_type(<<"Katchup/Android1.0">>)),
+        ?_assertEqual(undefined, util_ua:get_client_type(<<"Katchup/iOS1.0">>)),
         ?_assertEqual(undefined, util_ua:get_client_type(<<"Katchup/other">>))
     ]}.
 
@@ -78,18 +78,7 @@ test_is_version_greater_than(_) ->
         ?_assertEqual(true, util_ua:is_version_greater_than(<<"HalloApp/Android1.0">>, <<"HalloApp/Android0.89">>)),
         ?_assertEqual(true, util_ua:is_version_greater_than(<<"HalloApp/Android0.100">>, <<"HalloApp/Android0.89">>)),
         ?_assertEqual(false, util_ua:is_version_greater_than(<<"HalloApp/Android0.88">>, <<"HalloApp/Android0.89">>)),
-        ?_assertEqual(false, util_ua:is_version_greater_than(<<"HalloApp/Android0.89">>, <<"HalloApp/Android0.89">>)),
-
-        ?_assertEqual(true, util_ua:is_version_greater_than(<<"Katchup/iOS1.0.0">>, <<"Katchup/iOS0.3.65">>)),
-        ?_assertEqual(true, util_ua:is_version_greater_than(<<"Katchup/iOS0.3.73">>, <<"Katchup/iOS0.3.65">>)),
-        ?_assertEqual(false, util_ua:is_version_greater_than(<<"Katchup/iOS0.3.62">>, <<"Katchup/iOS0.3.65">>)),
-        ?_assertEqual(false, util_ua:is_version_greater_than(<<"Katchup/iOS0.2.90">>, <<"Katchup/iOS0.3.65">>)),
-        ?_assertEqual(false, util_ua:is_version_greater_than(<<"Katchup/iOS0.3.65">>, <<"Katchup/iOS0.3.65">>)),
-
-        ?_assertEqual(true, util_ua:is_version_greater_than(<<"Katchup/Android1.0">>, <<"Katchup/Android0.89">>)),
-        ?_assertEqual(true, util_ua:is_version_greater_than(<<"Katchup/Android0.100">>, <<"Katchup/Android0.89">>)),
-        ?_assertEqual(false, util_ua:is_version_greater_than(<<"Katchup/Android0.88">>, <<"Katchup/Android0.89">>)),
-        ?_assertEqual(false, util_ua:is_version_greater_than(<<"Katchup/Android0.89">>, <<"Katchup/Android0.89">>))
+        ?_assertEqual(false, util_ua:is_version_greater_than(<<"HalloApp/Android0.89">>, <<"HalloApp/Android0.89">>))
     ]}.
 
 
@@ -104,18 +93,7 @@ test_is_version_less_than(_) ->
         ?_assertEqual(false, util_ua:is_version_less_than(<<"HalloApp/Android1.0">>, <<"HalloApp/Android0.93">>)),
         ?_assertEqual(false, util_ua:is_version_less_than(<<"HalloApp/Android0.100">>, <<"HalloApp/Android0.93">>)),
         ?_assertEqual(true, util_ua:is_version_less_than(<<"HalloApp/Android0.88">>, <<"HalloApp/Android0.93">>)),
-        ?_assertEqual(true, util_ua:is_version_less_than(<<"HalloApp/Android0.89">>, <<"HalloApp/Android0.93">>)),
-
-        ?_assertEqual(false, util_ua:is_version_less_than(<<"Katchup/iOS1.0.0">>, <<"Katchup/iOS0.3.72">>)),
-        ?_assertEqual(false, util_ua:is_version_less_than(<<"Katchup/iOS0.3.73">>, <<"Katchup/iOS0.3.72">>)),
-        ?_assertEqual(true, util_ua:is_version_less_than(<<"Katchup/iOS0.3.62">>, <<"Katchup/iOS0.3.72">>)),
-        ?_assertEqual(true, util_ua:is_version_less_than(<<"Katchup/iOS0.2.90">>, <<"Katchup/iOS0.3.72">>)),
-        ?_assertEqual(false, util_ua:is_version_less_than(<<"Katchup/iOS0.3.72">>, <<"Katchup/iOS0.3.72">>)),
-
-        ?_assertEqual(false, util_ua:is_version_less_than(<<"Katchup/Android1.0">>, <<"Katchup/Android0.93">>)),
-        ?_assertEqual(false, util_ua:is_version_less_than(<<"Katchup/Android0.100">>, <<"Katchup/Android0.93">>)),
-        ?_assertEqual(true, util_ua:is_version_less_than(<<"Katchup/Android0.88">>, <<"Katchup/Android0.93">>)),
-        ?_assertEqual(true, util_ua:is_version_less_than(<<"Katchup/Android0.89">>, <<"Katchup/Android0.93">>))
+        ?_assertEqual(true, util_ua:is_version_less_than(<<"HalloApp/Android0.89">>, <<"HalloApp/Android0.93">>))
     ]}.
 
 

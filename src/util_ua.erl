@@ -91,24 +91,21 @@ get_app_hash(UserAgent) ->
 
 -spec is_android_debug(binary()) -> boolean().
 is_android_debug(UserAgent) ->
-    case re_match(UserAgent, "^HalloApp\/Android.*D$") =:= match orelse
-            re_match(UserAgent, "^Katchup\/Android.*D$") =:= match of
+    case re_match(UserAgent, "^HalloApp\/Android.*D$") =:= match of
         true -> true;
         false -> false
     end.
 
 -spec is_android(binary()) -> boolean().
 is_android(UserAgent) ->
-    case re_match(UserAgent, "^HalloApp\/Android.*$") =:= match orelse
-            re_match(UserAgent, "^Katchup\/Android.*$") =:= match of
+    case re_match(UserAgent, "^HalloApp\/Android.*$") =:= match of
         true -> true;
         false -> false
     end.
 
 -spec is_ios(binary()) -> boolean().
 is_ios(UserAgent) ->
-    case re_match(UserAgent, "^HalloApp\/iOS.*$") =:= match orelse
-            re_match(UserAgent, "^Katchup\/iOS.*$") =:= match of
+    case re_match(UserAgent, "^HalloApp\/iOS.*$") =:= match of
         true -> true;
         false -> false
     end.

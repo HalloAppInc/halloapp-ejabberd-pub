@@ -94,7 +94,7 @@ get_hr_to_send_europe() ->
 start(_Host, _Opts) ->
     ?INFO("start ~w", [?MODULE]),
     ejabberd_hooks:add(reassign_jobs, ?MODULE, reassign_jobs, 10),
-    spawn(?MODULE, check_and_schedule, []),
+%%    spawn(?MODULE, check_and_schedule, []),
     ejabberd_hooks:add(register_user, katchup, ?MODULE, register_user, 1),
     ejabberd_hooks:add(re_register_user, katchup, ?MODULE, re_register_user, 1),
     ok.

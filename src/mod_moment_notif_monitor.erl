@@ -57,7 +57,7 @@ start(Host, Opts) ->
     ejabberd_hooks:add(check_and_send_moment_notifications, katchup, ?MODULE, check_and_send_moment_notifications, 50),
     ejabberd_hooks:add(start_timer_moment_notification, katchup, ?MODULE, start_timer_moment_notification, 50),
     ejabberd_hooks:add(send_moment_notification, katchup, ?MODULE, send_moment_notification, 50),
-    check_and_schedule(),
+%%    check_and_schedule(),
     ok.
 
 stop(_Host) ->

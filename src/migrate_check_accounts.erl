@@ -34,7 +34,8 @@
     calculate_follow_suggestions/2,
     calculate_friend_suggestions/2,
     update_geotag_index/2,
-    update_new_search_index/2
+    update_new_search_index/2,
+    remove_katchup_accounts/2
 ]).
 
 
@@ -694,6 +695,27 @@ update_new_search_index(Key, State) ->
                 false -> ok
             end;
         _ -> ok
+    end,
+    State.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                              Remove Katchup accounts                               %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+remove_katchup_accounts(Key, State) ->
+    DryRun = maps:get(dry_run, State, true),
+    %% Match only HalloApp users
+    Result = re:run(Key, "^acc:{(1001[0-9]+)}$", [global, {capture, all, binary}]),
+    case Result of
+        {match, [[_FullKey, Uid]]} ->
+            case DryRun of
+                true ->
+                    ?INFO("[DRY RUN] Will remove account: ~s", [Uid]);
+                false ->
+                    ejabberd_auth:remove_user(Uid, util:get_host())
+            end;
+        _ ->
+            ok
     end,
     State.
 
