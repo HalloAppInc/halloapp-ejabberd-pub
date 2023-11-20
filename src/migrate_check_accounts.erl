@@ -708,27 +708,31 @@ remove_katchup_accounts(Key, State) ->
     NumDeleted = maps:get(num_deleted, State, 0),
     %% Match only HalloApp users
     Result = re:run(Key, "^acc:{(1001[0-9]+)}$", [global, {capture, all, binary}]),
-    NewState = case Result of
+    NewNumDeleted = case Result of
         {match, [[_FullKey, Uid]]} ->
             case {DryRun, NumDeleted >= NumToDelete} of
                 {true, false} ->
                     ?INFO("[DRY RUN] Will remove account: ~s", [Uid]),
-                    maps:put(num_deleted, NumDeleted + 1, State);
+                    NumDeleted + 1;
                 {true, true} ->
                     ?INFO("[DRY RUN] Will remove account later: ~s", [NumToDelete, Uid]),
-                    State;
+                    NumDeleted;
                 {false, false} ->
                     ?INFO("Removing: ~s", [Uid]),
                     ejabberd_auth:remove_user(Uid, util:get_host()),
-                    maps:put(num_deleted, NumDeleted + 1, State);
+                    NumDeleted + 1;
                 {false, true} ->
                     ?INFO("Not removing yet: ~s", [Uid]),
-                    State
+                    NumDeleted
             end;
         _ ->
-            ok
+            NumDeleted
     end,
-    NewState.
+    NewState = State#{num_deleted => NewNumDeleted},
+    case NewNumDeleted >= NumToDelete of
+        true -> {stop, NewState};
+        false -> {ok, NewState}
+    end.
 
 
 q(Client, Command) -> util_redis:q(Client, Command).
