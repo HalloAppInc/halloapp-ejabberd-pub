@@ -50,23 +50,23 @@
 %% gen_mod API.
 %%====================================================================
 
-start(Host, Opts) ->
+start(_Host, _Opts) ->
     ?INFO("start ~w", [?MODULE]),
-    gen_mod:start_child(?MODULE, Host, Opts, ?PROC()),
-    ejabberd_hooks:add(reassign_jobs, ?MODULE, reassign_jobs, 10),
-    ejabberd_hooks:add(check_and_send_moment_notifications, katchup, ?MODULE, check_and_send_moment_notifications, 50),
-    ejabberd_hooks:add(start_timer_moment_notification, katchup, ?MODULE, start_timer_moment_notification, 50),
-    ejabberd_hooks:add(send_moment_notification, katchup, ?MODULE, send_moment_notification, 50),
+%%    gen_mod:start_child(?MODULE, Host, Opts, ?PROC()),
+%%    ejabberd_hooks:add(reassign_jobs, ?MODULE, reassign_jobs, 10),
+%%    ejabberd_hooks:add(check_and_send_moment_notifications, katchup, ?MODULE, check_and_send_moment_notifications, 50),
+%%    ejabberd_hooks:add(start_timer_moment_notification, katchup, ?MODULE, start_timer_moment_notification, 50),
+%%    ejabberd_hooks:add(send_moment_notification, katchup, ?MODULE, send_moment_notification, 50),
 %%    check_and_schedule(),
     ok.
 
 stop(_Host) ->
     ?INFO("stop ~w", [?MODULE]),
-    ejabberd_hooks:delete(reassign_jobs, ?MODULE, reassign_jobs, 10),
-    ejabberd_hooks:delete(check_and_send_moment_notifications, katchup, ?MODULE, check_and_send_moment_notifications, 50),
-    ejabberd_hooks:delete(start_timer_moment_notification, katchup, ?MODULE, start_timer_moment_notification, 50),
-    ejabberd_hooks:delete(send_moment_notification, katchup, ?MODULE, send_moment_notification, 50),
-    gen_mod:stop_child(?PROC()),
+%%    ejabberd_hooks:delete(reassign_jobs, ?MODULE, reassign_jobs, 10),
+%%    ejabberd_hooks:delete(check_and_send_moment_notifications, katchup, ?MODULE, check_and_send_moment_notifications, 50),
+%%    ejabberd_hooks:delete(start_timer_moment_notification, katchup, ?MODULE, start_timer_moment_notification, 50),
+%%    ejabberd_hooks:delete(send_moment_notification, katchup, ?MODULE, send_moment_notification, 50),
+%%    gen_mod:stop_child(?PROC()),
     ok.
 
 depends(_Host, _Opts) ->
