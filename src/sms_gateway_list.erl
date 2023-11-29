@@ -20,7 +20,6 @@
     twilio_verify,
     mbird,
     mbird_verify,
-    infobip,
     telesign,
     clickatell
 ]).
