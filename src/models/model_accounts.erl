@@ -1706,6 +1706,11 @@ get_halloapp_user_profile(Uid, Ouid) ->
         _ -> lists:map(fun({_, [T, V]}) -> #pb_link{type = util:to_atom(T), text = V} end,
                 maps:to_list(jiffy:decode(LinkJson, [return_maps])))
     end,
+    UidFriends = model_halloapp_friends:get_all_friends(Uid),
+    OUidFriends = model_halloapp_friends:get_all_friends(Ouid),
+    MutualFriends = sets:to_list(sets:intersection(sets:from_list(UidFriends), sets:from_list(OUidFriends))),
+    Gids = model_groups:get_groups([Uid, Ouid]),
+    MutualGids = sets:to_list(sets:intersection(sets:from_list(maps:get(Uid, Gids, [])), sets:from_list(maps:get(Ouid, Gids, [])))),
     #pb_halloapp_user_profile{
         uid = Ouid,
         username = Username,
@@ -1713,7 +1718,9 @@ get_halloapp_user_profile(Uid, Ouid) ->
         avatar_id = AvatarId,
         status = FriendStatus,
         blocked = util_redis:decode_boolean(IsBlocked),
-        links = Links
+        links = Links,
+        mutual_friend_uids = MutualFriends,
+        mutual_gids = MutualGids
     }.
 
 %%====================================================================

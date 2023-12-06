@@ -2331,6 +2331,8 @@ message HalloappUserProfile {
     FriendshipStatus status = 5;
     bool blocked = 6;
     repeated Link links = 7;
+    repeated int64 mutual_friend_uids = 8 [ebin = true];
+    repeated string mutual_gids = 9;
 }
 
 message HalloappProfileUpdate {
