@@ -195,19 +195,24 @@ delete_inactive_accounts(ShouldDelete) ->
 maybe_delete_inactive_account(Uid, ShouldDelete) ->
     case is_inactive_user(Uid) of
         true ->
-            {ok, Phone} = model_accounts:get_phone(Uid),
             {_, Version} = model_accounts:get_client_version(Uid),
             VersionTimeLeft = case Version of
                 missing -> 0;
                 _ -> mod_client_version:get_time_left(Version, util:now())
             end,
             VersionDaysLeft = VersionTimeLeft / ?DAYS,
-            {ok, InvitersList} = model_invites:get_inviters_list(Phone),
-            IsInvitedInternally = lists:any(
-                fun({InviterUid, _Ts}) ->
-                    lists:member(InviterUid, dev_users:get_dev_uids())
-                end,
-                InvitersList),
+            {Phone, IsInvitedInternally, InvitersList} = case model_accounts:get_phone(Uid) of
+                {ok, P} ->
+                    {ok, IL} = model_invites:get_inviters_list(P),
+                    III = lists:any(
+                        fun({InviterUid, _Ts}) ->
+                            lists:member(InviterUid, dev_users:get_dev_uids())
+                        end,
+                        IL),
+                    {P, III, IL};
+                {error, missing} ->
+                    {undefined, false}
+            end,
             IsDevUser = dev_users:is_dev_uid(Uid),
             case IsInvitedInternally orelse IsDevUser of
                 false ->
