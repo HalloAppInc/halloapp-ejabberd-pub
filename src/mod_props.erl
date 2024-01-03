@@ -192,7 +192,7 @@ get_props(Uid, ClientVersion, halloapp) ->
         close_friends_recos => false, %% Should invite recommendations be sorted based on number of close friends
         location_sharing => false,
         moment_external_share => false, %% Enabled external sharing of moments
-        photo_suggestions => false, %% Enable Magic Posts tab
+        photo_suggestions => true, %% Enable Magic Posts tab
         message_non_friends => true %% Enable users to message non friends.
     },
     AppType = util_ua:get_app_type(ClientVersion),
@@ -249,8 +249,7 @@ get_uid_based_props(PropMap, halloapp, Uid) ->
             PropMap21 = maps:update(close_friends_recos, false, PropMap20),
             PropMap22 = maps:update(location_sharing, true, PropMap21),
             PropMap23 = maps:update(moment_external_share, true, PropMap22),
-            PropMap24 = maps:update(photo_suggestions, true, PropMap23),
-            PropMap24
+            PropMap23
     end,
     apply_uid_prop_overrides(Uid, ResPropMap);
 
@@ -313,8 +312,7 @@ get_client_based_props(PropMap, halloapp, ios, ClientVersion) ->
     PropMap13 = maps:update(post_reactions, Result11, PropMap12),
     PropMap14 = maps:update(background_upload, Result11, PropMap13),
     PropMap15 = maps:update(moment_external_share, Result11, PropMap14),
-    PropMap16 = maps:update(photo_suggestions, true, PropMap15),
-    PropMap16;
+    PropMap15;
 
 get_client_based_props(PropMap, halloapp, undefined, _) ->
     maps:update(groups, false, PropMap);
