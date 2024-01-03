@@ -54,6 +54,8 @@ check_otp_request(_Phone, _IP, <<"PH">>, CC) ->
     {block, phone_cc_block, {<<"PH">>, CC}};
 check_otp_request(_Phone, _IP, <<"UZ">>, CC) ->
     {block, phone_cc_block, {<<"UZ">>, CC}};
+check_otp_request(_Phone, _IP, <<"RU">>, CC) ->
+    {block, phone_cc_block, {<<"RU">>, CC}};
 check_otp_request(_PHONE, IP, _PhoneCC, <<"ZZ">>) ->
     ?WARNING("Unable to find cc for ip: ~s", [IP]),
     ok;
