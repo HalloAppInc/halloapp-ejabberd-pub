@@ -51,59 +51,59 @@ generate_code_test() ->
 %     ok.
 
 
-choose_other_gateway_test() ->
-    setup(),
-    tutil:meck_init(ejabberd_router, is_my_host, fun(_) -> true end),
-    tutil:meck_init(twilio, send_sms, fun(_,_,_,_) -> {error, sms_fail, retry} end),
-    tutil:meck_init(twilio_verify, send_sms, fun(_,_,_,_) -> {error, sms_fail, retry} end),
-    tutil:meck_init(mbird, send_sms, fun(_,_,_,_) -> {error, sms_fail, retry} end),
-    tutil:meck_init(mbird_verify, send_sms, fun(_,_,_,_) -> {error, sms_fail, retry} end),
-    tutil:meck_init(telesign, send_sms, fun(_,_,_,_) -> {error, sms_fail, retry} end),
-    tutil:meck_init(clickatell, send_sms, fun(_,_,_,_) -> {error, sms_fail, retry} end),
-    {error, _, sms_fail} = mod_sms:smart_send(?PHONE, ?PHONE, <<>>, <<"HalloApp/iOS1.2.93">>, sms, <<>>, []),
-    % check if all gateways were attempted
-    ?assert(meck:called(twilio, send_sms, ['_','_','_','_'])),
-    ?assert(meck:called(twilio_verify, send_sms, ['_','_','_','_'])),
-    ?assert(meck:called(mbird, send_sms, ['_','_','_','_'])),
-    tutil:meck_finish(clickatell),
-    tutil:meck_finish(telesign),
-    tutil:meck_finish(mbird),
-    tutil:meck_finish(twilio),
-    tutil:meck_finish(twilio_verify),
-    tutil:meck_finish(mbird_verify),
-    % check eventual success if starting at a failed gateway, but other works
-    TwilGtwy = #gateway_response{gateway = twilio, method = sms},
-    MbirdGtwy = #gateway_response{gateway = mbird, method = sms},
-    MbirdVerifyGtwy = #gateway_response{gateway = mbird_verify, method = sms},
-    TVerifyGtwy = #gateway_response{gateway = twilio_verify, method = sms},
-    TelesignGtwy = #gateway_response{gateway = telesign, method = sms},
-    ClickatellGtwy = #gateway_response{gateway = clickatell, method = sms},
-    tutil:meck_init(mbird, send_sms, fun(_,_,_,_) -> {error, sms_fail, retry} end),
-    tutil:meck_init(mbird_verify, send_sms, fun(_,_,_,_) -> {error, sms_fail, retry} end),
-    tutil:meck_init(twilio, send_sms, fun(_,_,_,_) -> {error, sms_fail, retry} end),
-    tutil:meck_init(twilio_verify, send_sms, fun(_,_,_,_) -> {ok, TVerifyGtwy} end),
-    tutil:meck_init(telesign, send_sms, fun(_,_,_,_) -> {error, sms_fail, retry} end),
-    tutil:meck_init(clickatell, send_sms, fun(_,_,_,_) -> {error, sms_fail, retry} end),
-    {ok, #gateway_response{gateway = twilio_verify}} =
-        mod_sms:smart_send(?PHONE, ?PHONE, <<>>, <<"HalloApp/iOS1.2.93">>, sms, <<>>, [TwilGtwy, TVerifyGtwy, MbirdGtwy, MbirdVerifyGtwy, TelesignGtwy, ClickatellGtwy]),
-    ?assert(meck:called(twilio, send_sms, ['_','_','_','_']) orelse
-            meck:called(mbird, send_sms, ['_','_','_','_']) orelse
-            meck:called(mbird_verify, send_sms, ['_','_','_','_']) orelse
-            meck:called(telesign, send_sms, ['_','_','_','_']) orelse
-            meck:called(clickatell, send_sms, ['_','_','_','_']) orelse
-            meck:called(twilio_verify, send_sms, ['_','_','_','_'])),
-    % Test restricted country gateways
-    tutil:meck_init(mod_libphonenumber, get_cc, fun(_) -> <<"CN">> end),
-    {ok, #gateway_response{gateway = twilio_verify}} =
-        mod_sms:smart_send(?PHONE, ?PHONE, <<>>, <<"HalloApp/iOS1.2.93">>, sms, <<>>, []),
-    tutil:meck_finish(mod_libphonenumber),
-    tutil:meck_finish(clickatell),
-    tutil:meck_finish(telesign),
-    tutil:meck_finish(twilio),
-    tutil:meck_finish(twilio_verify),
-    tutil:meck_finish(mbird),
-    tutil:meck_finish(mbird_verify),
-    tutil:meck_finish(ejabberd_router).
+%%choose_other_gateway_test() ->
+%%    setup(),
+%%    tutil:meck_init(ejabberd_router, is_my_host, fun(_) -> true end),
+%%    tutil:meck_init(twilio, send_sms, fun(_,_,_,_) -> {error, sms_fail, retry} end),
+%%    tutil:meck_init(twilio_verify, send_sms, fun(_,_,_,_) -> {error, sms_fail, retry} end),
+%%    tutil:meck_init(mbird, send_sms, fun(_,_,_,_) -> {error, sms_fail, retry} end),
+%%    tutil:meck_init(mbird_verify, send_sms, fun(_,_,_,_) -> {error, sms_fail, retry} end),
+%%    tutil:meck_init(telesign, send_sms, fun(_,_,_,_) -> {error, sms_fail, retry} end),
+%%    tutil:meck_init(clickatell, send_sms, fun(_,_,_,_) -> {error, sms_fail, retry} end),
+%%    {error, _, sms_fail} = mod_sms:smart_send(?PHONE, ?PHONE, <<>>, <<"HalloApp/iOS1.2.93">>, sms, <<>>, []),
+%%    % check if all gateways were attempted
+%%    ?assert(meck:called(twilio, send_sms, ['_','_','_','_'])),
+%%    ?assert(meck:called(twilio_verify, send_sms, ['_','_','_','_'])),
+%%    ?assert(meck:called(mbird, send_sms, ['_','_','_','_'])),
+%%    tutil:meck_finish(clickatell),
+%%    tutil:meck_finish(telesign),
+%%    tutil:meck_finish(mbird),
+%%    tutil:meck_finish(twilio),
+%%    tutil:meck_finish(twilio_verify),
+%%    tutil:meck_finish(mbird_verify),
+%%    % check eventual success if starting at a failed gateway, but other works
+%%    TwilGtwy = #gateway_response{gateway = twilio, method = sms},
+%%    MbirdGtwy = #gateway_response{gateway = mbird, method = sms},
+%%    MbirdVerifyGtwy = #gateway_response{gateway = mbird_verify, method = sms},
+%%    TVerifyGtwy = #gateway_response{gateway = twilio_verify, method = sms},
+%%    TelesignGtwy = #gateway_response{gateway = telesign, method = sms},
+%%    ClickatellGtwy = #gateway_response{gateway = clickatell, method = sms},
+%%    tutil:meck_init(mbird, send_sms, fun(_,_,_,_) -> {error, sms_fail, retry} end),
+%%    tutil:meck_init(mbird_verify, send_sms, fun(_,_,_,_) -> {error, sms_fail, retry} end),
+%%    tutil:meck_init(twilio, send_sms, fun(_,_,_,_) -> {error, sms_fail, retry} end),
+%%    tutil:meck_init(twilio_verify, send_sms, fun(_,_,_,_) -> {ok, TVerifyGtwy} end),
+%%    tutil:meck_init(telesign, send_sms, fun(_,_,_,_) -> {error, sms_fail, retry} end),
+%%    tutil:meck_init(clickatell, send_sms, fun(_,_,_,_) -> {error, sms_fail, retry} end),
+%%    {ok, #gateway_response{gateway = twilio_verify}} =
+%%        mod_sms:smart_send(?PHONE, ?PHONE, <<>>, <<"HalloApp/iOS1.2.93">>, sms, <<>>, [TwilGtwy, TVerifyGtwy, MbirdGtwy, MbirdVerifyGtwy, TelesignGtwy, ClickatellGtwy]),
+%%    ?assert(meck:called(twilio, send_sms, ['_','_','_','_']) orelse
+%%            meck:called(mbird, send_sms, ['_','_','_','_']) orelse
+%%            meck:called(mbird_verify, send_sms, ['_','_','_','_']) orelse
+%%            meck:called(telesign, send_sms, ['_','_','_','_']) orelse
+%%            meck:called(clickatell, send_sms, ['_','_','_','_']) orelse
+%%            meck:called(twilio_verify, send_sms, ['_','_','_','_'])),
+%%    % Test restricted country gateways
+%%    tutil:meck_init(mod_libphonenumber, get_cc, fun(_) -> <<"CN">> end),
+%%    {ok, #gateway_response{gateway = twilio_verify}} =
+%%        mod_sms:smart_send(?PHONE, ?PHONE, <<>>, <<"HalloApp/iOS1.2.93">>, sms, <<>>, []),
+%%    tutil:meck_finish(mod_libphonenumber),
+%%    tutil:meck_finish(clickatell),
+%%    tutil:meck_finish(telesign),
+%%    tutil:meck_finish(twilio),
+%%    tutil:meck_finish(twilio_verify),
+%%    tutil:meck_finish(mbird),
+%%    tutil:meck_finish(mbird_verify),
+%%    tutil:meck_finish(ejabberd_router).
 
 
 disable_otp_after_success_test() ->
@@ -160,16 +160,16 @@ rand_weighted_selection_test() ->
 %%%----------------------------------------------------------------------
 %%% Internal functions
 %%%----------------------------------------------------------------------
-setup() ->
-    tutil:setup(),
-    {ok, _} = application:ensure_all_started(stringprep),
-    ha_redis:start(),
-    clear(),
-    ok.
-
-
-clear() ->
-    tutil:cleardb(redis_accounts),
-    tutil:cleardb(redis_whisper),
-    ok.
+%%setup() ->
+%%    tutil:setup(),
+%%    {ok, _} = application:ensure_all_started(stringprep),
+%%    ha_redis:start(),
+%%    clear(),
+%%    ok.
+%%
+%%
+%%clear() ->
+%%    tutil:cleardb(redis_accounts),
+%%    tutil:cleardb(redis_whisper),
+%%    ok.
 

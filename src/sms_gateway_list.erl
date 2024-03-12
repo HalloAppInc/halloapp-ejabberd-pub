@@ -17,26 +17,16 @@
 
 -define(ALL_GATEWAYS, [
     twilio,
-    twilio_verify,
-    mbird,
-    mbird_verify,
-    telesign,
-    clickatell
+    twilio_verify
 ]).
 
 
 -define(ENABLED_GATEWAYS, [
     twilio,
-    mbird,
-    twilio_verify,
-    mbird_verify,
-    telesign,
-    clickatell
+    twilio_verify
 ]).
 
--define(EXTERNAL_CODE_GATEWAYS, [
-    mbird_verify
-]).
+-define(EXTERNAL_CODE_GATEWAYS, []).
 
 % Returns list of all gateways
 -spec all() -> [atom()].
@@ -54,6 +44,4 @@ external_code_gateways() ->
 
 
 -spec uses_external_code(Gateway :: term()) -> boolean().
-uses_external_code(mbird_verify) -> true;
-uses_external_code(X) when is_binary(X) -> uses_external_code(util:to_atom(X));
-uses_external_code(_) -> false. 
+uses_external_code(_) -> false.

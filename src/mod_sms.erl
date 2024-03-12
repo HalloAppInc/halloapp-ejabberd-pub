@@ -404,10 +404,7 @@ smart_send(OtpPhone, Phone, LangId, UserAgent, Method, CampaignId, OldResponses)
             ?ERROR("Choosing twilio, Had Picked: ~p, ConsiderList: ~p", [PickedGateway, ConsiderList]),
             twilio
     end,
-    Code = case sms_gateway_list:uses_external_code(PickedGateway2) of
-        true -> <<"999999">>;
-        _ -> generate_code(Phone)
-    end,
+    Code =  generate_code(Phone),
     ?INFO("Enrolling: ~s Using Phone: ~s CC: ~s Chosen Gateway: ~p to send ~p Code: ~s",
         [Phone, OtpPhone, CC, PickedGateway2, Method, Code]),
         
