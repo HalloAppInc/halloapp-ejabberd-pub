@@ -16,14 +16,16 @@
 ]).
 
 -define(ALL_GATEWAYS, [
-    twilio,
-    twilio_verify
+%%    twilio,
+%%    twilio_verify
+    clickatell
 ]).
 
 
 -define(ENABLED_GATEWAYS, [
-    twilio,
-    twilio_verify
+%%    twilio,
+%%    twilio_verify
+    clickatell
 ]).
 
 -define(EXTERNAL_CODE_GATEWAYS, []).
